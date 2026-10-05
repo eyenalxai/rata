@@ -41,8 +41,8 @@ const showQuery = `query IssueShow($id: String!) {
     team { id key name }
     labels(first: ${pageSize}) { nodes { id name } pageInfo { hasNextPage endCursor } }
     children(first: ${pageSize}) { nodes { id identifier title state { name type } } pageInfo { hasNextPage endCursor } }
-    relations(first: ${pageSize}) { nodes { type relatedIssue { id identifier title state { name type } } } pageInfo { hasNextPage endCursor } }
-    inverseRelations(first: ${pageSize}) { nodes { type issue { id identifier title state { name type } } } pageInfo { hasNextPage endCursor } }
+    relations(first: ${pageSize}) { nodes { id type relatedIssue { id identifier title state { name type } } } pageInfo { hasNextPage endCursor } }
+    inverseRelations(first: ${pageSize}) { nodes { id type issue { id identifier title state { name type } } } pageInfo { hasNextPage endCursor } }
   }
 }`
 
@@ -73,7 +73,7 @@ const labelsQuery = `query IssueLabels($id: String!, $first: Int!, $after: Strin
 const relationsQuery = `query IssueRelations($id: String!, $first: Int!, $after: String) {
   issue(id: $id) {
     relations(first: $first, after: $after) {
-      nodes { type relatedIssue { id identifier title state { name type } } }
+      nodes { id type relatedIssue { id identifier title state { name type } } }
       pageInfo { hasNextPage endCursor }
     }
   }
@@ -82,9 +82,18 @@ const relationsQuery = `query IssueRelations($id: String!, $first: Int!, $after:
 const inverseRelationsQuery = `query IssueInverseRelations($id: String!, $first: Int!, $after: String) {
   issue(id: $id) {
     inverseRelations(first: $first, after: $after) {
-      nodes { type issue { id identifier title state { name type } } }
+      nodes { id type issue { id identifier title state { name type } } }
       pageInfo { hasNextPage endCursor }
     }
+  }
+}`
+
+const unblockedListQuery = `query IssueListUnblocked($filter: IssueFilter, $first: Int!, $after: String) {
+  issues(filter: $filter, first: $first, after: $after) {
+    nodes {${summaryFields}
+      inverseRelations(first: ${pageSize}) { nodes { id type issue { id identifier title state { name type } } } pageInfo { hasNextPage endCursor } }
+    }
+    pageInfo { hasNextPage endCursor }
   }
 }`
 
@@ -136,6 +145,18 @@ const removeLabelMutation = `mutation RemoveLabel($id: String!, $labelId: String
   }
 }`
 
+const createRelationMutation = `mutation IssueRelationCreate($input: IssueRelationCreateInput!) {
+  issueRelationCreate(input: $input) {
+    success
+  }
+}`
+
+const deleteRelationMutation = `mutation IssueRelationDelete($id: String!) {
+  issueRelationDelete(id: $id) {
+    success
+  }
+}`
+
 const teamStatesQuery = `query TeamStates($teamId: String!) {
   team(id: $teamId) {
     states(first: ${pageSize}) {
@@ -169,6 +190,8 @@ export {
   commentsQuery,
   createCommentMutation,
   createIssueMutation,
+  createRelationMutation,
+  deleteRelationMutation,
   inverseRelationsQuery,
   issueIdQuery,
   issueStatesQuery,
@@ -181,5 +204,6 @@ export {
   searchQuery,
   showQuery,
   teamStatesQuery,
+  unblockedListQuery,
   updateIssueMutation,
 }

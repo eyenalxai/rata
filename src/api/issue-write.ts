@@ -2,7 +2,10 @@ import { Context, Effect, Layer, Option } from "effect"
 
 import type {
   IssueCreateOptions,
+  IssueRelationChange,
+  IssueRelationChanges,
   IssueUpdateOptions,
+  IssueWriteApiError,
   IssueWriteApiShape,
 } from "@/api/issue-write-model"
 
@@ -10,16 +13,26 @@ import { LinearClient } from "@/api/client"
 import {
   addLabelMutation,
   createIssueMutation,
+  createRelationMutation,
+  deleteRelationMutation,
   removeLabelMutation,
   updateIssueMutation,
 } from "@/api/issue-query"
 import {
   AddLabelResponse,
   CreateIssueResponse,
+  CreateRelationResponse,
+  DeleteRelationResponse,
   RemoveLabelResponse,
   UpdateIssueResponse,
 } from "@/api/issue-schema"
-import { IssueWriteError, unwrapIssue } from "@/api/issue-write-model"
+import {
+  IssueWriteError,
+  linkRelationPlans,
+  planRelationUnlinks,
+  unwrapIssue,
+  unwrapRelation,
+} from "@/api/issue-write-model"
 import { makeIssueWriteResolvers } from "@/api/issue-write-resolvers"
 import { LabelService } from "@/api/label"
 import { ProjectService } from "@/api/project"
@@ -186,15 +199,52 @@ class IssueWriteApi extends Context.Service<IssueWriteApi, IssueWriteApiShape>()
         return yield* unwrapIssue(data.issueUpdate)
       })
 
+      const link = Effect.fn("IssueWriteApi.link")(function* link(
+        ref: string,
+        changes: IssueRelationChanges,
+      ): Effect.fn.Return<readonly IssueRelationChange[], IssueWriteApiError> {
+        const issueId = yield* resolvers.resolveIssueId(ref)
+        const targets = yield* resolvers.resolveRelationTargets(changes)
+        const plans = linkRelationPlans(issueId, targets)
+        return yield* Effect.forEach(plans, (plan) =>
+          client
+            .execute(createRelationMutation, { input: plan.input }, CreateRelationResponse)
+            .pipe(
+              Effect.flatMap((data) => unwrapRelation(data.issueRelationCreate)),
+              Effect.as({ action: "created" as const, kind: plan.kind, target: plan.target }),
+            ),
+        )
+      })
+
+      const unlink = Effect.fn("IssueWriteApi.unlink")(function* unlink(
+        ref: string,
+        changes: IssueRelationChanges,
+      ): Effect.fn.Return<readonly IssueRelationChange[], IssueWriteApiError> {
+        const issueId = yield* resolvers.resolveIssueId(ref)
+        const targets = yield* resolvers.resolveRelationTargets(changes)
+        const relations = yield* resolvers.collectRelations(issueId)
+        const plans = yield* planRelationUnlinks(targets, relations.outgoing, relations.incoming)
+        return yield* Effect.forEach(plans, (plan) =>
+          client
+            .execute(deleteRelationMutation, { id: plan.relationId }, DeleteRelationResponse)
+            .pipe(
+              Effect.flatMap((data) => unwrapRelation(data.issueRelationDelete)),
+              Effect.as({ action: "deleted" as const, kind: plan.kind, target: plan.target }),
+            ),
+        )
+      })
+
       return IssueWriteApi.of({
         addLabels,
         assign,
         close,
         comment,
         create,
+        link,
         removeLabels,
         reopen,
         unassign,
+        unlink,
         update,
       })
     }),

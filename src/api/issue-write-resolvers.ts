@@ -2,23 +2,29 @@ import { Effect } from "effect"
 
 import type { LinearClient } from "@/api/client"
 import type { WorkflowState } from "@/api/issue-schema"
+import type { IssueRelationChanges, ResolvedRelationTarget } from "@/api/issue-write-model"
 import type { LabelService } from "@/api/label"
 import type { ProjectService } from "@/api/project"
 import type { TeamService } from "@/api/team"
 
 import {
   createCommentMutation,
+  inverseRelationsQuery,
   issueIdQuery,
   issueStatesQuery,
   issueTeamQuery,
+  pageSize,
+  relationsQuery,
   teamStatesQuery,
   updateIssueMutation,
 } from "@/api/issue-query"
 import {
   CreateCommentResponse,
+  InverseRelationsResponse,
   IssueIdResponse,
   IssueStatesResponse,
   IssueTeamResponse,
+  RelationsResponse,
   TeamStatesResponse,
   UpdateIssueResponse,
 } from "@/api/issue-schema"
@@ -33,6 +39,7 @@ import {
   unwrapComment,
   unwrapIssue,
 } from "@/api/issue-write-model"
+import { collectPages } from "@/api/pagination"
 import { isUuid } from "@/domain/ref"
 
 type IssueWriteDependencies = {
@@ -200,7 +207,61 @@ const makeIssueWriteResolvers = ({ client, teams, labels, projects }: IssueWrite
     },
   )
 
+  const resolveRelationTargets = Effect.fn("IssueWriteApi.resolveRelationTargets")(
+    function* resolveRelationTargets(changes: IssueRelationChanges) {
+      const targets: ResolvedRelationTarget[] = []
+      for (const target of changes.blocks) {
+        const targetId = yield* resolveIssueId(target)
+        targets.push({ kind: "blocks", target, targetId })
+      }
+      for (const target of changes.blockedBy) {
+        const targetId = yield* resolveIssueId(target)
+        targets.push({ kind: "blockedBy", target, targetId })
+      }
+      for (const target of changes.related) {
+        const targetId = yield* resolveIssueId(target)
+        targets.push({ kind: "related", target, targetId })
+      }
+      for (const target of changes.duplicate) {
+        const targetId = yield* resolveIssueId(target)
+        targets.push({ kind: "duplicate", target, targetId })
+      }
+      return targets
+    },
+  )
+
+  const collectRelations = Effect.fn("IssueWriteApi.collectRelations")(function* collectRelations(
+    issueId: string,
+  ) {
+    const outgoingPage = yield* client.execute(
+      relationsQuery,
+      { id: issueId, first: pageSize, after: null },
+      RelationsResponse,
+    )
+    const outgoing = yield* collectPages(outgoingPage.issue.relations, (after) =>
+      client
+        .execute(relationsQuery, { id: issueId, first: pageSize, after }, RelationsResponse)
+        .pipe(Effect.map((page) => page.issue.relations)),
+    )
+    const incomingPage = yield* client.execute(
+      inverseRelationsQuery,
+      { id: issueId, first: pageSize, after: null },
+      InverseRelationsResponse,
+    )
+    const incoming = yield* collectPages(incomingPage.issue.inverseRelations, (after) =>
+      client
+        .execute(
+          inverseRelationsQuery,
+          { id: issueId, first: pageSize, after },
+          InverseRelationsResponse,
+        )
+        .pipe(Effect.map((page) => page.issue.inverseRelations)),
+    )
+    return { incoming, outgoing }
+  })
+
   return {
+    collectRelations,
     issueStateIdByName,
     postComment,
     resolveAssignee,
@@ -208,6 +269,7 @@ const makeIssueWriteResolvers = ({ client, teams, labels, projects }: IssueWrite
     resolveIssueTeamId,
     resolveLabelIds,
     resolveProjectId,
+    resolveRelationTargets,
     resolveTeamId,
     setStateByType,
     teamStateIdByName,

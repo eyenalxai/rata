@@ -90,8 +90,14 @@ describe("IssueApi show", () => {
         data: {
           issue: {
             ...baseDetail,
-            relations: { nodes: [{ type: "blocks", relatedIssue: dependent }], pageInfo },
-            inverseRelations: { nodes: [{ type: "blocks", issue: blocker }], pageInfo },
+            relations: {
+              nodes: [{ id: "rel-1", type: "blocks", relatedIssue: dependent }],
+              pageInfo,
+            },
+            inverseRelations: {
+              nodes: [{ id: "rel-2", type: "blocks", issue: blocker }],
+              pageInfo,
+            },
           },
         },
       })

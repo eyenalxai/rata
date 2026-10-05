@@ -66,12 +66,14 @@ const IssueChildConnection = Schema.Struct({
 })
 
 const IssueRelation = Schema.Struct({
+  id: Schema.String,
   type: Schema.String,
   relatedIssue: IssueChild,
 })
 type IssueRelation = typeof IssueRelation.Type
 
 const IssueInverseRelation = Schema.Struct({
+  id: Schema.String,
   type: Schema.String,
   issue: IssueChild,
 })
@@ -131,8 +133,18 @@ const IssueDetailNode = Schema.Struct({
 })
 type IssueDetailNode = typeof IssueDetailNode.Type
 
+const IssueBlockedByNode = Schema.Struct({
+  ...IssueSummaryNode.fields,
+  inverseRelations: IssueInverseRelationConnection,
+})
+type IssueBlockedByNode = typeof IssueBlockedByNode.Type
+
 const ListResponse = Schema.Struct({
   issues: Schema.Struct({ nodes: Schema.Array(IssueSummaryNode), pageInfo: PageInfo }),
+})
+
+const UnblockedListResponse = Schema.Struct({
+  issues: Schema.Struct({ nodes: Schema.Array(IssueBlockedByNode), pageInfo: PageInfo }),
 })
 
 const SearchResponse = Schema.Struct({
@@ -206,13 +218,22 @@ const RemoveLabelResponse = Schema.Struct({ issueRemoveLabel: IssueMutationPaylo
 
 const CreateCommentResponse = Schema.Struct({ commentCreate: CommentMutationPayload })
 
+const RelationPayload = Schema.Struct({ success: Schema.Boolean })
+
+const CreateRelationResponse = Schema.Struct({ issueRelationCreate: RelationPayload })
+
+const DeleteRelationResponse = Schema.Struct({ issueRelationDelete: RelationPayload })
+
 export {
   AddLabelResponse,
   ChildrenResponse,
   CommentsResponse,
   CreateCommentResponse,
   CreateIssueResponse,
+  CreateRelationResponse,
+  DeleteRelationResponse,
   InverseRelationsResponse,
+  type IssueBlockedByNode,
   type IssueChild,
   type IssueComment,
   IssueIdResponse,
@@ -235,6 +256,7 @@ export {
   SearchResponse,
   ShowResponse,
   TeamStatesResponse,
+  UnblockedListResponse,
   UpdateIssueResponse,
   type WorkflowState,
 }

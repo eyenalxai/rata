@@ -37,9 +37,11 @@ rata label list --team RAT               # list a team's labels
 rata label ensure --team RAT             # create the canonical labels the team misses
 rata init                                # configure this repository for the Linear tracker
 rata issue list                          # list issues
+rata issue list --parent RAT-1 --unblocked --unassigned  # the frontier of a map
 rata issue show RAT-42                   # read one issue
 rata search "rate limit"                 # search issues by text
 rata issue create --title "Fix login" --team RAT   # create an issue
+rata issue link RAT-43 --blocked-by RAT-42         # RAT-43 waits for RAT-42
 rata issue comment RAT-42 --body "..."   # comment on an issue
 rata issue close RAT-42 --comment "..."  # close an issue
 ```
@@ -117,6 +119,7 @@ files are left alone unless `--force` is passed.
 rata issue list --team RAT --state "In Progress" --label bug --limit 100
 rata issue list --state-type started --assignee me
 rata issue list --parent RAT-1 --text login
+rata issue list --parent RAT-1 --unblocked --unassigned
 ```
 
 | Flag           | Meaning                                                                      |
@@ -129,7 +132,15 @@ rata issue list --parent RAT-1 --text login
 | `--project`    | Project id or name.                                                          |
 | `--parent`     | Parent issue reference.                                                      |
 | `--text`       | Text that appears in the title or the description.                           |
+| `--unblocked`  | Keep only open issues with no open blocker.                                  |
+| `--unassigned` | Keep only issues with no assignee.                                           |
 | `--limit`      | Maximum number of issues. Default: 50.                                       |
+
+An open issue is one whose state type is not `completed` or `canceled`. An open
+blocker is a blocker whose state type is not `completed` or `canceled`.
+`--unblocked` keeps the open issues whose blockers are all closed.
+`--parent` with `--unblocked` and `--unassigned` is the **frontier** of a map:
+the open, unblocked, unclaimed children.
 
 `rata issue show` accepts an identifier (`RAT-42`), a UUID, or a linear.app
 URL. `--comments` adds the comments in chronological order.
@@ -214,6 +225,9 @@ rata issue close RAT-42 --comment "Done in PR #12"
 rata issue reopen RAT-42
 rata issue assign me RAT-42
 rata issue unassign RAT-42
+rata issue link RAT-43 --blocked-by RAT-42
+rata issue link RAT-42 --blocks RAT-43 --related RAT-44
+rata issue unlink RAT-43 --blocked-by RAT-42
 ```
 
 | Command                               | Flags                                                                                                                                           |
@@ -227,6 +241,15 @@ rata issue unassign RAT-42
 | `issue reopen <ref>`                  |                                                                                                                                                 |
 | `issue assign me <ref>`               | `me` or a user id                                                                                                                               |
 | `issue unassign <ref>`                |                                                                                                                                                 |
+| `issue link <ref>`                    | `--blocks`, `--blocked-by`, `--related`, `--duplicate` (each repeatable)                                                                        |
+| `issue unlink <ref>`                  | the same relation flags                                                                                                                         |
+
+Linear has one `blocks` relation. `link --blocks X` records that the issue blocks
+X. `link --blocked-by X` records the same relation in the inverse direction: X
+blocks the issue. `--duplicate X` means the issue duplicates X. `--related X`
+links the two issues with no direction. Repeat a flag to link several issues at
+once. `unlink` removes the relation that the matching flag recorded; a missing
+relation is an error.
 
 `--body-file -` and `--comment-file -` read the body from standard input. The
 `--body` and `--body-file` flags are mutually exclusive, as are `--comment` and
@@ -269,6 +292,14 @@ The comment command prints:
     "createdAt": "2026-01-01T10:00:00.000Z",
     "user": { "id": "u1", "name": "Ada", "displayName": "ada" }
   }
+}
+```
+
+The link and unlink commands print the relations they changed:
+
+```json
+{
+  "relations": [{ "action": "created", "kind": "blockedBy", "target": "RAT-42" }]
 }
 ```
 

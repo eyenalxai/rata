@@ -7,6 +7,7 @@ import type { IssueChild } from "@/api/issue-schema"
 import { IssueApi } from "@/api/issue"
 import { stateTypes } from "@/api/issue-model"
 import { issueLabelCommand } from "@/cli/issue-label"
+import { linkCommand, unlinkCommand } from "@/cli/issue-link"
 import { assignCommand, closeCommand, reopenCommand, unassignCommand } from "@/cli/issue-transition"
 import { commentCommand, createCommand, updateCommand } from "@/cli/issue-write"
 import { errorLine, reportFailure, writeJson, writeLine } from "@/cli/output"
@@ -121,6 +122,14 @@ const listCommand = Command.make(
     project: optionalText("project", "Filter by project id or name"),
     parent: optionalText("parent", "Filter by parent issue reference"),
     text: optionalText("text", "Filter by text in the title or the description"),
+    unblocked: Flag.Boolean("unblocked").pipe(
+      Flag.withDescription("Keep only open issues with no open blocker"),
+      Flag.withDefault(false),
+    ),
+    unassigned: Flag.Boolean("unassigned").pipe(
+      Flag.withDescription("Keep only issues with no assignee"),
+      Flag.withDefault(false),
+    ),
     limit: limitFlag,
     json: jsonFlag,
   },
@@ -139,6 +148,8 @@ const listCommand = Command.make(
         project: Option.getOrUndefined(config.project),
         parent: Option.getOrUndefined(config.parent),
         text: Option.getOrUndefined(config.text),
+        unblocked: config.unblocked,
+        unassigned: config.unassigned,
         limit: config.limit,
       })
       return yield* writeIssueList(config, issues)
@@ -149,6 +160,10 @@ const listCommand = Command.make(
     {
       command: "rata issue list --team RAT --label ready-for-agent",
       description: "List the ready tickets of one team",
+    },
+    {
+      command: "rata issue list --parent RAT-1 --unblocked --unassigned",
+      description: "List the frontier of a map",
     },
   ]),
 )
@@ -221,6 +236,8 @@ const issueCommand = Command.make("issue").pipe(
     reopenCommand,
     assignCommand,
     unassignCommand,
+    linkCommand,
+    unlinkCommand,
   ]),
 )
 

@@ -7,7 +7,7 @@ import type {
   IssueSummary,
   IssueShowOptions,
 } from "@/api/issue-model"
-import type { IssueSummaryNode } from "@/api/issue-schema"
+import type { IssueBlockedByNode, IssueSummaryNode } from "@/api/issue-schema"
 import type { InvalidIssueRef, IssueRef } from "@/domain/ref"
 
 import { LinearClient } from "@/api/client"
@@ -24,6 +24,7 @@ import {
   relationsQuery,
   searchQuery,
   showQuery,
+  unblockedListQuery,
 } from "@/api/issue-query"
 import {
   ChildrenResponse,
@@ -35,8 +36,10 @@ import {
   RelationsResponse,
   SearchResponse,
   ShowResponse,
+  UnblockedListResponse,
 } from "@/api/issue-schema"
 import { collectPages } from "@/api/pagination"
+import { isUnblocked } from "@/domain/frontier"
 import { isUuid, parseIssueRef } from "@/domain/ref"
 
 type IssueApiShape = {
@@ -81,6 +84,57 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
         return data.issue.id
       })
 
+      const blockersOf = Effect.fn("IssueApi.blockersOf")(function* blockersOf(
+        node: IssueBlockedByNode,
+      ) {
+        const relations = yield* collectPages(node.inverseRelations, (after) =>
+          client
+            .execute(
+              inverseRelationsQuery,
+              { id: node.id, first: pageSize, after },
+              InverseRelationsResponse,
+            )
+            .pipe(Effect.map((page) => page.issue.inverseRelations)),
+        )
+        return relations
+          .filter((relation) => relation.type === "blocks")
+          .map((relation) => relation.issue)
+      })
+
+      const listUnblocked = Effect.fn("IssueApi.listUnblocked")(function* listUnblocked(
+        filter: Record<string, unknown> | undefined,
+        options: IssueListOptions,
+      ) {
+        const issues: IssueSummary[] = []
+        let after: string | null = null
+        while (issues.length < options.limit) {
+          const data: typeof UnblockedListResponse.Type = yield* client.execute(
+            unblockedListQuery,
+            { filter, first: pageSize, after },
+            UnblockedListResponse,
+          )
+          for (const node of data.issues.nodes) {
+            const blockers = yield* blockersOf(node)
+            if (!isUnblocked({ state: node.state, blockers })) {
+              continue
+            }
+            if (options.unassigned === true && node.assignee !== null) {
+              continue
+            }
+            issues.push(toSummary(node))
+            if (issues.length >= options.limit) {
+              break
+            }
+          }
+          const pageInfo = data.issues.pageInfo
+          if (!pageInfo.hasNextPage || pageInfo.endCursor === null) {
+            break
+          }
+          after = pageInfo.endCursor
+        }
+        return issues
+      })
+
       const list = Effect.fn("IssueApi.list")(function* list(options: IssueListOptions) {
         const parts: Record<string, unknown>[] = []
         if (options.team !== undefined) {
@@ -99,6 +153,9 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
           const assigneeId = yield* resolveAssignee(options.assignee)
           parts.push({ assignee: { id: { eq: assigneeId } } })
         }
+        if (options.unassigned === true) {
+          parts.push({ assignee: { null: true } })
+        }
         if (options.project !== undefined) {
           parts.push(projectRefFilter(options.project))
         }
@@ -110,6 +167,10 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
           parts.push(textFilter(options.text))
         }
         const filter = composeFilter(parts)
+
+        if (options.unblocked === true) {
+          return yield* listUnblocked(filter, options)
+        }
 
         const nodes: IssueSummaryNode[] = []
         let after: string | null = null

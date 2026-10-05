@@ -62,6 +62,8 @@ type IssueListOptions = {
   readonly project?: string | undefined
   readonly parent?: string | undefined
   readonly text?: string | undefined
+  readonly unblocked?: boolean | undefined
+  readonly unassigned?: boolean | undefined
   readonly limit: number
 }
 
