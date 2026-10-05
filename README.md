@@ -31,6 +31,7 @@ bun link
 ```bash
 pbpaste | rata auth login --with-token   # store a Linear API key
 rata team list                           # list teams: key, name, id
+rata team create --name "Scratch" --key SCR   # create a team
 rata project list                        # list projects
 rata label list --team RAT               # list a team's labels
 rata label ensure --team RAT             # create the canonical labels the team misses
@@ -50,6 +51,40 @@ reads the key stored by `rata auth login --with-token`.
 `wayfinder:*` labels — and reports what it created and what already existed.
 
 `rata --help` lists every command.
+
+## Teams
+
+`rata team list` prints the teams in the workspace: key, name, id.
+
+`rata team create` creates a team. The viewer becomes the team owner. Linear
+creates the default workflow states and labels with the team.
+
+```bash
+rata team create --name "Scratch" --key SCR --description "A scratch team"
+rata team create --name "Scratch" --copy-settings-from RAT
+```
+
+| Flag                   | Meaning                                                      |
+| ---------------------- | ------------------------------------------------------------ |
+| `--name`               | Team name. Required.                                         |
+| `--key`                | Team key, for example `SCR`. Linear derives one when absent. |
+| `--description`        | Team description.                                            |
+| `--copy-settings-from` | Team key or id. The new team copies its settings.            |
+
+`--copy-settings-from` copies the workflow states, labels and other settings of
+another team. The value is a team key or a UUID.
+
+`--json` prints one stable document:
+
+```json
+{
+  "team": {
+    "id": "t1",
+    "key": "SCR",
+    "name": "Scratch"
+  }
+}
+```
 
 ## Repository setup
 

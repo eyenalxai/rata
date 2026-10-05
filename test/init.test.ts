@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { Effect, FileSystem, Layer, Option, Path } from "effect"
 
+import type { TeamCreateOptions } from "@/api/team"
 import type { InitOptions } from "@/config/init"
 
 import { LabelService } from "@/api/label"
@@ -35,6 +36,8 @@ const makeLayer = (files: Map<string, string>, writes: string[]) => {
         Layer.succeed(TeamService, {
           list: Effect.succeed([]),
           byKey: (key: string) => Effect.succeed({ id: "team-1", key, name: "Test" }),
+          create: (options: TeamCreateOptions) =>
+            Effect.succeed({ id: "team-2", key: options.key ?? "TEST", name: options.name }),
         }),
         Layer.succeed(LabelService, {
           list: () => Effect.succeed([]),

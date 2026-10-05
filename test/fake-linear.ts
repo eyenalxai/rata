@@ -69,14 +69,29 @@ const makeFakeLinear = (
     readonly teams: readonly FakeTeam[]
     readonly labels: readonly FakeLabel[]
   },
-  options: { readonly rejectCreate?: boolean } = {},
+  options: { readonly rejectCreate?: boolean; readonly rejectTeamCreate?: boolean } = {},
 ) => {
   const labels = [...seed.labels]
+  const teams = [...seed.teams]
   const requests: GraphQLRequest[] = []
   const handler: Handler = (request) => {
     const graphql = readRequest(request)
     requests.push(graphql)
     const query = graphql.query
+    if (query.includes("mutation TeamCreate")) {
+      const input = inputOf(graphql.variables)
+      const name = stringField(input, "name")
+      if (options.rejectTeamCreate === true) {
+        return jsonResponse({ data: { teamCreate: { success: false, team: null } } })
+      }
+      const created = {
+        id: `team-${teams.length + 1}`,
+        key: typeof input.key === "string" ? input.key : "AUTO",
+        name,
+      }
+      teams.push(created)
+      return jsonResponse({ data: { teamCreate: { success: true, team: created } } })
+    }
     if (query.includes("mutation CreateLabel")) {
       const input = inputOf(graphql.variables)
       const name = stringField(input, "name")
@@ -109,7 +124,7 @@ const makeFakeLinear = (
     if (query.includes("query TeamByKey")) {
       const key = graphql.variables.key
       return jsonResponse({
-        data: { teams: { nodes: seed.teams.filter((item) => item.key === key) } },
+        data: { teams: { nodes: teams.filter((item) => item.key === key) } },
       })
     }
     if (query.includes("query Labels")) {
