@@ -39,8 +39,28 @@ vocabulary.
 bun install
 bun run check          # format check, type-aware oxlint, tsc and tests
 bun run rata -- --help # run the CLI from source
-bun link               # install the `rata` binary from this checkout
+bun install -g .       # install the `rata` binary globally
 ```
+
+## Releases
+
+A release is not done until the Arch package tracks it. The full checklist:
+
+1. Bump `version` in `package.json` and the version in `src/main.ts`, then land
+   it on `main`.
+2. Tag `v<version>` and push it: `git tag -a v0.2.0 -m "rata v0.2.0"`,
+   `git push origin v0.2.0`.
+3. Create the GitHub release: `gh release create v0.2.0 --title v0.2.0 --notes "..."`.
+4. Update `~/Projects/other/pkgbuilds/rata`: set `pkgver`, refresh
+   `sha256sums` (`makepkg -g`), regenerate `.SRCINFO`
+   (`makepkg --printsrcinfo > .SRCINFO`), and rebuild with `makepkg -f` to
+   prove the tag builds.
+5. Commit and push the package via yadm, to both remotes:
+   `yadm add Projects/other/pkgbuilds/rata && yadm commit -m "feat(pkgbuild/rata): update to <version>" && yadm push && yadm push gitlab main`.
+6. Refresh the installed agent skill: `bunx skills@latest update rata -g -y`.
+
+`nvchecker -c .nvchecker.toml` in the package directory reports the next
+upstream version.
 
 ## Layout
 
