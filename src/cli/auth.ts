@@ -14,7 +14,7 @@ const jsonFlag = Flag.Boolean("json").pipe(
   Flag.withDefault(false),
 )
 
-const readStandardInput = Effect.gen(function* readStandardInput() {
+const readStandardInput = Effect.fn("readStandardInput")(function* readStandardInput() {
   const stdio = yield* Stdio.Stdio
   const text = yield* stdio.stdin.pipe(
     Stream.decodeText(),
@@ -37,7 +37,7 @@ const loginCommand = Command.make(
       if (!config.token) {
         return yield* errorLine(1, "Pass --with-token and pipe the API key on standard input.")
       }
-      const apiKey = yield* readStandardInput
+      const apiKey = yield* readStandardInput()
       if (apiKey.length === 0) {
         return yield* errorLine(1, "No API key on standard input.")
       }
@@ -78,7 +78,7 @@ const statusCommand = Command.make("status", { json: jsonFlag }, (config) =>
       })
     }
     return yield* writeLine(
-      `Authenticated as ${viewer.name} <${viewer.email}> via ${resolved.value.source}.`,
+      `Authenticated as ${viewer.name} <${viewer.email}> in ${viewer.organization.name} via ${resolved.value.source}.`,
     )
   }).pipe(Effect.catch(reportFailure)),
 ).pipe(Command.withDescription("Show the authenticated viewer and the key source"))
@@ -112,4 +112,4 @@ const whoamiCommand = Command.make("whoami", { json: jsonFlag }, (config) =>
   }).pipe(Effect.catch(reportFailure)),
 ).pipe(Command.withDescription("Print the authenticated Linear viewer"))
 
-export { authCommand, InputError, whoamiCommand }
+export { authCommand, whoamiCommand }

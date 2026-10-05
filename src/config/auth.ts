@@ -14,6 +14,9 @@ import {
 } from "effect"
 
 const AuthFile = Schema.Struct({ apiKey: Schema.String })
+
+type AuthFile = typeof AuthFile.Type
+
 const AuthFileJson = Schema.fromJsonString(AuthFile)
 
 class AuthStoreError extends Schema.TaggedError<AuthStoreError>()("AuthStoreError", {
@@ -58,6 +61,12 @@ const makeConfigHome = (path: Path.Path) =>
     return base.value
   })
 
+const describeStoreFailure =
+  (action: string) =>
+  (target: string) =>
+  (cause: PlatformError): AuthStoreError =>
+    new AuthStoreError({ message: `Could not ${action} ${target}.`, cause })
+
 class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
   static readonly layer = Layer.effect(
     Auth,
@@ -67,15 +76,10 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
 
       const storePath = makeConfigHome(path).pipe(
         Effect.map((base) => path.join(base, "rata", "auth.json")),
+        Effect.withSpan("Auth.storePath"),
       )
 
-      const describeStoreFailure =
-        (action: string) =>
-        (target: string) =>
-        (cause: PlatformError): AuthStoreError =>
-          new AuthStoreError({ message: `Could not ${action} ${target}.`, cause })
-
-      const readStoredKey = Effect.gen(function* readStoredKey() {
+      const readStoredKey = Effect.fn("Auth.readStoredKey")(function* readStoredKey() {
         const file = yield* storePath
         const exists = yield* fs
           .exists(file)
@@ -109,10 +113,10 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
           if (Option.isSome(envKey)) {
             return Option.some({ key: envKey.value, source: "env" as const })
           }
-          const stored = yield* readStoredKey
+          const stored = yield* readStoredKey()
           return Option.map(stored, (key) => ({ key: Redacted.make(key), source: "file" as const }))
         },
-      )
+      ).pipe(Effect.withSpan("Auth.resolve"))
 
       const require: Effect.Effect<ResolvedAuth, AuthStoreError> = Effect.gen(
         function* requireAuth() {
@@ -125,41 +129,43 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
           }
           return resolved.value
         },
-      )
+      ).pipe(Effect.withSpan("Auth.require"))
 
-      const login = (apiKey: string) =>
-        Effect.gen(function* loginWithToken() {
-          const file = yield* storePath
-          const directory = path.dirname(file)
-          yield* fs
-            .makeDirectory(directory, { recursive: true })
-            .pipe(Effect.mapError(describeStoreFailure("create")(directory)))
-          const encoded = yield* Schema.encodeEffect(AuthFileJson)({ apiKey }).pipe(
-            Effect.mapError(
-              () => new AuthStoreError({ message: `Could not encode the key for ${file}.` }),
-            ),
-          )
-          yield* fs
-            .writeFileString(file, encoded)
-            .pipe(Effect.mapError(describeStoreFailure("write")(file)))
-          yield* fs.chmod(file, 0o600).pipe(Effect.mapError(describeStoreFailure("secure")(file)))
-        })
-
-      const logout = Effect.gen(function* logoutStoredKey() {
+      const login = Effect.fn("Auth.login")(function* loginWithToken(apiKey: string) {
         const file = yield* storePath
-        const exists = yield* fs
-          .exists(file)
-          .pipe(Effect.mapError(describeStoreFailure("read")(file)))
-        if (!exists) {
-          return false
-        }
-        yield* fs.remove(file).pipe(Effect.mapError(describeStoreFailure("remove")(file)))
-        return true
+        const directory = path.dirname(file)
+        yield* fs
+          .makeDirectory(directory, { recursive: true })
+          .pipe(Effect.mapError(describeStoreFailure("create")(directory)))
+        const value: AuthFile = { apiKey }
+        const encoded = yield* Schema.encodeEffect(AuthFileJson)(value).pipe(
+          Effect.mapError(
+            () => new AuthStoreError({ message: `Could not encode the key for ${file}.` }),
+          ),
+        )
+        yield* fs
+          .writeFileString(file, encoded, { mode: 0o600 })
+          .pipe(Effect.mapError(describeStoreFailure("write")(file)))
+        yield* fs.chmod(file, 0o600).pipe(Effect.mapError(describeStoreFailure("secure")(file)))
       })
+
+      const logout: Effect.Effect<boolean, AuthStoreError> = Effect.gen(
+        function* logoutStoredKey() {
+          const file = yield* storePath
+          const exists = yield* fs
+            .exists(file)
+            .pipe(Effect.mapError(describeStoreFailure("read")(file)))
+          if (!exists) {
+            return false
+          }
+          yield* fs.remove(file).pipe(Effect.mapError(describeStoreFailure("remove")(file)))
+          return true
+        },
+      ).pipe(Effect.withSpan("Auth.logout"))
 
       return Auth.of({ resolve, require, login, logout, storePath })
     }),
   )
 }
 
-export { Auth, AuthStoreError, type AuthSource, type ResolvedAuth }
+export { Auth }

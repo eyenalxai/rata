@@ -29,11 +29,14 @@ bun link
 ## Usage
 
 ```bash
-rata auth login          # store a Linear API key
-rata init                # configure this repository for the Linear tracker
-rata issue list          # list issues
-rata issue show RAT-42   # read one issue
+pbpaste | rata auth login --with-token   # store a Linear API key
+rata init                                # configure this repository for the Linear tracker
+rata issue list                          # list issues
+rata issue show RAT-42                   # read one issue
 ```
+
+`rata` reads `LINEAR_API_KEY` from the environment when it is set. Otherwise it
+reads the key stored by `rata auth login --with-token`.
 
 `rata --help` lists every command.
 

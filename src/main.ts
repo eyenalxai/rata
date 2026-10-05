@@ -16,7 +16,7 @@ const clientLayer = LinearClient.layer.pipe(
 )
 const appLayer = Layer.mergeAll(authLayer, clientLayer, platformLayer)
 
-// oxlint-disable-next-line effecttsgo/strict-effect-provide
+// oxlint-disable-next-line effecttsgo/strict-effect-provide -- This is the application entry point; it owns the layer graph.
 const program = Command.run(root, { version: "0.1.0" }).pipe(Effect.provide(appLayer))
 
 BunRuntime.runMain(program)

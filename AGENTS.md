@@ -95,9 +95,11 @@ The repository runs Effect 4 stable. Before you write Effect code, read
 `node_modules/effect/AGENTS.md` completely, and search `node_modules/effect/src`
 for the exact API.
 
-- Services: `Context.Service<Self, Shape>()("rata/…")` with
+- Services: `Context.Service<Self, Shape>()("rata-cli/<path>")` with
   `static readonly layer = Layer.effect(Self, Effect.gen(...))` returning
-  `Self.of({ ... })`.
+  `Self.of({ ... })`. The ID starts with the package name and then the service
+  path, for example `rata-cli/config/auth` and `rata-cli/api/client/LinearClient`.
+  The `effecttsgo/deterministic-keys` rule enforces this shape.
 - Service methods and reusable effects: `Effect.fn("Domain.operation")`.
 - Errors: `Schema.TaggedError`.
 - Records: `Schema.Struct(...)` with a same-name type alias for its decoded type.

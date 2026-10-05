@@ -13,7 +13,11 @@ import {
 
 import { Auth } from "@/config/auth"
 
-type WriteRecord = { readonly path: string; readonly content: string }
+type WriteRecord = {
+  readonly path: string
+  readonly content: string
+  readonly mode: number | undefined
+}
 
 const authFileJson = Schema.fromJsonString(Schema.Struct({ apiKey: Schema.String }))
 
@@ -22,8 +26,8 @@ const makeFileSystem = (files: Map<string, string>, writes: WriteRecord[], modes
     exists: (file) => Effect.succeed(files.has(file)),
     readFileString: (file) => Effect.succeed(files.get(file) ?? ""),
     makeDirectory: () => Effect.void,
-    writeFileString: (file, data) => {
-      writes.push({ path: file, content: data })
+    writeFileString: (file, data, options) => {
+      writes.push({ path: file, content: data, mode: options?.mode })
       return Effect.void
     },
     chmod: (_file, mode) => {
@@ -106,6 +110,7 @@ describe("Auth", () => {
 
     expect(writes.length).toBe(1)
     expect(writes[0]?.path).toBe("/home/test/.config/rata/auth.json")
+    expect(writes[0]?.mode).toBe(0o600)
     const decoded = Schema.decodeResult(authFileJson)(writes[0]?.content ?? "")
     expect(Result.isSuccess(decoded)).toBe(true)
     if (Result.isSuccess(decoded)) {

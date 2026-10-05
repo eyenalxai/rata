@@ -8,6 +8,7 @@ class LinearAuthError extends Schema.TaggedError<LinearAuthError>()("LinearAuthE
 class LinearGraphQLError extends Schema.TaggedError<LinearGraphQLError>()("LinearGraphQLError", {
   message: Schema.String,
   details: Schema.Array(Schema.String),
+  cause: Schema.optional(Schema.Defect()),
 }) {}
 
 class LinearRateLimitError extends Schema.TaggedError<LinearRateLimitError>()(
@@ -20,6 +21,7 @@ class LinearRateLimitError extends Schema.TaggedError<LinearRateLimitError>()(
 
 class LinearNetworkError extends Schema.TaggedError<LinearNetworkError>()("LinearNetworkError", {
   message: Schema.String,
+  cause: Schema.optional(Schema.Defect()),
 }) {}
 
 type LinearApiError =
