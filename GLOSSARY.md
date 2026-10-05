@@ -55,6 +55,6 @@ they explore the codebase. Use these terms; do not drift to synonyms.
 
 - **rata**: this CLI. The binary name is `rata`; the package name is `rata-cli`.
 - **Repository config**: `.rata.json` at a repository root. It names the default
-  team and project for that repository.
+  team and project for that repository. `rata link` writes it.
 - **Auth file**: the local file that holds the API key, written by
   `rata auth login`.

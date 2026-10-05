@@ -12,6 +12,19 @@ Read `docs/agents/issue-tracker.md` in the repository first: it names the team,
 the label vocabulary, and the publishing conventions for that repository. This
 skill covers the CLI itself.
 
+## Set up a repository
+
+Link the repository to its team once:
+
+```bash
+rata link --team PER
+```
+
+`link` writes `.rata.json`, installs `docs/agents/issue-tracker.md`, updates the
+`AGENTS.md` block, and creates the canonical labels. Every later command reads
+the team from `.rata.json`. Use `--create --name "<name>"` when the team does
+not exist yet.
+
 ## Read before you write
 
 ```bash
@@ -58,7 +71,7 @@ rata issue create --title "Fix the flaky test" --label ready-for-agent --label b
 EOF
 ```
 
-`create` resolves the team and project from `.rata.json`, which `rata init`
+`create` resolves the team and project from `.rata.json`, which `rata link`
 writes. Override them with `--team` and `--project`.
 
 Wire blocking edges as you publish. Linear has one `blocks` relation, so

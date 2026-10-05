@@ -5,7 +5,8 @@
 - `<ref>` is an identifier (`PER-42`), a UUID, or a `linear.app` URL.
 - `--json` works on every command and prints one stable JSON document.
 - `--body-file -` reads the value from stdin; `--body-file <path>` reads a file.
-- The default team and project come from `.rata.json`, written by `rata init`.
+- The default team and project come from `.rata.json`, written by `rata link`
+  or `rata init`.
 - Exit code 0 on success, 1 on failure. Failures print one line to stderr.
 
 ## Setup
@@ -20,17 +21,21 @@
 | `rata init --print`            | Print the tracker document. Write nothing.                                                |
 | `rata init --force`            | Overwrite existing files.                                                                 |
 | `rata init --ensure-labels`    | Create the canonical labels in the team.                                                  |
+| `rata link --team <key>`       | Link this repository to a team. `--create --name <name>` creates the team first.          |
+| `rata link --project <name>`   | Record the default project for this repository.                                           |
 
 `LINEAR_API_KEY` takes precedence over the saved key.
 
 ## Teams, projects, labels
 
-| Command                          | Description                                       |
-| -------------------------------- | ------------------------------------------------- |
-| `rata team list`                 | List teams.                                       |
-| `rata project list`              | List projects.                                    |
-| `rata label list --team <key>`   | List the labels of a team.                        |
-| `rata label ensure --team <key>` | Create the canonical labels that the team misses. |
+| Command                                        | Description                                       |
+| ---------------------------------------------- | ------------------------------------------------- |
+| `rata team list`                               | List teams.                                       |
+| `rata team create --name <name> [--key <key>]` | Create a team.                                    |
+| `rata team delete <key> [--yes]`               | Archive a team. `--yes` skips the confirmation.   |
+| `rata project list`                            | List projects.                                    |
+| `rata label list --team <key>`                 | List the labels of a team.                        |
+| `rata label ensure --team <key>`               | Create the canonical labels that the team misses. |
 
 ## Issues
 
