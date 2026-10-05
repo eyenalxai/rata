@@ -6,10 +6,16 @@ import type { LinearClient, Viewer } from "@/api/client"
 import type { LinearApiError } from "@/api/errors"
 import type { Team, TeamCreateError, TeamService, TeamUpdateError } from "@/api/team"
 import type { Auth, AuthStoreError, StoredProfile } from "@/config/auth"
-import type { LinkTargetOptions, TimezoneChange } from "@/config/link-team"
+import type { LineReader, LinkTargetOptions, TimezoneChange } from "@/config/link-team"
 
 import { TeamNotFoundError } from "@/api/team"
-import { LinkError, promptForChoice, resolveLinkTeam, updateTeamTimezone } from "@/config/link-team"
+import {
+  LinkError,
+  makeLineReader,
+  promptForChoice,
+  resolveLinkTeam,
+  updateTeamTimezone,
+} from "@/config/link-team"
 import { parseWorkspaceAnswer } from "@/domain/link"
 
 type LinkTargetDependencies = {
@@ -17,6 +23,11 @@ type LinkTargetDependencies = {
   readonly client: LinearClient["Service"]
   readonly teams: TeamService["Service"]
   readonly stdio: Stdio.Stdio
+}
+
+type ResolvedTargetDependencies = LinkTargetDependencies & {
+  readonly profiles: readonly StoredProfile[]
+  readonly nextLine: LineReader
 }
 
 type LinkTarget = {
@@ -55,18 +66,12 @@ const formatWorkspace = (choice: WorkspaceChoice, index: number): string =>
   `  ${choice.isDefault ? "*" : " "} ${index + 1}. ${choice.name}  ${choice.viewer.name} <${choice.viewer.email}>  ${choice.viewer.organization.name}`
 
 const promptForWorkspace = Effect.fn("LinkWorkspace.promptForWorkspace")(
-  function* promptForWorkspace(stdio: Stdio.Stdio, choices: readonly WorkspaceChoice[]) {
-    const isTerminal = yield* stdio.stdinIsTerminal
-    if (!isTerminal) {
-      return yield* new LinkError({
-        message: "Standard input is not a terminal. Pass --workspace <name> instead.",
-      })
-    }
+  function* promptForWorkspace(nextLine: LineReader, choices: readonly WorkspaceChoice[]) {
     yield* Console.log("Select a workspace:")
     yield* Effect.forEach(choices, (choice, index) => Console.log(formatWorkspace(choice, index)), {
       discard: true,
     })
-    return yield* promptForChoice(stdio, {
+    return yield* promptForChoice(nextLine, {
       question: "Workspace number or name:",
       parse: (answer) => parseWorkspaceAnswer(choices, answer),
       invalidMessage: (answer) => `Not a workspace: ${answer.trim()}.`,
@@ -108,7 +113,7 @@ const resolveExplicitWorkspace = Effect.fn("LinkWorkspace.resolveExplicit")(
   function* resolveExplicit(
     name: string,
     options: LinkTargetOptions,
-    deps: LinkTargetDependencies & { readonly profiles: readonly StoredProfile[] },
+    deps: ResolvedTargetDependencies,
   ) {
     const profile = deps.profiles.find((entry) => entry.name === name)
     if (profile === undefined) {
@@ -119,6 +124,7 @@ const resolveExplicitWorkspace = Effect.fn("LinkWorkspace.resolveExplicit")(
     const link = yield* resolveLinkTeam(options, {
       teams: deps.teams.withKey(profile.apiKey),
       stdio: deps.stdio,
+      nextLine: deps.nextLine,
     })
     return { ...link, workspace: Option.some(name), apiKey: profile.apiKey }
   },
@@ -128,7 +134,7 @@ const resolveAcrossProfiles = Effect.fn("LinkWorkspace.resolveAcrossProfiles")(
   function* resolveAcrossProfiles(
     key: string,
     options: LinkTargetOptions,
-    deps: LinkTargetDependencies & { readonly profiles: readonly StoredProfile[] },
+    deps: ResolvedTargetDependencies,
   ) {
     const matches = yield* searchTeam(key, { profiles: deps.profiles, teams: deps.teams })
     if (matches.length > 1) {
@@ -161,6 +167,7 @@ const resolveAcrossProfiles = Effect.fn("LinkWorkspace.resolveAcrossProfiles")(
     const link = yield* resolveLinkTeam(options, {
       teams: deps.teams.withKey(resolved.key),
       stdio: deps.stdio,
+      nextLine: deps.nextLine,
     })
     return { ...link, workspace: resolved.profile, apiKey: resolved.key }
   },
@@ -181,44 +188,53 @@ const resolveLinkTarget = Effect.fn("LinkWorkspace.resolve")(function* resolveLi
   const profiles = yield* deps.auth.profiles
   const envKey = yield* deps.auth.envKey
 
-  if (Option.isSome(options.workspace)) {
-    return yield* resolveExplicitWorkspace(options.workspace.value, options, {
-      ...deps,
-      profiles,
-    })
-  }
+  return yield* Effect.scoped(
+    Effect.gen(function* resolveWithInput() {
+      const nextLine = yield* makeLineReader(deps.stdio)
+      const target: ResolvedTargetDependencies = { ...deps, profiles, nextLine }
 
-  if (Option.isSome(envKey)) {
-    const link = yield* resolveLinkTeam(options, {
-      teams: deps.teams.withKey(envKey.value),
-      stdio: deps.stdio,
-    })
-    return { ...link, workspace: Option.none(), apiKey: envKey.value }
-  }
+      if (Option.isSome(options.workspace)) {
+        return yield* resolveExplicitWorkspace(options.workspace.value, options, target)
+      }
 
-  if (profiles.length > 0 && Option.isSome(options.team)) {
-    return yield* resolveAcrossProfiles(options.team.value, options, { ...deps, profiles })
-  }
+      if (Option.isSome(envKey)) {
+        const link = yield* resolveLinkTeam(options, {
+          teams: deps.teams.withKey(envKey.value),
+          stdio: deps.stdio,
+          nextLine,
+        })
+        return { ...link, workspace: Option.none(), apiKey: envKey.value }
+      }
 
-  if (profiles.length > 0) {
-    const isTerminal = yield* deps.stdio.stdinIsTerminal
-    if (isTerminal) {
-      const choices = yield* Effect.forEach(profiles, (profile) => choiceOf(deps.client, profile))
-      const choice = yield* promptForWorkspace(deps.stdio, choices)
+      if (profiles.length > 0 && Option.isSome(options.team)) {
+        return yield* resolveAcrossProfiles(options.team.value, options, target)
+      }
+
+      if (profiles.length > 0) {
+        const isTerminal = yield* deps.stdio.stdinIsTerminal
+        if (isTerminal) {
+          const choices = yield* Effect.forEach(profiles, (profile) =>
+            choiceOf(deps.client, profile),
+          )
+          const choice = yield* promptForWorkspace(nextLine, choices)
+          const link = yield* resolveLinkTeam(options, {
+            teams: deps.teams.withKey(choice.apiKey),
+            stdio: deps.stdio,
+            nextLine,
+          })
+          return { ...link, workspace: Option.some(choice.name), apiKey: choice.apiKey }
+        }
+      }
+
+      const resolved = yield* deps.auth.require
       const link = yield* resolveLinkTeam(options, {
-        teams: deps.teams.withKey(choice.apiKey),
+        teams: deps.teams.withKey(resolved.key),
         stdio: deps.stdio,
+        nextLine,
       })
-      return { ...link, workspace: Option.some(choice.name), apiKey: choice.apiKey }
-    }
-  }
-
-  const resolved = yield* deps.auth.require
-  const link = yield* resolveLinkTeam(options, {
-    teams: deps.teams.withKey(resolved.key),
-    stdio: deps.stdio,
-  })
-  return { ...link, workspace: resolved.profile, apiKey: resolved.key }
+      return { ...link, workspace: resolved.profile, apiKey: resolved.key }
+    }),
+  )
 })
 
 export { resolveLinkTarget }

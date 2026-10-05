@@ -22,9 +22,12 @@ type TimezoneChange = {
   readonly current: string
 }
 
+type LineReader = () => Effect.Effect<string, LinkError>
+
 type LinkTeamDependencies = {
   readonly teams: TeamOperations
   readonly stdio: Stdio.Stdio
+  readonly nextLine: LineReader
 }
 
 type PromptInput<A> = {
@@ -55,44 +58,46 @@ const invalidLinkOptions = (options: LinkTargetOptions): Option.Option<LinkError
   return Option.none()
 }
 
+const makeLineReader = Effect.fnUntraced(function* makeLineReader(stdio: Stdio.Stdio) {
+  const pull = yield* Stream.toPull(stdio.stdin.pipe(Stream.decodeText(), Stream.splitLines))
+  let pending: string[] = []
+  const nextLine = Effect.fnUntraced(function* nextLine() {
+    while (pending.length === 0) {
+      const chunk = yield* pull.pipe(
+        Pull.catchDone(() =>
+          Effect.fail(new LinkError({ message: "Standard input ended before an answer." })),
+        ),
+        Effect.mapError(
+          (cause) => new LinkError({ message: "Could not read standard input.", cause }),
+        ),
+      )
+      pending = [...chunk]
+    }
+    const line = pending[0] ?? ""
+    pending = pending.slice(1)
+    return line
+  })
+  return nextLine
+})
+
 const promptForChoice = <A>(
-  stdio: Stdio.Stdio,
+  nextLine: LineReader,
   input: PromptInput<A>,
 ): Effect.Effect<A, LinkError> =>
-  Effect.scoped(
-    Effect.gen(function* readChoice() {
-      const pull = yield* Stream.toPull(stdio.stdin.pipe(Stream.decodeText(), Stream.splitLines))
-      let pending: string[] = []
-      const nextLine = Effect.fnUntraced(function* nextLine() {
-        while (pending.length === 0) {
-          const chunk = yield* pull.pipe(
-            Pull.catchDone(() =>
-              Effect.fail(new LinkError({ message: "Standard input ended before an answer." })),
-            ),
-            Effect.mapError(
-              (cause) => new LinkError({ message: "Could not read standard input.", cause }),
-            ),
-          )
-          pending = [...chunk]
-        }
-        const line = pending[0] ?? ""
-        pending = pending.slice(1)
-        return line
-      })
-      let attempt = 0
-      while (attempt < maxPromptAttempts) {
-        yield* Console.log(input.question)
-        const answer = yield* nextLine()
-        const selected = input.parse(answer)
-        if (Option.isSome(selected)) {
-          return selected.value
-        }
-        yield* Console.log(input.invalidMessage(answer))
-        attempt += 1
+  Effect.gen(function* readChoice() {
+    let attempt = 0
+    while (attempt < maxPromptAttempts) {
+      yield* Console.log(input.question)
+      const answer = yield* nextLine()
+      const selected = input.parse(answer)
+      if (Option.isSome(selected)) {
+        return selected.value
       }
-      return yield* new LinkError({ message: input.failureMessage })
-    }),
-  )
+      yield* Console.log(input.invalidMessage(answer))
+      attempt += 1
+    }
+    return yield* new LinkError({ message: input.failureMessage })
+  })
 
 const promptForTeam = Effect.fn("LinkTeam.promptForTeam")(function* promptForTeam(
   deps: LinkTeamDependencies,
@@ -116,7 +121,7 @@ const promptForTeam = Effect.fn("LinkTeam.promptForTeam")(function* promptForTea
     (team, index) => Console.log(`  ${index + 1}. ${team.key}  ${team.name}`),
     { discard: true },
   )
-  return yield* promptForChoice(deps.stdio, {
+  return yield* promptForChoice(deps.nextLine, {
     question: "Team number or key:",
     parse: (answer) => parseTeamAnswer(all, answer),
     invalidMessage: (answer) => `Not a team: ${answer.trim()}.`,
@@ -176,8 +181,10 @@ const resolveLinkTeam = Effect.fn("LinkTeam.resolve")(function* resolveLinkTeam(
 export {
   invalidLinkOptions,
   LinkError,
+  type LineReader,
   type LinkTargetOptions,
   type LinkTeamDependencies,
+  makeLineReader,
   promptForChoice,
   resolveLinkTeam,
   type TimezoneChange,
