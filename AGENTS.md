@@ -26,8 +26,11 @@ vocabulary.
 | Effect docs                   | `~/Projects/other/effect-docs`     |
 | Linear SDK and GraphQL schema | `~/Projects/other/linear`          |
 | oxlint and oxfmt source       | `~/Projects/other/oxc`             |
+| Bun source                    | `~/Projects/other/bun`             |
 | Rift worktree tool            | `~/Projects/other/rift`            |
 | Agent skills CLI              | `~/Projects/other/vercel-skills`   |
+| Railway CLI (link prior art)  | `~/Projects/other/railway-cli`     |
+| yadm (dotfiles manager)       | `~/Projects/other/yadm`            |
 | Browser control               | `~/Projects/other/browser-control` |
 
 ## Commands
