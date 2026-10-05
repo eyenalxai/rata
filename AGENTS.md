@@ -26,6 +26,8 @@ vocabulary.
 | Effect docs                   | `~/Projects/other/effect-docs`     |
 | Linear SDK and GraphQL schema | `~/Projects/other/linear`          |
 | oxlint and oxfmt source       | `~/Projects/other/oxc`             |
+| Rift worktree tool            | `~/Projects/other/rift`            |
+| Agent skills CLI              | `~/Projects/other/vercel-skills`   |
 | Browser control               | `~/Projects/other/browser-control` |
 
 ## Commands
@@ -39,16 +41,17 @@ bun link               # install the `rata` binary from this checkout
 
 ## Layout
 
-| Path           | Responsibility                                              |
-| -------------- | ----------------------------------------------------------- |
-| `src/main.ts`  | The `rata` binary entry point and the root command.         |
-| `src/cli/`     | One module per command group. Parsing, output, exit codes.  |
-| `src/api/`     | The Linear GraphQL client and its typed operations.         |
-| `src/domain/`  | Schemas and pure logic: issue references, frontier, labels. |
-| `src/config/`  | Auth and repository configuration.                          |
-| `src/matt/`    | Tracker documents for the `ask-matt` engineering skills.    |
-| `test/`        | Behaviour tests for the tricky logic.                       |
-| `docs/agents/` | Skill configuration: tracker, triage labels, domain docs.   |
+| Path           | Responsibility                                                    |
+| -------------- | ----------------------------------------------------------------- |
+| `src/main.ts`  | The `rata` binary entry point and the root command.               |
+| `src/cli/`     | One module per command group. Parsing, output, exit codes.        |
+| `src/api/`     | The Linear GraphQL client and its typed operations.               |
+| `src/domain/`  | Schemas and pure logic: issue references, frontier, labels.       |
+| `src/config/`  | Auth and repository configuration.                                |
+| `src/matt/`    | Tracker documents for the `ask-matt` engineering skills.          |
+| `test/`        | Behaviour tests for the tricky logic.                             |
+| `skills/`      | Agent skills for driving rata, installable with `npx skills add`. |
+| `docs/agents/` | Skill configuration: tracker, triage labels, domain docs.         |
 
 ## Wizards
 
@@ -83,8 +86,10 @@ then delete them. Never commit a wizard to this repository. They follow the
 - **No comments** unless they answer a hard "why is it this way?" question.
 - **Write documentation and comments in Simplified Technical English**: short
   sentences, active voice, one term for one concept.
-- **Tests are welcome when they are meaningful.** Cover real behaviour and
-  failure modes. Never add a test just to raise a number.
+- **Test only super-tricky logic.** Write a test when a subtle bug would slip
+  past manual checking: parsing edge cases, retries and error mapping, filter
+  composition, idempotency, string surgery. Never test wiring, pass-through, or
+  trivial behavior. Delete a test that stops earning its keep.
 - **Keep the docs in step.** A change to commands, flags or behaviour updates
   `README.md`, the CLI help text, and `docs/agents/issue-tracker.md` when the
   tracker workflow changes.
@@ -106,6 +111,12 @@ for the exact API.
 - Runtime configuration goes through `Config`, never `process.env`.
 
 ## Agent skills
+
+### Skills
+
+The repository ships agent skills under `skills/`. Install them into an agent
+with `npx skills add eyenalxai/rata`. Keep them in step with the command
+surface.
 
 ### Issue tracker
 
