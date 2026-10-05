@@ -7,16 +7,17 @@ vocabulary.
 
 ## Working agreement
 
-- **Use subagents.** Split independent tasks across subagents and run them in
-  parallel. Do not serialize work that can run at the same time.
-- **Change code in a rift.** `rift create --name <change>` makes the worktree and
-  the `rift/<change>` branch. Commit the work there. When it is ready, rebase the
-  rift onto `main`, bring the rift back into `main` with a fast-forward, then push.
-  Never make a merge commit.
-- **Load the skills that match the task.** Load `grill-with-docs` and
-  `domain-modeling` to sharpen a plan. Load the Effect skills for Effect work.
+- **Use subagents as much as possible.** Split independent tasks across
+  subagents and run them in parallel. Do not serialize work that can run at the
+  same time.
+- **Change code in a rift.** `rift create --name <change>` makes the worktree
+  and the `rift/<change>` branch. One rift per change. Commit the work there.
+  When it is ready, rebase the rift onto `main`, bring the rift back into `main`
+  with a fast-forward, then push. Never make a merge commit.
 - **No backwards compatibility.** Refactor when the long-term design needs it.
+  Optimize for long-term maintenance and follow best practice.
 - **Use Bun** for every command and script.
+- **Place each file where it belongs.** Follow the existing folder structure.
 - **Read the source before you guess an API.** Search these checkouts:
 
 | Library                       | Path                               |
@@ -56,7 +57,11 @@ bun link               # install the `rata` binary from this checkout
 - **Named exports only**, grouped in one export block at the bottom of the file.
 - **No relative parent imports.** `import/no-relative-parent-imports` is an error.
   Import through the `@/*` alias, which maps to `src/*`.
-- **Do not suppress lint rules.** Fix the code instead.
+- **Do not suppress lint rules unless it is absolutely justified.** Fix the code
+  first. Every suppression is a config-level decision with a written reason, and
+  every one is surfaced to the maintainer.
+- **Never suppress an error** unless the maintainer explicitly allows it. Do not
+  swallow a failure.
 - **Never access `process.env`.** `node/no-process-env` is an error. Read config
   through Effect `Config`.
 - **Do not write to `console`.** `no-console` is an error. Use the Effect
