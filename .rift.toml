@@ -1,0 +1,11 @@
+version = 1
+
+# Hooks must keep stdout clean. rift's shell integration captures stdout to learn
+# which directory to cd into. Hook output on stdout therefore breaks `rift create`.
+[[hooks.postcreate]]
+run = "bun install --frozen-lockfile 1>&2"
+
+# rift verifies a fresh worktree before it hands it over. A broken base is
+# therefore never mistaken for a broken change.
+[[hooks.postcreate]]
+run = "bun run check 1>&2"

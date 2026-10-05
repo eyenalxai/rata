@@ -1,0 +1,7 @@
+[install]
+exact = true
+# Only install newly resolved package versions published at least 3 days ago.
+minimumReleaseAge = 259200
+# The Effect family is excluded so the project can track new v4 releases
+# without the quarantine window.
+minimumReleaseAgeExcludes = ["effect", "@effect/platform-bun"]
