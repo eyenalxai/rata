@@ -73,7 +73,7 @@ Default five-role vocabulary: \`needs-triage\`, \`needs-info\`,
 
 ### Domain docs
 
-Single-context: vocabulary in \`CONTEXT.md\`, decisions in \`docs/adr/\`. See
+Single-context: vocabulary in \`GLOSSARY.md\`, decisions in \`docs/adr/\`. See
 \`docs/agents/domain.md\`.
 `
 

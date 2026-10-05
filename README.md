@@ -305,7 +305,7 @@ The link and unlink commands print the relations they changed:
 
 ## Documentation
 
-- `CONTEXT.md`: the domain vocabulary.
+- `GLOSSARY.md`: the domain vocabulary.
 - `docs/agents/issue-tracker.md`: how the ask-matt skills use this tracker.
 - `AGENTS.md`: how to work in this repository.
 

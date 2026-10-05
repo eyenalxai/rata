@@ -2,7 +2,7 @@
 
 A Linear issue-tracking CLI built for agent workflows. It gives the `ask-matt`
 engineering skills a Linear-backed issue tracker: triage, tickets, specs and
-wayfinding. `README.md` documents the product; `CONTEXT.md` holds the domain
+wayfinding. `README.md` documents the product; `GLOSSARY.md` holds the domain
 vocabulary.
 
 ## Working agreement
@@ -133,5 +133,5 @@ Default five-role vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`,
 
 ### Domain docs
 
-Single-context: vocabulary in `CONTEXT.md`, decisions in `docs/adr/`. See
+Single-context: vocabulary in `GLOSSARY.md`, decisions in `docs/adr/`. See
 `docs/agents/domain.md`.

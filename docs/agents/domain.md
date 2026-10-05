@@ -5,8 +5,7 @@ exploring the codebase.
 
 ## Before exploring, read these
 
-- **`CONTEXT.md`** at the repo root: the project's domain vocabulary. This
-  repository uses `CONTEXT.md` in place of `GLOSSARY.md`.
+- **`GLOSSARY.md`** at the repo root: the project's domain vocabulary.
 - **`docs/adr/`**: read ADRs that touch the area you're about to work in.
 
 If any of these files don't exist, **proceed silently**. Don't flag their
@@ -19,7 +18,7 @@ Single-context repo:
 
 ```
 /
-├── CONTEXT.md
+├── GLOSSARY.md
 ├── docs/adr/
 │   ├── 0001-....md
 │   └── 0002-....md
@@ -29,7 +28,7 @@ Single-context repo:
 ## Use the glossary's vocabulary
 
 When your output names a domain concept (in an issue title, a refactor proposal,
-a hypothesis, a test name), use the term as defined in `CONTEXT.md`. Don't drift
+a hypothesis, a test name), use the term as defined in `GLOSSARY.md`. Don't drift
 to synonyms the glossary explicitly avoids.
 
 If the concept you need isn't in the glossary yet, that's a signal: either you're
