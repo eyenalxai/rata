@@ -8,10 +8,17 @@ import { LabelService } from "@/api/label"
 import { TeamService } from "@/api/team"
 import { InitService } from "@/config/init"
 import { RepoConfigService } from "@/config/repo"
-import { agentSkillsBlock, trackerDocument } from "@/matt/tracker-doc"
+import {
+  agentSkillsBlock,
+  domainDocument,
+  trackerDocument,
+  triageLabelsDocument,
+} from "@/matt/tracker-doc"
 
 const configPath = () => `${process.cwd()}/.rata.json`
 const trackerPath = () => `${process.cwd()}/docs/agents/issue-tracker.md`
+const triagePath = () => `${process.cwd()}/docs/agents/triage-labels.md`
+const domainPath = () => `${process.cwd()}/docs/agents/domain.md`
 const agentsPath = () => `${process.cwd()}/AGENTS.md`
 
 const makeLayer = (files: Map<string, string>, writes: string[]) => {
@@ -80,12 +87,14 @@ describe("InitService", () => {
     expect(files.size).toBe(0)
   })
 
-  test("creates the config, the tracker document and the agent skills block", async () => {
+  test("creates the config, the agent documents and the agent skills block", async () => {
     const files = new Map<string, string>()
     const writes: string[] = []
     await runInit(files, writes, options({}))
-    expect(writes).toEqual([configPath(), trackerPath(), agentsPath()])
+    expect(writes).toEqual([configPath(), trackerPath(), triagePath(), domainPath(), agentsPath()])
     expect(files.get(trackerPath())).toBe(trackerDocument)
+    expect(files.get(triagePath())).toBe(triageLabelsDocument)
+    expect(files.get(domainPath())).toBe(domainDocument)
     expect(files.get(agentsPath())).toBe(agentSkillsBlock)
     const config: unknown = JSON.parse(files.get(configPath()) ?? "")
     expect(config).toEqual({ team: "RAT" })
@@ -97,21 +106,42 @@ describe("InitService", () => {
     await runInit(files, writes, options({}))
     writes.length = 0
     const result = await runInit(files, writes, options({}))
-    expect(result.files.map((file) => file.action)).toEqual(["unchanged", "unchanged", "unchanged"])
+    expect(result.files.map((file) => file.action)).toEqual([
+      "unchanged",
+      "unchanged",
+      "unchanged",
+      "unchanged",
+      "unchanged",
+    ])
     expect(writes).toHaveLength(0)
     expect(files.has(configPath())).toBe(true)
     expect(files.has(trackerPath())).toBe(true)
+    expect(files.has(triagePath())).toBe(true)
+    expect(files.has(domainPath())).toBe(true)
     expect(files.has(agentsPath())).toBe(true)
   })
 
-  test("leaves an existing tracker document alone without --force", async () => {
-    const files = new Map([[trackerPath(), "# Issue tracker: GitHub\n"]])
+  test("leaves existing agent documents alone without --force", async () => {
+    const files = new Map([
+      [trackerPath(), "# Issue tracker: GitHub\n"],
+      [triagePath(), "# Custom triage\n"],
+      [domainPath(), "# Custom domain\n"],
+    ])
     const writes: string[] = []
     const result = await runInit(files, writes, options({}))
-    const tracker = result.files.find((file) => file.path === "docs/agents/issue-tracker.md")
-    expect(tracker?.action).toBe("skip")
+    expect(result.files.map((file) => file.action)).toEqual([
+      "create",
+      "skip",
+      "skip",
+      "skip",
+      "create",
+    ])
     expect(files.get(trackerPath())).toBe("# Issue tracker: GitHub\n")
+    expect(files.get(triagePath())).toBe("# Custom triage\n")
+    expect(files.get(domainPath())).toBe("# Custom domain\n")
     expect(writes).not.toContain(trackerPath())
+    expect(writes).not.toContain(triagePath())
+    expect(writes).not.toContain(domainPath())
   })
 
   test("fails with a clear error when no team is available", async () => {

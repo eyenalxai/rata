@@ -15,10 +15,9 @@ import { invalidLinkOptions, resolveLinkTeam } from "@/config/link-team"
 import { RepoConfigService } from "@/config/repo"
 import { planInit } from "@/domain/init"
 import { injectAgentSkillsBlock } from "@/matt/agents-block"
-import { agentSkillsBlock, trackerDocument } from "@/matt/tracker-doc"
+import { agentSkillDocuments, agentSkillsBlock, trackerDocument } from "@/matt/tracker-doc"
 
 const configPath = ".rata.json"
-const trackerDocumentPath = "docs/agents/issue-tracker.md"
 const agentsPath = "AGENTS.md"
 
 type InitOptions = {
@@ -143,7 +142,6 @@ class InitService extends Context.Service<InitService, InitServiceShape>()(
       ): Effect.fn.Return<SetupResult, InitError | RepoConfigError> {
         const configFile = yield* repoConfig.filePath
         const root = path.dirname(configFile)
-        const trackerFile = path.join(root, trackerDocumentPath)
         const agentsFile = path.join(root, agentsPath)
 
         const existingConfig = yield* repoConfig.read
@@ -154,7 +152,11 @@ class InitService extends Context.Service<InitService, InitServiceShape>()(
           ? { team: input.team, project: project.value }
           : { team: input.team }
 
-        const existingTrackerDocument = yield* readIfExists(trackerFile)
+        const documents = yield* Effect.forEach(agentSkillDocuments, (document) =>
+          readIfExists(path.join(root, document.path)).pipe(
+            Effect.map((existing) => ({ ...document, existing })),
+          ),
+        )
         const existingAgents = yield* readIfExists(agentsFile)
         const agentsDocument = injectAgentSkillsBlock(
           Option.getOrElse(existingAgents, () => ""),
@@ -165,8 +167,7 @@ class InitService extends Context.Service<InitService, InitServiceShape>()(
           force: input.force,
           config,
           existingConfig,
-          trackerDocument,
-          existingTrackerDocument,
+          documents,
           agentsDocument,
           existingAgents,
         })
@@ -178,16 +179,22 @@ class InitService extends Context.Service<InitService, InitServiceShape>()(
           yield* repoConfig.write(plan.config.content)
         }
 
-        if (
-          plan.trackerDocument.action === "create" ||
-          plan.trackerDocument.action === "overwrite"
-        ) {
-          const directory = path.dirname(trackerFile)
-          yield* fs
-            .makeDirectory(directory, { recursive: true })
-            .pipe(Effect.mapError(describeFailure("create")(directory)))
-          yield* writeFile(trackerFile, plan.trackerDocument.content)
-        }
+        const changed = plan.documents.filter(
+          (document) => document.action === "create" || document.action === "overwrite",
+        )
+        yield* Effect.forEach(
+          changed,
+          (document) =>
+            Effect.gen(function* writeDocument() {
+              const file = path.join(root, document.path)
+              const directory = path.dirname(file)
+              yield* fs
+                .makeDirectory(directory, { recursive: true })
+                .pipe(Effect.mapError(describeFailure("create")(directory)))
+              yield* writeFile(file, document.content)
+            }),
+          { discard: true },
+        )
 
         if (plan.agents.action === "create" || plan.agents.action === "overwrite") {
           yield* writeFile(agentsFile, plan.agents.content)
@@ -197,7 +204,10 @@ class InitService extends Context.Service<InitService, InitServiceShape>()(
           project,
           files: [
             { path: configPath, action: configAction },
-            { path: trackerDocumentPath, action: plan.trackerDocument.action },
+            ...plan.documents.map((document) => ({
+              path: document.path,
+              action: document.action,
+            })),
             { path: agentsPath, action: plan.agents.action },
           ],
         }

@@ -75,7 +75,7 @@ const initCommand = Command.make(
   Command.withExamples([
     {
       command: "rata init --team RAT --project rata",
-      description: "Write the repository config, the tracker document and the agent skills block",
+      description: "Write the repository config, the agent documents and the agent skills block",
     },
   ]),
 )

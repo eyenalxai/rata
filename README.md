@@ -125,7 +125,8 @@ rata team delete SCR --yes
 rata init --team RAT --project rata
 ```
 
-It writes `.rata.json`, installs `docs/agents/issue-tracker.md`, and updates the
+It writes `.rata.json`, installs `docs/agents/issue-tracker.md`,
+`docs/agents/triage-labels.md` and `docs/agents/domain.md`, and updates the
 `## Agent skills` block in `AGENTS.md`. Missing files are created. Existing
 files are left alone unless `--force` is passed.
 
@@ -152,10 +153,11 @@ rata link --team SCR --create --name "Scratch"
 Without `--team`, `link` lists the workspace teams and prompts for one. The
 prompt needs a terminal; pass `--team` when standard input is a pipe.
 
-`link` writes `.rata.json`, installs `docs/agents/issue-tracker.md`, updates the
+`link` writes `.rata.json`, installs `docs/agents/issue-tracker.md`,
+`docs/agents/triage-labels.md` and `docs/agents/domain.md`, updates the
 `## Agent skills` block in `AGENTS.md`, and creates the canonical labels in the
 team, so the ask-matt skills work in the repository. The link itself always
-rewrites `.rata.json`. The tracker document and `AGENTS.md` are created when
+rewrites `.rata.json`. The agent documents and `AGENTS.md` are created when
 missing and left alone unless `--force` is passed.
 
 | Flag        | Meaning                                                              |
@@ -164,7 +166,7 @@ missing and left alone unless `--force` is passed.
 | `--project` | Default project name or id for the repository.                       |
 | `--create`  | Create the team when it does not exist. Needs `--team` and `--name`. |
 | `--name`    | Team name, used with `--create`.                                     |
-| `--force`   | Overwrite the existing tracker document and `AGENTS.md`.             |
+| `--force`   | Overwrite the existing agent documents and `AGENTS.md`.              |
 | `--json`    | Print machine-readable JSON.                                         |
 
 A missing team fails with `TeamNotFoundError` unless `--create` is passed.
@@ -183,6 +185,8 @@ and the files:
   "files": [
     { "path": ".rata.json", "action": "create" },
     { "path": "docs/agents/issue-tracker.md", "action": "create" },
+    { "path": "docs/agents/triage-labels.md", "action": "create" },
+    { "path": "docs/agents/domain.md", "action": "create" },
     { "path": "AGENTS.md", "action": "create" }
   ],
   "labels": {
@@ -392,6 +396,8 @@ The link and unlink commands print the relations they changed:
 
 - `GLOSSARY.md`: the domain vocabulary.
 - `docs/agents/issue-tracker.md`: how the ask-matt skills use this tracker.
+- `docs/agents/triage-labels.md`: the triage roles and their label strings.
+- `docs/agents/domain.md`: how the skills consume the domain documentation.
 - `AGENTS.md`: how to work in this repository.
 
 ## License

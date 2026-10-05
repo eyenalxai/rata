@@ -20,7 +20,7 @@ Link the repository to its team once:
 rata link --team PER
 ```
 
-`link` writes `.rata.json`, installs `docs/agents/issue-tracker.md`, updates the
+`link` writes `.rata.json`, installs the `docs/agents/` documents, updates the
 `AGENTS.md` block, and creates the canonical labels. Every later command reads
 the team from `.rata.json`. Use `--create --name "<name>"` when the team does
 not exist yet.

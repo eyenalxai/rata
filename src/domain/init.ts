@@ -9,9 +9,21 @@ type InitStep<A> = {
   readonly content: A
 }
 
+type InitDocument = {
+  readonly path: string
+  readonly content: string
+  readonly existing: Option.Option<string>
+}
+
+type InitDocumentStep = {
+  readonly path: string
+  readonly action: InitAction
+  readonly content: string
+}
+
 type InitPlan = {
   readonly config: InitStep<RepoConfig>
-  readonly trackerDocument: InitStep<string>
+  readonly documents: readonly InitDocumentStep[]
   readonly agents: InitStep<string>
 }
 
@@ -19,8 +31,7 @@ type InitPlanInput = {
   readonly force: boolean
   readonly config: RepoConfig
   readonly existingConfig: Option.Option<RepoConfig>
-  readonly trackerDocument: string
-  readonly existingTrackerDocument: Option.Option<string>
+  readonly documents: readonly InitDocument[]
   readonly agentsDocument: string
   readonly existingAgents: Option.Option<string>
 }
@@ -42,6 +53,16 @@ const decideAction = (input: {
 const sameConfig = (left: RepoConfig, right: RepoConfig): boolean =>
   left.team === right.team && left.project === right.project
 
+const planDocument = (force: boolean, document: InitDocument): InitDocumentStep => ({
+  path: document.path,
+  action: decideAction({
+    force,
+    exists: Option.isSome(document.existing),
+    unchanged: Option.exists(document.existing, (existing) => existing === document.content),
+  }),
+  content: document.content,
+})
+
 const planInit = (input: InitPlanInput): InitPlan => ({
   config: {
     action: decideAction({
@@ -53,17 +74,7 @@ const planInit = (input: InitPlanInput): InitPlan => ({
     }),
     content: input.config,
   },
-  trackerDocument: {
-    action: decideAction({
-      force: input.force,
-      exists: Option.isSome(input.existingTrackerDocument),
-      unchanged: Option.exists(
-        input.existingTrackerDocument,
-        (existing) => existing === input.trackerDocument,
-      ),
-    }),
-    content: input.trackerDocument,
-  },
+  documents: input.documents.map((document) => planDocument(input.force, document)),
   agents: {
     action: decideAction({
       force: input.force,
@@ -77,4 +88,12 @@ const planInit = (input: InitPlanInput): InitPlan => ({
   },
 })
 
-export { planInit, type InitAction, type InitPlan, type InitPlanInput, type InitStep }
+export {
+  planInit,
+  type InitAction,
+  type InitDocument,
+  type InitDocumentStep,
+  type InitPlan,
+  type InitPlanInput,
+  type InitStep,
+}

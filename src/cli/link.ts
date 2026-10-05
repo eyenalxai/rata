@@ -27,7 +27,7 @@ const nameFlag = Flag.String("name").pipe(
 )
 
 const forceFlag = Flag.Boolean("force").pipe(
-  Flag.withDescription("Overwrite the existing tracker document and AGENTS.md"),
+  Flag.withDescription("Overwrite the existing agent documents and AGENTS.md"),
   Flag.withDefault(false),
 )
 

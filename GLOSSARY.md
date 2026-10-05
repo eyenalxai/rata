@@ -50,6 +50,8 @@ they explore the codebase. Use these terms; do not drift to synonyms.
   claim.
 - **Tracker document**: `docs/agents/issue-tracker.md`, the per-repo file that
   tells the skills how to use the tracker.
+- **Agent documents**: the per-repo files under `docs/agents/` that configure
+  the skills: the tracker document, `triage-labels.md` and `domain.md`.
 
 ## rata
 
