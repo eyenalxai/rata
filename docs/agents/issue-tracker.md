@@ -9,8 +9,8 @@ operations.
   body with a heredoc.
 - **Read an issue**: `rata issue show <ref> --comments --json`
 - **List issues**: `rata issue list` with the filters you need. Useful filters:
-  `--team`, `--state`, `--state-type`, `--label`, `--assignee`, `--parent`,
-  `--text`, `--limit`.
+  `--team`, `--project`, `--state`, `--state-type`, `--label`, `--assignee`,
+  `--parent`, `--text`, `--limit`.
 - **Comment on an issue**: `rata issue comment <ref> --body-file -`
 - **Apply / remove labels**: `rata issue label add <ref> <label...>` and
   `rata issue label remove <ref> <label...>`
@@ -19,9 +19,9 @@ operations.
 - **Create a project**: `rata project create --name "Spec: <title>"`. A spec
   and its tickets live in one project. See **Specs as projects**.
 
-An issue reference accepts an identifier (`PER-42`), a UUID, or a linear.app
-issue URL. The repository config `.rata.json` names the default team and
-project, so most commands need no `--team`.
+An issue reference accepts an identifier (`ABC-42`), a UUID, or a linear.app
+issue URL. The repository config `.rata.json` names the default team, project
+and workspace profile, so most commands need no `--team`.
 
 The canonical labels are created with `rata label ensure --team <key>`.
 
