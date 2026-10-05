@@ -88,6 +88,19 @@ type IssueRelationChange = {
 
 type RelationType = "blocks" | "related" | "duplicate"
 
+type RelationKindInfo = {
+  readonly label: string
+  readonly type: RelationType
+  readonly inverse: boolean
+}
+
+const relationKindInfo: Record<RelationKind, RelationKindInfo> = {
+  blocks: { label: "blocks", type: "blocks", inverse: false },
+  blockedBy: { label: "blocked by", type: "blocks", inverse: true },
+  related: { label: "related to", type: "related", inverse: false },
+  duplicate: { label: "duplicates", type: "duplicate", inverse: false },
+}
+
 type ResolvedRelationTarget = {
   readonly kind: RelationKind
   readonly target: string
@@ -163,22 +176,19 @@ const stateByName = (states: readonly WorkflowState[], name: string): WorkflowSt
 const stateByType = (states: readonly WorkflowState[], type: string): WorkflowState | undefined =>
   states.find((state) => state.type === type)
 
-const relationTypeFor = (kind: RelationKind): RelationType =>
-  kind === "blocks" || kind === "blockedBy" ? "blocks" : kind
-
 const linkRelationPlans = (
   issueId: string,
   targets: readonly ResolvedRelationTarget[],
 ): readonly PlannedRelationLink[] =>
   targets.map((entry) => {
-    const inverse = entry.kind === "blockedBy"
+    const info = relationKindInfo[entry.kind]
     return {
       kind: entry.kind,
       target: entry.target,
       input: {
-        issueId: inverse ? entry.targetId : issueId,
-        relatedIssueId: inverse ? issueId : entry.targetId,
-        type: relationTypeFor(entry.kind),
+        issueId: info.inverse ? entry.targetId : issueId,
+        relatedIssueId: info.inverse ? issueId : entry.targetId,
+        type: info.type,
       },
     }
   })
@@ -276,6 +286,7 @@ export {
   planRelationUnlinks,
   ProjectNotFoundError,
   type RelationKind,
+  relationKindInfo,
   RelationNotFoundError,
   type ResolvedRelationTarget,
   StateNotFoundError,

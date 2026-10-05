@@ -8,6 +8,7 @@ import type {
 } from "@/api/issue-write-model"
 
 import { IssueWriteApi } from "@/api/issue-write"
+import { relationKindInfo } from "@/api/issue-write-model"
 import { errorLine, reportFailure, writeJson, writeLine } from "@/cli/output"
 
 const jsonFlag = Flag.Boolean("json").pipe(
@@ -35,18 +36,7 @@ const countChanges = (changes: IssueRelationChanges): number =>
   changes.related.length +
   changes.duplicate.length
 
-const kindLabel = (kind: RelationKind): string => {
-  if (kind === "blocks") {
-    return "blocks"
-  }
-  if (kind === "blockedBy") {
-    return "blocked by"
-  }
-  if (kind === "related") {
-    return "related to"
-  }
-  return "duplicates"
-}
+const kindLabel = (kind: RelationKind): string => relationKindInfo[kind].label
 
 const formatChanges = (
   verb: string,
