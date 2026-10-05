@@ -5,6 +5,7 @@ import { Command } from "effect/cli"
 import { FetchHttpClient } from "effect/http"
 
 import { LinearClient } from "@/api/client"
+import { IssueApi } from "@/api/issue"
 import { root } from "@/cli/root"
 import { Auth } from "@/config/auth"
 
@@ -14,7 +15,8 @@ const clientLayer = LinearClient.layer.pipe(
   Layer.provide(authLayer),
   Layer.provide(FetchHttpClient.layer),
 )
-const appLayer = Layer.mergeAll(authLayer, clientLayer, platformLayer)
+const issueLayer = IssueApi.layer.pipe(Layer.provide(clientLayer))
+const appLayer = Layer.mergeAll(authLayer, clientLayer, issueLayer, platformLayer)
 
 // oxlint-disable-next-line effecttsgo/strict-effect-provide -- This is the application entry point; it owns the layer graph.
 const program = Command.run(root, { version: "0.1.0" }).pipe(Effect.provide(appLayer))

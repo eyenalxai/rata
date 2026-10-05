@@ -33,12 +33,101 @@ pbpaste | rata auth login --with-token   # store a Linear API key
 rata init                                # configure this repository for the Linear tracker
 rata issue list                          # list issues
 rata issue show RAT-42                   # read one issue
+rata search "rate limit"                 # search issues by text
 ```
 
 `rata` reads `LINEAR_API_KEY` from the environment when it is set. Otherwise it
 reads the key stored by `rata auth login --with-token`.
 
 `rata --help` lists every command.
+
+## Reading issues
+
+`rata issue list` accepts filters. Combine any of them:
+
+```bash
+rata issue list --team RAT --state "In Progress" --label bug --limit 100
+rata issue list --state-type started --assignee me
+rata issue list --parent RAT-1 --text login
+```
+
+| Flag           | Meaning                                                                      |
+| -------------- | ---------------------------------------------------------------------------- |
+| `--team`       | Team key or id.                                                              |
+| `--state`      | Workflow state name, for example `In Progress`.                              |
+| `--state-type` | One of `triage`, `backlog`, `unstarted`, `started`, `completed`, `canceled`. |
+| `--label`      | Label name.                                                                  |
+| `--assignee`   | `me`, or a user id.                                                          |
+| `--project`    | Project id or name.                                                          |
+| `--parent`     | Parent issue reference.                                                      |
+| `--text`       | Text that appears in the title or the description.                           |
+| `--limit`      | Maximum number of issues. Default: 50.                                       |
+
+`rata issue show` accepts an identifier (`RAT-42`), a UUID, or a linear.app
+URL. `--comments` adds the comments in chronological order.
+
+Every read command accepts `--json` and prints one stable JSON document. The
+list and search commands print `{ "issues": [...] }`; the show command prints
+`{ "issue": {...} }`.
+
+```json
+{
+  "issues": [
+    {
+      "id": "b2c3...",
+      "identifier": "RAT-42",
+      "title": "Add the issue read path",
+      "url": "https://linear.app/eyenalx/issue/RAT-42/add-the-issue-read-path",
+      "state": { "name": "In Progress", "type": "started" },
+      "assignee": { "id": "u1", "name": "Ada", "displayName": "ada" },
+      "project": { "id": "p1", "name": "rata" },
+      "parent": { "id": "i0", "identifier": "RAT-1", "title": "Map" },
+      "labels": [{ "id": "l1", "name": "ready-for-agent" }]
+    }
+  ]
+}
+```
+
+`assignee`, `project` and `parent` are `null` when they are unset.
+
+```json
+{
+  "issue": {
+    "id": "b2c3...",
+    "identifier": "RAT-42",
+    "title": "Add the issue read path",
+    "description": "...",
+    "url": "https://linear.app/eyenalx/issue/RAT-42/add-the-issue-read-path",
+    "state": { "name": "In Progress", "type": "started" },
+    "assignee": null,
+    "project": null,
+    "parent": null,
+    "team": { "id": "t1", "key": "RAT", "name": "rata" },
+    "labels": [],
+    "children": [
+      {
+        "id": "i2",
+        "identifier": "RAT-43",
+        "title": "Child issue",
+        "state": { "name": "Todo", "type": "unstarted" }
+      }
+    ],
+    "relations": {
+      "blocks": [],
+      "blockedBy": [],
+      "duplicates": [],
+      "duplicatedBy": [],
+      "related": [],
+      "similar": []
+    },
+    "comments": []
+  }
+}
+```
+
+`relations.blocks` lists the issues this issue blocks. `relations.blockedBy`
+lists the issues that block it. The `comments` key is present only with
+`--comments`.
 
 ## Documentation
 

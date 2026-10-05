@@ -58,6 +58,8 @@ const invalidRef = (input: string): InvalidIssueRef =>
       "Expected a Linear issue reference: an identifier like RAT-42, a UUID, or a linear.app issue URL.",
   })
 
+const isUuid = (value: string): boolean => uuidPattern.test(value)
+
 const parseIssueRef = (input: string): Result.Result<IssueRef, InvalidIssueRef> => {
   const trimmed = input.trim()
   const candidate = fromLinearUrl(trimmed) ?? trimmed
@@ -68,4 +70,4 @@ const parseIssueRef = (input: string): Result.Result<IssueRef, InvalidIssueRef> 
   return Result.orElse(decode(candidate), () => decode(candidate.toUpperCase()))
 }
 
-export { InvalidIssueRef, IssueRef, parseIssueRef }
+export { InvalidIssueRef, isUuid, IssueRef, parseIssueRef }
