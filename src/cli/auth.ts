@@ -14,7 +14,7 @@ const jsonFlag = Flag.Boolean("json").pipe(
   Flag.withDefault(false),
 )
 
-const readStandardInput = Effect.fn("readStandardInput")(function* readStandardInput() {
+const readStandardInput = Effect.fn("Cli.readStandardInput")(function* readStandardInput() {
   const stdio = yield* Stdio.Stdio
   const text = yield* stdio.stdin.pipe(
     Stream.decodeText(),

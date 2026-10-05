@@ -143,7 +143,9 @@ class LinearClient extends Context.Service<LinearClient, LinearClientShape>()(
         data: S,
       ): Effect.fn.Return<S["Type"], LinearApiError> {
         const resolved = yield* auth.require.pipe(
-          Effect.mapError((error) => new LinearAuthError({ message: error.message })),
+          Effect.mapError(
+            (error) => new LinearAuthError({ message: error.message, cause: error.cause }),
+          ),
         )
         const request = HttpClientRequest.post(endpoint).pipe(
           HttpClientRequest.setHeaders({
@@ -184,6 +186,7 @@ class LinearClient extends Context.Service<LinearClient, LinearClientShape>()(
 
       const viewer = execute(viewerQuery, {}, Schema.Struct({ viewer: Viewer })).pipe(
         Effect.map((data) => data.viewer),
+        Effect.withSpan("LinearClient.viewer"),
       )
 
       return LinearClient.of({ execute, viewer })

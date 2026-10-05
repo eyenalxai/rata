@@ -3,6 +3,7 @@ import { Schema } from "effect"
 class LinearAuthError extends Schema.TaggedError<LinearAuthError>()("LinearAuthError", {
   message: Schema.String,
   status: Schema.optional(Schema.Finite),
+  cause: Schema.optional(Schema.Defect()),
 }) {}
 
 class LinearGraphQLError extends Schema.TaggedError<LinearGraphQLError>()("LinearGraphQLError", {
