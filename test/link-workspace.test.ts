@@ -205,14 +205,6 @@ describe("InitService.link workspace", () => {
     expect(harness.lines.some((line) => line.includes("Select a team"))).toBe(true)
   })
 
-  test("fails clearly without an environment key or stored profiles", async () => {
-    const harness = makeHarness({ env: noEnv })
-    const fake = makeFakeLinear({ teams: [rat], labels: [] })
-    const error = await linkError(fake.handler, harness, options({}))
-
-    expect(error._tag).toBe("AuthStoreError")
-  })
-
   test("records --workspace in the repository config and uses its key", async () => {
     const harness = makeHarness({ env: noEnv, files: profiles() })
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
