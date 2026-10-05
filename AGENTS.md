@@ -113,23 +113,23 @@ for the exact API.
 - Records: `Schema.Struct(...)` with a same-name type alias for its decoded type.
 - Runtime configuration goes through `Config`, never `process.env`.
 
-## Agent skills
-
-### Skills
+## Skills
 
 The repository ships agent skills under `skills/`. Install them into an agent
 with `npx skills add eyenalxai/rata`. Keep them in step with the command
 surface.
 
+## Agent skills
+
 ### Issue tracker
 
-Issues live in GitHub Issues on `eyenalxai/rata`, driven with the `gh` CLI. See
-`docs/agents/issue-tracker.md`.
+Issues live in Linear, driven with the `rata` CLI. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
-Default five-role vocabulary: `needs-triage`, `needs-info`, `ready-for-agent`,
-`ready-for-human`, `wontfix`. See `docs/agents/triage-labels.md`.
+Default five-role vocabulary: `needs-triage`, `needs-info`,
+`ready-for-agent`, `ready-for-human`, `wontfix`. See
+`docs/agents/triage-labels.md`.
 
 ### Domain docs
 

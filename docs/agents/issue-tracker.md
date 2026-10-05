@@ -1,62 +1,59 @@
-# Issue tracker: GitHub
+# Issue tracker: Linear
 
-Issues and specs for this repo live as GitHub issues on `eyenalxai/rata`. Use
-the `gh` CLI for all operations.
+Issues and specs for this repository live in Linear. Use the `rata` CLI for all
+operations.
 
 ## Conventions
 
-- **Create an issue**: `gh issue create --title "..." --body "..."`. Use a
-  heredoc for multi-line bodies.
-- **Read an issue**: `gh issue view <number> --comments`, filtering comments by
-  `jq` and also fetching labels.
-- **List issues**: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'`
-  with appropriate `--label` and `--state` filters.
-- **Comment on an issue**: `gh issue comment <number> --body "..."`
-- **Apply / remove labels**: `gh issue edit <number> --add-label "..."` /
-  `--remove-label "..."`
-- **Close**: `gh issue close <number> --comment "..."`
+- **Create an issue**: `rata issue create --title "..." --body-file -`. Pipe the
+  body with a heredoc.
+- **Read an issue**: `rata issue show <ref> --comments --json`
+- **List issues**: `rata issue list` with the filters you need. Useful filters:
+  `--team`, `--state`, `--state-type`, `--label`, `--assignee`, `--parent`,
+  `--text`, `--limit`.
+- **Comment on an issue**: `rata issue comment <ref> --body-file -`
+- **Apply / remove labels**: `rata issue label add <ref> <label...>` and
+  `rata issue label remove <ref> <label...>`
+- **Close**: `rata issue close <ref> --comment "..."`
+- **Search**: `rata search "..."`
 
-Infer the repo from `git remote -v`; `gh` does this automatically when run
-inside a clone.
+An issue reference accepts an identifier (`PER-42`), a UUID, or a linear.app
+issue URL. The repository config `.rata.json` names the default team and
+project, so most commands need no `--team`.
+
+The canonical labels are created with `rata label ensure --team <key>`.
 
 ## Pull requests as a triage surface
 
-**PRs as a request surface: no.** _(Set to `yes` if this repo treats external
-PRs as feature requests; `/triage` reads this flag.)_
+**PRs as a request surface: no.** Linear holds issues only. When this repository
+treats external pull requests as feature requests, triage them where they live
+and mirror the outcome here.
 
 ## When a skill says "publish to the issue tracker"
 
-Create a GitHub issue.
+Create a Linear issue with `rata issue create`.
 
 ## When a skill says "fetch the relevant ticket"
 
-Run `gh issue view <number> --comments`.
+Run `rata issue show <ref> --comments`.
 
 ## Wayfinding operations
 
-Used by `/wayfinder`. The **map** is a single issue with **child** issues as
-tickets.
+Used by `/wayfinder`. The **map** is a single issue labelled `wayfinder:map`,
+with **child** issues as tickets.
 
-- **Map**: a single issue labelled `wayfinder:map`, holding the Notes /
-  Decisions-so-far / Fog body. `gh issue create --label wayfinder:map`.
-- **Child ticket**: an issue linked to the map as a GitHub sub-issue. Where
-  sub-issues are unavailable, add the child to a task list in the map body and
-  put `Part of #<map>` at the top of the child body. Labels: `wayfinder:<type>`
-  (`research`/`prototype`/`grilling`/`task`). Once claimed, the ticket is
-  assigned to the driving dev.
-- **Blocking**: GitHub's native issue dependencies. Add an edge with
-  `gh api --method POST repos/eyenalxai/rata/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-db-id>`.
-  Where dependencies are unavailable, fall back to a `Blocked by: #<n>, #<n>`
-  line at the top of the child body. A ticket is unblocked when every blocker is
-  closed.
-- **Frontier query**: list the map's open children, drop any with an open blocker
-  or an assignee; first in map order wins.
-- **Claim**: `gh issue edit <n> --add-assignee @me`, the session's first write.
-- **Resolve**: `gh issue comment <n> --body "<answer>"`, then `gh issue close <n>`,
-  then append a context pointer (gist + link) to the map's Decisions-so-far.
-
-## Migration note
-
-This repository is the home of `rata`, a Linear CLI. The tracker moves to Linear
-as soon as the CLI can run the workflow itself. This file then switches to the
-Linear conventions.
+- **Map**: `rata issue create --title "..." --label wayfinder:map --body-file -`.
+- **Child ticket**: `rata issue create --title "..." --parent <map-ref> --label wayfinder:<type> --body-file -`.
+  The type labels are `wayfinder:research`, `wayfinder:prototype`,
+  `wayfinder:grilling` and `wayfinder:task`.
+- **Blocking**: native Linear relations. Wire an edge with
+  `rata issue link <child-ref> --blocked-by <blocker-ref>`, or the inverse with
+  `rata issue link <blocker-ref> --blocks <child-ref>`. A ticket is unblocked
+  when every issue that blocks it is closed.
+- **Frontier query**: `rata issue list --parent <map-ref> --unblocked --unassigned --json`.
+  The first result in map order wins.
+- **Claim**: `rata issue assign me <ref>`, the session's first write. The
+  assignee is the claim.
+- **Resolve**: `rata issue comment <ref> --body-file -`, then
+  `rata issue close <ref>`, then append a context pointer (gist plus link) to
+  the map's Decisions-so-far with `rata issue update <map-ref> --body-file -`.
