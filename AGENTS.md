@@ -52,8 +52,9 @@ bun link               # install the `rata` binary from this checkout
 
 ## Wizards
 
-Interactive setup wizards live in `scripts/`. They follow the `/wizard` skill and
-these rules:
+Setup wizards are ephemeral. Build them under `/tmp/opencode`, run them once,
+then delete them. Never commit a wizard to this repository. They follow the
+`/wizard` skill and these rules:
 
 - Capture values with visible prompts. Never use hidden input.
 - Save every captured secret to the maintainer's 1Password: the `op` CLI, vault
