@@ -9,7 +9,7 @@ const RepoConfig = Schema.Struct({
 
 type RepoConfig = typeof RepoConfig.Type
 
-const RepoConfigJson = Schema.fromJsonString(RepoConfig)
+const RepoConfigJson = Schema.fromJsonString(RepoConfig, { space: 2 })
 
 class RepoConfigError extends Schema.TaggedError<RepoConfigError>()("RepoConfigError", {
   message: Schema.String,
@@ -24,6 +24,7 @@ const describeStoreFailure =
 
 type RepoConfigShape = {
   readonly read: Effect.Effect<Option.Option<RepoConfig>, RepoConfigError>
+  readonly write: (config: RepoConfig) => Effect.Effect<void, RepoConfigError>
   readonly filePath: Effect.Effect<string, RepoConfigError>
 }
 
@@ -61,7 +62,22 @@ class RepoConfigService extends Context.Service<RepoConfigService, RepoConfigSha
         return Option.some(decoded.success)
       }).pipe(Effect.withSpan("RepoConfig.read"))
 
-      return RepoConfigService.of({ read, filePath })
+      const write = Effect.fn("RepoConfig.write")(function* writeConfig(config: RepoConfig) {
+        const file = yield* filePath
+        const encoded = yield* Schema.encodeEffect(RepoConfigJson)(config).pipe(
+          Effect.mapError(
+            () =>
+              new RepoConfigError({
+                message: `Could not encode the repository config for ${file}.`,
+              }),
+          ),
+        )
+        yield* fs
+          .writeFileString(file, encoded)
+          .pipe(Effect.mapError(describeStoreFailure("write")(file)))
+      })
+
+      return RepoConfigService.of({ read, write, filePath })
     }),
   )
 }
