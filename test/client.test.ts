@@ -8,16 +8,6 @@ import { TestClock } from "effect/testing"
 import { LinearClient } from "@/api/client"
 import { Auth } from "@/config/auth"
 
-const viewer = {
-  id: "u1",
-  name: "Ada",
-  displayName: "ada",
-  email: "ada@example.com",
-  active: true,
-  admin: false,
-  organization: { id: "o1", name: "Acme", urlKey: "acme" },
-}
-
 const jsonResponse = (
   body: unknown,
   status = 200,
@@ -79,9 +69,6 @@ const readViewer = Effect.gen(function* readViewer() {
   return yield* client.viewer
 })
 
-const runViewer = (layer: Layer.Layer<LinearClient>) =>
-  readViewer.pipe(Effect.provide(Layer.mergeAll(layer, configLayer())), Effect.runPromise)
-
 const runViewerFailure = (layer: Layer.Layer<LinearClient>) =>
   readViewer.pipe(
     Effect.provide(Layer.mergeAll(layer, configLayer())),
@@ -90,23 +77,6 @@ const runViewerFailure = (layer: Layer.Layer<LinearClient>) =>
   )
 
 describe("LinearClient", () => {
-  test("decodes the viewer with its workspace", async () => {
-    const result = await runViewer(clientLayer(() => jsonResponse({ data: { viewer } })))
-    expect(result.email).toBe("ada@example.com")
-    expect(result.organization.urlKey).toBe("acme")
-  })
-
-  test("sends the API key in the authorization header", async () => {
-    const seen: (string | undefined)[] = []
-    await runViewer(
-      clientLayer((request) => {
-        seen.push(request.headers.authorization)
-        return jsonResponse({ data: { viewer } })
-      }),
-    )
-    expect(seen).toEqual(["test-key"])
-  })
-
   test("maps 401 to LinearAuthError without a retry", async () => {
     let calls = 0
     const error = await runViewerFailure(

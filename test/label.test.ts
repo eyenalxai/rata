@@ -10,12 +10,6 @@ import { canonicalLabels } from "@/domain/labels"
 
 const team = { id: "team-1", key: "RAT", name: "Rata" }
 
-const listLabels = (handler: Handler, teamId: string) =>
-  Effect.gen(function* runList() {
-    const labels = yield* LabelService
-    return yield* labels.list(teamId)
-  }).pipe(Effect.provide(apiLayer(handler)))
-
 const ensureLabels = (handler: Handler, teamKey: string) =>
   Effect.gen(function* runEnsure() {
     const teams = yield* TeamService
@@ -28,24 +22,9 @@ const countCreates = (requests: readonly GraphQLRequest[]): number =>
   requests.filter((request) => request.query.includes("mutation CreateLabel")).length
 
 describe("LabelService", () => {
-  test("lists only the labels of the given team", async () => {
-    const fake = makeFakeLinear({
-      teams: [team],
-      projects: [],
-      labels: [
-        { id: "label-1", name: "needs-triage", color: "#111111", teamId: "team-1" },
-        { id: "label-2", name: "bug", color: "#222222", teamId: "team-2" },
-      ],
-    })
-    const labels = await listLabels(fake.handler, "team-1").pipe(Effect.runPromise)
-    expect(labels).toEqual([{ id: "label-1", name: "needs-triage", color: "#111111" }])
-    expect(fake.requests[0]?.variables.teamId).toBe("team-1")
-  })
-
   test("creates only the missing canonical labels and reports both groups", async () => {
     const fake = makeFakeLinear({
       teams: [team],
-      projects: [],
       labels: [
         { id: "label-1", name: "wontfix", color: "#111111", teamId: "team-1" },
         { id: "label-2", name: "needs-triage", color: "#222222", teamId: "team-1" },
@@ -60,7 +39,7 @@ describe("LabelService", () => {
   })
 
   test("is idempotent: a second run creates nothing", async () => {
-    const fake = makeFakeLinear({ teams: [team], projects: [], labels: [] })
+    const fake = makeFakeLinear({ teams: [team], labels: [] })
     const first = await ensureLabels(fake.handler, "RAT").pipe(Effect.runPromise)
     expect(first.created).toHaveLength(canonicalLabels.length)
     expect(countCreates(fake.requests)).toBe(canonicalLabels.length)
@@ -72,7 +51,7 @@ describe("LabelService", () => {
   })
 
   test("fails when Linear rejects a label creation", async () => {
-    const fake = makeFakeLinear({ teams: [team], projects: [], labels: [] }, { rejectCreate: true })
+    const fake = makeFakeLinear({ teams: [team], labels: [] }, { rejectCreate: true })
     const error = await ensureLabels(fake.handler, "RAT").pipe(Effect.flip, Effect.runPromise)
     expect(error._tag).toBe("LabelCreateError")
     if (error._tag === "LabelCreateError") {

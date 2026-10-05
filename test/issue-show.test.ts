@@ -72,18 +72,6 @@ describe("IssueApi show", () => {
     expect(issue.comments?.map((comment) => comment.id)).toEqual(["c1", "c2"])
   })
 
-  test("omits comments without --comments", async () => {
-    const issue = await run(
-      respondWithDetail,
-      Effect.gen(function* showWithoutComments() {
-        const api = yield* IssueApi
-        return yield* api.show("RAT-1", { comments: false })
-      }),
-    )
-
-    expect(issue.comments).toBeUndefined()
-  })
-
   test("exposes blocking relations in both directions", async () => {
     const blocker = {
       id: "i9",

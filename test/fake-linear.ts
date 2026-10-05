@@ -5,7 +5,6 @@ import { HttpClient, HttpClientResponse } from "effect/http"
 
 import { LinearClient } from "@/api/client"
 import { LabelService } from "@/api/label"
-import { ProjectService } from "@/api/project"
 import { TeamService } from "@/api/team"
 import { Auth } from "@/config/auth"
 
@@ -31,12 +30,6 @@ type FakeTeam = {
   readonly id: string
   readonly key: string
   readonly name: string
-}
-
-type FakeProject = {
-  readonly id: string
-  readonly name: string
-  readonly status: { readonly name: string }
 }
 
 type FakeLabel = {
@@ -65,7 +58,6 @@ const readRequest = (request: HttpClientRequest.HttpClientRequest): GraphQLReque
 const makeFakeLinear = (
   seed: {
     readonly teams: readonly FakeTeam[]
-    readonly projects: readonly FakeProject[]
     readonly labels: readonly FakeLabel[]
   },
   options: { readonly rejectCreate?: boolean } = {},
@@ -113,12 +105,6 @@ const makeFakeLinear = (
         data: { teams: { nodes: seed.teams.filter((item) => item.key === key) } },
       })
     }
-    if (query.includes("query Teams")) {
-      return jsonResponse({ data: { teams: { nodes: seed.teams } } })
-    }
-    if (query.includes("query Projects")) {
-      return jsonResponse({ data: { projects: { nodes: seed.projects } } })
-    }
     if (query.includes("query Labels")) {
       const teamId = graphql.variables.teamId
       return jsonResponse({
@@ -154,7 +140,6 @@ const apiLayer = (handler: Handler) => {
     client,
     TeamService.layer.pipe(Layer.provide(client)),
     LabelService.layer.pipe(Layer.provide(client)),
-    ProjectService.layer.pipe(Layer.provide(client)),
   )
 }
 

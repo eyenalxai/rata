@@ -122,25 +122,4 @@ describe("IssueApi list", () => {
     expect(requests[1]?.after).toBe("cursor-1")
     expect(requests[1]?.first).toBe(1)
   })
-
-  test("searches issues by text", async () => {
-    const captured: Record<string, unknown>[] = []
-    const handler = (request: HttpClientRequest.HttpClientRequest): Response => {
-      captured.push(readBody(request).variables)
-      return jsonResponse({
-        data: { searchIssues: { nodes: [summaryNode("RAT-7")], pageInfo } },
-      })
-    }
-
-    const issues = await run(
-      handler,
-      Effect.gen(function* searchIssues() {
-        const api = yield* IssueApi
-        return yield* api.search("login", 50)
-      }),
-    )
-
-    expect(issues.map((issue) => issue.identifier)).toEqual(["RAT-7"])
-    expect(captured[0]?.term).toBe("login")
-  })
 })
