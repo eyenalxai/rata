@@ -5,6 +5,7 @@ import { EOL } from "node:os"
 import { TeamService } from "@/api/team"
 import { confirm } from "@/cli/confirm"
 import { reportFailure, writeJson, writeLine } from "@/cli/output"
+import { machineTimezone } from "@/domain/timezone"
 
 const jsonFlag = Flag.Boolean("json").pipe(
   Flag.withDescription("Print machine-readable JSON"),
@@ -45,6 +46,7 @@ const createCommand = Command.make(
         key: Option.getOrUndefined(config.key),
         description: Option.getOrUndefined(config.description),
         copySettingsFrom: Option.getOrUndefined(config.copySettingsFrom),
+        timezone: Option.getOrUndefined(machineTimezone()),
       })
       if (config.json) {
         return yield* writeJson({ team })
@@ -52,7 +54,7 @@ const createCommand = Command.make(
       return yield* writeLine(`Created ${team.key}: ${team.name} (${team.id})`)
     }).pipe(Effect.catch(reportFailure)),
 ).pipe(
-  Command.withDescription("Create a team"),
+  Command.withDescription("Create a team with the machine timezone"),
   Command.withExamples([
     {
       command: 'rata team create --name "Scratch" --key SCR',

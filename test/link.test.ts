@@ -87,12 +87,60 @@ describe("InitService.link", () => {
         team: Option.some("LINKZ"),
         create: true,
         name: Option.some("Link Test"),
+        timezone: Option.some("Europe/Amsterdam"),
       }),
     )
     expect(result.team.key).toBe("LINKZ")
     expect(result.team.name).toBe("Link Test")
     const create = fake.requests.find((request) => request.query.includes("mutation TeamCreate"))
-    expect(create?.variables.input).toEqual({ name: "Link Test", key: "LINKZ" })
+    expect(create?.variables.input).toEqual({
+      name: "Link Test",
+      key: "LINKZ",
+      timezone: "Europe/Amsterdam",
+    })
+    expect(fake.requests.some((request) => request.query.includes("mutation TeamUpdate"))).toBe(
+      false,
+    )
+  })
+
+  test("updates the team timezone when the machine timezone differs", async () => {
+    const harness = makeHarness()
+    const fake = makeFakeLinear({ teams: [rat], labels: [] })
+    const result = await linkTeam(
+      fake.handler,
+      harness,
+      options({ timezone: Option.some("Europe/Amsterdam") }),
+    )
+    expect(result.team.timezone).toBe("Europe/Amsterdam")
+    expect(result.timezone).toEqual(
+      Option.some({ previous: "America/Los_Angeles", current: "Europe/Amsterdam" }),
+    )
+    const update = fake.requests.find((request) => request.query.includes("mutation TeamUpdate"))
+    expect(update?.variables).toEqual({ id: "team-1", input: { timezone: "Europe/Amsterdam" } })
+  })
+
+  test("does not update the team timezone when it matches", async () => {
+    const harness = makeHarness()
+    const fake = makeFakeLinear({ teams: [rat], labels: [] })
+    const result = await linkTeam(
+      fake.handler,
+      harness,
+      options({ timezone: Option.some(rat.timezone) }),
+    )
+    expect(Option.isNone(result.timezone)).toBe(true)
+    expect(fake.requests.some((request) => request.query.includes("mutation TeamUpdate"))).toBe(
+      false,
+    )
+  })
+
+  test("does not update the team timezone when the machine reports none", async () => {
+    const harness = makeHarness()
+    const fake = makeFakeLinear({ teams: [rat], labels: [] })
+    const result = await linkTeam(fake.handler, harness, options({}))
+    expect(Option.isNone(result.timezone)).toBe(true)
+    expect(fake.requests.some((request) => request.query.includes("mutation TeamUpdate"))).toBe(
+      false,
+    )
   })
 
   test("rejects --create with a team id", async () => {

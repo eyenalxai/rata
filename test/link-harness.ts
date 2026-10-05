@@ -12,8 +12,8 @@ import { InitService } from "@/config/init"
 
 const ratId = "0f8fad5b-d9cb-469f-a165-70867728950e"
 
-const rat = { id: "team-1", key: "RAT", name: "Rata" }
-const scratch = { id: "team-2", key: "SCR", name: "Scratch" }
+const rat = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
+const scratch = { id: "team-2", key: "SCR", name: "Scratch", timezone: "America/Los_Angeles" }
 
 const configPath = () => `${process.cwd()}/.rata.json`
 
@@ -38,6 +38,7 @@ const options = (overrides: Partial<LinkOptions>): LinkOptions => ({
   create: false,
   name: Option.none(),
   force: false,
+  timezone: Option.none(),
   ...overrides,
 })
 

@@ -69,7 +69,9 @@ creates only the true misses, as team labels.
 `rata team list` prints the teams in the workspace: key, name, id.
 
 `rata team create` creates a team. The viewer becomes the team owner. Linear
-creates the default workflow states and labels with the team.
+creates the default workflow states and labels with the team. `create` sets the
+team timezone from the machine: the IANA name that the machine reports. When the
+machine reports no timezone, the create skips it.
 
 ```bash
 rata team create --name "Scratch" --key SCR --description "A scratch team"
@@ -93,7 +95,8 @@ another team. The value is a team key or a UUID.
   "team": {
     "id": "t1",
     "key": "SCR",
-    "name": "Scratch"
+    "name": "Scratch",
+    "timezone": "Europe/Amsterdam"
   }
 }
 ```
@@ -176,6 +179,11 @@ missing and left alone unless `--force` is passed.
 
 A missing team fails with `TeamNotFoundError` unless `--create` is passed.
 
+`link` sets the timezone of the linked team from the machine: the IANA name that
+the machine reports. It calls `teamUpdate` only when the timezone differs, and
+it reports the change. When the timezone matches, or the machine reports none,
+`link` makes no update.
+
 `--json` prints one stable document with the linked team, the repository config
 and the files:
 
@@ -184,9 +192,11 @@ and the files:
   "team": {
     "id": "t1",
     "key": "RAT",
-    "name": "rata"
+    "name": "rata",
+    "timezone": "Europe/Amsterdam"
   },
   "project": "rata",
+  "timezone": { "previous": "America/Los_Angeles", "current": "Europe/Amsterdam" },
   "files": [
     { "path": ".rata.json", "action": "create" },
     { "path": "docs/agents/issue-tracker.md", "action": "create" },
@@ -201,8 +211,9 @@ and the files:
 }
 ```
 
-`project` is `null` when no project is recorded. Each file action is `create`,
-`overwrite`, `unchanged` or `skip`.
+`project` is `null` when no project is recorded. `timezone` holds the previous
+and current IANA names when `link` changed the team timezone, and `null`
+otherwise. Each file action is `create`, `overwrite`, `unchanged` or `skip`.
 
 ## Reading issues
 

@@ -9,6 +9,7 @@ const Team = Schema.Struct({
   id: Schema.String,
   key: Schema.String,
   name: Schema.String,
+  timezone: Schema.String,
 })
 
 type Team = typeof Team.Type
@@ -16,6 +17,11 @@ type Team = typeof Team.Type
 const TeamConnection = Schema.Struct({ nodes: Schema.Array(Team) })
 
 const TeamCreatePayload = Schema.Struct({
+  success: Schema.Boolean,
+  team: Schema.NullOr(Team),
+})
+
+const TeamUpdatePayload = Schema.Struct({
   success: Schema.Boolean,
   team: Schema.NullOr(Team),
 })
@@ -31,6 +37,7 @@ const teamsQuery = `query Teams {
       id
       key
       name
+      timezone
     }
   }
 }`
@@ -41,6 +48,7 @@ const teamByKeyQuery = `query TeamByKey($key: String!) {
       id
       key
       name
+      timezone
     }
   }
 }`
@@ -51,6 +59,7 @@ const teamByIdQuery = `query TeamById($id: ID!) {
       id
       key
       name
+      timezone
     }
   }
 }`
@@ -62,6 +71,19 @@ const teamCreateMutation = `mutation TeamCreate($input: TeamCreateInput!, $copyS
       id
       key
       name
+      timezone
+    }
+  }
+}`
+
+const teamUpdateMutation = `mutation TeamUpdate($id: String!, $input: TeamUpdateInput!) {
+  teamUpdate(id: $id, input: $input) {
+    success
+    team {
+      id
+      key
+      name
+      timezone
     }
   }
 }`
@@ -88,11 +110,17 @@ class TeamDeleteError extends Schema.TaggedError<TeamDeleteError>()("TeamDeleteE
   message: Schema.String,
 }) {}
 
+class TeamUpdateError extends Schema.TaggedError<TeamUpdateError>()("TeamUpdateError", {
+  key: Schema.String,
+  message: Schema.String,
+}) {}
+
 type TeamCreateOptions = {
   readonly name: string
   readonly key?: string | undefined
   readonly description?: string | undefined
   readonly copySettingsFrom?: string | undefined
+  readonly timezone?: string | undefined
 }
 
 type DeletedTeam = {
@@ -108,6 +136,10 @@ type TeamServiceShape = {
   readonly create: (
     options: TeamCreateOptions,
   ) => Effect.Effect<Team, LinearApiError | TeamCreateError | TeamNotFoundError>
+  readonly updateTimezone: (
+    team: Team,
+    timezone: string,
+  ) => Effect.Effect<Team, LinearApiError | TeamUpdateError>
   readonly delete: (team: Team) => Effect.Effect<DeletedTeam, LinearApiError | TeamDeleteError>
 }
 
@@ -169,6 +201,9 @@ class TeamService extends Context.Service<TeamService, TeamServiceShape>()(
         if (options.description !== undefined) {
           input.description = options.description
         }
+        if (options.timezone !== undefined) {
+          input.timezone = options.timezone
+        }
         const variables: Record<string, unknown> = { input }
         if (options.copySettingsFrom !== undefined) {
           variables.copySettingsFromTeamId = isUuid(options.copySettingsFrom)
@@ -189,6 +224,24 @@ class TeamService extends Context.Service<TeamService, TeamServiceShape>()(
         return data.teamCreate.team
       })
 
+      const updateTimezone = Effect.fn("TeamService.updateTimezone")(function* updateTimezone(
+        team: Team,
+        timezone: string,
+      ) {
+        const data = yield* client.execute(
+          teamUpdateMutation,
+          { id: team.id, input: { timezone } },
+          Schema.Struct({ teamUpdate: TeamUpdatePayload }),
+        )
+        if (!data.teamUpdate.success || data.teamUpdate.team === null) {
+          return yield* new TeamUpdateError({
+            key: team.key,
+            message: `Linear did not update the timezone of the team ${team.key}.`,
+          })
+        }
+        return data.teamUpdate.team
+      })
+
       const deleteTeam = Effect.fn("TeamService.delete")(function* deleteTeam(team: Team) {
         const data = yield* client.execute(
           teamDeleteMutation,
@@ -204,7 +257,7 @@ class TeamService extends Context.Service<TeamService, TeamServiceShape>()(
         return { id: data.teamDelete.entityId, key: team.key, name: team.name }
       })
 
-      return TeamService.of({ byId, byKey, create, delete: deleteTeam, list })
+      return TeamService.of({ byId, byKey, create, delete: deleteTeam, list, updateTimezone })
     }),
   )
 }
@@ -217,4 +270,5 @@ export {
   TeamDeleteError,
   TeamNotFoundError,
   TeamService,
+  TeamUpdateError,
 }

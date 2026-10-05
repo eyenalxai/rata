@@ -25,6 +25,7 @@ type FakeTeam = {
   readonly id: string
   readonly key: string
   readonly name: string
+  readonly timezone: string
 }
 
 type FakeLabel = {
@@ -93,9 +94,22 @@ const makeFakeLinear = (
         id: `team-${teams.length + 1}`,
         key: typeof input.key === "string" ? input.key : "AUTO",
         name,
+        timezone: typeof input.timezone === "string" ? input.timezone : "America/Los_Angeles",
       }
       teams.push(created)
       return jsonResponse({ data: { teamCreate: { success: true, team: created } } })
+    }
+    if (query.includes("mutation TeamUpdate")) {
+      const id = stringField(graphql.variables, "id")
+      const timezone = stringField(inputOf(graphql.variables), "timezone")
+      const index = teams.findIndex((item) => item.id === id)
+      const current = teams[index]
+      if (current === undefined) {
+        return jsonResponse({ data: { teamUpdate: { success: false, team: null } } })
+      }
+      const updated = { ...current, timezone }
+      teams[index] = updated
+      return jsonResponse({ data: { teamUpdate: { success: true, team: updated } } })
     }
     if (query.includes("mutation CreateLabel")) {
       const input = inputOf(graphql.variables)

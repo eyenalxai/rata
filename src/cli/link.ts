@@ -3,6 +3,7 @@ import { Command, Flag } from "effect/cli"
 
 import { formatFile, formatNames, reportFailure, writeJson, writeLine } from "@/cli/output"
 import { InitService } from "@/config/init"
+import { machineTimezone } from "@/domain/timezone"
 
 const jsonFlag = Flag.Boolean("json").pipe(
   Flag.withDescription("Print machine-readable JSON"),
@@ -50,16 +51,23 @@ const linkCommand = Command.make(
         create: config.create,
         name: config.name,
         force: config.force,
+        timezone: machineTimezone(),
       })
       if (config.json) {
         return yield* writeJson({
           team: result.team,
           project: Option.getOrNull(result.project),
+          timezone: Option.getOrNull(result.timezone),
           files: result.files,
           labels: result.labels,
         })
       }
       yield* writeLine(`Linked ${result.team.key}: ${result.team.name} (${result.team.id})`)
+      if (Option.isSome(result.timezone)) {
+        yield* writeLine(
+          `Updated timezone: ${result.timezone.value.previous} -> ${result.timezone.value.current}`,
+        )
+      }
       yield* Effect.forEach(result.files, (file) => writeLine(formatFile(file)), { discard: true })
       yield* writeLine(
         `created labels: ${formatNames(result.labels.created.map((label) => label.name))}`,
@@ -73,7 +81,7 @@ const linkCommand = Command.make(
       return yield* writeLine("  - List the issues: `rata issue list`.")
     }).pipe(Effect.catch(reportFailure)),
 ).pipe(
-  Command.withDescription("Bind this repository to a Linear team"),
+  Command.withDescription("Bind this repository to a Linear team and set its timezone"),
   Command.withExamples([
     {
       command: "rata link --team RAT --project rata",

@@ -43,10 +43,18 @@ const makeLayer = (files: Map<string, string>, writes: string[]) => {
         repoConfigLayer,
         Layer.succeed(TeamService, {
           list: Effect.succeed([]),
-          byKey: (key: string) => Effect.succeed({ id: "team-1", key, name: "Test" }),
-          byId: (id: string) => Effect.succeed({ id, key: "TEST", name: "Test" }),
+          byKey: (key: string) =>
+            Effect.succeed({ id: "team-1", key, name: "Test", timezone: "America/Los_Angeles" }),
+          byId: (id: string) =>
+            Effect.succeed({ id, key: "TEST", name: "Test", timezone: "America/Los_Angeles" }),
           create: (options: TeamCreateOptions) =>
-            Effect.succeed({ id: "team-2", key: options.key ?? "TEST", name: options.name }),
+            Effect.succeed({
+              id: "team-2",
+              key: options.key ?? "TEST",
+              name: options.name,
+              timezone: options.timezone ?? "America/Los_Angeles",
+            }),
+          updateTimezone: (team: Team, timezone: string) => Effect.succeed({ ...team, timezone }),
           delete: (team: Team) => Effect.succeed({ id: team.id, key: team.key, name: team.name }),
         }),
         Layer.succeed(LabelService, {

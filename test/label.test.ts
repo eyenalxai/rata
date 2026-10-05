@@ -8,7 +8,7 @@ import { LabelService } from "@/api/label"
 import { TeamService } from "@/api/team"
 import { canonicalLabels } from "@/domain/labels"
 
-const team = { id: "team-1", key: "RAT", name: "Rata" }
+const team = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
 
 const ensureLabels = (handler: Handler, teamKey: string) =>
   Effect.gen(function* runEnsure() {

@@ -7,8 +7,8 @@ import { Effect } from "effect"
 
 import type { IssueWriteApi } from "@/api/issue-write"
 
-const team = { id: "team-1", key: "RAT", name: "Rata" }
-const otherTeam = { id: "team-2", key: "OPS", name: "Operations" }
+const team = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
+const otherTeam = { id: "team-2", key: "OPS", name: "Operations", timezone: "America/Los_Angeles" }
 
 const states = [
   { id: "s-backlog", name: "Backlog", type: "backlog" },

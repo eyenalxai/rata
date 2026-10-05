@@ -3,8 +3,8 @@ import { Option } from "effect"
 
 import { parseTeamAnswer } from "@/domain/link"
 
-const rat = { id: "team-1", key: "RAT", name: "Rata" }
-const scratch = { id: "team-2", key: "SCR", name: "Scratch" }
+const rat = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
+const scratch = { id: "team-2", key: "SCR", name: "Scratch", timezone: "America/Los_Angeles" }
 const teams = [rat, scratch]
 
 describe("parseTeamAnswer", () => {

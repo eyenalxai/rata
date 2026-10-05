@@ -13,6 +13,12 @@ type LinkTargetOptions = {
   readonly team: Option.Option<string>
   readonly create: boolean
   readonly name: Option.Option<string>
+  readonly timezone: Option.Option<string>
+}
+
+type TimezoneChange = {
+  readonly previous: string
+  readonly current: string
 }
 
 type LinkTeamDependencies = {
@@ -100,7 +106,7 @@ const promptForTeam = Effect.fn("LinkTeam.promptForTeam")(function* promptForTea
   )
 })
 
-const resolveLinkTeam = Effect.fn("LinkTeam.resolve")(function* resolveLinkTeam(
+const resolveTeamTarget = Effect.fn("LinkTeam.resolveTarget")(function* resolveTeamTarget(
   options: LinkTargetOptions,
   deps: LinkTeamDependencies,
 ) {
@@ -117,11 +123,31 @@ const resolveLinkTeam = Effect.fn("LinkTeam.resolve")(function* resolveLinkTeam(
   return yield* deps.teams.byKey(value).pipe(
     Effect.catchTag("TeamNotFoundError", (error) => {
       if (options.create && Option.isSome(options.name)) {
-        return deps.teams.create({ name: options.name.value, key: value })
+        return deps.teams.create({
+          name: options.name.value,
+          key: value,
+          timezone: Option.getOrUndefined(options.timezone),
+        })
       }
       return Effect.fail(error)
     }),
   )
+})
+
+const resolveLinkTeam = Effect.fn("LinkTeam.resolve")(function* resolveLinkTeam(
+  options: LinkTargetOptions,
+  deps: LinkTeamDependencies,
+) {
+  const team = yield* resolveTeamTarget(options, deps)
+  const machine = Option.getOrUndefined(options.timezone)
+  if (machine === undefined || machine === team.timezone) {
+    return { team, timezone: Option.none<TimezoneChange>() }
+  }
+  const updated = yield* deps.teams.updateTimezone(team, machine)
+  return {
+    team: updated,
+    timezone: Option.some({ previous: team.timezone, current: updated.timezone }),
+  }
 })
 
 export {
@@ -130,4 +156,5 @@ export {
   resolveLinkTeam,
   type LinkTargetOptions,
   type LinkTeamDependencies,
+  type TimezoneChange,
 }

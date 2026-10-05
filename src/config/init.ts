@@ -4,8 +4,8 @@ import { Context, Effect, FileSystem, Layer, Option, Path, Schema, Stdio } from 
 
 import type { LinearApiError } from "@/api/errors"
 import type { LabelCreateError, LabelEnsureResult } from "@/api/label"
-import type { Team, TeamCreateError, TeamNotFoundError } from "@/api/team"
-import type { LinkError } from "@/config/link-team"
+import type { Team, TeamCreateError, TeamNotFoundError, TeamUpdateError } from "@/api/team"
+import type { LinkError, LinkTargetOptions, TimezoneChange } from "@/config/link-team"
 import type { RepoConfig, RepoConfigError } from "@/config/repo"
 import type { InitAction } from "@/domain/init"
 
@@ -40,17 +40,15 @@ type InitResult = {
   readonly labels: Option.Option<LabelEnsureResult>
 }
 
-type LinkOptions = {
-  readonly team: Option.Option<string>
+type LinkOptions = LinkTargetOptions & {
   readonly project: Option.Option<string>
-  readonly create: boolean
-  readonly name: Option.Option<string>
   readonly force: boolean
 }
 
 type LinkResult = {
   readonly team: Team
   readonly project: Option.Option<string>
+  readonly timezone: Option.Option<TimezoneChange>
   readonly files: readonly InitFileReport[]
   readonly labels: LabelEnsureResult
 }
@@ -96,6 +94,7 @@ type InitServiceShape = {
     | RepoConfigError
     | TeamCreateError
     | TeamNotFoundError
+    | TeamUpdateError
   >
 }
 
@@ -270,7 +269,7 @@ class InitService extends Context.Service<InitService, InitServiceShape>()(
         if (Option.isSome(invalid)) {
           return yield* invalid.value
         }
-        const team = yield* resolveLinkTeam(options, { stdio, teams })
+        const { team, timezone } = yield* resolveLinkTeam(options, { stdio, teams })
         const ensured = yield* labels.ensure(team.id)
         const setup = yield* applySetup({
           team: team.key,
@@ -278,7 +277,7 @@ class InitService extends Context.Service<InitService, InitServiceShape>()(
           force: options.force,
           overwriteConfig: true,
         })
-        return { team, project: setup.project, files: setup.files, labels: ensured }
+        return { team, project: setup.project, timezone, files: setup.files, labels: ensured }
       })
 
       return InitService.of({ link, run })
