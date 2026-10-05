@@ -1,11 +1,14 @@
 import { describe, expect, test } from "bun:test"
 import { Effect, FileSystem, Layer, Option, Path, Stdio } from "effect"
+import { HttpClient } from "effect/http"
 
 import type { Team, TeamCreateOptions } from "@/api/team"
 import type { InitOptions } from "@/config/init-model"
 
+import { LinearClient } from "@/api/client"
 import { LabelService } from "@/api/label"
 import { TeamService } from "@/api/team"
+import { Auth } from "@/config/auth"
 import { InitService } from "@/config/init"
 import { RepoConfigService } from "@/config/repo"
 import {
@@ -37,32 +40,50 @@ const makeLayer = (files: Map<string, string>, writes: string[]) => {
     Stdio.layerTest({}),
   )
   const repoConfigLayer = RepoConfigService.layer.pipe(Layer.provide(platform))
+  const authLayer = Auth.layer.pipe(Layer.provide(Layer.mergeAll(repoConfigLayer, platform)))
+  const clientLayer = LinearClient.layer.pipe(
+    Layer.provide(
+      Layer.mergeAll(
+        authLayer,
+        Layer.succeed(
+          HttpClient.HttpClient,
+          HttpClient.make(() => Effect.die("The init tests do not call Linear.")),
+        ),
+      ),
+    ),
+  )
+  const teams: TeamService["Service"] = {
+    list: Effect.succeed([]),
+    byKey: (key: string) =>
+      Effect.succeed({ id: "team-1", key, name: "Test", timezone: "America/Los_Angeles" }),
+    byId: (id: string) =>
+      Effect.succeed({ id, key: "TEST", name: "Test", timezone: "America/Los_Angeles" }),
+    create: (createOptions: TeamCreateOptions) =>
+      Effect.succeed({
+        id: "team-2",
+        key: createOptions.key ?? "TEST",
+        name: createOptions.name,
+        timezone: createOptions.timezone ?? "America/Los_Angeles",
+      }),
+    updateTimezone: (team: Team, timezone: string) => Effect.succeed({ ...team, timezone }),
+    delete: (team: Team) => Effect.succeed({ id: team.id, key: team.key, name: team.name }),
+    withKey: () => teams,
+  }
+  const labels: LabelService["Service"] = {
+    list: () => Effect.succeed([]),
+    listAvailable: () => Effect.succeed([]),
+    ensure: () => Effect.succeed({ created: [], existing: [] }),
+    withKey: () => labels,
+  }
   return InitService.layer.pipe(
     Layer.provide(
       Layer.mergeAll(
         repoConfigLayer,
-        Layer.succeed(TeamService, {
-          list: Effect.succeed([]),
-          byKey: (key: string) =>
-            Effect.succeed({ id: "team-1", key, name: "Test", timezone: "America/Los_Angeles" }),
-          byId: (id: string) =>
-            Effect.succeed({ id, key: "TEST", name: "Test", timezone: "America/Los_Angeles" }),
-          create: (options: TeamCreateOptions) =>
-            Effect.succeed({
-              id: "team-2",
-              key: options.key ?? "TEST",
-              name: options.name,
-              timezone: options.timezone ?? "America/Los_Angeles",
-            }),
-          updateTimezone: (team: Team, timezone: string) => Effect.succeed({ ...team, timezone }),
-          delete: (team: Team) => Effect.succeed({ id: team.id, key: team.key, name: team.name }),
-        }),
-        Layer.succeed(LabelService, {
-          list: () => Effect.succeed([]),
-          listAvailable: () => Effect.succeed([]),
-          ensure: () => Effect.succeed({ created: [], existing: [] }),
-        }),
+        Layer.succeed(TeamService, teams),
+        Layer.succeed(LabelService, labels),
         platform,
+        authLayer,
+        clientLayer,
       ),
     ),
   )

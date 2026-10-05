@@ -1,3 +1,5 @@
+import type { Redacted } from "effect"
+
 import { Context, Effect, Layer, Schema } from "effect"
 
 import type { LinearApiError } from "@/api/errors"
@@ -61,12 +63,69 @@ type LabelEnsureResult = {
   readonly existing: readonly Label[]
 }
 
-type LabelServiceShape = {
+type LabelOperations = {
   readonly list: (teamId: string) => Effect.Effect<readonly Label[], LinearApiError>
   readonly listAvailable: (teamId: string) => Effect.Effect<readonly Label[], LinearApiError>
   readonly ensure: (
     teamId: string,
   ) => Effect.Effect<LabelEnsureResult, LinearApiError | LabelCreateError>
+}
+
+type LabelServiceShape = LabelOperations & {
+  readonly withKey: (apiKey: Redacted.Redacted) => LabelOperations
+}
+
+const makeLabelOperations = (execute: LinearClient["Service"]["execute"]): LabelOperations => {
+  const list = Effect.fn("LabelService.list")(function* listLabels(teamId: string) {
+    const data = yield* execute(
+      listLabelsQuery,
+      { teamId },
+      Schema.Struct({ issueLabels: LabelConnection }),
+    )
+    return data.issueLabels.nodes
+  })
+
+  const listAvailable = Effect.fn("LabelService.listAvailable")(function* listAvailableLabels(
+    teamId: string,
+  ) {
+    const data = yield* execute(
+      listAvailableLabelsQuery,
+      { teamId },
+      Schema.Struct({ issueLabels: LabelConnection }),
+    )
+    return data.issueLabels.nodes
+  })
+
+  const create = Effect.fn("LabelService.create")(function* createLabel(
+    teamId: string,
+    name: string,
+  ) {
+    const data = yield* execute(
+      createLabelMutation,
+      { input: { name, teamId } },
+      Schema.Struct({ issueLabelCreate: IssueLabelPayload }),
+    )
+    if (!data.issueLabelCreate.success) {
+      return yield* new LabelCreateError({
+        name,
+        message: `Linear did not create the label ${name}.`,
+      })
+    }
+    return data.issueLabelCreate.issueLabel
+  })
+
+  const ensure = Effect.fn("LabelService.ensure")(function* ensureLabels(teamId: string) {
+    const available = yield* listAvailable(teamId)
+    const plan = planLabelEnsure(available.map((label) => label.name))
+    const existing = plan.existing.flatMap((name) => {
+      const label = findLabelByName(available, name)
+      return label === undefined ? [] : [label]
+    })
+    const created = yield* Effect.forEach(plan.missing, (name) => create(teamId, name))
+    return { created, existing }
+  })
+
+  return { list, listAvailable, ensure }
 }
 
 class LabelService extends Context.Service<LabelService, LabelServiceShape>()(
@@ -76,59 +135,15 @@ class LabelService extends Context.Service<LabelService, LabelServiceShape>()(
     LabelService,
     Effect.gen(function* labelServiceLayer() {
       const client = yield* LinearClient
-
-      const list = Effect.fn("LabelService.list")(function* listLabels(teamId: string) {
-        const data = yield* client.execute(
-          listLabelsQuery,
-          { teamId },
-          Schema.Struct({ issueLabels: LabelConnection }),
-        )
-        return data.issueLabels.nodes
+      return LabelService.of({
+        ...makeLabelOperations(client.execute),
+        withKey: (apiKey) =>
+          makeLabelOperations((query, variables, data) =>
+            client.executeWithKey(apiKey, query, variables, data),
+          ),
       })
-
-      const listAvailable = Effect.fn("LabelService.listAvailable")(function* listAvailableLabels(
-        teamId: string,
-      ) {
-        const data = yield* client.execute(
-          listAvailableLabelsQuery,
-          { teamId },
-          Schema.Struct({ issueLabels: LabelConnection }),
-        )
-        return data.issueLabels.nodes
-      })
-
-      const create = Effect.fn("LabelService.create")(function* createLabel(
-        teamId: string,
-        name: string,
-      ) {
-        const data = yield* client.execute(
-          createLabelMutation,
-          { input: { name, teamId } },
-          Schema.Struct({ issueLabelCreate: IssueLabelPayload }),
-        )
-        if (!data.issueLabelCreate.success) {
-          return yield* new LabelCreateError({
-            name,
-            message: `Linear did not create the label ${name}.`,
-          })
-        }
-        return data.issueLabelCreate.issueLabel
-      })
-
-      const ensure = Effect.fn("LabelService.ensure")(function* ensureLabels(teamId: string) {
-        const available = yield* listAvailable(teamId)
-        const plan = planLabelEnsure(available.map((label) => label.name))
-        const existing = plan.existing.flatMap((name) => {
-          const label = findLabelByName(available, name)
-          return label === undefined ? [] : [label]
-        })
-        const created = yield* Effect.forEach(plan.missing, (name) => create(teamId, name))
-        return { created, existing }
-      })
-
-      return LabelService.of({ list, listAvailable, ensure })
     }),
   )
 }
 
-export { Label, LabelCreateError, LabelService, type LabelEnsureResult }
+export { Label, LabelCreateError, type LabelOperations, LabelService, type LabelEnsureResult }

@@ -35,6 +35,8 @@ const initLayer = InitService.layer.pipe(
   Layer.provide(teamLayer),
   Layer.provide(labelLayer),
   Layer.provide(platformLayer),
+  Layer.provide(authLayer),
+  Layer.provide(clientLayer),
 )
 const issueWriteLayer = IssueWriteApi.layer.pipe(
   Layer.provide(Layer.mergeAll(clientLayer, teamLayer, labelLayer, projectLayer, repoConfigLayer)),

@@ -2,7 +2,7 @@ import type { Stdio } from "effect"
 
 import { Console, Effect, Option, Pull, Schema, Stream } from "effect"
 
-import type { TeamService } from "@/api/team"
+import type { Team, TeamOperations } from "@/api/team"
 
 import { parseTeamAnswer } from "@/domain/link"
 import { isUuid } from "@/domain/ref"
@@ -11,6 +11,7 @@ const maxPromptAttempts = 3
 
 type LinkTargetOptions = {
   readonly team: Option.Option<string>
+  readonly workspace: Option.Option<string>
   readonly create: boolean
   readonly name: Option.Option<string>
   readonly timezone: Option.Option<string>
@@ -22,8 +23,15 @@ type TimezoneChange = {
 }
 
 type LinkTeamDependencies = {
-  readonly teams: TeamService["Service"]
+  readonly teams: TeamOperations
   readonly stdio: Stdio.Stdio
+}
+
+type PromptInput<A> = {
+  readonly question: string
+  readonly parse: (answer: string) => Option.Option<A>
+  readonly invalidMessage: (answer: string) => string
+  readonly failureMessage: string
 }
 
 class LinkError extends Schema.TaggedError<LinkError>()("LinkError", {
@@ -41,8 +49,50 @@ const invalidLinkOptions = (options: LinkTargetOptions): Option.Option<LinkError
   if (!options.create && Option.isSome(options.name)) {
     return Option.some(new LinkError({ message: "`--name` only applies with `--create`." }))
   }
+  if (options.create && Option.exists(options.team, isUuid)) {
+    return Option.some(new LinkError({ message: "`--create` needs a team key, not an id." }))
+  }
   return Option.none()
 }
+
+const promptForChoice = <A>(
+  stdio: Stdio.Stdio,
+  input: PromptInput<A>,
+): Effect.Effect<A, LinkError> =>
+  Effect.scoped(
+    Effect.gen(function* readChoice() {
+      const pull = yield* Stream.toPull(stdio.stdin.pipe(Stream.decodeText(), Stream.splitLines))
+      let pending: string[] = []
+      const nextLine = Effect.fnUntraced(function* nextLine() {
+        while (pending.length === 0) {
+          const chunk = yield* pull.pipe(
+            Pull.catchDone(() =>
+              Effect.fail(new LinkError({ message: "Standard input ended before an answer." })),
+            ),
+            Effect.mapError(
+              (cause) => new LinkError({ message: "Could not read standard input.", cause }),
+            ),
+          )
+          pending = [...chunk]
+        }
+        const line = pending[0] ?? ""
+        pending = pending.slice(1)
+        return line
+      })
+      let attempt = 0
+      while (attempt < maxPromptAttempts) {
+        yield* Console.log(input.question)
+        const answer = yield* nextLine()
+        const selected = input.parse(answer)
+        if (Option.isSome(selected)) {
+          return selected.value
+        }
+        yield* Console.log(input.invalidMessage(answer))
+        attempt += 1
+      }
+      return yield* new LinkError({ message: input.failureMessage })
+    }),
+  )
 
 const promptForTeam = Effect.fn("LinkTeam.promptForTeam")(function* promptForTeam(
   deps: LinkTeamDependencies,
@@ -66,44 +116,12 @@ const promptForTeam = Effect.fn("LinkTeam.promptForTeam")(function* promptForTea
     (team, index) => Console.log(`  ${index + 1}. ${team.key}  ${team.name}`),
     { discard: true },
   )
-  return yield* Effect.scoped(
-    Effect.gen(function* selectTeam() {
-      const pull = yield* Stream.toPull(
-        deps.stdio.stdin.pipe(Stream.decodeText(), Stream.splitLines),
-      )
-      let pending: string[] = []
-      const nextLine = Effect.fnUntraced(function* nextLine() {
-        while (pending.length === 0) {
-          const chunk = yield* pull.pipe(
-            Pull.catchDone(() =>
-              Effect.fail(new LinkError({ message: "Standard input ended before an answer." })),
-            ),
-            Effect.mapError(
-              (cause) => new LinkError({ message: "Could not read standard input.", cause }),
-            ),
-          )
-          pending = [...chunk]
-        }
-        const line = pending[0] ?? ""
-        pending = pending.slice(1)
-        return line
-      })
-      let attempt = 0
-      while (attempt < maxPromptAttempts) {
-        yield* Console.log("Team number or key:")
-        const answer = yield* nextLine()
-        const selected = parseTeamAnswer(all, answer)
-        if (Option.isSome(selected)) {
-          return selected.value
-        }
-        yield* Console.log(`Not a team: ${answer.trim()}.`)
-        attempt += 1
-      }
-      return yield* new LinkError({
-        message: "No valid team selected. Run `rata link --team <key>` to link directly.",
-      })
-    }),
-  )
+  return yield* promptForChoice(deps.stdio, {
+    question: "Team number or key:",
+    parse: (answer) => parseTeamAnswer(all, answer),
+    invalidMessage: (answer) => `Not a team: ${answer.trim()}.`,
+    failureMessage: "No valid team selected. Run `rata link --team <key>` to link directly.",
+  })
 })
 
 const resolveTeamTarget = Effect.fn("LinkTeam.resolveTarget")(function* resolveTeamTarget(
@@ -115,9 +133,6 @@ const resolveTeamTarget = Effect.fn("LinkTeam.resolveTarget")(function* resolveT
   }
   const value = options.team.value
   if (isUuid(value)) {
-    if (options.create) {
-      return yield* new LinkError({ message: "`--create` needs a team key, not an id." })
-    }
     return yield* deps.teams.byId(value)
   }
   return yield* deps.teams.byKey(value).pipe(
@@ -134,27 +149,37 @@ const resolveTeamTarget = Effect.fn("LinkTeam.resolveTarget")(function* resolveT
   )
 })
 
-const resolveLinkTeam = Effect.fn("LinkTeam.resolve")(function* resolveLinkTeam(
-  options: LinkTargetOptions,
-  deps: LinkTeamDependencies,
+const updateTeamTimezone = Effect.fn("LinkTeam.updateTimezone")(function* updateTeamTimezone(
+  team: Team,
+  timezone: Option.Option<string>,
+  teams: TeamOperations,
 ) {
-  const team = yield* resolveTeamTarget(options, deps)
-  const machine = Option.getOrUndefined(options.timezone)
+  const machine = Option.getOrUndefined(timezone)
   if (machine === undefined || machine === team.timezone) {
     return { team, timezone: Option.none<TimezoneChange>() }
   }
-  const updated = yield* deps.teams.updateTimezone(team, machine)
+  const updated = yield* teams.updateTimezone(team, machine)
   return {
     team: updated,
     timezone: Option.some({ previous: team.timezone, current: updated.timezone }),
   }
 })
 
+const resolveLinkTeam = Effect.fn("LinkTeam.resolve")(function* resolveLinkTeam(
+  options: LinkTargetOptions,
+  deps: LinkTeamDependencies,
+) {
+  const team = yield* resolveTeamTarget(options, deps)
+  return yield* updateTeamTimezone(team, options.timezone, deps.teams)
+})
+
 export {
   invalidLinkOptions,
   LinkError,
-  resolveLinkTeam,
   type LinkTargetOptions,
   type LinkTeamDependencies,
+  promptForChoice,
+  resolveLinkTeam,
   type TimezoneChange,
+  updateTeamTimezone,
 }

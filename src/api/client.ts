@@ -62,6 +62,12 @@ type LinearClientShape = {
     variables: Record<string, unknown>,
     data: S,
   ) => Effect.Effect<S["Type"], LinearApiError>
+  readonly executeWithKey: <S extends ClientSchema>(
+    apiKey: Redacted.Redacted,
+    query: string,
+    variables: Record<string, unknown>,
+    data: S,
+  ) => Effect.Effect<S["Type"], LinearApiError>
   readonly viewer: Effect.Effect<Viewer, LinearApiError>
   readonly viewerWithKey: (apiKey: Redacted.Redacted) => Effect.Effect<Viewer, LinearApiError>
 }
@@ -129,7 +135,9 @@ const makeClient = (
     return response
   })
 
-  const runQuery = Effect.fn("LinearClient.runQuery")(function* runQuery<S extends ClientSchema>(
+  const executeWithKey = Effect.fn("LinearClient.executeWithKey")(function* executeQueryWithKey<
+    S extends ClientSchema,
+  >(
     apiKey: Redacted.Redacted,
     query: string,
     variables: Record<string, unknown>,
@@ -178,7 +186,7 @@ const makeClient = (
     data: S,
   ): Effect.fn.Return<S["Type"], LinearApiError> {
     const apiKey = yield* key
-    return yield* runQuery(apiKey, query, variables, data)
+    return yield* executeWithKey(apiKey, query, variables, data)
   })
 
   const viewer = execute(viewerQuery, {}, Schema.Struct({ viewer: Viewer })).pipe(
@@ -187,12 +195,12 @@ const makeClient = (
   )
 
   const viewerWithKey = (apiKey: Redacted.Redacted) =>
-    runQuery(apiKey, viewerQuery, {}, Schema.Struct({ viewer: Viewer })).pipe(
+    executeWithKey(apiKey, viewerQuery, {}, Schema.Struct({ viewer: Viewer })).pipe(
       Effect.map((data) => data.viewer),
       Effect.withSpan("LinearClient.viewerWithKey"),
     )
 
-  return { execute, viewer, viewerWithKey }
+  return { execute, executeWithKey, viewer, viewerWithKey }
 }
 
 class LinearClient extends Context.Service<LinearClient, LinearClientShape>()(

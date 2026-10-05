@@ -5,6 +5,7 @@ import { Context, Effect, FileSystem, Layer, Option, Path, Schema, Stdio } from 
 import type { LinearApiError } from "@/api/errors"
 import type { LabelCreateError, LabelEnsureResult } from "@/api/label"
 import type { TeamCreateError, TeamNotFoundError, TeamUpdateError } from "@/api/team"
+import type { AuthStoreError } from "@/config/auth"
 import type {
   InitFileReport,
   InitOptions,
@@ -15,9 +16,12 @@ import type {
 import type { LinkError } from "@/config/link-team"
 import type { RepoConfig, RepoConfigError } from "@/config/repo"
 
+import { LinearClient } from "@/api/client"
 import { LabelService } from "@/api/label"
 import { TeamService } from "@/api/team"
-import { invalidLinkOptions, resolveLinkTeam } from "@/config/link-team"
+import { Auth } from "@/config/auth"
+import { invalidLinkOptions } from "@/config/link-team"
+import { resolveLinkTarget } from "@/config/link-workspace"
 import { RepoConfigService } from "@/config/repo"
 import { planInit } from "@/domain/init"
 import { injectAgentSkillsBlock } from "@/matt/agents-block"
@@ -62,6 +66,7 @@ type InitServiceShape = {
     options: LinkOptions,
   ) => Effect.Effect<
     LinkResult,
+    | AuthStoreError
     | InitError
     | LabelCreateError
     | LinearApiError
@@ -85,6 +90,8 @@ class InitService extends Context.Service<InitService, InitServiceShape>()(
       const repoConfig = yield* RepoConfigService
       const teams = yield* TeamService
       const labels = yield* LabelService
+      const auth = yield* Auth
+      const client = yield* LinearClient
       const stdio = yield* Stdio.Stdio
       const fs = yield* FileSystem.FileSystem
       const path = yield* Path.Path
@@ -251,20 +258,20 @@ class InitService extends Context.Service<InitService, InitServiceShape>()(
         if (Option.isSome(invalid)) {
           return yield* invalid.value
         }
-        const { team, timezone } = yield* resolveLinkTeam(options, { stdio, teams })
-        const ensured = yield* labels.ensure(team.id)
+        const target = yield* resolveLinkTarget(options, { auth, client, stdio, teams })
+        const ensured = yield* labels.withKey(target.apiKey).ensure(target.team.id)
         const setup = yield* applySetup({
-          team: team.key,
+          team: target.team.key,
           project: options.project,
-          workspace: options.workspace,
+          workspace: target.workspace,
           force: options.force,
           overwriteConfig: true,
         })
         return {
-          team,
+          team: target.team,
           project: setup.project,
           workspace: setup.workspace,
-          timezone,
+          timezone: target.timezone,
           files: setup.files,
           labels: ensured,
         }

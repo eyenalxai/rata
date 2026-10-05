@@ -280,12 +280,29 @@ files are left alone unless `--force` is passed.
 `rata link` binds this repository to a Linear team:
 
 ```bash
+rata link
 rata link --team RAT --project rata
 rata link --team SCR --create --name "Scratch"
 ```
 
-Without `--team`, `link` lists the workspace teams and prompts for one. The
-prompt needs a terminal; pass `--team` when standard input is a pipe.
+Without flags, `link` prompts. It lists the stored workspace profiles with their
+viewer and organization, and asks which workspace to use. It then lists the
+teams of that workspace and asks which team to use. The prompt needs a terminal;
+pass `--team` when standard input is a pipe.
+
+`--workspace <name>` skips the workspace prompt and uses that profile for every
+call. `--team <key>` without `--workspace` searches the key in every stored
+workspace:
+
+- One workspace holds the team: `link` uses it and records that workspace.
+- Several workspaces hold the team: `link` fails and asks for `--workspace`.
+- No workspace holds the team: `link` fails, unless `--create` is passed. Then
+  `link` creates the team in the resolved profile: the `workspace` of
+  `.rata.json`, or the default profile.
+
+When `LINEAR_API_KEY` is set, the environment key is the only target: `link`
+ignores the stored profiles and records no workspace. An explicit `--workspace`
+still selects that profile.
 
 `link` writes `.rata.json`, installs `docs/agents/issue-tracker.md`,
 `docs/agents/triage-labels.md` and `docs/agents/domain.md`, updates the
@@ -294,15 +311,15 @@ team, so the ask-matt skills work in the repository. The link itself always
 rewrites `.rata.json`. The agent documents and `AGENTS.md` are created when
 missing and left alone unless `--force` is passed.
 
-| Flag          | Meaning                                                              |
-| ------------- | -------------------------------------------------------------------- |
-| `--team`      | Team key or id. Required unless standard input is a terminal.        |
-| `--project`   | Default project name or id for the repository.                       |
-| `--workspace` | Workspace profile for this repository.                               |
-| `--create`    | Create the team when it does not exist. Needs `--team` and `--name`. |
-| `--name`      | Team name, used with `--create`.                                     |
-| `--force`     | Overwrite the existing agent documents and `AGENTS.md`.              |
-| `--json`      | Print machine-readable JSON.                                         |
+| Flag          | Meaning                                                                |
+| ------------- | ---------------------------------------------------------------------- |
+| `--team`      | Team key or id. Searches every stored workspace without `--workspace`. |
+| `--project`   | Default project name or id for the repository.                         |
+| `--workspace` | Workspace profile. Skips the workspace prompt.                         |
+| `--create`    | Create the team when it does not exist. Needs `--team` and `--name`.   |
+| `--name`      | Team name, used with `--create`.                                       |
+| `--force`     | Overwrite the existing agent documents and `AGENTS.md`.                |
+| `--json`      | Print machine-readable JSON.                                           |
 
 A missing team fails with `TeamNotFoundError` unless `--create` is passed.
 
@@ -311,8 +328,9 @@ the machine reports. It calls `teamUpdate` only when the timezone differs, and
 it reports the change. When the timezone matches, or the machine reports none,
 `link` makes no update.
 
-`--workspace` records the profile in the repository config. Without it, `link`
-keeps the `workspace` of an existing config.
+`link` records the workspace profile and the team in `.rata.json`. The explicit
+`--workspace` wins. A team found by `--team` records the profile that holds it.
+Without a profile, `link` keeps the `workspace` of an existing config.
 
 `--json` prints one stable document with the linked team, the repository config
 and the files:

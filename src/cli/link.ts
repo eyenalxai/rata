@@ -10,7 +10,10 @@ const jsonFlag = Flag.Boolean("json").pipe(
   Flag.withDefault(false),
 )
 
-const teamFlag = Flag.String("team").pipe(Flag.withDescription("Team key or id"), Flag.optional)
+const teamFlag = Flag.String("team").pipe(
+  Flag.withDescription("Team key or id. Without --workspace, link searches every stored workspace"),
+  Flag.optional,
+)
 
 const projectFlag = Flag.String("project").pipe(
   Flag.withDescription("Default project name or id for this repository"),
@@ -18,7 +21,7 @@ const projectFlag = Flag.String("project").pipe(
 )
 
 const workspaceFlag = Flag.String("workspace").pipe(
-  Flag.withDescription("Workspace profile for this repository"),
+  Flag.withDescription("Workspace profile to link in. Skips the workspace prompt"),
   Flag.optional,
 )
 
@@ -92,16 +95,20 @@ const linkCommand = Command.make(
   Command.withDescription("Bind this repository to a Linear team and set its timezone"),
   Command.withExamples([
     {
+      command: "rata link",
+      description: "Choose the workspace and the team interactively",
+    },
+    {
       command: "rata link --team RAT --project rata",
-      description: "Link the repository to an existing team",
+      description: "Link the repository to a team found in the stored workspaces",
     },
     {
       command: 'rata link --team SCR --create --name "Scratch"',
       description: "Create the team, then link the repository",
     },
     {
-      command: "rata link --team RAT --workspace work",
-      description: "Link the repository to a team in the work workspace",
+      command: "rata link --workspace work --team RAT",
+      description: "Link to a team in the work workspace",
     },
   ]),
 )

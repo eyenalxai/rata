@@ -1,7 +1,8 @@
-import type { GraphQLRequest, Handler } from "@test/fake-linear"
+import type { GraphQLRequest, Handler } from "@test/fake-linear-model"
 import type { HttpClientRequest } from "effect/http"
 
-import { apiLayer, readRequest } from "@test/fake-linear"
+import { apiLayer } from "@test/fake-linear"
+import { readRequest } from "@test/fake-linear-model"
 import { jsonResponse, summaryNode } from "@test/issue-fixtures"
 import { Effect } from "effect"
 

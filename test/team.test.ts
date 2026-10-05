@@ -1,6 +1,7 @@
-import type { GraphQLRequest, Handler } from "@test/fake-linear"
+import type { GraphQLRequest, Handler } from "@test/fake-linear-model"
 
-import { apiLayer, inputOf, makeFakeLinear } from "@test/fake-linear"
+import { apiLayer, makeFakeLinear } from "@test/fake-linear"
+import { inputOf } from "@test/fake-linear-model"
 import { describe, expect, test } from "bun:test"
 import { Effect, Layer, Terminal } from "effect"
 

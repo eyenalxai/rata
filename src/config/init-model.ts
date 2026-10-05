@@ -27,7 +27,6 @@ type InitResult = {
 
 type LinkOptions = LinkTargetOptions & {
   readonly project: Option.Option<string>
-  readonly workspace: Option.Option<string>
   readonly force: boolean
 }
 

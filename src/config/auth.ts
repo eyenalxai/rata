@@ -64,6 +64,7 @@ type StoredProfile = {
 type AuthShape = {
   readonly resolve: Effect.Effect<Option.Option<ResolvedAuth>, AuthStoreError>
   readonly require: Effect.Effect<ResolvedAuth, AuthStoreError>
+  readonly envKey: Effect.Effect<Option.Option<Redacted.Redacted>, AuthStoreError>
   readonly login: (apiKey: string, workspace: string) => Effect.Effect<void, AuthStoreError>
   readonly logout: (workspace: string) => Effect.Effect<boolean, AuthStoreError>
   readonly use: (workspace: string) => Effect.Effect<void, AuthStoreError>
@@ -103,6 +104,11 @@ const noWorkspace = (workspace: string): AuthStoreError =>
   new AuthStoreError({
     message: `No workspace named "${workspace}" in the auth file. Run \`rata auth login --workspace ${workspace} --with-token\` to add it.`,
   })
+
+const readEnvKey = Config.Redacted("LINEAR_API_KEY").pipe(
+  Config.option,
+  Effect.mapError(() => new AuthStoreError({ message: "Could not read LINEAR_API_KEY." })),
+)
 
 class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
   static readonly layer = Layer.effect(
@@ -157,19 +163,13 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
         yield* fs.chmod(target, 0o600).pipe(Effect.mapError(describeStoreFailure("secure")(target)))
       })
 
+      const envKey = readEnvKey.pipe(Effect.withSpan("Auth.envKey"))
+
       const resolveAuth = Effect.fn("Auth.resolve")(function* resolveAuth() {
-        const envKey = yield* Config.Redacted("LINEAR_API_KEY").pipe(
-          Config.option,
-          Effect.mapError(
-            () =>
-              new AuthStoreError({
-                message: "Could not read LINEAR_API_KEY from the environment.",
-              }),
-          ),
-        )
-        if (Option.isSome(envKey)) {
+        const env = yield* readEnvKey
+        if (Option.isSome(env)) {
           return Option.some({
-            key: envKey.value,
+            key: env.value,
             source: "env" as const,
             profile: Option.none<string>(),
           })
@@ -292,9 +292,9 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
         },
       ).pipe(Effect.withSpan("Auth.profiles"))
 
-      return Auth.of({ resolve, require, login, logout, use, profiles, storePath })
+      return Auth.of({ envKey, login, logout, profiles, require, resolve, storePath, use })
     }),
   )
 }
 
-export { Auth }
+export { Auth, AuthStoreError, type StoredProfile }

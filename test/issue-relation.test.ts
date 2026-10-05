@@ -1,6 +1,6 @@
 import type { HttpClientRequest } from "effect/http"
 
-import { inputOf } from "@test/fake-linear"
+import { inputOf } from "@test/fake-linear-model"
 import {
   jsonResponse,
   pageInfo,

@@ -23,12 +23,14 @@
 | `rata init --print`                                 | Print the tracker document. Write nothing.                                              |
 | `rata init --force`                                 | Overwrite existing files.                                                               |
 | `rata init --ensure-labels`                         | Create the canonical labels in the team.                                                |
-| `rata link --team <key>`                            | Link this repository to a team. `--create --name <name>` creates the team first.        |
+| `rata link`                                         | Link this repository; asks for the workspace, then the team.                            |
+| `rata link --team <key>`                            | Link to a team. Searches every stored workspace. `--create --name <name>` creates it.   |
 | `rata link --project <name>`                        | Record the default project for this repository.                                         |
-| `rata link --workspace <name>`                      | Record the workspace profile for this repository.                                       |
+| `rata link --workspace <name>`                      | Link in one workspace profile. Skips the workspace prompt.                              |
 
 The API key is resolved in order: `LINEAR_API_KEY`, the repository `workspace`
-from `.rata.json`, the `default` profile.
+from `.rata.json`, the `default` profile. `rata link --workspace <name>` selects
+that profile directly, also when `LINEAR_API_KEY` is set.
 
 ## Teams, projects, labels
 

@@ -1,4 +1,4 @@
-import { inputOf } from "@test/fake-linear"
+import { inputOf } from "@test/fake-linear-model"
 import { jsonResponse, viewer } from "@test/issue-fixtures"
 import {
   configWithTeam,

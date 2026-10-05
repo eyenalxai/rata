@@ -1,9 +1,9 @@
-import type { Handler } from "@test/fake-linear"
+import type { Handler } from "@test/fake-linear-model"
 
-import { apiLayer, readRequest } from "@test/fake-linear"
+import { apiLayer } from "@test/fake-linear"
+import { readRequest } from "@test/fake-linear-model"
 import { describe, expect, test } from "bun:test"
-import { Effect, Option, Result } from "effect"
-import { Headers } from "effect/http"
+import { Effect, Result } from "effect"
 
 import { collectWorkspaces } from "@/cli/workspace"
 
@@ -29,8 +29,7 @@ const handler: Handler = (request) => {
   if (!query.includes("Viewer")) {
     throw new Error(`Unexpected query: ${query}`)
   }
-  const key = Option.getOrUndefined(Headers.get("authorization")(request.headers))
-  if (key === "good-key") {
+  if (request.headers.authorization === "good-key") {
     return Response.json({ data: { viewer } })
   }
   return Response.json({ errors: [{ message: "Authentication required" }] }, { status: 401 })

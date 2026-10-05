@@ -184,18 +184,6 @@ describe("InitService.link", () => {
     expect(readConfig(harness.files)).toEqual({ team: "RAT", project: "rata" })
   })
 
-  test("records --workspace in the repository config", async () => {
-    const harness = makeHarness()
-    const fake = makeFakeLinear({ teams: [rat], labels: [] })
-    const result = await linkTeam(
-      fake.handler,
-      harness,
-      options({ workspace: Option.some("work") }),
-    )
-    expect(readConfig(harness.files)).toEqual({ team: "RAT", workspace: "work" })
-    expect(result.workspace).toEqual(Option.some("work"))
-  })
-
   test("keeps the workspace of an existing config when --workspace is absent", async () => {
     const harness = makeHarness({
       files: new Map([[configPath(), '{\n  "team": "OLD",\n  "workspace": "work"\n}']]),
@@ -203,26 +191,6 @@ describe("InitService.link", () => {
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
     const result = await linkTeam(fake.handler, harness, options({}))
     expect(result.workspace).toEqual(Option.some("work"))
-    expect(readConfig(harness.files)).toEqual({ team: "RAT", workspace: "work" })
-  })
-
-  test("records --workspace over an existing config without --force", async () => {
-    const harness = makeHarness({
-      files: new Map([[configPath(), '{\n  "team": "RAT",\n  "workspace": "personal"\n}']]),
-    })
-    const fake = makeFakeLinear({ teams: [rat], labels: [] })
-    const result = await linkTeam(
-      fake.handler,
-      harness,
-      options({ workspace: Option.some("work") }),
-    )
-    expect(result.files.map((file) => file.action)).toEqual([
-      "overwrite",
-      "create",
-      "create",
-      "create",
-      "create",
-    ])
     expect(readConfig(harness.files)).toEqual({ team: "RAT", workspace: "work" })
   })
 

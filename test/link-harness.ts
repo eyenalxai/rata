@@ -1,4 +1,4 @@
-import type { Handler } from "@test/fake-linear"
+import type { Handler } from "@test/fake-linear-model"
 import type { Stdio } from "effect"
 
 import { apiLayer } from "@test/fake-linear"
@@ -17,18 +17,35 @@ const scratch = { id: "team-2", key: "SCR", name: "Scratch", timezone: "America/
 
 const configPath = () => `${process.cwd()}/.rata.json`
 
+const authPath = "/home/test/.config/rata/auth.json"
+
+const defaultEnv = { HOME: "/home/test", LINEAR_API_KEY: "test-key" }
+
+const profileFile = (workspaces: Record<string, string>, defaultName?: string): string => {
+  const profiles = Object.fromEntries(
+    Object.entries(workspaces).map(([name, apiKey]) => [name, { apiKey }]),
+  )
+  return JSON.stringify(
+    defaultName === undefined
+      ? { workspaces: profiles }
+      : { default: defaultName, workspaces: profiles },
+  )
+}
+
 const encode = (text: string): Uint8Array => new TextEncoder().encode(text)
 
 type Harness = {
   readonly files: Map<string, string>
   readonly stdio: Partial<Stdio.Stdio>
   readonly lines: string[]
+  readonly env: Readonly<Record<string, string>>
 }
 
 const makeHarness = (overrides: Partial<Harness> = {}): Harness => ({
   files: new Map(),
   stdio: {},
   lines: [],
+  env: defaultEnv,
   ...overrides,
 })
 
@@ -49,7 +66,9 @@ const provide = <A, E>(
   effect: Effect.Effect<A, E, InitService | LabelService>,
 ): Promise<A> =>
   effect.pipe(
-    Effect.provide(apiLayer(handler, { files: harness.files, stdio: harness.stdio })),
+    Effect.provide(
+      apiLayer(handler, { files: harness.files, stdio: harness.stdio, env: harness.env }),
+    ),
     Effect.provideService(Console.Console, recordingConsole(harness.lines)),
     Effect.runPromise,
   )
@@ -78,12 +97,15 @@ const readConfig = (files: Map<string, string>): unknown =>
   JSON.parse(files.get(configPath()) ?? "")
 
 export {
+  authPath,
   configPath,
+  defaultEnv,
   encode,
   linkError,
   linkTeam,
   makeHarness,
   options,
+  profileFile,
   provide,
   rat,
   ratId,
