@@ -275,12 +275,4 @@ class InitService extends Context.Service<InitService, InitServiceShape>()(
   )
 }
 
-export {
-  InitError,
-  InitService,
-  type InitFileReport,
-  type InitOptions,
-  type InitResult,
-  type LinkOptions,
-  type LinkResult,
-}
+export { InitError, InitService }

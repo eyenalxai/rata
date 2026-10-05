@@ -339,9 +339,10 @@ and the files:
 }
 ```
 
-`project` is `null` when no project is recorded. `timezone` holds the previous
-and current IANA names when `link` changed the team timezone, and `null`
-otherwise. Each file action is `create`, `overwrite`, `unchanged` or `skip`.
+`project` is `null` when no project is recorded. `workspace` is `null` when no
+profile is recorded. `timezone` holds the previous and current IANA names when
+`link` changed the team timezone, and `null` otherwise. Each file action is
+`create`, `overwrite`, `unchanged` or `skip`.
 
 ## Reading issues
 
