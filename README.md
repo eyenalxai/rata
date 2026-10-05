@@ -50,8 +50,9 @@ rata issue close RAT-42 --comment "..."  # close an issue
 `rata` reads `LINEAR_API_KEY` from the environment when it is set. Otherwise it
 reads the key stored by `rata auth login --with-token`.
 
-`label ensure` installs the canonical labels — the five triage roles and the
-`wayfinder:*` labels — and reports what it created and what already existed.
+`label ensure` installs the canonical labels — the five triage state roles, the
+`bug` and `enhancement` categories and the `wayfinder:*` labels — and reports
+what it created and what already existed.
 
 `rata --help` lists every command.
 

@@ -4,6 +4,8 @@ const canonicalLabels = [
   "ready-for-agent",
   "ready-for-human",
   "wontfix",
+  "bug",
+  "enhancement",
   "wayfinder:map",
   "wayfinder:research",
   "wayfinder:prototype",
