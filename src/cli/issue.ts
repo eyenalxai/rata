@@ -6,6 +6,9 @@ import type { IssueChild } from "@/api/issue-schema"
 
 import { IssueApi } from "@/api/issue"
 import { stateTypes } from "@/api/issue-model"
+import { issueLabelCommand } from "@/cli/issue-label"
+import { assignCommand, closeCommand, reopenCommand, unassignCommand } from "@/cli/issue-transition"
+import { commentCommand, createCommand, updateCommand } from "@/cli/issue-write"
 import { errorLine, reportFailure, writeJson, writeLine } from "@/cli/output"
 
 const jsonFlag = Flag.Boolean("json").pipe(
@@ -20,6 +23,10 @@ const limitFlag = Flag.Int("limit").pipe(
 
 const optionalText = (name: string, description: string) =>
   Flag.String(name).pipe(Flag.withDescription(description), Flag.optional)
+
+const refArgument = Argument.String("ref").pipe(
+  Argument.withDescription("Issue reference: an identifier, a UUID, or a linear.app URL"),
+)
 
 const formatIssueLine = (issue: IssueSummary): string => {
   const assignee = issue.assignee?.name ?? "unassigned"
@@ -149,9 +156,7 @@ const listCommand = Command.make(
 const showCommand = Command.make(
   "show",
   {
-    ref: Argument.String("ref").pipe(
-      Argument.withDescription("Issue reference: an identifier, a UUID, or a linear.app URL"),
-    ),
+    ref: refArgument,
     comments: Flag.Boolean("comments").pipe(
       Flag.withDescription("Include the issue comments"),
       Flag.withDefault(false),
@@ -204,8 +209,19 @@ const searchCommand = Command.make(
 )
 
 const issueCommand = Command.make("issue").pipe(
-  Command.withDescription("Read Linear issues"),
-  Command.withSubcommands([listCommand, showCommand]),
+  Command.withDescription("Read and write Linear issues"),
+  Command.withSubcommands([
+    listCommand,
+    showCommand,
+    createCommand,
+    commentCommand,
+    updateCommand,
+    issueLabelCommand,
+    closeCommand,
+    reopenCommand,
+    assignCommand,
+    unassignCommand,
+  ]),
 )
 
 export { issueCommand, searchCommand }

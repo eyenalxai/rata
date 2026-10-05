@@ -163,9 +163,55 @@ const CommentsResponse = Schema.Struct({
   issue: Schema.Struct({ comments: IssueCommentConnection }),
 })
 
+const WorkflowState = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  type: Schema.String,
+})
+type WorkflowState = typeof WorkflowState.Type
+
+const WorkflowStateConnection = Schema.Struct({ nodes: Schema.Array(WorkflowState) })
+
+const TeamStatesResponse = Schema.Struct({
+  team: Schema.Struct({ states: WorkflowStateConnection }),
+})
+
+const IssueStatesResponse = Schema.Struct({
+  issue: Schema.Struct({
+    team: Schema.Struct({ id: Schema.String, states: WorkflowStateConnection }),
+  }),
+})
+
+const IssueTeamResponse = Schema.Struct({
+  issue: Schema.Struct({ team: Schema.Struct({ id: Schema.String }) }),
+})
+
+const IssueMutationPayload = Schema.Struct({
+  success: Schema.Boolean,
+  issue: Schema.NullOr(IssueSummaryNode),
+})
+
+const CommentMutationPayload = Schema.Struct({
+  success: Schema.Boolean,
+  comment: Schema.NullOr(IssueComment),
+})
+
+const CreateIssueResponse = Schema.Struct({ issueCreate: IssueMutationPayload })
+
+const UpdateIssueResponse = Schema.Struct({ issueUpdate: IssueMutationPayload })
+
+const AddLabelResponse = Schema.Struct({ issueAddLabel: IssueMutationPayload })
+
+const RemoveLabelResponse = Schema.Struct({ issueRemoveLabel: IssueMutationPayload })
+
+const CreateCommentResponse = Schema.Struct({ commentCreate: CommentMutationPayload })
+
 export {
+  AddLabelResponse,
   ChildrenResponse,
   CommentsResponse,
+  CreateCommentResponse,
+  CreateIssueResponse,
   InverseRelationsResponse,
   type IssueChild,
   type IssueComment,
@@ -176,13 +222,19 @@ export {
   type IssueProject,
   type IssueRelation,
   type IssueState,
+  IssueStatesResponse,
   type IssueSummaryNode,
   type IssueTeam,
+  IssueTeamResponse,
   type IssueUser,
   LabelsResponse,
   ListResponse,
   type PageInfo,
   RelationsResponse,
+  RemoveLabelResponse,
   SearchResponse,
   ShowResponse,
+  TeamStatesResponse,
+  UpdateIssueResponse,
+  type WorkflowState,
 }

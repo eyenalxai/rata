@@ -97,15 +97,89 @@ const commentsQuery = `query IssueComments($id: String!, $first: Int!, $after: S
   }
 }`
 
+const createIssueMutation = `mutation CreateIssue($input: IssueCreateInput!) {
+  issueCreate(input: $input) {
+    success
+    issue {${summaryFields}
+    }
+  }
+}`
+
+const updateIssueMutation = `mutation UpdateIssue($id: String!, $input: IssueUpdateInput!) {
+  issueUpdate(id: $id, input: $input) {
+    success
+    issue {${summaryFields}
+    }
+  }
+}`
+
+const createCommentMutation = `mutation CreateComment($input: CommentCreateInput!) {
+  commentCreate(input: $input) {
+    success
+    comment { id body createdAt user { id name displayName } }
+  }
+}`
+
+const addLabelMutation = `mutation AddLabel($id: String!, $labelId: String!) {
+  issueAddLabel(id: $id, labelId: $labelId) {
+    success
+    issue {${summaryFields}
+    }
+  }
+}`
+
+const removeLabelMutation = `mutation RemoveLabel($id: String!, $labelId: String!) {
+  issueRemoveLabel(id: $id, labelId: $labelId) {
+    success
+    issue {${summaryFields}
+    }
+  }
+}`
+
+const teamStatesQuery = `query TeamStates($teamId: String!) {
+  team(id: $teamId) {
+    states(first: ${pageSize}) {
+      nodes { id name type }
+    }
+  }
+}`
+
+const issueStatesQuery = `query IssueStates($id: String!) {
+  issue(id: $id) {
+    team {
+      id
+      states(first: ${pageSize}) {
+        nodes { id name type }
+      }
+    }
+  }
+}`
+
+const issueTeamQuery = `query IssueTeam($id: String!) {
+  issue(id: $id) {
+    team {
+      id
+    }
+  }
+}`
+
 export {
+  addLabelMutation,
   childrenQuery,
   commentsQuery,
+  createCommentMutation,
+  createIssueMutation,
   inverseRelationsQuery,
   issueIdQuery,
+  issueStatesQuery,
+  issueTeamQuery,
   labelsQuery,
   listQuery,
   pageSize,
   relationsQuery,
+  removeLabelMutation,
   searchQuery,
   showQuery,
+  teamStatesQuery,
+  updateIssueMutation,
 }

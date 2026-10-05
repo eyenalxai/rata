@@ -6,6 +6,7 @@ import { FetchHttpClient } from "effect/http"
 
 import { LinearClient } from "@/api/client"
 import { IssueApi } from "@/api/issue"
+import { IssueWriteApi } from "@/api/issue-write"
 import { LabelService } from "@/api/label"
 import { ProjectService } from "@/api/project"
 import { TeamService } from "@/api/team"
@@ -31,6 +32,9 @@ const initLayer = InitService.layer.pipe(
   Layer.provide(labelLayer),
   Layer.provide(platformLayer),
 )
+const issueWriteLayer = IssueWriteApi.layer.pipe(
+  Layer.provide(Layer.mergeAll(clientLayer, teamLayer, labelLayer, projectLayer, repoConfigLayer)),
+)
 const appLayer = Layer.mergeAll(
   authLayer,
   clientLayer,
@@ -40,6 +44,7 @@ const appLayer = Layer.mergeAll(
   projectLayer,
   repoConfigLayer,
   initLayer,
+  issueWriteLayer,
   platformLayer,
 )
 

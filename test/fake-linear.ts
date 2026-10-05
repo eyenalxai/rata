@@ -4,22 +4,16 @@ import { ConfigProvider, Effect, FileSystem, Layer, Option, Path, Schema } from 
 import { HttpClient, HttpClientResponse } from "effect/http"
 
 import { LinearClient } from "@/api/client"
+import { IssueWriteApi } from "@/api/issue-write"
 import { LabelService } from "@/api/label"
+import { ProjectService } from "@/api/project"
 import { TeamService } from "@/api/team"
 import { Auth } from "@/config/auth"
+import { RepoConfigService } from "@/config/repo"
 
 const GraphQLRequest = Schema.Struct({
   query: Schema.String,
-  variables: Schema.Struct({
-    key: Schema.optional(Schema.String),
-    teamId: Schema.optional(Schema.String),
-    input: Schema.optional(
-      Schema.Struct({
-        name: Schema.String,
-        teamId: Schema.String,
-      }),
-    ),
-  }),
+  variables: Schema.Record(Schema.String, Schema.Unknown),
 })
 
 type GraphQLRequest = typeof GraphQLRequest.Type
@@ -55,6 +49,21 @@ const readRequest = (request: HttpClientRequest.HttpClientRequest): GraphQLReque
   return decoded.value
 }
 
+const recordSchema = Schema.Record(Schema.String, Schema.Unknown)
+
+const inputOf = (variables: Record<string, unknown>): Record<string, unknown> => {
+  const decoded = Schema.decodeUnknownOption(recordSchema)(variables.input)
+  return Option.isSome(decoded) ? decoded.value : {}
+}
+
+const stringField = (record: Record<string, unknown>, name: string): string => {
+  const value = record[name]
+  if (typeof value !== "string") {
+    throw new TypeError(`Expected a string field ${name}.`)
+  }
+  return value
+}
+
 const makeFakeLinear = (
   seed: {
     readonly teams: readonly FakeTeam[]
@@ -69,25 +78,23 @@ const makeFakeLinear = (
     requests.push(graphql)
     const query = graphql.query
     if (query.includes("mutation CreateLabel")) {
-      const input = graphql.variables.input
-      if (input === undefined) {
-        throw new Error("CreateLabel needs an input.")
-      }
+      const input = inputOf(graphql.variables)
+      const name = stringField(input, "name")
       if (options.rejectCreate === true) {
         return jsonResponse({
           data: {
             issueLabelCreate: {
               success: false,
-              issueLabel: { id: "label-1", name: input.name, color: "#111111" },
+              issueLabel: { id: "label-1", name, color: "#111111" },
             },
           },
         })
       }
       const created = {
         id: `label-${labels.length + 1}`,
-        name: input.name,
+        name,
         color: "#5E6AD2",
-        teamId: input.teamId,
+        teamId: stringField(input, "teamId"),
       }
       labels.push(created)
       return jsonResponse({
@@ -127,20 +134,40 @@ const configLayer = () =>
     ConfigProvider.fromEnvRecord({ HOME: "/home/test", LINEAR_API_KEY: "test-key" }),
   )
 
-const apiLayer = (handler: Handler) => {
+type ApiLayerOptions = {
+  readonly files?: Map<string, string>
+}
+
+const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
   const http = HttpClient.make((request) =>
     Effect.succeed(HttpClientResponse.fromWeb(request, handler(request))),
   )
-  const auth = Auth.layer.pipe(Layer.provide(Layer.mergeAll(FileSystem.layerNoop({}), Path.layer)))
+  const files = options.files ?? new Map<string, string>()
+  const fs = FileSystem.layerNoop({
+    exists: (file) => Effect.succeed(files.has(file)),
+    readFileString: (file) => Effect.succeed(files.get(file) ?? ""),
+  })
+  const platform = Layer.mergeAll(fs, Path.layer)
+  const auth = Auth.layer.pipe(Layer.provide(platform))
   const client = LinearClient.layer.pipe(
     Layer.provide(Layer.mergeAll(auth, Layer.succeed(HttpClient.HttpClient, http))),
   )
-  return Layer.mergeAll(
-    configLayer(),
-    client,
-    TeamService.layer.pipe(Layer.provide(client)),
-    LabelService.layer.pipe(Layer.provide(client)),
+  const teams = TeamService.layer.pipe(Layer.provide(client))
+  const labels = LabelService.layer.pipe(Layer.provide(client))
+  const projects = ProjectService.layer.pipe(Layer.provide(client))
+  const repoConfig = RepoConfigService.layer.pipe(Layer.provide(platform))
+  const issueWrite = IssueWriteApi.layer.pipe(
+    Layer.provide(Layer.mergeAll(client, teams, labels, projects, repoConfig)),
   )
+  return Layer.mergeAll(configLayer(), client, teams, labels, projects, repoConfig, issueWrite)
 }
 
-export { apiLayer, makeFakeLinear, type GraphQLRequest, type Handler }
+export {
+  apiLayer,
+  type ApiLayerOptions,
+  type GraphQLRequest,
+  type Handler,
+  inputOf,
+  makeFakeLinear,
+  readRequest,
+}
