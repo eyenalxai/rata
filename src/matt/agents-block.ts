@@ -16,13 +16,15 @@ const injectAgentSkillsBlock = (content: string, block: string): string => {
   const startIndex = lines.findIndex((line) => line.trimEnd() === sectionHeading)
 
   if (startIndex === -1) {
-    return `${[...trimTrailingBlank(lines), "", ...blockLines].join("\n").trimEnd()}\n`
+    const before = trimTrailingBlank(lines)
+    const parts = before.length === 0 ? blockLines : [...before, "", ...blockLines]
+    return `${parts.join("\n").trimEnd()}\n`
   }
 
   const endIndex = lines.findIndex((line, index) => index > startIndex && line.startsWith("## "))
   const before = trimTrailingBlank(lines.slice(0, startIndex))
   const after = endIndex === -1 ? [] : lines.slice(endIndex)
-  const parts = [...before, "", ...blockLines]
+  const parts = before.length === 0 ? [...blockLines] : [...before, "", ...blockLines]
   if (after.length > 0) {
     parts.push("", ...after)
   }

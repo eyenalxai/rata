@@ -82,4 +82,4 @@ class RepoConfigService extends Context.Service<RepoConfigService, RepoConfigSha
   )
 }
 
-export { RepoConfigService, type RepoConfig }
+export { RepoConfigError, RepoConfigService, type RepoConfig }

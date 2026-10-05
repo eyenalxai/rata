@@ -48,6 +48,29 @@ reads the key stored by `rata auth login --with-token`.
 
 `rata --help` lists every command.
 
+## Repository setup
+
+`rata init` configures a repository for the Linear tracker:
+
+```bash
+rata init --team RAT --project rata
+```
+
+It writes `.rata.json`, installs `docs/agents/issue-tracker.md`, and updates the
+`## Agent skills` block in `AGENTS.md`. Missing files are created. Existing
+files are left alone unless `--force` is passed.
+
+| Flag              | Meaning                                                    |
+| ----------------- | ---------------------------------------------------------- |
+| `--team`          | Default team key. Required unless `.rata.json` has a team. |
+| `--project`       | Default project name for the repository.                   |
+| `--ensure-labels` | Create the canonical labels in the team.                   |
+| `--print`         | Print the tracker document and write nothing.              |
+| `--force`         | Overwrite existing files.                                  |
+
+`rata init --print` prints the tracker document, so you can review it before
+`rata init` writes it.
+
 ## Reading issues
 
 `rata issue list` accepts filters. Combine any of them:

@@ -46,4 +46,19 @@ Old text.
     const twice = injectAgentSkillsBlock(once, block)
     expect(twice).toBe(once)
   })
+
+  test("does not add a leading blank line to an empty file", () => {
+    expect(injectAgentSkillsBlock("", block)).toBe(block)
+  })
+
+  test("is idempotent when the block starts the file", () => {
+    const once = injectAgentSkillsBlock("", block)
+    expect(injectAgentSkillsBlock(once, block)).toBe(once)
+  })
+
+  test("keeps the section separator when the block starts the file", () => {
+    const once = injectAgentSkillsBlock("", block)
+    const result = injectAgentSkillsBlock(`${once}\n## Commands\n\nbun run check\n`, block)
+    expect(result).toBe(`${once}\n## Commands\n\nbun run check\n`)
+  })
 })

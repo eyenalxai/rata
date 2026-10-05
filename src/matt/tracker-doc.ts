@@ -47,8 +47,9 @@ with **child** issues as tickets.
   The type labels are \`wayfinder:research\`, \`wayfinder:prototype\`,
   \`wayfinder:grilling\` and \`wayfinder:task\`.
 - **Blocking**: native Linear relations. Wire an edge with
-  \`rata issue link <child-ref> --blocked-by <blocker-ref>\`. A ticket is
-  unblocked when every issue that blocks it is closed.
+  \`rata issue link <child-ref> --blocked-by <blocker-ref>\`, or the inverse with
+  \`rata issue link <blocker-ref> --blocks <child-ref>\`. A ticket is unblocked
+  when every issue that blocks it is closed.
 - **Frontier query**: \`rata issue list --parent <map-ref> --unblocked --unassigned --json\`.
   The first result in map order wins.
 - **Claim**: \`rata issue assign me <ref>\`, the session's first write. The
