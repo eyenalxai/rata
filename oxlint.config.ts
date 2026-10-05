@@ -174,6 +174,8 @@ export default defineConfig({
         // the rule's advice to model the flow with Effect values does not fit the
         // test harness.
         "effecttsgo/async-function": "off",
+        // Tests own their layers and provide them per case.
+        "effecttsgo/strict-effect-provide": "off",
       },
     },
   ],

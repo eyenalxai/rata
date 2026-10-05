@@ -1,13 +1,22 @@
 #!/usr/bin/env bun
 import { BunRuntime, BunServices } from "@effect/platform-bun"
-import { Effect } from "effect"
+import { Effect, Layer } from "effect"
 import { Command } from "effect/cli"
+import { FetchHttpClient } from "effect/http"
 
-const command = Command.make("rata").pipe(
-  Command.withDescription("Linear issue tracking for agent workflows."),
+import { LinearClient } from "@/api/client"
+import { root } from "@/cli/root"
+import { Auth } from "@/config/auth"
+
+const platformLayer = BunServices.layer
+const authLayer = Auth.layer.pipe(Layer.provide(platformLayer))
+const clientLayer = LinearClient.layer.pipe(
+  Layer.provide(authLayer),
+  Layer.provide(FetchHttpClient.layer),
 )
-
-const program = command.pipe(Command.run({ version: "0.1.0" }))
+const appLayer = Layer.mergeAll(authLayer, clientLayer, platformLayer)
 
 // oxlint-disable-next-line effecttsgo/strict-effect-provide
-BunRuntime.runMain(program.pipe(Effect.provide(BunServices.layer)))
+const program = Command.run(root, { version: "0.1.0" }).pipe(Effect.provide(appLayer))
+
+BunRuntime.runMain(program)
