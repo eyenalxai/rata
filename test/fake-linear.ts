@@ -69,7 +69,11 @@ const makeFakeLinear = (
     readonly teams: readonly FakeTeam[]
     readonly labels: readonly FakeLabel[]
   },
-  options: { readonly rejectCreate?: boolean; readonly rejectTeamCreate?: boolean } = {},
+  options: {
+    readonly rejectCreate?: boolean
+    readonly rejectTeamCreate?: boolean
+    readonly rejectTeamDelete?: boolean
+  } = {},
 ) => {
   const labels = [...seed.labels]
   const teams = [...seed.teams]
@@ -121,10 +125,28 @@ const makeFakeLinear = (
         },
       })
     }
+    if (query.includes("mutation TeamDelete")) {
+      const id = stringField(graphql.variables, "id")
+      if (options.rejectTeamDelete === true) {
+        return jsonResponse({ data: { teamDelete: { success: false, entityId: id } } })
+      }
+      const index = teams.findIndex((item) => item.id === id)
+      if (index === -1) {
+        return jsonResponse({ data: { teamDelete: { success: false, entityId: id } } })
+      }
+      teams.splice(index, 1)
+      return jsonResponse({ data: { teamDelete: { success: true, entityId: id } } })
+    }
     if (query.includes("query TeamByKey")) {
       const key = graphql.variables.key
       return jsonResponse({
         data: { teams: { nodes: teams.filter((item) => item.key === key) } },
+      })
+    }
+    if (query.includes("query TeamById")) {
+      const id = graphql.variables.id
+      return jsonResponse({
+        data: { teams: { nodes: teams.filter((item) => item.id === id) } },
       })
     }
     if (query.includes("query Labels")) {

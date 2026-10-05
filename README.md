@@ -32,6 +32,7 @@ bun link
 pbpaste | rata auth login --with-token   # store a Linear API key
 rata team list                           # list teams: key, name, id
 rata team create --name "Scratch" --key SCR   # create a team
+rata team delete SCR --yes               # delete a team
 rata project list                        # list projects
 rata label list --team RAT               # list a team's labels
 rata label ensure --team RAT             # create the canonical labels the team misses
@@ -84,6 +85,30 @@ another team. The value is a team key or a UUID.
     "id": "t1",
     "key": "SCR",
     "name": "Scratch"
+  }
+}
+```
+
+`rata team delete` deletes a team. It accepts a team key or a UUID. It asks for
+confirmation before it calls the API, and it aborts unless the answer is `y` or
+`yes`, in any case.
+
+```bash
+rata team delete SCR
+rata team delete SCR --yes
+```
+
+| Flag    | Meaning                       |
+| ------- | ----------------------------- |
+| `--yes` | Skip the confirmation prompt. |
+
+`--json` prints one stable document:
+
+```json
+{
+  "deleted": {
+    "id": "t1",
+    "key": "SCR"
   }
 }
 ```

@@ -20,6 +20,11 @@ const TeamCreatePayload = Schema.Struct({
   team: Schema.NullOr(Team),
 })
 
+const DeletePayload = Schema.Struct({
+  success: Schema.Boolean,
+  entityId: Schema.String,
+})
+
 const teamsQuery = `query Teams {
   teams(first: 250) {
     nodes {
@@ -40,6 +45,16 @@ const teamByKeyQuery = `query TeamByKey($key: String!) {
   }
 }`
 
+const teamByIdQuery = `query TeamById($id: ID!) {
+  teams(first: 1, filter: { id: { eq: $id } }) {
+    nodes {
+      id
+      key
+      name
+    }
+  }
+}`
+
 const teamCreateMutation = `mutation TeamCreate($input: TeamCreateInput!, $copySettingsFromTeamId: String) {
   teamCreate(input: $input, copySettingsFromTeamId: $copySettingsFromTeamId) {
     success
@@ -48,6 +63,13 @@ const teamCreateMutation = `mutation TeamCreate($input: TeamCreateInput!, $copyS
       key
       name
     }
+  }
+}`
+
+const teamDeleteMutation = `mutation TeamDelete($id: String!) {
+  teamDelete(id: $id) {
+    success
+    entityId
   }
 }`
 
@@ -61,6 +83,11 @@ class TeamCreateError extends Schema.TaggedError<TeamCreateError>()("TeamCreateE
   message: Schema.String,
 }) {}
 
+class TeamDeleteError extends Schema.TaggedError<TeamDeleteError>()("TeamDeleteError", {
+  key: Schema.String,
+  message: Schema.String,
+}) {}
+
 type TeamCreateOptions = {
   readonly name: string
   readonly key?: string | undefined
@@ -68,12 +95,19 @@ type TeamCreateOptions = {
   readonly copySettingsFrom?: string | undefined
 }
 
+type DeletedTeam = {
+  readonly id: string
+  readonly key: string
+  readonly name: string
+}
+
 type TeamServiceShape = {
   readonly list: Effect.Effect<readonly Team[], LinearApiError>
-  readonly byKey: (key: string) => Effect.Effect<Team, LinearApiError | TeamNotFoundError>
+  readonly byKey: (ref: string) => Effect.Effect<Team, LinearApiError | TeamNotFoundError>
   readonly create: (
     options: TeamCreateOptions,
   ) => Effect.Effect<Team, LinearApiError | TeamCreateError | TeamNotFoundError>
+  readonly delete: (team: Team) => Effect.Effect<DeletedTeam, LinearApiError | TeamDeleteError>
 }
 
 class TeamService extends Context.Service<TeamService, TeamServiceShape>()(
@@ -89,17 +123,20 @@ class TeamService extends Context.Service<TeamService, TeamServiceShape>()(
         Effect.withSpan("TeamService.list"),
       )
 
-      const byKey = Effect.fn("TeamService.byKey")(function* findTeam(key: string) {
+      const byKey = Effect.fn("TeamService.byKey")(function* findTeam(ref: string) {
+        const byId = isUuid(ref)
         const data = yield* client.execute(
-          teamByKeyQuery,
-          { key },
+          byId ? teamByIdQuery : teamByKeyQuery,
+          byId ? { id: ref } : { key: ref },
           Schema.Struct({ teams: TeamConnection }),
         )
         const team = data.teams.nodes[0]
         if (team === undefined) {
           return yield* new TeamNotFoundError({
-            key,
-            message: `No team with key ${key}. Run \`rata team list\` to see the team keys.`,
+            key: ref,
+            message: byId
+              ? `No team with id ${ref}. Run \`rata team list\` to see the teams.`
+              : `No team with key ${ref}. Run \`rata team list\` to see the team keys.`,
           })
         }
         return team
@@ -135,9 +172,32 @@ class TeamService extends Context.Service<TeamService, TeamServiceShape>()(
         return data.teamCreate.team
       })
 
-      return TeamService.of({ byKey, create, list })
+      const deleteTeam = Effect.fn("TeamService.delete")(function* deleteTeam(team: Team) {
+        const data = yield* client.execute(
+          teamDeleteMutation,
+          { id: team.id },
+          Schema.Struct({ teamDelete: DeletePayload }),
+        )
+        if (!data.teamDelete.success) {
+          return yield* new TeamDeleteError({
+            key: team.key,
+            message: `Linear did not delete the team ${team.key}.`,
+          })
+        }
+        return { id: data.teamDelete.entityId, key: team.key, name: team.name }
+      })
+
+      return TeamService.of({ byKey, create, delete: deleteTeam, list })
     }),
   )
 }
 
-export { Team, TeamCreateError, type TeamCreateOptions, TeamNotFoundError, TeamService }
+export {
+  type DeletedTeam,
+  Team,
+  TeamCreateError,
+  type TeamCreateOptions,
+  TeamDeleteError,
+  TeamNotFoundError,
+  TeamService,
+}

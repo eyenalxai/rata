@@ -1,8 +1,9 @@
 import { Effect, Option } from "effect"
-import { Command, Flag } from "effect/cli"
+import { Argument, Command, Flag } from "effect/cli"
 import { EOL } from "node:os"
 
 import { TeamService } from "@/api/team"
+import { confirm } from "@/cli/confirm"
 import { reportFailure, writeJson, writeLine } from "@/cli/output"
 
 const jsonFlag = Flag.Boolean("json").pipe(
@@ -64,9 +65,47 @@ const createCommand = Command.make(
   ]),
 )
 
+const deleteCommand = Command.make(
+  "delete",
+  {
+    key: Argument.String("key").pipe(Argument.withDescription("Team key or id")),
+    yes: Flag.Boolean("yes").pipe(
+      Flag.withDescription("Skip the confirmation prompt"),
+      Flag.withDefault(false),
+    ),
+    json: jsonFlag,
+  },
+  (config) =>
+    Effect.gen(function* deleteTeam() {
+      const teams = yield* TeamService
+      const team = yield* teams.byKey(config.key)
+      const confirmed = yield* confirm(`Delete team ${team.key} (${team.name})?`, config.yes)
+      if (!confirmed) {
+        return yield* writeLine("Aborted.")
+      }
+      const deleted = yield* teams.delete(team)
+      if (config.json) {
+        return yield* writeJson({ deleted: { id: deleted.id, key: deleted.key } })
+      }
+      return yield* writeLine(`Deleted ${deleted.key}: ${deleted.name} (${deleted.id}).`)
+    }).pipe(Effect.catch(reportFailure)),
+).pipe(
+  Command.withDescription("Delete a team"),
+  Command.withExamples([
+    {
+      command: "rata team delete SCR",
+      description: "Delete a team after a confirmation prompt",
+    },
+    {
+      command: "rata team delete SCR --yes",
+      description: "Delete a team without a prompt",
+    },
+  ]),
+)
+
 const teamCommand = Command.make("team").pipe(
-  Command.withDescription("Inspect and create the teams in the workspace"),
-  Command.withSubcommands([listCommand, createCommand]),
+  Command.withDescription("Inspect, create and delete the teams in the workspace"),
+  Command.withSubcommands([listCommand, createCommand, deleteCommand]),
 )
 
 export { teamCommand }
