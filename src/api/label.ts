@@ -1,0 +1,113 @@
+import { Context, Effect, Layer, Schema } from "effect"
+
+import type { LinearApiError } from "@/api/errors"
+
+import { LinearClient } from "@/api/client"
+import { planLabelEnsure } from "@/domain/labels"
+
+const Label = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  color: Schema.String,
+})
+
+type Label = typeof Label.Type
+
+const LabelConnection = Schema.Struct({ nodes: Schema.Array(Label) })
+
+const listLabelsQuery = `query Labels($teamId: ID!) {
+  issueLabels(first: 250, filter: { team: { id: { eq: $teamId } } }) {
+    nodes {
+      id
+      name
+      color
+    }
+  }
+}`
+
+const createLabelMutation = `mutation CreateLabel($input: IssueLabelCreateInput!) {
+  issueLabelCreate(input: $input) {
+    success
+    issueLabel {
+      id
+      name
+      color
+    }
+  }
+}`
+
+const IssueLabelPayload = Schema.Struct({
+  success: Schema.Boolean,
+  issueLabel: Label,
+})
+
+class LabelCreateError extends Schema.TaggedError<LabelCreateError>()("LabelCreateError", {
+  name: Schema.String,
+  message: Schema.String,
+}) {}
+
+type LabelEnsureResult = {
+  readonly created: readonly Label[]
+  readonly existing: readonly Label[]
+}
+
+type LabelServiceShape = {
+  readonly list: (teamId: string) => Effect.Effect<readonly Label[], LinearApiError>
+  readonly ensure: (
+    teamId: string,
+  ) => Effect.Effect<LabelEnsureResult, LinearApiError | LabelCreateError>
+}
+
+class LabelService extends Context.Service<LabelService, LabelServiceShape>()(
+  "rata-cli/api/label/LabelService",
+) {
+  static readonly layer = Layer.effect(
+    LabelService,
+    Effect.gen(function* labelServiceLayer() {
+      const client = yield* LinearClient
+
+      const list = Effect.fn("LabelService.list")(function* listLabels(teamId: string) {
+        const data = yield* client.execute(
+          listLabelsQuery,
+          { teamId },
+          Schema.Struct({ issueLabels: LabelConnection }),
+        )
+        return data.issueLabels.nodes
+      })
+
+      const create = Effect.fn("LabelService.create")(function* createLabel(
+        teamId: string,
+        name: string,
+      ) {
+        const data = yield* client.execute(
+          createLabelMutation,
+          { input: { name, teamId } },
+          Schema.Struct({ issueLabelCreate: IssueLabelPayload }),
+        )
+        if (!data.issueLabelCreate.success) {
+          return yield* new LabelCreateError({
+            name,
+            message: `Linear did not create the label ${name}.`,
+          })
+        }
+        return data.issueLabelCreate.issueLabel
+      })
+
+      const ensure = Effect.fn("LabelService.ensure")(function* ensureLabels(teamId: string) {
+        const labels = yield* list(teamId)
+        const plan = planLabelEnsure(labels.map((label) => label.name))
+        const labelsByName = new Map(labels.map((label) => [label.name, label]))
+        const existing = plan.existing.flatMap((name) => {
+          const label = labelsByName.get(name)
+          return label === undefined ? [] : [label]
+        })
+        const created = yield* Effect.forEach(plan.missing, (name) => create(teamId, name))
+        return { created, existing }
+      })
+
+      return LabelService.of({ list, ensure })
+    }),
+  )
+}
+
+export { Label, LabelCreateError, LabelService, type LabelEnsureResult }

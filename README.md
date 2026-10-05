@@ -30,6 +30,10 @@ bun link
 
 ```bash
 pbpaste | rata auth login --with-token   # store a Linear API key
+rata team list                           # list teams: key, name, id
+rata project list                        # list projects
+rata label list --team RAT               # list a team's labels
+rata label ensure --team RAT             # create the canonical labels the team misses
 rata init                                # configure this repository for the Linear tracker
 rata issue list                          # list issues
 rata issue show RAT-42                   # read one issue
@@ -38,6 +42,9 @@ rata search "rate limit"                 # search issues by text
 
 `rata` reads `LINEAR_API_KEY` from the environment when it is set. Otherwise it
 reads the key stored by `rata auth login --with-token`.
+
+`label ensure` installs the canonical labels — the five triage roles and the
+`wayfinder:*` labels — and reports what it created and what already existed.
 
 `rata --help` lists every command.
 
