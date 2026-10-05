@@ -37,6 +37,7 @@ rata project list                        # list projects
 rata label list --team RAT               # list a team's labels
 rata label ensure --team RAT             # create the canonical labels the team misses
 rata init                                # configure this repository for the Linear tracker
+rata link --team RAT                     # bind this repository to a Linear team
 rata issue list                          # list issues
 rata issue list --parent RAT-1 --unblocked --unassigned  # the frontier of a map
 rata issue show RAT-42                   # read one issue
@@ -138,6 +139,61 @@ files are left alone unless `--force` is passed.
 
 `rata init --print` prints the tracker document, so you can review it before
 `rata init` writes it.
+
+## Linking a repository
+
+`rata link` binds this repository to a Linear team:
+
+```bash
+rata link --team RAT --project rata
+rata link --team SCR --create --name "Scratch"
+```
+
+Without `--team`, `link` lists the workspace teams and prompts for one. The
+prompt needs a terminal; pass `--team` when standard input is a pipe.
+
+`link` writes `.rata.json`, installs `docs/agents/issue-tracker.md`, updates the
+`## Agent skills` block in `AGENTS.md`, and creates the canonical labels in the
+team, so the ask-matt skills work in the repository. The link itself always
+rewrites `.rata.json`. The tracker document and `AGENTS.md` are created when
+missing and left alone unless `--force` is passed.
+
+| Flag        | Meaning                                                              |
+| ----------- | -------------------------------------------------------------------- |
+| `--team`    | Team key or id. Required unless standard input is a terminal.        |
+| `--project` | Default project name or id for the repository.                       |
+| `--create`  | Create the team when it does not exist. Needs `--team` and `--name`. |
+| `--name`    | Team name, used with `--create`.                                     |
+| `--force`   | Overwrite the existing tracker document and `AGENTS.md`.             |
+| `--json`    | Print machine-readable JSON.                                         |
+
+A missing team fails with `TeamNotFoundError` unless `--create` is passed.
+
+`--json` prints one stable document with the linked team, the repository config
+and the files:
+
+```json
+{
+  "team": {
+    "id": "t1",
+    "key": "RAT",
+    "name": "rata"
+  },
+  "project": "rata",
+  "files": [
+    { "path": ".rata.json", "action": "create" },
+    { "path": "docs/agents/issue-tracker.md", "action": "create" },
+    { "path": "AGENTS.md", "action": "create" }
+  ],
+  "labels": {
+    "created": [],
+    "existing": []
+  }
+}
+```
+
+`project` is `null` when no project is recorded. Each file action is `create`,
+`overwrite`, `unchanged` or `skip`.
 
 ## Reading issues
 

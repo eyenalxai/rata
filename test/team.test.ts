@@ -20,6 +20,12 @@ const findTeam = (key: string) =>
     return yield* teams.byKey(key)
   })
 
+const findTeamById = (id: string) =>
+  Effect.gen(function* lookupTeamById() {
+    const teams = yield* TeamService
+    return yield* teams.byId(id)
+  })
+
 const createTeam = (options: TeamCreateOptions) =>
   Effect.gen(function* create() {
     const teams = yield* TeamService
@@ -69,6 +75,22 @@ describe("TeamService", () => {
     if (error._tag === "TeamNotFoundError") {
       expect(error.key).toBe("NOPE")
     }
+  })
+})
+
+describe("TeamService.byId", () => {
+  test("finds the team and declares the id as an ID variable", async () => {
+    const fake = makeFakeLinear({ teams: [team], labels: [] })
+    const found = await run(fake.handler, findTeamById(team.id))
+    expect(found).toEqual(team)
+    const query = fake.requests.find((request) => request.query.includes("query TeamById"))
+    expect(query?.query).toContain("$id: ID!")
+  })
+
+  test("fails when the team id does not exist", async () => {
+    const fake = makeFakeLinear({ teams: [team], labels: [] })
+    const error = await run(fake.handler, findTeamById("missing-id").pipe(Effect.flip))
+    expect(error._tag).toBe("TeamNotFoundError")
   })
 })
 

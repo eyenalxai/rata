@@ -1,10 +1,7 @@
 import { Effect, Option } from "effect"
 import { Command, Flag } from "effect/cli"
 
-import type { InitFileReport } from "@/config/init"
-import type { InitAction } from "@/domain/init"
-
-import { reportFailure, writeLine } from "@/cli/output"
+import { formatFile, formatNames, reportFailure, writeLine } from "@/cli/output"
 import { InitService } from "@/config/init"
 
 const teamFlag = Flag.String("team").pipe(
@@ -31,21 +28,6 @@ const printFlag = Flag.Boolean("print").pipe(
   Flag.withDescription("Print the tracker document and write nothing"),
   Flag.withDefault(false),
 )
-
-const actionLabels: Record<InitAction, string> = {
-  create: "created",
-  overwrite: "overwritten",
-  unchanged: "unchanged",
-  skip: "skipped",
-}
-
-const formatFile = (file: InitFileReport): string => {
-  const suffix = file.action === "skip" ? " (exists; pass --force to overwrite)" : ""
-  return `${actionLabels[file.action]}: ${file.path}${suffix}`
-}
-
-const formatNames = (names: readonly string[]): string =>
-  names.length === 0 ? "none" : names.join(", ")
 
 const initCommand = Command.make(
   "init",

@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test"
-import { Effect, FileSystem, Layer, Option, Path } from "effect"
+import { Effect, FileSystem, Layer, Option, Path, Stdio } from "effect"
 
 import type { Team, TeamCreateOptions } from "@/api/team"
 import type { InitOptions } from "@/config/init"
@@ -27,6 +27,7 @@ const makeLayer = (files: Map<string, string>, writes: string[]) => {
       makeDirectory: () => Effect.void,
     }),
     Path.layer,
+    Stdio.layerTest({}),
   )
   const repoConfigLayer = RepoConfigService.layer.pipe(Layer.provide(platform))
   return InitService.layer.pipe(
@@ -36,6 +37,7 @@ const makeLayer = (files: Map<string, string>, writes: string[]) => {
         Layer.succeed(TeamService, {
           list: Effect.succeed([]),
           byKey: (key: string) => Effect.succeed({ id: "team-1", key, name: "Test" }),
+          byId: (id: string) => Effect.succeed({ id, key: "TEST", name: "Test" }),
           create: (options: TeamCreateOptions) =>
             Effect.succeed({ id: "team-2", key: options.key ?? "TEST", name: options.name }),
           delete: (team: Team) => Effect.succeed({ id: team.id, key: team.key, name: team.name }),

@@ -1,5 +1,8 @@
 import { Config, Console, Effect, Option, Result, Schema } from "effect"
 
+import type { InitFileReport } from "@/config/init"
+import type { InitAction } from "@/domain/init"
+
 const jsonOutput = Schema.fromJsonString(Schema.Unknown, { space: 2 })
 const defectJson = Schema.Defect()
 
@@ -41,6 +44,21 @@ const writeJson = (value: unknown): Effect.Effect<void> =>
 
 const writeLine = (line: string): Effect.Effect<void> => Console.log(line)
 
+const actionLabels: Record<InitAction, string> = {
+  create: "created",
+  overwrite: "overwritten",
+  unchanged: "unchanged",
+  skip: "skipped",
+}
+
+const formatFile = (file: InitFileReport): string => {
+  const suffix = file.action === "skip" ? " (exists; pass --force to overwrite)" : ""
+  return `${actionLabels[file.action]}: ${file.path}${suffix}`
+}
+
+const formatNames = (names: readonly string[]): string =>
+  names.length === 0 ? "none" : names.join(", ")
+
 const errorLine = (code: number, message: string): Effect.Effect<void> =>
   Effect.gen(function* writeErrorLine() {
     yield* Console.error(`error: ${message}`)
@@ -60,4 +78,4 @@ const reportFailure = (error: ReportedError): Effect.Effect<void> =>
     }
   })
 
-export { errorLine, reportFailure, writeJson, writeLine }
+export { errorLine, formatFile, formatNames, reportFailure, writeJson, writeLine }

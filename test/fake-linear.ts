@@ -1,6 +1,6 @@
 import type { HttpClientRequest } from "effect/http"
 
-import { ConfigProvider, Effect, FileSystem, Layer, Option, Path, Schema } from "effect"
+import { ConfigProvider, Effect, FileSystem, Layer, Option, Path, Schema, Stdio } from "effect"
 import { HttpClient, HttpClientResponse } from "effect/http"
 
 import { LinearClient } from "@/api/client"
@@ -9,6 +9,7 @@ import { LabelService } from "@/api/label"
 import { ProjectService } from "@/api/project"
 import { TeamService } from "@/api/team"
 import { Auth } from "@/config/auth"
+import { InitService } from "@/config/init"
 import { RepoConfigService } from "@/config/repo"
 
 const GraphQLRequest = Schema.Struct({
@@ -137,17 +138,20 @@ const makeFakeLinear = (
       teams.splice(index, 1)
       return jsonResponse({ data: { teamDelete: { success: true, entityId: id } } })
     }
+    if (query.includes("query TeamById")) {
+      const id = graphql.variables.id
+      return jsonResponse({
+        data: { teams: { nodes: teams.filter((item) => item.id === id) } },
+      })
+    }
     if (query.includes("query TeamByKey")) {
       const key = graphql.variables.key
       return jsonResponse({
         data: { teams: { nodes: teams.filter((item) => item.key === key) } },
       })
     }
-    if (query.includes("query TeamById")) {
-      const id = graphql.variables.id
-      return jsonResponse({
-        data: { teams: { nodes: teams.filter((item) => item.id === id) } },
-      })
+    if (query.includes("query Teams")) {
+      return jsonResponse({ data: { teams: { nodes: teams } } })
     }
     if (query.includes("query AvailableLabels")) {
       const teamId = graphql.variables.teamId
@@ -185,6 +189,7 @@ const configLayer = () =>
 
 type ApiLayerOptions = {
   readonly files?: Map<string, string>
+  readonly stdio?: Partial<Stdio.Stdio>
 }
 
 const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
@@ -195,8 +200,13 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
   const fs = FileSystem.layerNoop({
     exists: (file) => Effect.succeed(files.has(file)),
     readFileString: (file) => Effect.succeed(files.get(file) ?? ""),
+    writeFileString: (file, data) => {
+      files.set(file, data)
+      return Effect.void
+    },
+    makeDirectory: () => Effect.void,
   })
-  const platform = Layer.mergeAll(fs, Path.layer)
+  const platform = Layer.mergeAll(fs, Path.layer, Stdio.layerTest(options.stdio ?? {}))
   const auth = Auth.layer.pipe(Layer.provide(platform))
   const client = LinearClient.layer.pipe(
     Layer.provide(Layer.mergeAll(auth, Layer.succeed(HttpClient.HttpClient, http))),
@@ -208,7 +218,19 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
   const issueWrite = IssueWriteApi.layer.pipe(
     Layer.provide(Layer.mergeAll(client, teams, labels, projects, repoConfig)),
   )
-  return Layer.mergeAll(configLayer(), client, teams, labels, projects, repoConfig, issueWrite)
+  const init = InitService.layer.pipe(
+    Layer.provide(Layer.mergeAll(teams, labels, repoConfig, platform)),
+  )
+  return Layer.mergeAll(
+    configLayer(),
+    client,
+    teams,
+    labels,
+    projects,
+    repoConfig,
+    issueWrite,
+    init,
+  )
 }
 
 export {

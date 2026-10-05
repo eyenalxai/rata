@@ -4,6 +4,7 @@ import { authCommand, whoamiCommand } from "@/cli/auth"
 import { initCommand } from "@/cli/init"
 import { issueCommand, searchCommand } from "@/cli/issue"
 import { labelCommand } from "@/cli/label"
+import { linkCommand } from "@/cli/link"
 import { projectCommand } from "@/cli/project"
 import { teamCommand } from "@/cli/team"
 
@@ -13,6 +14,7 @@ const root = Command.make("rata").pipe(
     authCommand,
     whoamiCommand,
     initCommand,
+    linkCommand,
     issueCommand,
     searchCommand,
     teamCommand,

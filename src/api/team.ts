@@ -104,6 +104,7 @@ type DeletedTeam = {
 type TeamServiceShape = {
   readonly list: Effect.Effect<readonly Team[], LinearApiError>
   readonly byKey: (ref: string) => Effect.Effect<Team, LinearApiError | TeamNotFoundError>
+  readonly byId: (id: string) => Effect.Effect<Team, LinearApiError | TeamNotFoundError>
   readonly create: (
     options: TeamCreateOptions,
   ) => Effect.Effect<Team, LinearApiError | TeamCreateError | TeamNotFoundError>
@@ -137,6 +138,22 @@ class TeamService extends Context.Service<TeamService, TeamServiceShape>()(
             message: byId
               ? `No team with id ${ref}. Run \`rata team list\` to see the teams.`
               : `No team with key ${ref}. Run \`rata team list\` to see the team keys.`,
+          })
+        }
+        return team
+      })
+
+      const byId = Effect.fn("TeamService.byId")(function* findTeamById(id: string) {
+        const data = yield* client.execute(
+          teamByIdQuery,
+          { id },
+          Schema.Struct({ teams: TeamConnection }),
+        )
+        const team = data.teams.nodes[0]
+        if (team === undefined) {
+          return yield* new TeamNotFoundError({
+            key: id,
+            message: `No team with id ${id}. Run \`rata team list\` to see the teams.`,
           })
         }
         return team
@@ -187,7 +204,7 @@ class TeamService extends Context.Service<TeamService, TeamServiceShape>()(
         return { id: data.teamDelete.entityId, key: team.key, name: team.name }
       })
 
-      return TeamService.of({ byKey, create, delete: deleteTeam, list })
+      return TeamService.of({ byId, byKey, create, delete: deleteTeam, list })
     }),
   )
 }

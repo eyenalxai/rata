@@ -1,15 +1,17 @@
 import type { PlatformError } from "effect/PlatformError"
 
-import { Context, Effect, FileSystem, Layer, Option, Path, Schema } from "effect"
+import { Context, Effect, FileSystem, Layer, Option, Path, Schema, Stdio } from "effect"
 
 import type { LinearApiError } from "@/api/errors"
 import type { LabelCreateError, LabelEnsureResult } from "@/api/label"
-import type { TeamNotFoundError } from "@/api/team"
+import type { Team, TeamCreateError, TeamNotFoundError } from "@/api/team"
+import type { LinkError } from "@/config/link-team"
 import type { RepoConfig, RepoConfigError } from "@/config/repo"
 import type { InitAction } from "@/domain/init"
 
 import { LabelService } from "@/api/label"
 import { TeamService } from "@/api/team"
+import { invalidLinkOptions, resolveLinkTeam } from "@/config/link-team"
 import { RepoConfigService } from "@/config/repo"
 import { planInit } from "@/domain/init"
 import { injectAgentSkillsBlock } from "@/matt/agents-block"
@@ -39,6 +41,33 @@ type InitResult = {
   readonly labels: Option.Option<LabelEnsureResult>
 }
 
+type LinkOptions = {
+  readonly team: Option.Option<string>
+  readonly project: Option.Option<string>
+  readonly create: boolean
+  readonly name: Option.Option<string>
+  readonly force: boolean
+}
+
+type LinkResult = {
+  readonly team: Team
+  readonly project: Option.Option<string>
+  readonly files: readonly InitFileReport[]
+  readonly labels: LabelEnsureResult
+}
+
+type SetupInput = {
+  readonly team: string
+  readonly project: Option.Option<string>
+  readonly force: boolean
+  readonly overwriteConfig: boolean
+}
+
+type SetupResult = {
+  readonly project: Option.Option<string>
+  readonly files: readonly InitFileReport[]
+}
+
 class InitError extends Schema.TaggedError<InitError>()("InitError", {
   message: Schema.String,
   cause: Schema.optional(Schema.Defect()),
@@ -57,6 +86,18 @@ type InitServiceShape = {
     InitResult,
     InitError | LabelCreateError | LinearApiError | RepoConfigError | TeamNotFoundError
   >
+  readonly link: (
+    options: LinkOptions,
+  ) => Effect.Effect<
+    LinkResult,
+    | InitError
+    | LabelCreateError
+    | LinearApiError
+    | LinkError
+    | RepoConfigError
+    | TeamCreateError
+    | TeamNotFoundError
+  >
 }
 
 const projectFrom = (config: RepoConfig): Option.Option<string> =>
@@ -71,6 +112,7 @@ class InitService extends Context.Service<InitService, InitServiceShape>()(
       const repoConfig = yield* RepoConfigService
       const teams = yield* TeamService
       const labels = yield* LabelService
+      const stdio = yield* Stdio.Stdio
       const fs = yield* FileSystem.FileSystem
       const path = yield* Path.Path
 
@@ -85,6 +127,80 @@ class InitService extends Context.Service<InitService, InitServiceShape>()(
           .readFileString(file)
           .pipe(Effect.mapError(describeFailure("read")(file)))
         return Option.some(content)
+      })
+
+      const writeFile = Effect.fn("InitService.writeFile")(function* writeFile(
+        file: string,
+        content: string,
+      ) {
+        yield* fs
+          .writeFileString(file, content)
+          .pipe(Effect.mapError(describeFailure("write")(file)))
+      })
+
+      const applySetup = Effect.fn("InitService.applySetup")(function* applySetup(
+        input: SetupInput,
+      ): Effect.fn.Return<SetupResult, InitError | RepoConfigError> {
+        const configFile = yield* repoConfig.filePath
+        const root = path.dirname(configFile)
+        const trackerFile = path.join(root, trackerDocumentPath)
+        const agentsFile = path.join(root, agentsPath)
+
+        const existingConfig = yield* repoConfig.read
+        const project = Option.orElse(input.project, () =>
+          Option.flatMap(existingConfig, projectFrom),
+        )
+        const config: RepoConfig = Option.isSome(project)
+          ? { team: input.team, project: project.value }
+          : { team: input.team }
+
+        const existingTrackerDocument = yield* readIfExists(trackerFile)
+        const existingAgents = yield* readIfExists(agentsFile)
+        const agentsDocument = injectAgentSkillsBlock(
+          Option.getOrElse(existingAgents, () => ""),
+          agentSkillsBlock,
+        )
+
+        const plan = planInit({
+          force: input.force,
+          config,
+          existingConfig,
+          trackerDocument,
+          existingTrackerDocument,
+          agentsDocument,
+          existingAgents,
+        })
+
+        const configAction =
+          input.overwriteConfig && plan.config.action === "skip" ? "overwrite" : plan.config.action
+
+        if (configAction === "create" || configAction === "overwrite") {
+          yield* repoConfig.write(plan.config.content)
+        }
+
+        if (
+          plan.trackerDocument.action === "create" ||
+          plan.trackerDocument.action === "overwrite"
+        ) {
+          const directory = path.dirname(trackerFile)
+          yield* fs
+            .makeDirectory(directory, { recursive: true })
+            .pipe(Effect.mapError(describeFailure("create")(directory)))
+          yield* writeFile(trackerFile, plan.trackerDocument.content)
+        }
+
+        if (plan.agents.action === "create" || plan.agents.action === "overwrite") {
+          yield* writeFile(agentsFile, plan.agents.content)
+        }
+
+        return {
+          project,
+          files: [
+            { path: configPath, action: configAction },
+            { path: trackerDocumentPath, action: plan.trackerDocument.action },
+            { path: agentsPath, action: plan.agents.action },
+          ],
+        }
       })
 
       const resolveTeam = Effect.fn("InitService.resolveTeam")(function* resolveTeam(
@@ -109,15 +225,6 @@ class InitService extends Context.Service<InitService, InitServiceShape>()(
         return yield* labels.ensure(team.id)
       })
 
-      const writeFile = Effect.fn("InitService.writeFile")(function* writeFile(
-        file: string,
-        content: string,
-      ) {
-        yield* fs
-          .writeFileString(file, content)
-          .pipe(Effect.mapError(describeFailure("write")(file)))
-      })
-
       const run = Effect.fn("InitService.run")(function* runInit(options: InitOptions) {
         if (options.print) {
           return {
@@ -128,75 +235,53 @@ class InitService extends Context.Service<InitService, InitServiceShape>()(
           }
         }
 
-        const configFile = yield* repoConfig.filePath
-        const root = path.dirname(configFile)
-        const trackerFile = path.join(root, trackerDocumentPath)
-        const agentsFile = path.join(root, agentsPath)
-
         const existingConfig = yield* repoConfig.read
         const team = yield* resolveTeam(options.team, existingConfig)
-        const project = Option.orElse(options.project, () =>
-          Option.flatMap(existingConfig, projectFrom),
-        )
-        const config: RepoConfig = Option.isSome(project)
-          ? { team, project: project.value }
-          : { team }
-
-        const existingTrackerDocument = yield* readIfExists(trackerFile)
-        const existingAgents = yield* readIfExists(agentsFile)
-        const agentsDocument = injectAgentSkillsBlock(
-          Option.getOrElse(existingAgents, () => ""),
-          agentSkillsBlock,
-        )
-
-        const plan = planInit({
-          force: options.force,
-          config,
-          existingConfig,
-          trackerDocument,
-          existingTrackerDocument,
-          agentsDocument,
-          existingAgents,
-        })
-
         const ensured = options.ensureLabels
           ? Option.some(yield* ensureTeamLabels(team))
           : Option.none<LabelEnsureResult>()
-
-        if (plan.config.action === "create" || plan.config.action === "overwrite") {
-          yield* repoConfig.write(plan.config.content)
-        }
-
-        if (
-          plan.trackerDocument.action === "create" ||
-          plan.trackerDocument.action === "overwrite"
-        ) {
-          const directory = path.dirname(trackerFile)
-          yield* fs
-            .makeDirectory(directory, { recursive: true })
-            .pipe(Effect.mapError(describeFailure("create")(directory)))
-          yield* writeFile(trackerFile, plan.trackerDocument.content)
-        }
-
-        if (plan.agents.action === "create" || plan.agents.action === "overwrite") {
-          yield* writeFile(agentsFile, plan.agents.content)
-        }
+        const setup = yield* applySetup({
+          team,
+          project: options.project,
+          force: options.force,
+          overwriteConfig: false,
+        })
 
         return {
           document: Option.none<string>(),
           team: Option.some(team),
-          files: [
-            { path: configPath, action: plan.config.action },
-            { path: trackerDocumentPath, action: plan.trackerDocument.action },
-            { path: agentsPath, action: plan.agents.action },
-          ],
+          files: setup.files,
           labels: ensured,
         }
       })
 
-      return InitService.of({ run })
+      const link = Effect.fn("InitService.link")(function* linkRepository(options: LinkOptions) {
+        const invalid = invalidLinkOptions(options)
+        if (Option.isSome(invalid)) {
+          return yield* invalid.value
+        }
+        const team = yield* resolveLinkTeam(options, { stdio, teams })
+        const ensured = yield* labels.ensure(team.id)
+        const setup = yield* applySetup({
+          team: team.key,
+          project: options.project,
+          force: options.force,
+          overwriteConfig: true,
+        })
+        return { team, project: setup.project, files: setup.files, labels: ensured }
+      })
+
+      return InitService.of({ link, run })
     }),
   )
 }
 
-export { InitError, InitService, type InitFileReport, type InitOptions, type InitResult }
+export {
+  InitError,
+  InitService,
+  type InitFileReport,
+  type InitOptions,
+  type InitResult,
+  type LinkOptions,
+  type LinkResult,
+}
