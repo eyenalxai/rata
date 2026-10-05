@@ -131,7 +131,7 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
         const decoded = Schema.decodeResult(StoredAuthJson)(content)
         if (Result.isFailure(decoded)) {
           return yield* new AuthStoreError({
-            message: `The auth file at ${file} is not valid JSON.`,
+            message: `The auth file at ${file} is not a valid auth file.`,
           })
         }
         return Option.some(normalize(decoded.success))
@@ -157,7 +157,7 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
         yield* fs.chmod(target, 0o600).pipe(Effect.mapError(describeStoreFailure("secure")(target)))
       })
 
-      const resolveUncached = Effect.gen(function* resolveAuth() {
+      const resolveAuth = Effect.fn("Auth.resolve")(function* resolveAuth() {
         const envKey = yield* Config.Redacted("LINEAR_API_KEY").pipe(
           Config.option,
           Effect.mapError(
@@ -220,11 +220,11 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
           source: "profile" as const,
           profile: Option.some(name),
         })
-      }).pipe(Effect.withSpan("Auth.resolve"))
+      })
 
-      const resolve = yield* Effect.cached(resolveUncached)
+      const resolve = resolveAuth()
 
-      const require = Effect.gen(function* requireAuth() {
+      const requireAuth = Effect.fn("Auth.require")(function* requireAuth() {
         const resolved = yield* resolve
         if (Option.isNone(resolved)) {
           return yield* new AuthStoreError({
@@ -233,7 +233,9 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
           })
         }
         return resolved.value
-      }).pipe(Effect.withSpan("Auth.require"))
+      })
+
+      const require = requireAuth()
 
       const login = Effect.fn("Auth.login")(function* loginWithToken(
         apiKey: string,

@@ -1,110 +1,18 @@
-import { describe, expect, test } from "bun:test"
+import type { WriteRecord } from "@test/auth-harness"
+
 import {
-  ConfigProvider,
-  Effect,
-  FileSystem,
-  Layer,
-  Option,
-  Path,
-  Redacted,
-  Result,
-  Schema,
-} from "effect"
+  authPath,
+  decodeWrite,
+  profileFile,
+  repoPath,
+  runRequire,
+  runResolve,
+  runWithAuth,
+} from "@test/auth-harness"
+import { describe, expect, test } from "bun:test"
+import { Effect, Option, Redacted, Result } from "effect"
 
 import { Auth } from "@/config/auth"
-import { RepoConfigService } from "@/config/repo"
-
-type WriteRecord = {
-  readonly path: string
-  readonly content: string
-  readonly mode: number | undefined
-}
-
-const authPath = "/home/test/.config/rata/auth.json"
-
-const repoPath = () => `${process.cwd()}/.rata.json`
-
-const authFileJson = Schema.fromJsonString(
-  Schema.Struct({
-    default: Schema.optional(Schema.String),
-    workspaces: Schema.Record(Schema.String, Schema.Struct({ apiKey: Schema.String })),
-  }),
-)
-
-const profileFile = (workspaces: Record<string, string>, defaultName?: string): string => {
-  const profiles = Object.fromEntries(
-    Object.entries(workspaces).map(([name, apiKey]) => [name, { apiKey }]),
-  )
-  return JSON.stringify(
-    defaultName === undefined
-      ? { workspaces: profiles }
-      : { default: defaultName, workspaces: profiles },
-  )
-}
-
-const makeFileSystem = (files: Map<string, string>, writes: WriteRecord[], modes: number[]) =>
-  FileSystem.layerNoop({
-    exists: (file) => Effect.succeed(files.has(file)),
-    readFileString: (file) => Effect.succeed(files.get(file) ?? ""),
-    makeDirectory: () => Effect.void,
-    writeFileString: (file, data, options) => {
-      writes.push({ path: file, content: data, mode: options?.mode })
-      return Effect.void
-    },
-    chmod: (_file, mode) => {
-      modes.push(mode)
-      return Effect.void
-    },
-    remove: (file) => {
-      files.delete(file)
-      return Effect.void
-    },
-  })
-
-const testLayer = (
-  env: Record<string, string>,
-  files: Map<string, string>,
-  writes: WriteRecord[] = [],
-  modes: number[] = [],
-) => {
-  const platform = Layer.mergeAll(makeFileSystem(files, writes, modes), Path.layer)
-  const repoConfig = RepoConfigService.layer.pipe(Layer.provide(platform))
-  return Layer.mergeAll(
-    Auth.layer.pipe(Layer.provide(Layer.mergeAll(repoConfig, platform))),
-    ConfigProvider.layer(ConfigProvider.fromEnvRecord(env)),
-  )
-}
-
-const runWithAuth = <A, E>(
-  env: Record<string, string>,
-  files: Map<string, string>,
-  effect: Effect.Effect<A, E, Auth>,
-  writes: WriteRecord[] = [],
-  modes: number[] = [],
-) => effect.pipe(Effect.provide(testLayer(env, files, writes, modes)), Effect.runPromise)
-
-const runResolve = (env: Record<string, string>, files: Map<string, string>) =>
-  runWithAuth(
-    env,
-    files,
-    Effect.gen(function* resolveAuth() {
-      const auth = yield* Auth
-      return yield* auth.resolve
-    }),
-  )
-
-const runRequire = (env: Record<string, string>, files: Map<string, string>) =>
-  runWithAuth(
-    env,
-    files,
-    Effect.gen(function* requireAuth() {
-      const auth = yield* Auth
-      return yield* auth.require
-    }).pipe(Effect.flip),
-  )
-
-const decodeWrite = (writes: WriteRecord[]) =>
-  Schema.decodeResult(authFileJson)(writes[0]?.content ?? "")
 
 describe("Auth", () => {
   test("prefers LINEAR_API_KEY over the repository workspace and the stored profiles", async () => {
@@ -224,6 +132,35 @@ describe("Auth", () => {
     }
   })
 
+  test("login rewrites a legacy single-key file in the new shape with mode 0600", async () => {
+    const files = new Map([[authPath, JSON.stringify({ apiKey: "legacy-key" })]])
+    const writes: WriteRecord[] = []
+    const modes: number[] = []
+    await runWithAuth(
+      { HOME: "/home/test" },
+      files,
+      Effect.gen(function* login() {
+        const auth = yield* Auth
+        yield* auth.login("work-key", "work")
+      }),
+      writes,
+      modes,
+    )
+
+    expect(writes.length).toBe(1)
+    expect(writes[0]?.mode).toBe(0o600)
+    const decoded = decodeWrite(writes)
+    expect(Result.isSuccess(decoded)).toBe(true)
+    if (Result.isSuccess(decoded)) {
+      expect(decoded.success.default).toBe("default")
+      expect(decoded.success.workspaces).toEqual({
+        default: { apiKey: "legacy-key" },
+        work: { apiKey: "work-key" },
+      })
+    }
+    expect(modes).toEqual([0o600])
+  })
+
   test("workspace use rewrites the default profile", async () => {
     const files = new Map([
       [authPath, profileFile({ default: "default-key", work: "work-key" }, "default")],
@@ -285,5 +222,24 @@ describe("Auth", () => {
       expect(decoded.success.default).toBe("default")
       expect(decoded.success.workspaces).toEqual({ default: { apiKey: "default-key" } })
     }
+  })
+
+  test("logging out the default profile leaves the remaining profiles without a default", async () => {
+    const files = new Map([
+      [authPath, profileFile({ default: "default-key", work: "work-key" }, "default")],
+    ])
+    const error = await runWithAuth(
+      { HOME: "/home/test" },
+      files,
+      Effect.gen(function* logoutDefault() {
+        const auth = yield* Auth
+        yield* auth.require
+        yield* auth.logout("default")
+        return yield* auth.require
+      }).pipe(Effect.flip),
+    )
+
+    expect(error._tag).toBe("AuthStoreError")
+    expect(error.message).toContain("No default workspace")
   })
 })

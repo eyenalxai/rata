@@ -132,7 +132,10 @@ repository at one key.
 
 `rata auth status --workspace <name>` reads that profile directly; it does not
 consult `LINEAR_API_KEY` or `.rata.json`. `rata auth logout` without
-`--workspace` removes the `default` profile.
+`--workspace` removes the `default` profile. When the removed profile was the
+default and other profiles remain, no profile is the default. Later commands
+fail with ``No default workspace. Run `rata workspace use <name>`.`` Run
+`rata workspace use <name>` to select one.
 
 ## Teams
 
