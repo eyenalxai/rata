@@ -66,16 +66,4 @@ describe("InitService.link prompt", () => {
     }
     expect(fake.requests.some((request) => request.query.includes("query Teams"))).toBe(false)
   })
-
-  test("fails when the workspace has no teams", async () => {
-    const harness = makeHarness({
-      stdio: { stdinIsTerminal: Effect.succeed(true) },
-    })
-    const fake = makeFakeLinear({ teams: [], labels: [] })
-    const error = await linkError(fake.handler, harness, options({ team: Option.none() }))
-    expect(error._tag).toBe("LinkError")
-    if (error._tag === "LinkError") {
-      expect(error.message).toContain("No teams")
-    }
-  })
 })

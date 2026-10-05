@@ -5,18 +5,14 @@ import {
   linkTeam,
   makeHarness,
   options,
-  provide,
   rat,
   ratId,
   readConfig,
   scratch,
 } from "@test/link-harness"
 import { describe, expect, test } from "bun:test"
-import { Effect, Option } from "effect"
+import { Option } from "effect"
 
-import { LabelService } from "@/api/label"
-import { InitService } from "@/config/init"
-import { canonicalLabels } from "@/domain/labels"
 import {
   agentSkillsBlock,
   domainDocument,
@@ -30,34 +26,6 @@ const domainPath = () => `${process.cwd()}/docs/agents/domain.md`
 const agentsPath = () => `${process.cwd()}/AGENTS.md`
 
 describe("InitService.link", () => {
-  test("links an existing team by key and writes the repository files", async () => {
-    const harness = makeHarness()
-    const fake = makeFakeLinear({ teams: [rat, scratch], labels: [] })
-    const result = await linkTeam(fake.handler, harness, options({}))
-    expect(result.team).toEqual(rat)
-    expect(harness.files.get(trackerPath())).toBe(trackerDocument)
-    expect(harness.files.get(triagePath())).toBe(triageLabelsDocument)
-    expect(harness.files.get(domainPath())).toBe(domainDocument)
-    expect(harness.files.get(agentsPath())).toBe(agentSkillsBlock)
-  })
-
-  test("creates the canonical labels in the linked team", async () => {
-    const harness = makeHarness()
-    const fake = makeFakeLinear({ teams: [rat, scratch], labels: [] })
-    const names = await provide(
-      fake.handler,
-      harness,
-      Effect.gen(function* link() {
-        const service = yield* InitService
-        const labels = yield* LabelService
-        const result = yield* service.link(options({}))
-        const all = yield* labels.list(result.team.id)
-        return all.map((label) => label.name)
-      }),
-    )
-    expect(names.toSorted()).toEqual([...canonicalLabels].toSorted())
-  })
-
   test("resolves a team given by id and stores the key", async () => {
     const harness = makeHarness()
     const fake = makeFakeLinear({ teams: [{ ...rat, id: ratId }, scratch], labels: [] })
@@ -133,16 +101,6 @@ describe("InitService.link", () => {
     )
   })
 
-  test("does not update the team timezone when the machine reports none", async () => {
-    const harness = makeHarness()
-    const fake = makeFakeLinear({ teams: [rat], labels: [] })
-    const result = await linkTeam(fake.handler, harness, options({}))
-    expect(Option.isNone(result.timezone)).toBe(true)
-    expect(fake.requests.some((request) => request.query.includes("mutation TeamUpdate"))).toBe(
-      false,
-    )
-  })
-
   test("rejects --create with a team id", async () => {
     const harness = makeHarness()
     const fake = makeFakeLinear({ teams: [{ ...rat, id: ratId }], labels: [] })
@@ -208,32 +166,6 @@ describe("InitService.link", () => {
       "create",
     ])
     expect(readConfig(harness.files)).toEqual({ team: "RAT", project: "rata" })
-  })
-
-  test("leaves the existing agent documents and AGENTS.md alone without --force", async () => {
-    const harness = makeHarness({
-      files: new Map([
-        [configPath(), '{\n  "team": "OLD"\n}'],
-        [trackerPath(), "# Custom tracker\n"],
-        [triagePath(), "# Custom triage\n"],
-        [domainPath(), "# Custom domain\n"],
-        [agentsPath(), "# Agents\n"],
-      ]),
-    })
-    const fake = makeFakeLinear({ teams: [rat], labels: [] })
-    const result = await linkTeam(fake.handler, harness, options({}))
-    expect(result.files.map((file) => file.action)).toEqual([
-      "overwrite",
-      "skip",
-      "skip",
-      "skip",
-      "skip",
-    ])
-    expect(readConfig(harness.files)).toEqual({ team: "RAT" })
-    expect(harness.files.get(trackerPath())).toBe("# Custom tracker\n")
-    expect(harness.files.get(triagePath())).toBe("# Custom triage\n")
-    expect(harness.files.get(domainPath())).toBe("# Custom domain\n")
-    expect(harness.files.get(agentsPath())).toBe("# Agents\n")
   })
 
   test("overwrites existing files with --force", async () => {

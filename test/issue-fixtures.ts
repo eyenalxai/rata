@@ -88,8 +88,6 @@ const readBody = (request: HttpClientRequest.HttpClientRequest): RequestBody => 
   return decoded.success
 }
 
-const respondWithDetail = (): Response => jsonResponse({ data: { issue: baseDetail } })
-
 const configLayer = () =>
   ConfigProvider.layer(
     ConfigProvider.fromEnvRecord({ HOME: "/home/test", LINEAR_API_KEY: "test-key" }),
@@ -116,15 +114,4 @@ const run = <A, E>(
 ): Promise<A> =>
   effect.pipe(Effect.provide(Layer.mergeAll(issueLayer(handler), configLayer())), Effect.runPromise)
 
-export {
-  baseDetail,
-  jsonResponse,
-  pageInfo,
-  readBody,
-  respondWithDetail,
-  run,
-  summaryNode,
-  user,
-  uuid,
-  viewer,
-}
+export { baseDetail, jsonResponse, pageInfo, readBody, run, summaryNode, user, uuid, viewer }

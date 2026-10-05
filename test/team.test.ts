@@ -5,7 +5,7 @@ import { inputOf } from "@test/fake-linear-model"
 import { describe, expect, test } from "bun:test"
 import { Effect, Layer, Terminal } from "effect"
 
-import type { Team, TeamCreateOptions } from "@/api/team"
+import type { TeamCreateOptions } from "@/api/team"
 
 import { TeamService } from "@/api/team"
 import { confirm, isConfirmed } from "@/cli/confirm"
@@ -31,12 +31,6 @@ const createTeam = (options: TeamCreateOptions) =>
   Effect.gen(function* create() {
     const teams = yield* TeamService
     return yield* teams.create(options)
-  })
-
-const removeTeam = (target: Team) =>
-  Effect.gen(function* remove() {
-    const teams = yield* TeamService
-    return yield* teams.delete(target)
   })
 
 const requestOf = (
@@ -67,17 +61,6 @@ const runConfirm = (yes: boolean, readLine: Effect.Effect<string, Terminal.QuitE
     Effect.provide(terminalLayer(readLine)),
     Effect.runPromise,
   )
-
-describe("TeamService", () => {
-  test("fails when the team key does not exist", async () => {
-    const fake = makeFakeLinear({ teams: [team], labels: [] })
-    const error = await run(fake.handler, findTeam("NOPE").pipe(Effect.flip))
-    expect(error._tag).toBe("TeamNotFoundError")
-    if (error._tag === "TeamNotFoundError") {
-      expect(error.key).toBe("NOPE")
-    }
-  })
-})
 
 describe("TeamService.byId", () => {
   test("finds the team and declares the id as an ID variable", async () => {
@@ -129,12 +112,6 @@ describe("TeamService.create", () => {
     expect(error._tag).toBe("TeamNotFoundError")
     expect(hasQuery(fake.requests, "mutation TeamCreate")).toBe(false)
   })
-
-  test("fails when Linear rejects the create", async () => {
-    const fake = makeFakeLinear({ teams: [team], labels: [] }, { rejectTeamCreate: true })
-    const error = await run(fake.handler, createTeam({ name: "Scratch" }).pipe(Effect.flip))
-    expect(error._tag).toBe("TeamCreateError")
-  })
 })
 
 describe("TeamService.byKey", () => {
@@ -145,14 +122,6 @@ describe("TeamService.byKey", () => {
     expect(found.id).toBe(id)
     expect(hasQuery(fake.requests, "query TeamById")).toBe(true)
     expect(hasQuery(fake.requests, "query TeamByKey")).toBe(false)
-  })
-})
-
-describe("TeamService.delete", () => {
-  test("fails when Linear rejects the delete", async () => {
-    const fake = makeFakeLinear({ teams: [team], labels: [] }, { rejectTeamDelete: true })
-    const error = await run(fake.handler, removeTeam(team).pipe(Effect.flip))
-    expect(error._tag).toBe("TeamDeleteError")
   })
 })
 

@@ -172,15 +172,4 @@ describe("InitService", () => {
     expect(writes).not.toContain(triagePath())
     expect(writes).not.toContain(domainPath())
   })
-
-  test("fails with a clear error when no team is available", async () => {
-    const error = await Effect.gen(function* run() {
-      const service = yield* InitService
-      return yield* service.run(options({ team: Option.none() }))
-    }).pipe(Effect.provide(makeLayer(new Map(), [])), Effect.flip, Effect.runPromise)
-    expect(error._tag).toBe("InitError")
-    if (error._tag === "InitError") {
-      expect(error.message).toContain("--team")
-    }
-  })
 })

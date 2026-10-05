@@ -106,7 +106,6 @@ export {
   makeHarness,
   options,
   profileFile,
-  provide,
   rat,
   ratId,
   readConfig,

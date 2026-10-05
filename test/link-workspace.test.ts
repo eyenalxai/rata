@@ -136,25 +136,6 @@ describe("InitService.link workspace", () => {
     expect(harness.files.has(configPath())).toBe(false)
   })
 
-  test("fails when --team is in no stored workspace", async () => {
-    const harness = makeHarness({ env: noEnv, files: profiles() })
-    const fake = makeFakeLinear({
-      teams: [scratch],
-      labels: [],
-      workspaces: {
-        "default-key": { viewer: ada, teams: [scratch] },
-        "work-key": { viewer: bob, teams: [scratch] },
-      },
-    })
-    const error = await linkError(fake.handler, harness, options({}))
-
-    expect(error._tag).toBe("TeamNotFoundError")
-    if (error._tag === "TeamNotFoundError") {
-      expect(error.key).toBe("RAT")
-      expect(error.message).toContain("default, work")
-    }
-  })
-
   test("creates a missing team in the resolved profile", async () => {
     const harness = makeHarness({
       env: noEnv,

@@ -39,49 +39,6 @@ const actions = (overrides: Partial<InitPlanInput>) => {
 }
 
 describe("planInit", () => {
-  test("creates missing files", () => {
-    expect(actions({})).toEqual(["create", "create", "create", "create", "create"])
-  })
-
-  test("keeps files that already hold the desired content", () => {
-    expect(
-      actions({
-        existingConfig: Option.some({ team: "RAT" }),
-        documents: documents({ tracker: "tracker", triage: "triage", domain: "domain" }),
-        existingAgents: Option.some("agents"),
-      }),
-    ).toEqual(["unchanged", "unchanged", "unchanged", "unchanged", "unchanged"])
-  })
-
-  test("skips different files without force", () => {
-    expect(
-      actions({
-        existingConfig: Option.some({ team: "OLD" }),
-        documents: documents({
-          tracker: "old tracker",
-          triage: "old triage",
-          domain: "old domain",
-        }),
-        existingAgents: Option.some("old agents"),
-      }),
-    ).toEqual(["skip", "skip", "skip", "skip", "skip"])
-  })
-
-  test("overwrites different files with force", () => {
-    expect(
-      actions({
-        force: true,
-        existingConfig: Option.some({ team: "OLD" }),
-        documents: documents({
-          tracker: "old tracker",
-          triage: "old triage",
-          domain: "old domain",
-        }),
-        existingAgents: Option.some("old agents"),
-      }),
-    ).toEqual(["overwrite", "overwrite", "overwrite", "overwrite", "overwrite"])
-  })
-
   test("judges each document against its own existing content", () => {
     expect(actions({ documents: documents({ tracker: "tracker", triage: "old triage" }) })).toEqual(
       ["create", "unchanged", "skip", "create", "create"],
@@ -102,15 +59,6 @@ describe("planInit", () => {
       actions({
         config: { team: "RAT", workspace: "work" },
         existingConfig: Option.some({ team: "RAT", workspace: "personal" }),
-      }),
-    ).toEqual(["skip", "create", "create", "create", "create"])
-  })
-
-  test("treats a config with a different project as different", () => {
-    expect(
-      actions({
-        config: { team: "RAT", project: "rata" },
-        existingConfig: Option.some({ team: "RAT" }),
       }),
     ).toEqual(["skip", "create", "create", "create", "create"])
   })

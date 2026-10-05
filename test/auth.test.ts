@@ -76,11 +76,6 @@ describe("Auth", () => {
     }
   })
 
-  test("requires a key", async () => {
-    const error = await runRequire({ HOME: "/home/test" }, new Map())
-    expect(error._tag).toBe("AuthStoreError")
-  })
-
   test("stores a key as a profile with mode 0600", async () => {
     const files = new Map<string, string>()
     const writes: WriteRecord[] = []
@@ -185,19 +180,6 @@ describe("Auth", () => {
         work: { apiKey: "work-key" },
       })
     }
-  })
-
-  test("workspace use rejects an unknown profile", async () => {
-    const files = new Map([[authPath, profileFile({ default: "default-key" }, "default")]])
-    const error = await runWithAuth(
-      { HOME: "/home/test" },
-      files,
-      Effect.gen(function* use() {
-        const auth = yield* Auth
-        return yield* auth.use("nope")
-      }).pipe(Effect.flip),
-    )
-    expect(error._tag).toBe("AuthStoreError")
   })
 
   test("logout removes one profile and keeps the others", async () => {

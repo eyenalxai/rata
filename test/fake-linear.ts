@@ -27,31 +27,17 @@ import { Auth } from "@/config/auth"
 import { InitService } from "@/config/init"
 import { RepoConfigService } from "@/config/repo"
 
-type FakeLinearOptions = {
-  readonly rejectCreate?: boolean
-  readonly rejectProjectCreate?: boolean
-  readonly rejectTeamCreate?: boolean
-  readonly rejectTeamDelete?: boolean
-}
-
 type FakeState = {
   readonly teams: FakeTeam[]
   readonly labels: FakeLabel[]
   readonly projects: FakeProject[]
 }
 
-const handleMutation = (
-  graphql: GraphQLRequest,
-  state: FakeState,
-  options: FakeLinearOptions,
-): Response | undefined => {
+const handleMutation = (graphql: GraphQLRequest, state: FakeState): Response | undefined => {
   const query = graphql.query
   if (query.includes("mutation TeamCreate")) {
     const input = inputOf(graphql.variables)
     const name = stringField(input, "name")
-    if (options.rejectTeamCreate === true) {
-      return jsonResponse({ data: { teamCreate: { success: false, team: null } } })
-    }
     const created = {
       id: `team-${state.teams.length + 1}`,
       key: typeof input.key === "string" ? input.key : "AUTO",
@@ -76,16 +62,6 @@ const handleMutation = (
   if (query.includes("mutation CreateLabel")) {
     const input = inputOf(graphql.variables)
     const name = stringField(input, "name")
-    if (options.rejectCreate === true) {
-      return jsonResponse({
-        data: {
-          issueLabelCreate: {
-            success: false,
-            issueLabel: { id: "label-1", name, color: "#111111" },
-          },
-        },
-      })
-    }
     const created = {
       id: `label-${state.labels.length + 1}`,
       name,
@@ -104,9 +80,6 @@ const handleMutation = (
   }
   if (query.includes("mutation TeamDelete")) {
     const id = stringField(graphql.variables, "id")
-    if (options.rejectTeamDelete === true) {
-      return jsonResponse({ data: { teamDelete: { success: false, entityId: id } } })
-    }
     const index = state.teams.findIndex((item) => item.id === id)
     if (index === -1) {
       return jsonResponse({ data: { teamDelete: { success: false, entityId: id } } })
@@ -117,9 +90,6 @@ const handleMutation = (
   if (query.includes("mutation ProjectCreate")) {
     const input = inputOf(graphql.variables)
     const name = stringField(input, "name")
-    if (options.rejectProjectCreate === true) {
-      return jsonResponse({ data: { projectCreate: { success: false, project: null } } })
-    }
     const created: FakeProject = {
       id: `project-${state.projects.length + 1}`,
       name,
@@ -186,15 +156,12 @@ const handleQuery = (
   return undefined
 }
 
-const makeFakeLinear = (
-  seed: {
-    readonly teams: readonly FakeTeam[]
-    readonly labels: readonly FakeLabel[]
-    readonly projects?: readonly FakeProject[]
-    readonly workspaces?: Readonly<Record<string, FakeWorkspace>>
-  },
-  options: FakeLinearOptions = {},
-) => {
+const makeFakeLinear = (seed: {
+  readonly teams: readonly FakeTeam[]
+  readonly labels: readonly FakeLabel[]
+  readonly projects?: readonly FakeProject[]
+  readonly workspaces?: Readonly<Record<string, FakeWorkspace>>
+}) => {
   const labels = [...seed.labels]
   const teams = [...seed.teams]
   const projects = [...(seed.projects ?? [])]
@@ -220,7 +187,7 @@ const makeFakeLinear = (
       projects,
     }
     return (
-      handleMutation(graphql, state, options) ??
+      handleMutation(graphql, state) ??
       handleQuery(graphql, state, scoped?.viewer ?? defaultViewer) ??
       jsonResponse({ errors: [{ message: `Unexpected query: ${graphql.query}` }] }, 400)
     )

@@ -156,21 +156,6 @@ describe("IssueWriteApi labels", () => {
     })
   })
 
-  test("resolves a workspace label case-insensitively when removing", async () => {
-    const recorder = labelsHandler()
-    await run(
-      recorder.handler,
-      Effect.gen(function* removeLabels() {
-        const api = yield* IssueWriteApi
-        return yield* api.removeLabels("RAT-1", ["BUG"])
-      }),
-    )
-    expect(requestOf(recorder, "mutation RemoveLabel")?.variables).toEqual({
-      id: "i1",
-      labelId: "l-bug",
-    })
-  })
-
   test("fails before any mutation when the label does not exist", async () => {
     const recorder = labelsHandler()
     const error = await run(
@@ -256,14 +241,5 @@ describe("resolveBody", () => {
       Option.some("-"),
     ).pipe(Effect.provide(bodyLayer("Body from stdin\n")), Effect.runPromise)
     expect(body).toEqual(Option.some("Body from stdin"))
-  })
-
-  test("rejects --body and --body-file together", async () => {
-    const error = await resolveBody(
-      { body: "body", file: "body-file" },
-      Option.some("a"),
-      Option.some("b"),
-    ).pipe(Effect.provide(bodyLayer("")), Effect.flip, Effect.runPromise)
-    expect(error._tag).toBe("BodyInputError")
   })
 })

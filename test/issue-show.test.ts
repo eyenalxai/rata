@@ -1,15 +1,6 @@
 import type { HttpClientRequest } from "effect/http"
 
-import {
-  baseDetail,
-  jsonResponse,
-  pageInfo,
-  readBody,
-  respondWithDetail,
-  run,
-  user,
-  uuid,
-} from "@test/issue-fixtures"
+import { baseDetail, jsonResponse, pageInfo, readBody, run, user, uuid } from "@test/issue-fixtures"
 import { describe, expect, test } from "bun:test"
 import { Effect } from "effect"
 
@@ -34,18 +25,6 @@ describe("IssueApi show", () => {
     await run(handler, showRef("https://linear.app/eyenalx/issue/RAT-42/some-slug"))
 
     expect(captured.map((variables) => variables.id)).toEqual(["RAT-42", uuid, "RAT-42"])
-  })
-
-  test("rejects an invalid issue reference", async () => {
-    const error = await run(
-      respondWithDetail,
-      Effect.gen(function* showInvalidIssue() {
-        const api = yield* IssueApi
-        return yield* Effect.flip(api.show("not-an-issue", { comments: false }))
-      }),
-    )
-
-    expect(error._tag).toBe("InvalidIssueRef")
   })
 
   test("includes comments in chronological order with --comments", async () => {

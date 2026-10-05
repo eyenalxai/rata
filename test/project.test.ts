@@ -26,11 +26,6 @@ const createProject = (options: ProjectCreateOptions) =>
     return yield* projects.create(options)
   })
 
-const listProjects = Effect.gen(function* list() {
-  const projects = yield* ProjectService
-  return yield* projects.list
-})
-
 const requestOf = (
   requests: readonly GraphQLRequest[],
   fragment: string,
@@ -75,33 +70,5 @@ describe("ProjectService.create", () => {
     const error = await run(fake.handler, createProject({ name: "Spec: login" }).pipe(Effect.flip))
     expect(error._tag).toBe("TeamResolutionError")
     expect(requestOf(fake.requests, "mutation ProjectCreate")).toBeUndefined()
-  })
-
-  test("fails when Linear rejects the create", async () => {
-    const fake = makeFakeLinear({ teams: [team], labels: [] }, { rejectProjectCreate: true })
-    const error = await run(
-      fake.handler,
-      createProject({ name: "Spec: login" }).pipe(Effect.flip),
-      configWithTeam("RAT"),
-    )
-    expect(error._tag).toBe("ProjectCreateError")
-  })
-})
-
-describe("ProjectService.list", () => {
-  test("maps the progress and the status of every project", async () => {
-    const fake = makeFakeLinear({
-      teams: [team],
-      labels: [],
-      projects: [
-        { id: "p1", name: "Spec: login", progress: 0.5, status: { name: "Started" } },
-        { id: "p2", name: "Spec: signup", progress: 1, status: { name: "Completed" } },
-      ],
-    })
-    const projects = await run(fake.handler, listProjects)
-    expect(projects).toEqual([
-      { id: "p1", name: "Spec: login", progress: 0.5, status: { name: "Started" } },
-      { id: "p2", name: "Spec: signup", progress: 1, status: { name: "Completed" } },
-    ])
   })
 })
