@@ -35,11 +35,11 @@ import {
   StateNotFoundError,
   stateByName,
   stateByType,
-  TeamResolutionError,
   unwrapComment,
   unwrapIssue,
 } from "@/api/issue-write-model"
 import { collectPages } from "@/api/pagination"
+import { TeamResolutionError } from "@/api/team"
 import { findLabelByName } from "@/domain/labels"
 import { isUuid } from "@/domain/ref"
 

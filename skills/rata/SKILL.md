@@ -81,6 +81,21 @@ Wire blocking edges as you publish. Linear has one `blocks` relation, so
 rata issue link ABC-43 --blocked-by ABC-42   # ABC-43 waits for ABC-42
 ```
 
+## Specs as projects
+
+A spec is an issue that belongs to a Linear project named after it. Create the
+project first, then put the spec issue and its tickets in it:
+
+```bash
+rata project create --name "Spec: switch billing to Stripe"
+rata issue create --title "Spec: switch billing to Stripe" --project "Spec: switch billing to Stripe" --body-file -
+rata issue create --title "Add the Stripe client" --project "Spec: switch billing to Stripe" --label ready-for-agent --body-file -
+rata issue list --project "Spec: switch billing to Stripe" --json
+```
+
+The project rolls up the progress of the set. Wayfinding maps stay issues with
+child issues; projects group specs, not maps.
+
 ## Wayfinding
 
 A map is an issue labelled `wayfinder:map`. Its tickets are children labelled

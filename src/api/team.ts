@@ -100,6 +100,10 @@ class TeamNotFoundError extends Schema.TaggedError<TeamNotFoundError>()("TeamNot
   message: Schema.String,
 }) {}
 
+class TeamResolutionError extends Schema.TaggedError<TeamResolutionError>()("TeamResolutionError", {
+  message: Schema.String,
+}) {}
+
 class TeamCreateError extends Schema.TaggedError<TeamCreateError>()("TeamCreateError", {
   name: Schema.String,
   message: Schema.String,
@@ -269,6 +273,7 @@ export {
   type TeamCreateOptions,
   TeamDeleteError,
   TeamNotFoundError,
+  TeamResolutionError,
   TeamService,
   TeamUpdateError,
 }

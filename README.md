@@ -41,7 +41,8 @@ rata workspace use work                  # select the default profile
 rata team list                           # list teams: key, name, id
 rata team create --name "Scratch" --key SCR   # create a team
 rata team delete SCR --yes               # delete a team
-rata project list                        # list projects
+rata project list                        # list projects: name, state, progress, id
+rata project create --name "Spec: login" --team RAT   # create a project
 rata label list --team RAT               # list a team's labels
 rata label ensure --team RAT             # create the canonical labels the team misses
 rata init                                # configure this repository for the Linear tracker
@@ -193,6 +194,59 @@ rata team delete SCR --yes
   }
 }
 ```
+
+## Projects
+
+A Linear project groups issues. `rata project create` creates one:
+
+```bash
+rata project create --name "Spec: login" --team RAT
+rata project create --name "Spec: login" --team RAT --team OPS --description "The login spec."
+```
+
+| Flag            | Meaning                                                       |
+| --------------- | ------------------------------------------------------------- |
+| `--name`        | Project name. Required.                                       |
+| `--team`        | Team key or id. Repeat for more teams. Default: `.rata.json`. |
+| `--description` | Project description.                                          |
+
+`--json` prints one stable document:
+
+```json
+{
+  "project": {
+    "id": "p1",
+    "name": "Spec: login",
+    "progress": 0.25,
+    "status": { "name": "Started" }
+  }
+}
+```
+
+`rata project list` prints the name, state, progress and id of every project:
+
+```bash
+rata project list
+```
+
+`--json` prints `{ "projects": [...] }` with the same fields. `progress` is the
+fraction of the project's issues that are done, between 0 and 1.
+
+### Specs as projects
+
+The ask-matt skills group a spec with its tickets in one project:
+
+1. `/to-spec` creates a project named after the spec, then creates the spec
+   issue in that project:
+   `rata project create --name "Spec: login"` and
+   `rata issue create --title "Spec: login" --project "Spec: login" --body-file -`.
+2. `/to-tickets` creates each ticket in the same project:
+   `rata issue create --title "Add the form" --project "Spec: login" --label ready-for-agent --body-file -`.
+3. `/implement-spec` fetches the whole set:
+   `rata issue list --project "Spec: login" --json`.
+
+`issue create --project` and `issue list --project` accept a project name or a
+UUID. A project groups specs; a wayfinding map stays an issue with child issues.
 
 ## Repository setup
 

@@ -16,6 +16,8 @@ operations.
   \`rata issue label remove <ref> <label...>\`
 - **Close**: \`rata issue close <ref> --comment "..."\`
 - **Search**: \`rata search "..."\`
+- **Create a project**: \`rata project create --name "Spec: <title>"\`. A spec
+  and its tickets live in one project. See **Specs as projects**.
 
 An issue reference accepts an identifier (\`PER-42\`), a UUID, or a linear.app
 issue URL. The repository config \`.rata.json\` names the default team and
@@ -31,11 +33,31 @@ and mirror the outcome here.
 
 ## When a skill says "publish to the issue tracker"
 
-Create a Linear issue with \`rata issue create\`.
+Create a Linear issue with \`rata issue create\`. When the issue is a spec, give
+it a project: see **Specs as projects**.
 
 ## When a skill says "fetch the relevant ticket"
 
 Run \`rata issue show <ref> --comments\`.
+
+## Specs as projects
+
+A **spec** is an issue that holds a spec. A Linear **project** groups the spec
+issue with its tickets, so the progress rolls up. Projects group specs, not
+maps: a map stays an issue with child issues.
+
+- **Publish a spec**: create the project first, then the spec issue in it.
+  \`rata project create --name "Spec: <title>"\`, then
+  \`rata issue create --title "<title>" --project "Spec: <title>" --body-file -\`.
+- **Publish the tickets**: \`/to-tickets\` creates each ticket in the same
+  project:
+  \`rata issue create --title "..." --project "Spec: <title>" --label ready-for-agent --body-file -\`.
+  Wire the blocking edges with
+  \`rata issue link <ticket-ref> --blocked-by <blocker-ref>\`.
+- **Implement the spec**: \`/implement-spec\` fetches the whole set with
+  \`rata issue list --project "Spec: <title>" --json\`.
+- **Read the progress**: \`rata project list\` prints each project's state and
+  the percentage of its issues that are done.
 
 ## Wayfinding operations
 

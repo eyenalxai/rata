@@ -35,6 +35,13 @@ type FakeLabel = {
   readonly teamId: string | null
 }
 
+type FakeProject = {
+  readonly id: string
+  readonly name: string
+  readonly progress: number
+  readonly status: { readonly name: string }
+}
+
 const jsonResponse = (body: unknown, status = 200): Response =>
   Response.json(body, { status, headers: { "content-type": "application/json" } })
 
@@ -70,15 +77,18 @@ const makeFakeLinear = (
   seed: {
     readonly teams: readonly FakeTeam[]
     readonly labels: readonly FakeLabel[]
+    readonly projects?: readonly FakeProject[]
   },
   options: {
     readonly rejectCreate?: boolean
+    readonly rejectProjectCreate?: boolean
     readonly rejectTeamCreate?: boolean
     readonly rejectTeamDelete?: boolean
   } = {},
 ) => {
   const labels = [...seed.labels]
   const teams = [...seed.teams]
+  const projects = [...(seed.projects ?? [])]
   const requests: GraphQLRequest[] = []
   const handler: Handler = (request) => {
     const graphql = readRequest(request)
@@ -151,6 +161,24 @@ const makeFakeLinear = (
       }
       teams.splice(index, 1)
       return jsonResponse({ data: { teamDelete: { success: true, entityId: id } } })
+    }
+    if (query.includes("mutation ProjectCreate")) {
+      const input = inputOf(graphql.variables)
+      const name = stringField(input, "name")
+      if (options.rejectProjectCreate === true) {
+        return jsonResponse({ data: { projectCreate: { success: false, project: null } } })
+      }
+      const created: FakeProject = {
+        id: `project-${projects.length + 1}`,
+        name,
+        progress: 0,
+        status: { name: "Backlog" },
+      }
+      projects.push(created)
+      return jsonResponse({ data: { projectCreate: { success: true, project: created } } })
+    }
+    if (query.includes("query Projects")) {
+      return jsonResponse({ data: { projects: { nodes: projects } } })
     }
     if (query.includes("query TeamById")) {
       const id = graphql.variables.id
@@ -228,7 +256,9 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
   )
   const teams = TeamService.layer.pipe(Layer.provide(client))
   const labels = LabelService.layer.pipe(Layer.provide(client))
-  const projects = ProjectService.layer.pipe(Layer.provide(client))
+  const projects = ProjectService.layer.pipe(
+    Layer.provide(Layer.mergeAll(client, teams, repoConfig)),
+  )
   const issueWrite = IssueWriteApi.layer.pipe(
     Layer.provide(Layer.mergeAll(client, teams, labels, projects, repoConfig)),
   )

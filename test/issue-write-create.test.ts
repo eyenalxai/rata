@@ -62,7 +62,9 @@ const createHandler = () =>
     if (request.query.includes("query Projects")) {
       return jsonResponse({
         data: {
-          projects: { nodes: [{ id: "p1", name: "Tracker", status: { name: "Started" } }] },
+          projects: {
+            nodes: [{ id: "p1", name: "Tracker", progress: 0, status: { name: "Started" } }],
+          },
         },
       })
     }

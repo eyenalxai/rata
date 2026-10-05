@@ -32,14 +32,15 @@ from `.rata.json`, the `default` profile.
 
 ## Teams, projects, labels
 
-| Command                                        | Description                                                                  |
-| ---------------------------------------------- | ---------------------------------------------------------------------------- |
-| `rata team list`                               | List teams.                                                                  |
-| `rata team create --name <name> [--key <key>]` | Create a team.                                                               |
-| `rata team delete <key> [--yes]`               | Delete a team (Linear keeps it recoverable). `--yes` skips the confirmation. |
-| `rata project list`                            | List projects.                                                               |
-| `rata label list --team <key>`                 | List the labels of a team.                                                   |
-| `rata label ensure --team <key>`               | Create the canonical labels that the team misses.                            |
+| Command                                            | Description                                                                  |
+| -------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `rata team list`                                   | List teams.                                                                  |
+| `rata team create --name <name> [--key <key>]`     | Create a team.                                                               |
+| `rata team delete <key> [--yes]`                   | Delete a team (Linear keeps it recoverable). `--yes` skips the confirmation. |
+| `rata project list`                                | List projects: name, state, progress, id.                                    |
+| `rata project create --name <name> [--team <key>]` | Create a project. `--team` is repeatable.                                    |
+| `rata label list --team <key>`                     | List the labels of a team.                                                   |
+| `rata label ensure --team <key>`                   | Create the canonical labels that the team misses.                            |
 
 ## Issues
 

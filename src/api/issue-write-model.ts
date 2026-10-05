@@ -9,7 +9,7 @@ import type {
   IssueSummaryNode,
   WorkflowState,
 } from "@/api/issue-schema"
-import type { TeamNotFoundError } from "@/api/team"
+import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
 import type { InvalidIssueRef, IssueRef } from "@/domain/ref"
 
@@ -17,10 +17,6 @@ import { toSummary } from "@/api/issue-model"
 import { parseIssueRef } from "@/domain/ref"
 
 class IssueWriteError extends Schema.TaggedError<IssueWriteError>()("IssueWriteError", {
-  message: Schema.String,
-}) {}
-
-class TeamResolutionError extends Schema.TaggedError<TeamResolutionError>()("TeamResolutionError", {
   message: Schema.String,
 }) {}
 
@@ -285,7 +281,6 @@ export {
   StateNotFoundError,
   stateByName,
   stateByType,
-  TeamResolutionError,
   unwrapComment,
   unwrapIssue,
   unwrapRelation,
