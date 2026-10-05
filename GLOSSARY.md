@@ -57,6 +57,13 @@ they explore the codebase. Use these terms; do not drift to synonyms.
 
 - **rata**: this CLI. The binary name is `rata`; the package name is `rata-cli`.
 - **Repository config**: `.rata.json` at a repository root. It names the default
-  team and project for that repository. `rata link` writes it.
-- **Auth file**: the local file that holds the API key, written by
+  team, project and workspace profile for that repository. `rata link` writes
+  it.
+- **Auth file**: the local file that holds the workspace profiles, written by
   `rata auth login`.
+- **Profile** (or **workspace profile**): a named API key in the auth file. The
+  name selects the Linear workspace. Avoid: account, credential.
+- **Default profile**: the profile named by `default` in the auth file.
+  `rata workspace use` sets it.
+- **Resolution order**: the order rata uses to select the API key:
+  `LINEAR_API_KEY`, the repository `workspace`, the default profile.

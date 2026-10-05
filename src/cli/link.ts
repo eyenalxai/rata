@@ -17,6 +17,11 @@ const projectFlag = Flag.String("project").pipe(
   Flag.optional,
 )
 
+const workspaceFlag = Flag.String("workspace").pipe(
+  Flag.withDescription("Workspace profile for this repository"),
+  Flag.optional,
+)
+
 const createFlag = Flag.Boolean("create").pipe(
   Flag.withDescription("Create the team when it does not exist"),
   Flag.withDefault(false),
@@ -37,6 +42,7 @@ const linkCommand = Command.make(
   {
     team: teamFlag,
     project: projectFlag,
+    workspace: workspaceFlag,
     create: createFlag,
     name: nameFlag,
     force: forceFlag,
@@ -48,6 +54,7 @@ const linkCommand = Command.make(
       const result = yield* service.link({
         team: config.team,
         project: config.project,
+        workspace: config.workspace,
         create: config.create,
         name: config.name,
         force: config.force,
@@ -57,6 +64,7 @@ const linkCommand = Command.make(
         return yield* writeJson({
           team: result.team,
           project: Option.getOrNull(result.project),
+          workspace: Option.getOrNull(result.workspace),
           timezone: Option.getOrNull(result.timezone),
           files: result.files,
           labels: result.labels,
@@ -90,6 +98,10 @@ const linkCommand = Command.make(
     {
       command: 'rata link --team SCR --create --name "Scratch"',
       description: "Create the team, then link the repository",
+    },
+    {
+      command: "rata link --team RAT --workspace work",
+      description: "Link the repository to a team in the work workspace",
     },
   ]),
 )

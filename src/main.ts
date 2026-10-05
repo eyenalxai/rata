@@ -16,7 +16,8 @@ import { InitService } from "@/config/init"
 import { RepoConfigService } from "@/config/repo"
 
 const platformLayer = BunServices.layer
-const authLayer = Auth.layer.pipe(Layer.provide(platformLayer))
+const repoConfigLayer = RepoConfigService.layer.pipe(Layer.provide(platformLayer))
+const authLayer = Auth.layer.pipe(Layer.provide(Layer.mergeAll(repoConfigLayer, platformLayer)))
 const clientLayer = LinearClient.layer.pipe(
   Layer.provide(authLayer),
   Layer.provide(FetchHttpClient.layer),
@@ -25,7 +26,6 @@ const issueLayer = IssueApi.layer.pipe(Layer.provide(clientLayer))
 const teamLayer = TeamService.layer.pipe(Layer.provide(clientLayer))
 const labelLayer = LabelService.layer.pipe(Layer.provide(clientLayer))
 const projectLayer = ProjectService.layer.pipe(Layer.provide(clientLayer))
-const repoConfigLayer = RepoConfigService.layer.pipe(Layer.provide(platformLayer))
 const initLayer = InitService.layer.pipe(
   Layer.provide(repoConfigLayer),
   Layer.provide(teamLayer),

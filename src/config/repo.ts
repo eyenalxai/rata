@@ -5,6 +5,7 @@ import { Context, Effect, FileSystem, Layer, Option, Path, Result, Schema } from
 const RepoConfig = Schema.Struct({
   team: Schema.optional(Schema.String),
   project: Schema.optional(Schema.String),
+  workspace: Schema.optional(Schema.String),
 })
 
 type RepoConfig = typeof RepoConfig.Type

@@ -221,14 +221,14 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
     makeDirectory: () => Effect.void,
   })
   const platform = Layer.mergeAll(fs, Path.layer, Stdio.layerTest(options.stdio ?? {}))
-  const auth = Auth.layer.pipe(Layer.provide(platform))
+  const repoConfig = RepoConfigService.layer.pipe(Layer.provide(platform))
+  const auth = Auth.layer.pipe(Layer.provide(Layer.mergeAll(repoConfig, platform)))
   const client = LinearClient.layer.pipe(
     Layer.provide(Layer.mergeAll(auth, Layer.succeed(HttpClient.HttpClient, http))),
   )
   const teams = TeamService.layer.pipe(Layer.provide(client))
   const labels = LabelService.layer.pipe(Layer.provide(client))
   const projects = ProjectService.layer.pipe(Layer.provide(client))
-  const repoConfig = RepoConfigService.layer.pipe(Layer.provide(platform))
   const issueWrite = IssueWriteApi.layer.pipe(
     Layer.provide(Layer.mergeAll(client, teams, labels, projects, repoConfig)),
   )

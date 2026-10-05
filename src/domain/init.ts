@@ -51,7 +51,7 @@ const decideAction = (input: {
 }
 
 const sameConfig = (left: RepoConfig, right: RepoConfig): boolean =>
-  left.team === right.team && left.project === right.project
+  left.team === right.team && left.project === right.project && left.workspace === right.workspace
 
 const planDocument = (force: boolean, document: InitDocument): InitDocumentStep => ({
   path: document.path,

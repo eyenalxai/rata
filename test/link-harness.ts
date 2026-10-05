@@ -6,7 +6,7 @@ import { recordingConsole } from "@test/recording-console"
 import { Console, Effect, Option } from "effect"
 
 import type { LabelService } from "@/api/label"
-import type { LinkOptions } from "@/config/init"
+import type { LinkOptions } from "@/config/init-model"
 
 import { InitService } from "@/config/init"
 
@@ -35,6 +35,7 @@ const makeHarness = (overrides: Partial<Harness> = {}): Harness => ({
 const options = (overrides: Partial<LinkOptions>): LinkOptions => ({
   team: Option.some("RAT"),
   project: Option.none(),
+  workspace: Option.none(),
   create: false,
   name: Option.none(),
   force: false,

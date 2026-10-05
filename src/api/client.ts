@@ -63,6 +63,7 @@ type LinearClientShape = {
     data: S,
   ) => Effect.Effect<S["Type"], LinearApiError>
   readonly viewer: Effect.Effect<Viewer, LinearApiError>
+  readonly viewerWithKey: (apiKey: Redacted.Redacted) => Effect.Effect<Viewer, LinearApiError>
 }
 
 const maxRetries = 3
@@ -89,6 +90,111 @@ const parseRetryAfter = (
   return Number.isFinite(seconds) ? seconds : undefined
 }
 
+const makeClient = (
+  http: HttpClient.HttpClient,
+  key: Effect.Effect<Redacted.Redacted, LinearApiError>,
+): LinearClientShape => {
+  const send = Effect.fn("LinearClient.send")(function* sendRequest(
+    request: HttpClientRequest.HttpClientRequest,
+  ) {
+    const response = yield* http
+      .execute(request)
+      .pipe(Effect.mapError((cause) => new LinearNetworkError({ message: cause.message, cause })))
+
+    if (response.status === 401 || response.status === 403) {
+      return yield* new LinearAuthError({
+        message: "Linear rejected the API key.",
+        status: response.status,
+      })
+    }
+    if (response.status === 429) {
+      return yield* new LinearRateLimitError({
+        message: "Linear rate limit reached.",
+        retryAfterSeconds: parseRetryAfter(response.headers),
+      })
+    }
+    if (response.status >= 500) {
+      const body = yield* response.text.pipe(Effect.orElseSucceed(() => ""))
+      return yield* new LinearNetworkError({
+        message: `Linear returned HTTP ${response.status}.`,
+        ...(body.trim() === "" ? {} : { cause: body }),
+      })
+    }
+    if (response.status >= 400) {
+      return yield* new LinearGraphQLError({
+        message: `Linear returned HTTP ${response.status}.`,
+        details: [],
+      })
+    }
+    return response
+  })
+
+  const runQuery = Effect.fn("LinearClient.runQuery")(function* runQuery<S extends ClientSchema>(
+    apiKey: Redacted.Redacted,
+    query: string,
+    variables: Record<string, unknown>,
+    data: S,
+  ): Effect.fn.Return<S["Type"], LinearApiError> {
+    const request = HttpClientRequest.post(endpoint).pipe(
+      HttpClientRequest.setHeaders({
+        authorization: Redacted.value(apiKey),
+        "content-type": "application/json",
+      }),
+      HttpClientRequest.bodyJsonUnsafe({ query, variables }),
+    )
+
+    const response = yield* send(request).pipe(
+      Effect.retry({ while: isRetryableLinearError, times: maxRetries, schedule: retryPolicy }),
+    )
+
+    const envelope = yield* HttpClientResponse.schemaBodyJson(responseEnvelope(data))(
+      response,
+    ).pipe(
+      Effect.mapError(
+        (cause) =>
+          new LinearGraphQLError({
+            message: "Linear returned an unexpected response body.",
+            details: [],
+            cause,
+          }),
+      ),
+    )
+    if (envelope.errors !== undefined && envelope.errors.length > 0) {
+      const details = envelope.errors.map((error) => error.message)
+      return yield* new LinearGraphQLError({ message: details.join("; "), details })
+    }
+    if (envelope.data === null) {
+      return yield* new LinearGraphQLError({
+        message: "Linear returned no data.",
+        details: [],
+      })
+    }
+    return envelope.data
+  })
+
+  const execute = Effect.fn("LinearClient.execute")(function* executeQuery<S extends ClientSchema>(
+    query: string,
+    variables: Record<string, unknown>,
+    data: S,
+  ): Effect.fn.Return<S["Type"], LinearApiError> {
+    const apiKey = yield* key
+    return yield* runQuery(apiKey, query, variables, data)
+  })
+
+  const viewer = execute(viewerQuery, {}, Schema.Struct({ viewer: Viewer })).pipe(
+    Effect.map((data) => data.viewer),
+    Effect.withSpan("LinearClient.viewer"),
+  )
+
+  const viewerWithKey = (apiKey: Redacted.Redacted) =>
+    runQuery(apiKey, viewerQuery, {}, Schema.Struct({ viewer: Viewer })).pipe(
+      Effect.map((data) => data.viewer),
+      Effect.withSpan("LinearClient.viewerWithKey"),
+    )
+
+  return { execute, viewer, viewerWithKey }
+}
+
 class LinearClient extends Context.Service<LinearClient, LinearClientShape>()(
   "rata-cli/api/client/LinearClient",
 ) {
@@ -97,99 +203,13 @@ class LinearClient extends Context.Service<LinearClient, LinearClientShape>()(
     Effect.gen(function* linearClientLayer() {
       const auth = yield* Auth
       const http = yield* HttpClient.HttpClient
-
-      const send = Effect.fn("LinearClient.send")(function* sendRequest(
-        request: HttpClientRequest.HttpClientRequest,
-      ) {
-        const response = yield* http
-          .execute(request)
-          .pipe(
-            Effect.mapError((cause) => new LinearNetworkError({ message: cause.message, cause })),
-          )
-
-        if (response.status === 401 || response.status === 403) {
-          return yield* new LinearAuthError({
-            message: "Linear rejected the API key.",
-            status: response.status,
-          })
-        }
-        if (response.status === 429) {
-          return yield* new LinearRateLimitError({
-            message: "Linear rate limit reached.",
-            retryAfterSeconds: parseRetryAfter(response.headers),
-          })
-        }
-        if (response.status >= 500) {
-          const body = yield* response.text.pipe(Effect.orElseSucceed(() => ""))
-          return yield* new LinearNetworkError({
-            message: `Linear returned HTTP ${response.status}.`,
-            ...(body.trim() === "" ? {} : { cause: body }),
-          })
-        }
-        if (response.status >= 400) {
-          return yield* new LinearGraphQLError({
-            message: `Linear returned HTTP ${response.status}.`,
-            details: [],
-          })
-        }
-        return response
-      })
-
-      const execute = Effect.fn("LinearClient.execute")(function* executeQuery<
-        S extends ClientSchema,
-      >(
-        query: string,
-        variables: Record<string, unknown>,
-        data: S,
-      ): Effect.fn.Return<S["Type"], LinearApiError> {
-        const resolved = yield* auth.require.pipe(
-          Effect.mapError(
-            (error) => new LinearAuthError({ message: error.message, cause: error.cause }),
-          ),
-        )
-        const request = HttpClientRequest.post(endpoint).pipe(
-          HttpClientRequest.setHeaders({
-            authorization: Redacted.value(resolved.key),
-            "content-type": "application/json",
-          }),
-          HttpClientRequest.bodyJsonUnsafe({ query, variables }),
-        )
-
-        const response = yield* send(request).pipe(
-          Effect.retry({ while: isRetryableLinearError, times: maxRetries, schedule: retryPolicy }),
-        )
-
-        const envelope = yield* HttpClientResponse.schemaBodyJson(responseEnvelope(data))(
-          response,
-        ).pipe(
-          Effect.mapError(
-            (cause) =>
-              new LinearGraphQLError({
-                message: "Linear returned an unexpected response body.",
-                details: [],
-                cause,
-              }),
-          ),
-        )
-        if (envelope.errors !== undefined && envelope.errors.length > 0) {
-          const details = envelope.errors.map((error) => error.message)
-          return yield* new LinearGraphQLError({ message: details.join("; "), details })
-        }
-        if (envelope.data === null) {
-          return yield* new LinearGraphQLError({
-            message: "Linear returned no data.",
-            details: [],
-          })
-        }
-        return envelope.data
-      })
-
-      const viewer = execute(viewerQuery, {}, Schema.Struct({ viewer: Viewer })).pipe(
-        Effect.map((data) => data.viewer),
-        Effect.withSpan("LinearClient.viewer"),
+      const key = auth.require.pipe(
+        Effect.mapError(
+          (error) => new LinearAuthError({ message: error.message, cause: error.cause }),
+        ),
+        Effect.map((resolved) => resolved.key),
       )
-
-      return LinearClient.of({ execute, viewer })
+      return LinearClient.of(makeClient(http, key))
     }),
   )
 }

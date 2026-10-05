@@ -6,6 +6,7 @@ import { HttpClient, HttpClientResponse } from "effect/http"
 import { LinearClient } from "@/api/client"
 import { IssueApi } from "@/api/issue"
 import { Auth } from "@/config/auth"
+import { RepoConfigService } from "@/config/repo"
 
 const uuid = "5f0c1f2a-3b4c-4d5e-8f90-1234567890ab"
 
@@ -98,7 +99,9 @@ const clientLayer = (handler: (request: HttpClientRequest.HttpClientRequest) => 
   const http = HttpClient.make((request) =>
     Effect.succeed(HttpClientResponse.fromWeb(request, handler(request))),
   )
-  const auth = Auth.layer.pipe(Layer.provide(Layer.mergeAll(FileSystem.layerNoop({}), Path.layer)))
+  const platform = Layer.mergeAll(FileSystem.layerNoop({}), Path.layer)
+  const repoConfig = RepoConfigService.layer.pipe(Layer.provide(platform))
+  const auth = Auth.layer.pipe(Layer.provide(Layer.mergeAll(repoConfig, platform)))
   return LinearClient.layer.pipe(
     Layer.provide(Layer.mergeAll(auth, Layer.succeed(HttpClient.HttpClient, http))),
   )

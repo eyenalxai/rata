@@ -7,6 +7,7 @@ import { labelCommand } from "@/cli/label"
 import { linkCommand } from "@/cli/link"
 import { projectCommand } from "@/cli/project"
 import { teamCommand } from "@/cli/team"
+import { workspaceCommand } from "@/cli/workspace"
 
 const root = Command.make("rata").pipe(
   Command.withDescription("Linear issue tracking for agent workflows."),
@@ -15,6 +16,7 @@ const root = Command.make("rata").pipe(
     whoamiCommand,
     initCommand,
     linkCommand,
+    workspaceCommand,
     issueCommand,
     searchCommand,
     teamCommand,

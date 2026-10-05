@@ -91,10 +91,19 @@ describe("planInit", () => {
   test("treats a config with the same fields as unchanged", () => {
     expect(
       actions({
-        config: { team: "RAT", project: "rata" },
-        existingConfig: Option.some({ project: "rata", team: "RAT" }),
+        config: { team: "RAT", project: "rata", workspace: "work" },
+        existingConfig: Option.some({ project: "rata", team: "RAT", workspace: "work" }),
       }),
     ).toEqual(["unchanged", "create", "create", "create", "create"])
+  })
+
+  test("treats a config with a different workspace as different", () => {
+    expect(
+      actions({
+        config: { team: "RAT", workspace: "work" },
+        existingConfig: Option.some({ team: "RAT", workspace: "personal" }),
+      }),
+    ).toEqual(["skip", "create", "create", "create", "create"])
   })
 
   test("treats a config with a different project as different", () => {

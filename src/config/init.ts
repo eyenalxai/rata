@@ -4,10 +4,16 @@ import { Context, Effect, FileSystem, Layer, Option, Path, Schema, Stdio } from 
 
 import type { LinearApiError } from "@/api/errors"
 import type { LabelCreateError, LabelEnsureResult } from "@/api/label"
-import type { Team, TeamCreateError, TeamNotFoundError, TeamUpdateError } from "@/api/team"
-import type { LinkError, LinkTargetOptions, TimezoneChange } from "@/config/link-team"
+import type { TeamCreateError, TeamNotFoundError, TeamUpdateError } from "@/api/team"
+import type {
+  InitFileReport,
+  InitOptions,
+  InitResult,
+  LinkOptions,
+  LinkResult,
+} from "@/config/init-model"
+import type { LinkError } from "@/config/link-team"
 import type { RepoConfig, RepoConfigError } from "@/config/repo"
-import type { InitAction } from "@/domain/init"
 
 import { LabelService } from "@/api/label"
 import { TeamService } from "@/api/team"
@@ -20,48 +26,17 @@ import { agentSkillDocuments, agentSkillsBlock, trackerDocument } from "@/matt/t
 const configPath = ".rata.json"
 const agentsPath = "AGENTS.md"
 
-type InitOptions = {
-  readonly team: Option.Option<string>
-  readonly project: Option.Option<string>
-  readonly force: boolean
-  readonly print: boolean
-  readonly ensureLabels: boolean
-}
-
-type InitFileReport = {
-  readonly path: string
-  readonly action: InitAction
-}
-
-type InitResult = {
-  readonly document: Option.Option<string>
-  readonly team: Option.Option<string>
-  readonly files: readonly InitFileReport[]
-  readonly labels: Option.Option<LabelEnsureResult>
-}
-
-type LinkOptions = LinkTargetOptions & {
-  readonly project: Option.Option<string>
-  readonly force: boolean
-}
-
-type LinkResult = {
-  readonly team: Team
-  readonly project: Option.Option<string>
-  readonly timezone: Option.Option<TimezoneChange>
-  readonly files: readonly InitFileReport[]
-  readonly labels: LabelEnsureResult
-}
-
 type SetupInput = {
   readonly team: string
   readonly project: Option.Option<string>
+  readonly workspace: Option.Option<string>
   readonly force: boolean
   readonly overwriteConfig: boolean
 }
 
 type SetupResult = {
   readonly project: Option.Option<string>
+  readonly workspace: Option.Option<string>
   readonly files: readonly InitFileReport[]
 }
 
@@ -147,9 +122,14 @@ class InitService extends Context.Service<InitService, InitServiceShape>()(
         const project = Option.orElse(input.project, () =>
           Option.flatMap(existingConfig, projectFrom),
         )
-        const config: RepoConfig = Option.isSome(project)
-          ? { team: input.team, project: project.value }
-          : { team: input.team }
+        const workspace = Option.orElse(input.workspace, () =>
+          Option.flatMap(existingConfig, (config) => Option.fromUndefinedOr(config.workspace)),
+        )
+        const config: RepoConfig = {
+          team: input.team,
+          ...(Option.isSome(project) ? { project: project.value } : {}),
+          ...(Option.isSome(workspace) ? { workspace: workspace.value } : {}),
+        }
 
         const documents = yield* Effect.forEach(agentSkillDocuments, (document) =>
           readIfExists(path.join(root, document.path)).pipe(
@@ -201,6 +181,7 @@ class InitService extends Context.Service<InitService, InitServiceShape>()(
 
         return {
           project,
+          workspace,
           files: [
             { path: configPath, action: configAction },
             ...plan.documents.map((document) => ({
@@ -252,6 +233,7 @@ class InitService extends Context.Service<InitService, InitServiceShape>()(
         const setup = yield* applySetup({
           team,
           project: options.project,
+          workspace: Option.none(),
           force: options.force,
           overwriteConfig: false,
         })
@@ -274,10 +256,18 @@ class InitService extends Context.Service<InitService, InitServiceShape>()(
         const setup = yield* applySetup({
           team: team.key,
           project: options.project,
+          workspace: options.workspace,
           force: options.force,
           overwriteConfig: true,
         })
-        return { team, project: setup.project, timezone, files: setup.files, labels: ensured }
+        return {
+          team,
+          project: setup.project,
+          workspace: setup.workspace,
+          timezone,
+          files: setup.files,
+          labels: ensured,
+        }
       })
 
       return InitService.of({ link, run })

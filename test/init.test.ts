@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test"
 import { Effect, FileSystem, Layer, Option, Path, Stdio } from "effect"
 
 import type { Team, TeamCreateOptions } from "@/api/team"
-import type { InitOptions } from "@/config/init"
+import type { InitOptions } from "@/config/init-model"
 
 import { LabelService } from "@/api/label"
 import { TeamService } from "@/api/team"

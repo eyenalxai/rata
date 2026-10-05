@@ -35,6 +35,9 @@ bun run rata -- --help
 
 ```bash
 pbpaste | rata auth login --with-token   # store a Linear API key
+pbpaste | rata auth login --with-token --workspace work  # store a key as a profile
+rata workspace list                      # list profiles: viewer and organization
+rata workspace use work                  # select the default profile
 rata team list                           # list teams: key, name, id
 rata team create --name "Scratch" --key SCR   # create a team
 rata team delete SCR --yes               # delete a team
@@ -53,8 +56,8 @@ rata issue comment RAT-42 --body "..."   # comment on an issue
 rata issue close RAT-42 --comment "..."  # close an issue
 ```
 
-`rata` reads `LINEAR_API_KEY` from the environment when it is set. Otherwise it
-reads the key stored by `rata auth login --with-token`.
+Every command selects the API key in this order: `LINEAR_API_KEY`, the
+repository `workspace` from `.rata.json`, the `default` profile.
 
 `label ensure` installs the canonical labels — the five triage state roles, the
 `bug` and `enhancement` categories and the `wayfinder:*` labels — and reports
@@ -63,6 +66,72 @@ when a team label or a workspace label matches it, ignoring case. `label ensure`
 creates only the true misses, as team labels.
 
 `rata --help` lists every command.
+
+## Authentication
+
+One Linear API key belongs to one Linear workspace. `rata` stores named
+workspace profiles, and each repository selects one:
+
+```bash
+pbpaste | rata auth login --with-token                  # store the default profile
+pbpaste | rata auth login --with-token --workspace work # store the work profile
+rata auth status                                        # show the selected profile, viewer and organization
+rata auth status --workspace work                       # show one profile
+rata auth logout --workspace work                       # remove one profile
+rata workspace list                                     # list the profiles with their viewer and organization
+rata workspace use work                                 # set the default profile
+```
+
+The auth file is `$XDG_CONFIG_HOME/rata/auth.json`, or
+`~/.config/rata/auth.json` when `XDG_CONFIG_HOME` is unset. It has mode 0600:
+
+```json
+{
+  "default": "work",
+  "workspaces": {
+    "default": { "apiKey": "lin_api_..." },
+    "work": { "apiKey": "lin_api_..." }
+  }
+}
+```
+
+A file written by an earlier version, `{ "apiKey": "lin_api_..." }`, reads as
+the `default` profile and is rewritten in the new shape on the next write.
+
+Every command selects the profile in this order:
+
+1. `LINEAR_API_KEY` from the environment.
+2. The `workspace` named in `.rata.json`, recorded by
+   `rata link --workspace <name>`.
+3. The `default` profile.
+
+A repository that names a missing profile fails with a clear error. The
+environment key wins over every stored profile, so a script can point every
+repository at one key.
+
+`rata workspace list --json` prints one document:
+
+```json
+{
+  "workspaces": [
+    {
+      "name": "default",
+      "default": true,
+      "viewer": {
+        "id": "u1",
+        "name": "Ada",
+        "displayName": "ada",
+        "email": "ada@example.com",
+        "organization": { "id": "o1", "name": "Acme", "urlKey": "acme" }
+      }
+    }
+  ]
+}
+```
+
+`rata auth status --workspace <name>` reads that profile directly; it does not
+consult `LINEAR_API_KEY` or `.rata.json`. `rata auth logout` without
+`--workspace` removes the `default` profile.
 
 ## Teams
 
@@ -168,14 +237,15 @@ team, so the ask-matt skills work in the repository. The link itself always
 rewrites `.rata.json`. The agent documents and `AGENTS.md` are created when
 missing and left alone unless `--force` is passed.
 
-| Flag        | Meaning                                                              |
-| ----------- | -------------------------------------------------------------------- |
-| `--team`    | Team key or id. Required unless standard input is a terminal.        |
-| `--project` | Default project name or id for the repository.                       |
-| `--create`  | Create the team when it does not exist. Needs `--team` and `--name`. |
-| `--name`    | Team name, used with `--create`.                                     |
-| `--force`   | Overwrite the existing agent documents and `AGENTS.md`.              |
-| `--json`    | Print machine-readable JSON.                                         |
+| Flag          | Meaning                                                              |
+| ------------- | -------------------------------------------------------------------- |
+| `--team`      | Team key or id. Required unless standard input is a terminal.        |
+| `--project`   | Default project name or id for the repository.                       |
+| `--workspace` | Workspace profile for this repository.                               |
+| `--create`    | Create the team when it does not exist. Needs `--team` and `--name`. |
+| `--name`      | Team name, used with `--create`.                                     |
+| `--force`     | Overwrite the existing agent documents and `AGENTS.md`.              |
+| `--json`      | Print machine-readable JSON.                                         |
 
 A missing team fails with `TeamNotFoundError` unless `--create` is passed.
 
@@ -183,6 +253,9 @@ A missing team fails with `TeamNotFoundError` unless `--create` is passed.
 the machine reports. It calls `teamUpdate` only when the timezone differs, and
 it reports the change. When the timezone matches, or the machine reports none,
 `link` makes no update.
+
+`--workspace` records the profile in the repository config. Without it, `link`
+keeps the `workspace` of an existing config.
 
 `--json` prints one stable document with the linked team, the repository config
 and the files:
@@ -196,6 +269,7 @@ and the files:
     "timezone": "Europe/Amsterdam"
   },
   "project": "rata",
+  "workspace": null,
   "timezone": { "previous": "America/Los_Angeles", "current": "Europe/Amsterdam" },
   "files": [
     { "path": ".rata.json", "action": "create" },

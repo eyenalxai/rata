@@ -7,6 +7,7 @@ import { TestClock } from "effect/testing"
 
 import { LinearClient } from "@/api/client"
 import { Auth } from "@/config/auth"
+import { RepoConfigService } from "@/config/repo"
 
 const jsonResponse = (
   body: unknown,
@@ -24,7 +25,9 @@ const configLayer = () =>
   )
 
 const httpClientLayer = (http: HttpClient.HttpClient) => {
-  const auth = Auth.layer.pipe(Layer.provide(Layer.mergeAll(FileSystem.layerNoop({}), Path.layer)))
+  const platform = Layer.mergeAll(FileSystem.layerNoop({}), Path.layer)
+  const repoConfig = RepoConfigService.layer.pipe(Layer.provide(platform))
+  const auth = Auth.layer.pipe(Layer.provide(Layer.mergeAll(repoConfig, platform)))
   return LinearClient.layer.pipe(
     Layer.provide(Layer.mergeAll(auth, Layer.succeed(HttpClient.HttpClient, http))),
   )

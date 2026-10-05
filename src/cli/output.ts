@@ -1,6 +1,6 @@
 import { Config, Console, Effect, Option, Result, Schema } from "effect"
 
-import type { InitFileReport } from "@/config/init"
+import type { InitFileReport } from "@/config/init-model"
 import type { InitAction } from "@/domain/init"
 
 const jsonOutput = Schema.fromJsonString(Schema.Unknown, { space: 2 })

@@ -11,20 +11,24 @@
 
 ## Setup
 
-| Command                        | Description                                                                             |
-| ------------------------------ | --------------------------------------------------------------------------------------- |
-| `rata auth login --with-token` | Read a Linear API key from stdin and save it.                                           |
-| `rata auth status`             | Show the authenticated viewer and the key source.                                       |
-| `rata auth logout`             | Remove the saved key.                                                                   |
-| `rata whoami`                  | Show the authenticated viewer.                                                          |
-| `rata init --team <key>`       | Write `.rata.json`, install the `docs/agents/` documents, update the `AGENTS.md` block. |
-| `rata init --print`            | Print the tracker document. Write nothing.                                              |
-| `rata init --force`            | Overwrite existing files.                                                               |
-| `rata init --ensure-labels`    | Create the canonical labels in the team.                                                |
-| `rata link --team <key>`       | Link this repository to a team. `--create --name <name>` creates the team first.        |
-| `rata link --project <name>`   | Record the default project for this repository.                                         |
+| Command                                             | Description                                                                             |
+| --------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `rata auth login --with-token [--workspace <name>]` | Read a Linear API key from stdin and save it as a profile. `default` without the flag.  |
+| `rata auth status [--workspace <name>]`             | Show the selected profile, viewer and organization.                                     |
+| `rata auth logout [--workspace <name>]`             | Remove one profile. `default` without the flag.                                         |
+| `rata workspace list`                               | List the stored profiles with their viewer and organization.                            |
+| `rata workspace use <name>`                         | Set the default profile.                                                                |
+| `rata whoami`                                       | Show the authenticated viewer.                                                          |
+| `rata init --team <key>`                            | Write `.rata.json`, install the `docs/agents/` documents, update the `AGENTS.md` block. |
+| `rata init --print`                                 | Print the tracker document. Write nothing.                                              |
+| `rata init --force`                                 | Overwrite existing files.                                                               |
+| `rata init --ensure-labels`                         | Create the canonical labels in the team.                                                |
+| `rata link --team <key>`                            | Link this repository to a team. `--create --name <name>` creates the team first.        |
+| `rata link --project <name>`                        | Record the default project for this repository.                                         |
+| `rata link --workspace <name>`                      | Record the workspace profile for this repository.                                       |
 
-`LINEAR_API_KEY` takes precedence over the saved key.
+The API key is resolved in order: `LINEAR_API_KEY`, the repository `workspace`
+from `.rata.json`, the `default` profile.
 
 ## Teams, projects, labels
 
