@@ -183,30 +183,78 @@ finish() {
 # STAGES: author this section. One stage() per step the human takes.
 # ──────────────────────────────────────────────────────────────────────────
 
-TOTAL_STAGES=2
+TOTAL_STAGES=4
 
 SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 REPO_ROOT=$(dirname "$SCRIPT_DIR")
 
+OP_VAULT="Private"
+OP_ITEM="rata"
+OP_FIELD="credential"
+OP_REFERENCE="op://${OP_VAULT}/${OP_ITEM}/${OP_FIELD}"
+
 rata_cli() {
   (cd "$REPO_ROOT" && bun run rata -- "$@")
+}
+
+op_ready() {
+  command -v op >/dev/null 2>&1 && op vault get "$OP_VAULT" >/dev/null 2>&1
+}
+
+save_to_onepassword() {
+  local key="$1" template
+  if ! op_ready; then
+    SKIPPED+=("1Password item $OP_ITEM in $OP_VAULT (save the key by hand)")
+    warn "1Password is not reachable; save the key yourself and re-run later"
+    return 0
+  fi
+  if [[ ! "$key" =~ ^[A-Za-z0-9_-]+$ ]]; then
+    SKIPPED+=("1Password item $OP_ITEM in $OP_VAULT (the key has characters that need manual entry)")
+    warn "the key has characters this wizard will not template; save it by hand"
+    return 0
+  fi
+  template=$(printf '{"fields":[{"id":"username","type":"STRING","value":"rata"},{"id":"credential","type":"CONCEALED","value":"%s"}]}' "$key")
+  if op item get "$OP_ITEM" --vault "$OP_VAULT" >/dev/null 2>&1; then
+    if printf '%s' "$template" | op item edit "$OP_ITEM" --vault "$OP_VAULT" --template /dev/stdin >/dev/null 2>&1; then
+      printf '  %s✓ updated%s 1Password item %s in %s\n' "$GREEN" "$RESET" "$OP_ITEM" "$OP_VAULT"
+    else
+      SKIPPED+=("1Password item $OP_ITEM in $OP_VAULT (update failed)")
+      warn "could not update the 1Password item"
+    fi
+  elif printf '%s' "$template" | op item create --vault "$OP_VAULT" --category "API Credential" --title "$OP_ITEM" - >/dev/null 2>&1; then
+    printf '  %s✓ created%s 1Password item %s in %s\n' "$GREEN" "$RESET" "$OP_ITEM" "$OP_VAULT"
+  else
+    SKIPPED+=("1Password item $OP_ITEM in $OP_VAULT (create failed)")
+    warn "could not create the 1Password item"
+  fi
 }
 
 banner "Connect rata to Linear"
 
 stage "Linear API key"
 say "rata needs a personal API key from your Linear account."
-say "The key is stored only on this machine, in your rata config directory, with mode 0600."
 open_url "https://linear.app/settings/account/security"
 step "Under 'Personal API keys', click 'Create key'."
 step "Name the key 'rata', then copy it. It starts with lin_api_."
-ask_secret LINEAR_API_KEY "Paste the API key:"
+ask LINEAR_API_KEY "Paste the API key:"
+
+stage "Store the key for rata"
+say "rata stores the key in its config directory with mode 0600."
 if [[ -z "${LINEAR_API_KEY:-}" ]]; then
   warn "No key entered, so nothing was stored."
 elif printf '%s' "$LINEAR_API_KEY" | rata_cli auth login --with-token; then
-  say "The key is stored."
+  say "The key is stored for rata."
 else
   warn "rata could not store the key. Check the output above and try again."
+fi
+
+stage "Save the key to 1Password"
+say "The key is also saved to your 1Password account, so it is never only on this machine."
+if [[ -n "${LINEAR_API_KEY:-}" ]]; then
+  save_to_onepassword "$LINEAR_API_KEY"
+  note "Reference: $OP_REFERENCE"
+else
+  warn "No key entered, so there is nothing to save."
 fi
 
 stage "Verify the connection"

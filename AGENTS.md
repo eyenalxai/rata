@@ -50,6 +50,19 @@ bun link               # install the `rata` binary from this checkout
 | `test/`        | Behaviour tests for the tricky logic.                       |
 | `docs/agents/` | Skill configuration: tracker, triage labels, domain docs.   |
 
+## Wizards
+
+Interactive setup wizards live in `scripts/`. They follow the `/wizard` skill and
+these rules:
+
+- Capture values with visible prompts. Never use hidden input.
+- Save every captured secret to the maintainer's 1Password: the `op` CLI, vault
+  `Private`, an item named after the tool, category `API Credential`, field
+  `credential`.
+- Pass secrets to `op` through a JSON template on stdin, never as command
+  arguments.
+- Tell the human exactly what to do. Do not automate their browser.
+
 ## Non-negotiables
 
 - **No barrel files and no re-exports.** `oxc/no-barrel-file` is an error.
