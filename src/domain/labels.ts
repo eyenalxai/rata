@@ -21,11 +21,16 @@ type LabelPlan = {
 }
 
 const planLabelEnsure = (existing: readonly string[]): LabelPlan => {
-  const present = new Set(existing)
+  const present = new Set(existing.map((name) => name.toLowerCase()))
   return {
-    missing: canonicalLabels.filter((name) => !present.has(name)),
-    existing: canonicalLabels.filter((name) => present.has(name)),
+    missing: canonicalLabels.filter((name) => !present.has(name.toLowerCase())),
+    existing: canonicalLabels.filter((name) => present.has(name.toLowerCase())),
   }
 }
 
-export { canonicalLabels, planLabelEnsure, type CanonicalLabel, type LabelPlan }
+const findLabelByName = <A extends { readonly name: string }>(
+  labels: readonly A[],
+  name: string,
+): A | undefined => labels.find((label) => label.name.toLowerCase() === name.toLowerCase())
+
+export { canonicalLabels, findLabelByName, planLabelEnsure, type CanonicalLabel, type LabelPlan }

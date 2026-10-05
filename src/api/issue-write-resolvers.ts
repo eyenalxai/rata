@@ -40,6 +40,7 @@ import {
   unwrapIssue,
 } from "@/api/issue-write-model"
 import { collectPages } from "@/api/pagination"
+import { findLabelByName } from "@/domain/labels"
 import { isUuid } from "@/domain/ref"
 
 type IssueWriteDependencies = {
@@ -172,15 +173,15 @@ const makeIssueWriteResolvers = ({ client, teams, labels, projects }: IssueWrite
     teamId: string,
     names: readonly string[],
   ) {
-    const available = yield* labels.list(teamId)
+    const available = yield* labels.listAvailable(teamId)
     return yield* Effect.forEach(names, (name) => {
-      const match = available.find((label) => label.name.toLowerCase() === name.toLowerCase())
+      const match = findLabelByName(available, name)
       if (match === undefined) {
         return Effect.fail(
           new LabelNotFoundError({
             name,
             teamId,
-            message: `No label named ${name} in team ${teamId}. Run \`rata label list --team <team key>\` to see the labels.`,
+            message: `No label named ${name} in team ${teamId} or the workspace. Run \`rata label list --team <team key>\` to see the labels.`,
           }),
         )
       }

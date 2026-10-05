@@ -22,4 +22,12 @@ describe("planLabelEnsure", () => {
     expect(plan.missing).toEqual([])
     expect(plan.existing).toEqual([...canonicalLabels])
   })
+
+  test("matches existing names case-insensitively and keeps canonical order", () => {
+    const plan = planLabelEnsure(["Bug", "NEEDS-TRIAGE"])
+    expect(plan.existing).toEqual(["needs-triage", "bug"])
+    expect(plan.missing).toEqual(
+      canonicalLabels.filter((name) => name !== "needs-triage" && name !== "bug"),
+    )
+  })
 })

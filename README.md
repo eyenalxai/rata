@@ -52,7 +52,9 @@ reads the key stored by `rata auth login --with-token`.
 
 `label ensure` installs the canonical labels — the five triage state roles, the
 `bug` and `enhancement` categories and the `wayfinder:*` labels — and reports
-what it created and what already existed.
+what it created and what already existed. A canonical name counts as existing
+when a team label or a workspace label matches it, ignoring case. `label ensure`
+creates only the true misses, as team labels.
 
 `rata --help` lists every command.
 
@@ -287,7 +289,8 @@ relation is an error.
 moves it to a state of type `unstarted`. The CLI never hard-codes a state id.
 
 The triage roles are label names. `issue label add RAT-42 ready-for-agent` adds
-the `ready-for-agent` label of the issue's team.
+the `ready-for-agent` label. A label name resolves against the team labels and
+the workspace labels, ignoring case. `issue label remove` resolves the same way.
 
 Every write command accepts `--json`. The create, update, close, reopen,
 assign, unassign and label commands print the summary shape:

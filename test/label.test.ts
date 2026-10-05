@@ -1,6 +1,6 @@
 import type { GraphQLRequest, Handler } from "@test/fake-linear"
 
-import { apiLayer, makeFakeLinear } from "@test/fake-linear"
+import { apiLayer, inputOf, makeFakeLinear } from "@test/fake-linear"
 import { describe, expect, test } from "bun:test"
 import { Effect } from "effect"
 
@@ -48,6 +48,54 @@ describe("LabelService", () => {
     expect(countCreates(fake.requests)).toBe(canonicalLabels.length)
     expect(second.created).toEqual([])
     expect(second.existing.map((label) => label.name)).toEqual([...canonicalLabels])
+  })
+
+  test("treats a workspace label as the canonical name, case-insensitively", async () => {
+    const fake = makeFakeLinear({
+      teams: [team],
+      labels: [
+        ...canonicalLabels
+          .filter((name) => name !== "bug")
+          .map((name, index) => ({
+            id: `label-${index + 1}`,
+            name,
+            color: "#111111",
+            teamId: "team-1",
+          })),
+        { id: "label-workspace-bug", name: "Bug", color: "#222222", teamId: null },
+      ],
+    })
+    const result = await ensureLabels(fake.handler, "RAT").pipe(Effect.runPromise)
+    expect(countCreates(fake.requests)).toBe(0)
+    expect(result.created).toEqual([])
+    expect(result.existing.map((label) => label.name)).toEqual(
+      canonicalLabels.map((name) => (name === "bug" ? "Bug" : name)),
+    )
+  })
+
+  test("creates a truly missing canonical label team-scoped", async () => {
+    const fake = makeFakeLinear({
+      teams: [team],
+      labels: [
+        ...canonicalLabels
+          .filter((name) => name !== "bug" && name !== "enhancement")
+          .map((name, index) => ({
+            id: `label-${index + 1}`,
+            name,
+            color: "#111111",
+            teamId: "team-1",
+          })),
+        { id: "label-workspace-bug", name: "Bug", color: "#222222", teamId: null },
+      ],
+    })
+    const result = await ensureLabels(fake.handler, "RAT").pipe(Effect.runPromise)
+    expect(countCreates(fake.requests)).toBe(1)
+    expect(result.created.map((label) => label.name)).toEqual(["enhancement"])
+    const create = fake.requests.find((request) => request.query.includes("mutation CreateLabel"))
+    expect(inputOf(create?.variables ?? {})).toMatchObject({
+      name: "enhancement",
+      teamId: "team-1",
+    })
   })
 
   test("fails when Linear rejects a label creation", async () => {

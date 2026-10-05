@@ -42,6 +42,7 @@ const makeLayer = (files: Map<string, string>, writes: string[]) => {
         }),
         Layer.succeed(LabelService, {
           list: () => Effect.succeed([]),
+          listAvailable: () => Effect.succeed([]),
           ensure: () => Effect.succeed({ created: [], existing: [] }),
         }),
         platform,

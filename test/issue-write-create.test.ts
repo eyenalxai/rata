@@ -23,9 +23,16 @@ const labelsHandler = () =>
     if (request.query.includes("query IssueTeam")) {
       return jsonResponse({ data: { issue: { team: { id: "team-1" } } } })
     }
-    if (request.query.includes("query Labels")) {
+    if (request.query.includes("query AvailableLabels")) {
       return jsonResponse({
-        data: { issueLabels: { nodes: [{ id: "l1", name: "ready-for-agent", color: "#111111" }] } },
+        data: {
+          issueLabels: {
+            nodes: [
+              { id: "l1", name: "ready-for-agent", color: "#111111" },
+              { id: "l-bug", name: "Bug", color: "#EB5757" },
+            ],
+          },
+        },
       })
     }
     if (request.query.includes("mutation AddLabel")) {
@@ -62,7 +69,7 @@ const createHandler = () =>
     if (request.query.includes("query Viewer")) {
       return jsonResponse({ data: { viewer } })
     }
-    if (request.query.includes("query Labels")) {
+    if (request.query.includes("query AvailableLabels")) {
       return jsonResponse({
         data: { issueLabels: { nodes: [{ id: "l1", name: "ready-for-agent", color: "#111111" }] } },
       })
@@ -129,6 +136,36 @@ describe("IssueWriteApi labels", () => {
     expect(requestOf(recorder, "mutation RemoveLabel")?.variables).toEqual({
       id: "i1",
       labelId: "l1",
+    })
+  })
+
+  test("resolves a workspace label case-insensitively when adding", async () => {
+    const recorder = labelsHandler()
+    await run(
+      recorder.handler,
+      Effect.gen(function* addLabels() {
+        const api = yield* IssueWriteApi
+        return yield* api.addLabels("RAT-1", ["bug"])
+      }),
+    )
+    expect(requestOf(recorder, "mutation AddLabel")?.variables).toEqual({
+      id: "i1",
+      labelId: "l-bug",
+    })
+  })
+
+  test("resolves a workspace label case-insensitively when removing", async () => {
+    const recorder = labelsHandler()
+    await run(
+      recorder.handler,
+      Effect.gen(function* removeLabels() {
+        const api = yield* IssueWriteApi
+        return yield* api.removeLabels("RAT-1", ["BUG"])
+      }),
+    )
+    expect(requestOf(recorder, "mutation RemoveLabel")?.variables).toEqual({
+      id: "i1",
+      labelId: "l-bug",
     })
   })
 

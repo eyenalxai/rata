@@ -30,7 +30,7 @@ type FakeLabel = {
   readonly id: string
   readonly name: string
   readonly color: string
-  readonly teamId: string
+  readonly teamId: string | null
 }
 
 const jsonResponse = (body: unknown, status = 200): Response =>
@@ -147,6 +147,18 @@ const makeFakeLinear = (
       const id = graphql.variables.id
       return jsonResponse({
         data: { teams: { nodes: teams.filter((item) => item.id === id) } },
+      })
+    }
+    if (query.includes("query AvailableLabels")) {
+      const teamId = graphql.variables.teamId
+      return jsonResponse({
+        data: {
+          issueLabels: {
+            nodes: labels
+              .filter((label) => label.teamId === teamId || label.teamId === null)
+              .map(({ id, name, color }) => ({ id, name, color })),
+          },
+        },
       })
     }
     if (query.includes("query Labels")) {

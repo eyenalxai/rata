@@ -3,7 +3,7 @@ import { Context, Effect, Layer, Schema } from "effect"
 import type { LinearApiError } from "@/api/errors"
 
 import { LinearClient } from "@/api/client"
-import { planLabelEnsure } from "@/domain/labels"
+import { findLabelByName, planLabelEnsure } from "@/domain/labels"
 
 const Label = Schema.Struct({
   id: Schema.String,
@@ -17,6 +17,16 @@ const LabelConnection = Schema.Struct({ nodes: Schema.Array(Label) })
 
 const listLabelsQuery = `query Labels($teamId: ID!) {
   issueLabels(first: 250, filter: { team: { id: { eq: $teamId } } }) {
+    nodes {
+      id
+      name
+      color
+    }
+  }
+}`
+
+const listAvailableLabelsQuery = `query AvailableLabels($teamId: ID!) {
+  issueLabels(first: 250, filter: { or: [{ team: { id: { eq: $teamId } } }, { team: { null: true } }] }) {
     nodes {
       id
       name
@@ -53,6 +63,7 @@ type LabelEnsureResult = {
 
 type LabelServiceShape = {
   readonly list: (teamId: string) => Effect.Effect<readonly Label[], LinearApiError>
+  readonly listAvailable: (teamId: string) => Effect.Effect<readonly Label[], LinearApiError>
   readonly ensure: (
     teamId: string,
   ) => Effect.Effect<LabelEnsureResult, LinearApiError | LabelCreateError>
@@ -69,6 +80,17 @@ class LabelService extends Context.Service<LabelService, LabelServiceShape>()(
       const list = Effect.fn("LabelService.list")(function* listLabels(teamId: string) {
         const data = yield* client.execute(
           listLabelsQuery,
+          { teamId },
+          Schema.Struct({ issueLabels: LabelConnection }),
+        )
+        return data.issueLabels.nodes
+      })
+
+      const listAvailable = Effect.fn("LabelService.listAvailable")(function* listAvailableLabels(
+        teamId: string,
+      ) {
+        const data = yield* client.execute(
+          listAvailableLabelsQuery,
           { teamId },
           Schema.Struct({ issueLabels: LabelConnection }),
         )
@@ -94,18 +116,17 @@ class LabelService extends Context.Service<LabelService, LabelServiceShape>()(
       })
 
       const ensure = Effect.fn("LabelService.ensure")(function* ensureLabels(teamId: string) {
-        const labels = yield* list(teamId)
-        const plan = planLabelEnsure(labels.map((label) => label.name))
-        const labelsByName = new Map(labels.map((label) => [label.name, label]))
+        const available = yield* listAvailable(teamId)
+        const plan = planLabelEnsure(available.map((label) => label.name))
         const existing = plan.existing.flatMap((name) => {
-          const label = labelsByName.get(name)
+          const label = findLabelByName(available, name)
           return label === undefined ? [] : [label]
         })
         const created = yield* Effect.forEach(plan.missing, (name) => create(teamId, name))
         return { created, existing }
       })
 
-      return LabelService.of({ list, ensure })
+      return LabelService.of({ list, listAvailable, ensure })
     }),
   )
 }
