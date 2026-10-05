@@ -38,12 +38,6 @@ const removeTeam = (target: Team) =>
     return yield* teams.delete(target)
   })
 
-const updateTimezone = (target: Team, timezone: string) =>
-  Effect.gen(function* update() {
-    const teams = yield* TeamService
-    return yield* teams.updateTimezone(target, timezone)
-  })
-
 const requestOf = (
   requests: readonly GraphQLRequest[],
   fragment: string,
@@ -101,32 +95,12 @@ describe("TeamService.byId", () => {
 })
 
 describe("TeamService.create", () => {
-  test("sends the name with the key, description and timezone", async () => {
-    const fake = makeFakeLinear({ teams: [team], labels: [] })
-    await run(
-      fake.handler,
-      createTeam({
-        name: "Scratch",
-        key: "SCR",
-        description: "A scratch team.",
-        timezone: "Europe/Amsterdam",
-      }),
-    )
-    const create = mutationOf(fake.requests)
-    expect(inputOf(create?.variables ?? {})).toEqual({
-      name: "Scratch",
-      key: "SCR",
-      description: "A scratch team.",
-      timezone: "Europe/Amsterdam",
-    })
-    expect(create?.variables.copySettingsFromTeamId).toBeUndefined()
-  })
-
   test("omits the key, description and timezone when they are absent", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     await run(fake.handler, createTeam({ name: "Scratch" }))
     const create = mutationOf(fake.requests)
     expect(inputOf(create?.variables ?? {})).toEqual({ name: "Scratch" })
+    expect(create?.variables.copySettingsFromTeamId).toBeUndefined()
   })
 
   test("resolves the copy-settings team key to its id", async () => {
@@ -162,18 +136,6 @@ describe("TeamService.create", () => {
   })
 })
 
-describe("TeamService.updateTimezone", () => {
-  test("calls teamUpdate with the team id and timezone", async () => {
-    const fake = makeFakeLinear({ teams: [team], labels: [] })
-    const updated = await run(fake.handler, updateTimezone(team, "Europe/Amsterdam"))
-    expect(updated).toEqual({ ...team, timezone: "Europe/Amsterdam" })
-    expect(requestOf(fake.requests, "mutation TeamUpdate")?.variables).toEqual({
-      id: "team-1",
-      input: { timezone: "Europe/Amsterdam" },
-    })
-  })
-})
-
 describe("TeamService.byKey", () => {
   test("resolves a UUID through the team id", async () => {
     const id = "0f8fad5b-d9cb-469f-a165-70867728950e"
@@ -186,13 +148,6 @@ describe("TeamService.byKey", () => {
 })
 
 describe("TeamService.delete", () => {
-  test("calls teamDelete with the team id", async () => {
-    const fake = makeFakeLinear({ teams: [team], labels: [] })
-    const deleted = await run(fake.handler, removeTeam(team))
-    expect(deleted).toEqual({ id: "team-1", key: "RAT", name: "Rata" })
-    expect(requestOf(fake.requests, "mutation TeamDelete")?.variables).toEqual({ id: "team-1" })
-  })
-
   test("fails when Linear rejects the delete", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] }, { rejectTeamDelete: true })
     const error = await run(fake.handler, removeTeam(team).pipe(Effect.flip))

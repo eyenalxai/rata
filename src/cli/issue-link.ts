@@ -29,20 +29,6 @@ const relationFlags = {
   duplicate: repeatableRef("duplicate", "Issue that this one duplicates. Repeat for more"),
 }
 
-type RelationFlagValues = {
-  readonly blocks: readonly string[]
-  readonly blockedBy: readonly string[]
-  readonly related: readonly string[]
-  readonly duplicate: readonly string[]
-}
-
-const toChanges = (values: RelationFlagValues): IssueRelationChanges => ({
-  blocks: values.blocks,
-  blockedBy: values.blockedBy,
-  related: values.related,
-  duplicate: values.duplicate,
-})
-
 const countChanges = (changes: IssueRelationChanges): number =>
   changes.blocks.length +
   changes.blockedBy.length +
@@ -76,7 +62,7 @@ const linkCommand = Command.make(
   { ref: refArgument, ...relationFlags, json: jsonFlag },
   (config) =>
     Effect.gen(function* linkIssue() {
-      const changes = toChanges(config)
+      const changes: IssueRelationChanges = config
       if (countChanges(changes) === 0) {
         return yield* errorLine(
           1,
@@ -109,7 +95,7 @@ const unlinkCommand = Command.make(
   { ref: refArgument, ...relationFlags, json: jsonFlag },
   (config) =>
     Effect.gen(function* unlinkIssue() {
-      const changes = toChanges(config)
+      const changes: IssueRelationChanges = config
       if (countChanges(changes) === 0) {
         return yield* errorLine(
           1,

@@ -17,7 +17,7 @@ skill covers the CLI itself.
 Link the repository to its team once:
 
 ```bash
-rata link --team PER
+rata link --team ABC
 ```
 
 `link` writes `.rata.json`, installs the `docs/agents/` documents, updates the
@@ -29,11 +29,11 @@ not exist yet.
 
 ```bash
 rata issue list --json                    # the default team's open issues
-rata issue show PER-42 --comments --json  # one issue with its comments
+rata issue show ABC-42 --comments --json  # one issue with its comments
 rata search "flaky test" --json
 ```
 
-An issue reference is an identifier (`PER-42`), a UUID, or a `linear.app` URL.
+An issue reference is an identifier (`ABC-42`), a UUID, or a `linear.app` URL.
 Every command supports `--json`; parse that, not the human output.
 
 ## Triage
@@ -41,8 +41,8 @@ Every command supports `--json`; parse that, not the human output.
 Triage roles are labels. Apply one state and one category:
 
 ```bash
-rata issue label add PER-42 ready-for-agent
-rata issue label remove PER-42 needs-triage
+rata issue label add ABC-42 ready-for-agent
+rata issue label remove ABC-42 needs-triage
 ```
 
 States: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`,
@@ -52,14 +52,14 @@ Post the reasoning as a comment. `--body-file -` reads markdown from stdin, so
 long bodies never touch the command line:
 
 ```bash
-rata issue comment PER-42 --body-file - <<'EOF'
+rata issue comment ABC-42 --body-file - <<'EOF'
 ## Triage
 
 ...
 EOF
 ```
 
-Close a `wontfix` with `rata issue close PER-42 --comment "..."`.
+Close a `wontfix` with `rata issue close ABC-42 --comment "..."`.
 
 ## Publish tickets
 
@@ -78,7 +78,7 @@ Wire blocking edges as you publish. Linear has one `blocks` relation, so
 `--blocked-by` records it in the direction you mean:
 
 ```bash
-rata issue link PER-43 --blocked-by PER-42   # PER-43 waits for PER-42
+rata issue link ABC-43 --blocked-by ABC-42   # ABC-43 waits for ABC-42
 ```
 
 ## Wayfinding
@@ -89,26 +89,26 @@ A map is an issue labelled `wayfinder:map`. Its tickets are children labelled
 
 ```bash
 rata issue create --title "Map: switch billing to Stripe" --label wayfinder:map
-rata issue create --parent PER-50 --title "Research: Stripe webhook retries" --label wayfinder:research
+rata issue create --parent ABC-50 --title "Research: Stripe webhook retries" --label wayfinder:research
 ```
 
 Claim a ticket by assigning yourself. Resolve it with a comment, then close it:
 
 ```bash
-rata issue assign me PER-51
-rata issue comment PER-51 --body-file - <<'EOF'
+rata issue assign me ABC-51
+rata issue comment ABC-51 --body-file - <<'EOF'
 ## Answer
 
 ...
 EOF
-rata issue close PER-51
+rata issue close ABC-51
 ```
 
 The frontier is the set of tickets under a map that are unblocked and
 unassigned:
 
 ```bash
-rata issue list --parent PER-50 --unblocked --unassigned --json
+rata issue list --parent ABC-50 --unblocked --unassigned --json
 ```
 
 ## Reference
