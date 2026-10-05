@@ -15,15 +15,20 @@ user: this repository starts on GitHub issues and moves to Linear as soon as
 
 ## Install
 
-```bash
-bun install -g rata-cli
-```
-
-Or from a checkout:
+From a checkout:
 
 ```bash
 bun install
-bun link
+bun install -g .
+```
+
+`bun install -g .` installs the `rata` binary into Bun's global bin
+directory. Bun prints the directory when it is not on `PATH` yet.
+
+To run from the checkout without installing:
+
+```bash
+bun run rata -- --help
 ```
 
 ## Usage
