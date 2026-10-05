@@ -267,6 +267,7 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
   )
   return Layer.mergeAll(
     configLayer(),
+    auth,
     client,
     teams,
     labels,

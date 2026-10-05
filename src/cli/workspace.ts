@@ -1,10 +1,35 @@
-import { Effect } from "effect"
+import { Effect, Result } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 import { EOL } from "node:os"
+
+import type { Viewer } from "@/api/client"
+import type { LinearApiError } from "@/api/errors"
 
 import { LinearClient } from "@/api/client"
 import { reportFailure, writeJson, writeLine } from "@/cli/output"
 import { Auth } from "@/config/auth"
+
+type WorkspaceEntry = {
+  readonly name: string
+  readonly default: boolean
+  readonly result: Result.Result<Viewer, LinearApiError>
+}
+
+const collectWorkspaces = Effect.fn("Workspace.collect")(function* collectWorkspaces() {
+  const auth = yield* Auth
+  const client = yield* LinearClient
+  const profiles = yield* auth.profiles
+  return yield* Effect.forEach(profiles, (profile) =>
+    client.viewerWithKey(profile.apiKey).pipe(
+      Effect.result,
+      Effect.map((result): WorkspaceEntry => ({
+        name: profile.name,
+        default: profile.isDefault,
+        result,
+      })),
+    ),
+  )
+})
 
 const jsonFlag = Flag.Boolean("json").pipe(
   Flag.withDescription("Print machine-readable JSON"),
@@ -17,29 +42,26 @@ const nameArgument = Argument.String("name").pipe(
 
 const listCommand = Command.make("list", { json: jsonFlag }, (config) =>
   Effect.gen(function* listWorkspaces() {
-    const auth = yield* Auth
-    const client = yield* LinearClient
-    const profiles = yield* auth.profiles
-    const workspaces = yield* Effect.forEach(profiles, (profile) =>
-      client.viewerWithKey(profile.apiKey).pipe(
-        Effect.map((viewer) => ({
-          name: profile.name,
-          default: profile.isDefault,
-          viewer,
-        })),
-      ),
-    )
+    const workspaces = yield* collectWorkspaces()
     if (config.json) {
-      return yield* writeJson({ workspaces })
+      return yield* writeJson({
+        workspaces: workspaces.map((workspace) => ({
+          name: workspace.name,
+          default: workspace.default,
+          viewer: Result.isSuccess(workspace.result) ? workspace.result.success : null,
+          error: Result.isFailure(workspace.result) ? workspace.result.failure.message : null,
+        })),
+      })
     }
     if (workspaces.length === 0) {
       return yield* writeLine("No stored workspaces.")
     }
     return yield* writeLine(
       workspaces
-        .map(
-          (workspace) =>
-            `${workspace.default ? "*" : " "} ${workspace.name}\t${workspace.viewer.name} <${workspace.viewer.email}>\t${workspace.viewer.organization.name}`,
+        .map((workspace) =>
+          Result.isSuccess(workspace.result)
+            ? `${workspace.default ? "*" : " "} ${workspace.name}\t${workspace.result.success.name} <${workspace.result.success.email}>\t${workspace.result.success.organization.name}`
+            : `${workspace.default ? "*" : " "} ${workspace.name}\t! ${workspace.result.failure.message}`,
         )
         .join(EOL),
     )
@@ -70,4 +92,4 @@ const workspaceCommand = Command.make("workspace").pipe(
   Command.withSubcommands([listCommand, useCommand]),
 )
 
-export { workspaceCommand }
+export { collectWorkspaces, workspaceCommand }
