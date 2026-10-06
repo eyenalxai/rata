@@ -1,8 +1,8 @@
 import type { RepositorySeed } from "@test/database-harness"
-import type { Handler } from "@test/fake-linear-model"
+import type { Handler } from "@test/fake-linear/model"
 
 import { apiLayer } from "@test/fake-linear"
-import { defaultEnv } from "@test/fake-linear-model"
+import { defaultEnv } from "@test/fake-linear/model"
 import { recordingConsole } from "@test/recording-console"
 import { afterEach, describe, expect, test } from "bun:test"
 import { Console, Effect, FileSystem, Layer, Option, Path, Stdio, Terminal } from "effect"

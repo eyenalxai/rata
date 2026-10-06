@@ -1,16 +1,12 @@
-import type { GraphQLRequest, Handler } from "@test/fake-linear-model"
+import type { GraphQLRequest, Handler } from "@test/fake-linear/model"
 
 import { apiLayer, makeFakeLinear } from "@test/fake-linear"
-import { recordingConsole } from "@test/recording-console"
+import { lastJson, runProject, tracker } from "@test/project/harness"
 import { afterEach, describe, expect, test } from "bun:test"
-import { Console, Effect, FileSystem, Layer, Path, Stdio, Terminal } from "effect"
-import { Command } from "effect/cli"
-import { ChildProcessSpawner } from "effect/process"
+import { Effect } from "effect"
 
 import { ProjectService } from "@/api/project"
-import { projectCommand } from "@/cli/project"
 
-const tracker = { id: "project-1", name: "Tracker", progress: 0.5, status: { name: "Started" } }
 const trashed = { ...tracker, trashed: true }
 
 const run = <A, E>(handler: Handler, effect: Effect.Effect<A, E, ProjectService>) =>
@@ -21,37 +17,6 @@ const resolveTrashedProject = (ref: string) =>
     const projects = yield* ProjectService
     return yield* projects.resolveTrashed(ref)
   })
-
-const cliLayer = (handler: Handler, args: readonly string[], lines: string[]) =>
-  Layer.mergeAll(
-    apiLayer(handler, { stdio: { args: Effect.succeed(args) } }),
-    FileSystem.layerNoop({}),
-    Path.layer,
-    Stdio.layerTest({ args: Effect.succeed(args) }),
-    Layer.succeed(
-      Terminal.Terminal,
-      Terminal.make({
-        columns: Effect.succeed(80),
-        rows: Effect.succeed(24),
-        readInput: Effect.die("unused"),
-        readLine: Effect.die("unused"),
-        display: () => Effect.void,
-      }),
-    ),
-    Layer.succeed(
-      ChildProcessSpawner.ChildProcessSpawner,
-      ChildProcessSpawner.make(() => Effect.die("unused")),
-    ),
-    Layer.succeed(Console.Console, recordingConsole(lines)),
-  )
-
-const runProject = (handler: Handler, args: readonly string[], lines: string[]) =>
-  Command.run(projectCommand, { version: "test" }).pipe(
-    Effect.provide(cliLayer(handler, args, lines)),
-    Effect.runPromise,
-  )
-
-const lastJson = (lines: readonly string[]): unknown => JSON.parse(lines.at(-1) ?? "")
 
 const unarchiveMutation = (requests: readonly GraphQLRequest[]): GraphQLRequest | undefined =>
   requests.find((request) => request.query.includes("mutation ProjectUnarchive"))

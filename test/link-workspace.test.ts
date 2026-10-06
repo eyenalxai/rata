@@ -1,8 +1,8 @@
 import type { ProfileSeed } from "@test/database-harness"
-import type { FakeViewer } from "@test/fake-linear-model"
+import type { FakeViewer } from "@test/fake-linear/model"
 
 import { makeFakeLinear } from "@test/fake-linear"
-import { defaultViewer } from "@test/fake-linear-model"
+import { defaultViewer } from "@test/fake-linear/model"
 import {
   authPath,
   interactive,

@@ -1,6 +1,6 @@
-import type { FakeProject, GraphQLRequest } from "@test/fake-linear-model"
+import type { FakeProject, GraphQLRequest } from "@test/fake-linear/model"
 
-import { inputOf, jsonResponse, paginate, stringField } from "@test/fake-linear-model"
+import { inputOf, jsonResponse, paginate, stringField } from "@test/fake-linear/model"
 
 const withTrashed = (project: FakeProject) => ({
   ...project,

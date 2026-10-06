@@ -1,4 +1,4 @@
-import { inputOf } from "@test/fake-linear-model"
+import { inputOf } from "@test/fake-linear/model"
 import { jsonResponse, pageInfo } from "@test/issue-fixtures"
 import { makeRecorder, run as runWrite } from "@test/issue-write-fixtures"
 import { describe, expect, test } from "bun:test"

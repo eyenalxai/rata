@@ -1,5 +1,5 @@
 import type { ApiLayerOptions } from "@test/fake-linear"
-import type { Handler } from "@test/fake-linear-model"
+import type { Handler } from "@test/fake-linear/model"
 
 import { apiLayer } from "@test/fake-linear"
 import { recordingConsole } from "@test/recording-console"

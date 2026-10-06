@@ -1,7 +1,7 @@
-import type { Handler } from "@test/fake-linear-model"
+import type { Handler } from "@test/fake-linear/model"
 
 import { apiLayer } from "@test/fake-linear"
-import { readRequest } from "@test/fake-linear-model"
+import { readRequest } from "@test/fake-linear/model"
 import { describe, expect, test } from "bun:test"
 import { Effect, Result } from "effect"
 

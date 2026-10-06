@@ -1,9 +1,9 @@
 import type { ProfileSeed } from "@test/database-harness"
-import type { Handler } from "@test/fake-linear-model"
+import type { Handler } from "@test/fake-linear/model"
 import type { Stdio } from "effect"
 
 import { apiLayer } from "@test/fake-linear"
-import { defaultEnv } from "@test/fake-linear-model"
+import { defaultEnv } from "@test/fake-linear/model"
 import { recordingConsole } from "@test/recording-console"
 import { Console, Effect, Option, Terminal } from "effect"
 

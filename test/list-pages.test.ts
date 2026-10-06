@@ -1,8 +1,8 @@
-import type { Handler } from "@test/fake-linear-model"
+import type { Handler } from "@test/fake-linear/model"
 
 import { cliLayer, lastJson } from "@test/cli-harness"
 import { makeFakeLinear } from "@test/fake-linear"
-import { jsonResponse, readRequest } from "@test/fake-linear-model"
+import { jsonResponse, readRequest } from "@test/fake-linear/model"
 import { summaryNode } from "@test/issue-fixtures"
 import { afterEach, describe, expect, test } from "bun:test"
 import { Effect } from "effect"

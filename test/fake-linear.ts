@@ -7,7 +7,7 @@ import type {
   FakeWorkspace,
   GraphQLRequest,
   Handler,
-} from "@test/fake-linear-model"
+} from "@test/fake-linear/model"
 
 import { databaseLayer } from "@test/database-harness"
 import {
@@ -18,7 +18,7 @@ import {
   paginate,
   readRequest,
   stringField,
-} from "@test/fake-linear-model"
+} from "@test/fake-linear/model"
 import { handleProjectMutation, handleProjectQuery } from "@test/fake-linear/project"
 import { ConfigProvider, Effect, FileSystem, Layer, Path, Stdio } from "effect"
 import { HttpClient, HttpClientResponse } from "effect/http"
