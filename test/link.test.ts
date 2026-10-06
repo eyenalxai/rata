@@ -1,15 +1,5 @@
 import { makeFakeLinear } from "@test/fake-linear"
-import {
-  configPath,
-  linkError,
-  linkTeam,
-  makeHarness,
-  options,
-  rat,
-  ratId,
-  readConfig,
-  scratch,
-} from "@test/link-harness"
+import { linkError, linkTeam, makeHarness, options, rat, ratId, scratch } from "@test/link-harness"
 import { describe, expect, test } from "bun:test"
 import { Option } from "effect"
 
@@ -17,26 +7,35 @@ describe("LinkService.link", () => {
   test("resolves a team given by id and stores the key", async () => {
     const harness = makeHarness()
     const fake = makeFakeLinear({ teams: [{ ...rat, id: ratId }, scratch], labels: [] })
-    const result = await linkTeam(fake.handler, harness, options({ team: Option.some(ratId) }))
+    const { result, stored } = await linkTeam(
+      fake.handler,
+      harness,
+      options({ team: Option.some(ratId) }),
+    )
     expect(result.team).toEqual({ ...rat, id: ratId })
+    expect(stored).toEqual(Option.some({ team: "RAT" }))
     expect(fake.requests.some((request) => request.query.includes("query TeamById"))).toBe(true)
   })
 
   test("fails with TeamNotFoundError when the team is missing", async () => {
     const harness = makeHarness()
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
-    const error = await linkError(fake.handler, harness, options({ team: Option.some("NOPE") }))
+    const { error, stored } = await linkError(
+      fake.handler,
+      harness,
+      options({ team: Option.some("NOPE") }),
+    )
     expect(error._tag).toBe("TeamNotFoundError")
     if (error._tag === "TeamNotFoundError") {
       expect(error.key).toBe("NOPE")
     }
-    expect(harness.files.size).toBe(0)
+    expect(Option.isNone(stored)).toBe(true)
   })
 
   test("creates the missing team before linking when --create is passed", async () => {
     const harness = makeHarness()
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
-    const result = await linkTeam(
+    const { result } = await linkTeam(
       fake.handler,
       harness,
       options({
@@ -62,7 +61,7 @@ describe("LinkService.link", () => {
   test("updates the team timezone when the machine timezone differs", async () => {
     const harness = makeHarness()
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
-    const result = await linkTeam(
+    const { result } = await linkTeam(
       fake.handler,
       harness,
       options({ timezone: Option.some("Europe/Amsterdam") }),
@@ -78,7 +77,7 @@ describe("LinkService.link", () => {
   test("does not update the team timezone when it matches", async () => {
     const harness = makeHarness()
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
-    const result = await linkTeam(
+    const { result } = await linkTeam(
       fake.handler,
       harness,
       options({ timezone: Option.some(rat.timezone) }),
@@ -92,7 +91,7 @@ describe("LinkService.link", () => {
   test("rejects --create with a team id", async () => {
     const harness = makeHarness()
     const fake = makeFakeLinear({ teams: [{ ...rat, id: ratId }], labels: [] })
-    const error = await linkError(
+    const { error } = await linkError(
       fake.handler,
       harness,
       options({ team: Option.some(ratId), create: true, name: Option.some("Link Test") }),
@@ -102,8 +101,12 @@ describe("LinkService.link", () => {
 
   test("rejects --create without --name and --name without --create", async () => {
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
-    const missingName = await linkError(fake.handler, makeHarness(), options({ create: true }))
-    const strayName = await linkError(
+    const { error: missingName } = await linkError(
+      fake.handler,
+      makeHarness(),
+      options({ create: true }),
+    )
+    const { error: strayName } = await linkError(
       fake.handler,
       makeHarness(),
       options({ name: Option.some("Rata") }),
@@ -115,38 +118,40 @@ describe("LinkService.link", () => {
   test("records --project in the repository config", async () => {
     const harness = makeHarness()
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
-    const result = await linkTeam(fake.handler, harness, options({ project: Option.some("rata") }))
-    expect(readConfig(harness.files)).toEqual({ team: "RAT", project: "rata" })
+    const { result, stored } = await linkTeam(
+      fake.handler,
+      harness,
+      options({ project: Option.some("rata") }),
+    )
+    expect(stored).toEqual(Option.some({ team: "RAT", project: "rata" }))
     expect(result.project).toEqual(Option.some("rata"))
   })
 
   test("keeps the project of an existing config when --project is absent", async () => {
-    const harness = makeHarness({
-      files: new Map([[configPath(), '{\n  "team": "OLD",\n  "project": "rata"\n}']]),
-    })
+    const harness = makeHarness({ config: { team: "OLD", project: "rata" } })
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
-    const result = await linkTeam(fake.handler, harness, options({}))
+    const { result, stored } = await linkTeam(fake.handler, harness, options({}))
     expect(result.project).toEqual(Option.some("rata"))
-    expect(readConfig(harness.files)).toEqual({ team: "RAT", project: "rata" })
+    expect(stored).toEqual(Option.some({ team: "RAT", project: "rata" }))
   })
 
   test("keeps the workspace of an existing config when --workspace is absent", async () => {
-    const harness = makeHarness({
-      files: new Map([[configPath(), '{\n  "team": "OLD",\n  "workspace": "work"\n}']]),
-    })
+    const harness = makeHarness({ config: { team: "OLD", workspace: "work" } })
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
-    const result = await linkTeam(fake.handler, harness, options({}))
+    const { result, stored } = await linkTeam(fake.handler, harness, options({}))
     expect(result.workspace).toEqual(Option.some("work"))
-    expect(readConfig(harness.files)).toEqual({ team: "RAT", workspace: "work" })
+    expect(stored).toEqual(Option.some({ team: "RAT", workspace: "work" }))
   })
 
   test("records --project over an existing config", async () => {
-    const harness = makeHarness({
-      files: new Map([[configPath(), '{\n  "team": "RAT"\n}']]),
-    })
+    const harness = makeHarness({ config: { team: "RAT" } })
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
-    const result = await linkTeam(fake.handler, harness, options({ project: Option.some("rata") }))
+    const { result, stored } = await linkTeam(
+      fake.handler,
+      harness,
+      options({ project: Option.some("rata") }),
+    )
     expect(result.project).toEqual(Option.some("rata"))
-    expect(readConfig(harness.files)).toEqual({ team: "RAT", project: "rata" })
+    expect(stored).toEqual(Option.some({ team: "RAT", project: "rata" }))
   })
 })

@@ -6,7 +6,6 @@ import {
   makeHarness,
   options,
   rat,
-  readConfig,
   scratch,
 } from "@test/link-harness"
 import { describe, expect, test } from "bun:test"
@@ -16,9 +15,13 @@ describe("LinkService.link prompt", () => {
   test("prompts with the team list when --team is absent", async () => {
     const harness = makeHarness(interactive("2\n"))
     const fake = makeFakeLinear({ teams: [rat, scratch], labels: [] })
-    const result = await linkTeam(fake.handler, harness, options({ team: Option.none() }))
+    const { result, stored } = await linkTeam(
+      fake.handler,
+      harness,
+      options({ team: Option.none() }),
+    )
     expect(result.team).toEqual(scratch)
-    expect(readConfig(harness.files)).toEqual({ team: "SCR" })
+    expect(stored).toEqual(Option.some({ team: "SCR" }))
     expect(harness.lines.some((line) => line.includes("1. RAT"))).toBe(true)
     expect(harness.lines.some((line) => line.includes("2. SCR"))).toBe(true)
   })
@@ -26,7 +29,7 @@ describe("LinkService.link prompt", () => {
   test("accepts a team key and re-prompts on an invalid answer", async () => {
     const harness = makeHarness(interactive("banana\nscr\n"))
     const fake = makeFakeLinear({ teams: [rat, scratch], labels: [] })
-    const result = await linkTeam(fake.handler, harness, options({ team: Option.none() }))
+    const { result } = await linkTeam(fake.handler, harness, options({ team: Option.none() }))
     expect(result.team).toEqual(scratch)
     expect(harness.lines).toContain("Not a team: banana.")
   })
@@ -34,7 +37,7 @@ describe("LinkService.link prompt", () => {
   test("fails after three invalid answers", async () => {
     const harness = makeHarness(interactive("a\nb\nc\n"))
     const fake = makeFakeLinear({ teams: [rat, scratch], labels: [] })
-    const error = await linkError(fake.handler, harness, options({ team: Option.none() }))
+    const { error } = await linkError(fake.handler, harness, options({ team: Option.none() }))
     expect(error._tag).toBe("LinkError")
     if (error._tag === "LinkError") {
       expect(error.message).toContain("No valid team")
@@ -54,7 +57,7 @@ describe("LinkService.link prompt", () => {
     ]
     const harness = makeHarness(interactive("51\n"))
     const fake = makeFakeLinear({ teams, labels: [] })
-    const result = await linkTeam(fake.handler, harness, options({ team: Option.none() }))
+    const { result } = await linkTeam(fake.handler, harness, options({ team: Option.none() }))
 
     expect(result.team).toEqual(last)
     const pages = fake.requests.filter((request) => request.query.includes("query Teams"))
@@ -65,7 +68,7 @@ describe("LinkService.link prompt", () => {
   test("fails without listing teams when standard input is not a terminal", async () => {
     const harness = makeHarness()
     const fake = makeFakeLinear({ teams: [rat, scratch], labels: [] })
-    const error = await linkError(fake.handler, harness, options({ team: Option.none() }))
+    const { error } = await linkError(fake.handler, harness, options({ team: Option.none() }))
     expect(error._tag).toBe("LinkError")
     if (error._tag === "LinkError") {
       expect(error.message).toContain("--team")

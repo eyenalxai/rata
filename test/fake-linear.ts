@@ -1,3 +1,4 @@
+import type { RepositorySeed } from "@test/database-harness"
 import type {
   FakeLabel,
   FakeProject,
@@ -8,6 +9,7 @@ import type {
   Handler,
 } from "@test/fake-linear-model"
 
+import { databaseLayer } from "@test/database-harness"
 import {
   defaultEnv,
   defaultViewer,
@@ -28,6 +30,7 @@ import { TeamService } from "@/api/team"
 import { Auth } from "@/config/auth"
 import { LinkService } from "@/config/link"
 import { RepoConfigService } from "@/config/repo"
+import { RepositoryIdentity } from "@/config/repo-identity"
 
 type FakeState = {
   readonly teams: FakeTeam[]
@@ -230,6 +233,7 @@ type ApiLayerOptions = {
   readonly files?: Map<string, string>
   readonly stdio?: Partial<Stdio.Stdio>
   readonly env?: Readonly<Record<string, string>>
+  readonly repositories?: readonly RepositorySeed[]
 }
 
 const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
@@ -247,7 +251,11 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
     makeDirectory: () => Effect.void,
   })
   const platform = Layer.mergeAll(fs, Path.layer, Stdio.layerTest(options.stdio ?? {}))
-  const repoConfig = RepoConfigService.layer.pipe(Layer.provide(platform))
+  const database = databaseLayer(options.repositories)
+  const identity = RepositoryIdentity.layer.pipe(Layer.provide(platform))
+  const repoConfig = RepoConfigService.layer.pipe(
+    Layer.provide(Layer.mergeAll(platform, database, identity)),
+  )
   const auth = Auth.layer.pipe(Layer.provide(Layer.mergeAll(repoConfig, platform)))
   const client = LinearClient.layer.pipe(
     Layer.provide(Layer.mergeAll(auth, Layer.succeed(HttpClient.HttpClient, http))),

@@ -83,7 +83,7 @@ const makeIssueWriteResolvers = ({ client, teams, labels, projects }: IssueWrite
     const value = flag ?? fallback
     if (value === undefined) {
       return yield* new TeamResolutionError({
-        message: "No team. Pass --team, or set the team in .rata.json.",
+        message: "No team. Pass --team, or run `rata link`.",
       })
     }
     return yield* teamIdFor(value)

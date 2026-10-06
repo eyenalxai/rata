@@ -37,7 +37,7 @@ import { makeIssueWriteResolvers } from "@/api/issue-write-resolvers"
 import { LabelService } from "@/api/label"
 import { ProjectService } from "@/api/project"
 import { TeamService } from "@/api/team"
-import { RepoConfigService } from "@/config/repo"
+import { currentDirectory, RepoConfigService } from "@/config/repo"
 
 class IssueWriteApi extends Context.Service<IssueWriteApi, IssueWriteApiShape>()(
   "rata-cli/api/issue-write/IssueWriteApi",
@@ -55,7 +55,7 @@ class IssueWriteApi extends Context.Service<IssueWriteApi, IssueWriteApiShape>()
       const create = Effect.fn("IssueWriteApi.create")(function* create(
         options: IssueCreateOptions,
       ) {
-        const config = Option.getOrUndefined(yield* repoConfig.read)
+        const config = Option.getOrUndefined(yield* repoConfig.read(yield* currentDirectory))
         const teamId = yield* resolvers.resolveTeamId(options.team, config?.team)
         const input: Record<string, unknown> = { teamId, title: options.title }
         if (options.body !== undefined && options.body.length > 0) {

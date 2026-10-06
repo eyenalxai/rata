@@ -1,5 +1,6 @@
 import type { HttpClientRequest } from "effect/http"
 
+import { databaseLayer } from "@test/database-harness"
 import { ConfigProvider, Effect, FileSystem, Layer, Path, Result, Schema } from "effect"
 import { HttpClient, HttpClientResponse } from "effect/http"
 
@@ -7,6 +8,7 @@ import { LinearClient } from "@/api/client"
 import { IssueApi } from "@/api/issue"
 import { Auth } from "@/config/auth"
 import { RepoConfigService } from "@/config/repo"
+import { RepositoryIdentity } from "@/config/repo-identity"
 
 const uuid = "5f0c1f2a-3b4c-4d5e-8f90-1234567890ab"
 
@@ -98,7 +100,11 @@ const clientLayer = (handler: (request: HttpClientRequest.HttpClientRequest) => 
     Effect.succeed(HttpClientResponse.fromWeb(request, handler(request))),
   )
   const platform = Layer.mergeAll(FileSystem.layerNoop({}), Path.layer)
-  const repoConfig = RepoConfigService.layer.pipe(Layer.provide(platform))
+  const database = databaseLayer()
+  const identity = RepositoryIdentity.layer.pipe(Layer.provide(platform))
+  const repoConfig = RepoConfigService.layer.pipe(
+    Layer.provide(Layer.mergeAll(platform, database, identity)),
+  )
   const auth = Auth.layer.pipe(Layer.provide(Layer.mergeAll(repoConfig, platform)))
   return LinearClient.layer.pipe(
     Layer.provide(Layer.mergeAll(auth, Layer.succeed(HttpClient.HttpClient, http))),

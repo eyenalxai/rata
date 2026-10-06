@@ -14,9 +14,15 @@ import { root } from "@/cli/root"
 import { Auth } from "@/config/auth"
 import { LinkService } from "@/config/link"
 import { RepoConfigService } from "@/config/repo"
+import { RepositoryIdentity } from "@/config/repo-identity"
+import { Database } from "@/db/database"
 
 const platformLayer = BunServices.layer
-const repoConfigLayer = RepoConfigService.layer.pipe(Layer.provide(platformLayer))
+const databaseLayer = Database.layer.pipe(Layer.provide(platformLayer))
+const repoIdentityLayer = RepositoryIdentity.layer.pipe(Layer.provide(platformLayer))
+const repoConfigLayer = RepoConfigService.layer.pipe(
+  Layer.provide(Layer.mergeAll(databaseLayer, repoIdentityLayer, platformLayer)),
+)
 const authLayer = Auth.layer.pipe(Layer.provide(Layer.mergeAll(repoConfigLayer, platformLayer)))
 const clientLayer = LinearClient.layer.pipe(
   Layer.provide(authLayer),

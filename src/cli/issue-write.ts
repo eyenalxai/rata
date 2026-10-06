@@ -30,7 +30,7 @@ const createCommand = Command.make(
     title: Flag.String("title").pipe(Flag.withDescription("Issue title")),
     body: bodyFlag,
     bodyFile: bodyFileFlag,
-    team: optionalText("team", "Team key or id. Defaults to the team in .rata.json"),
+    team: optionalText("team", "Team key or id. Defaults to the team from `rata link`"),
     label: Flag.atLeast(Flag.String("label"), 0).pipe(
       Flag.withDescription("Label name. Repeat for more labels"),
     ),

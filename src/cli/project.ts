@@ -68,7 +68,7 @@ const createCommand = Command.make(
     name: Flag.String("name").pipe(Flag.withDescription("Project name")),
     team: Flag.atLeast(Flag.String("team"), 0).pipe(
       Flag.withDescription(
-        "Team key or id. Repeat for more teams. Defaults to the team in .rata.json",
+        "Team key or id. Repeat for more teams. Defaults to the team from `rata link`",
       ),
     ),
     description: optionalText("description", "Project description"),

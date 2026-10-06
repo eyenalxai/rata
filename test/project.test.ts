@@ -1,3 +1,4 @@
+import type { ApiLayerOptions } from "@test/fake-linear"
 import type { GraphQLRequest, Handler } from "@test/fake-linear-model"
 
 import { apiLayer, makeFakeLinear } from "@test/fake-linear"
@@ -12,13 +13,11 @@ import { ProjectService } from "@/api/project"
 const team = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
 const otherTeam = { id: "team-2", key: "OPS", name: "Operations", timezone: "America/Los_Angeles" }
 
-const configPath = `${process.cwd()}/.rata.json`
-
 const run = <A, E>(
   handler: Handler,
   effect: Effect.Effect<A, E, ProjectService>,
-  files: Map<string, string> = new Map<string, string>(),
-) => effect.pipe(Effect.provide(apiLayer(handler, { files })), Effect.runPromise)
+  options: ApiLayerOptions = {},
+) => effect.pipe(Effect.provide(apiLayer(handler, options)), Effect.runPromise)
 
 const createProject = (options: ProjectCreateOptions) =>
   Effect.gen(function* create() {
@@ -31,7 +30,9 @@ const requestOf = (
   fragment: string,
 ): GraphQLRequest | undefined => requests.find((request) => request.query.includes(fragment))
 
-const configWithTeam = (key: string) => new Map([[configPath, JSON.stringify({ team: key })]])
+const configWithTeam = (key: string): ApiLayerOptions => ({
+  repositories: [{ key: process.cwd(), team: key }],
+})
 
 describe("ProjectService.create", () => {
   test("uses the default team and sends the name and description", async () => {

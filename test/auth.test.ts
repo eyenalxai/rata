@@ -4,7 +4,6 @@ import {
   authPath,
   decodeWrite,
   profileFile,
-  repoPath,
   runRequire,
   runResolve,
   runWithAuth,
@@ -18,9 +17,13 @@ describe("Auth", () => {
   test("prefers LINEAR_API_KEY over the repository workspace and the stored profiles", async () => {
     const files = new Map([
       [authPath, profileFile({ default: "default-key", work: "work-key" }, "default")],
-      [repoPath(), JSON.stringify({ team: "RAT", workspace: "work" })],
     ])
-    const resolved = await runResolve({ HOME: "/home/test", LINEAR_API_KEY: "env-key" }, files)
+    const repositories = [{ key: process.cwd(), team: "RAT", workspace: "work" }]
+    const resolved = await runResolve(
+      { HOME: "/home/test", LINEAR_API_KEY: "env-key" },
+      files,
+      repositories,
+    )
     expect(Option.isSome(resolved)).toBe(true)
     if (Option.isSome(resolved)) {
       expect(resolved.value.source).toBe("env")
@@ -32,9 +35,10 @@ describe("Auth", () => {
   test("selects the repository workspace over the default profile", async () => {
     const files = new Map([
       [authPath, profileFile({ default: "default-key", work: "work-key" }, "default")],
-      [repoPath(), JSON.stringify({ team: "RAT", workspace: "work" })],
     ])
-    const resolved = await runResolve({ HOME: "/home/test" }, files)
+    const resolved = await runResolve({ HOME: "/home/test" }, files, [
+      { key: process.cwd(), team: "RAT", workspace: "work" },
+    ])
     expect(Option.isSome(resolved)).toBe(true)
     if (Option.isSome(resolved)) {
       expect(resolved.value.source).toBe("profile")
@@ -44,11 +48,10 @@ describe("Auth", () => {
   })
 
   test("fails when the repository workspace is missing", async () => {
-    const files = new Map([
-      [authPath, profileFile({ default: "default-key" }, "default")],
-      [repoPath(), JSON.stringify({ team: "RAT", workspace: "nope" })],
+    const files = new Map([[authPath, profileFile({ default: "default-key" }, "default")]])
+    const error = await runRequire({ HOME: "/home/test" }, files, [
+      { key: process.cwd(), team: "RAT", workspace: "nope" },
     ])
-    const error = await runRequire({ HOME: "/home/test" }, files)
     expect(error._tag).toBe("AuthStoreError")
     expect(error.message).toContain("nope")
   })

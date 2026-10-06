@@ -13,7 +13,7 @@ import { TeamService } from "@/api/team"
 import { Auth } from "@/config/auth"
 import { invalidLinkOptions } from "@/config/link-team"
 import { resolveLinkTarget } from "@/config/link-workspace"
-import { RepoConfigService } from "@/config/repo"
+import { currentDirectory, RepoConfigService } from "@/config/repo"
 
 type LinkOptions = LinkTargetOptions & {
   readonly project: Option.Option<string>
@@ -62,7 +62,8 @@ class LinkService extends Context.Service<LinkService, LinkServiceShape>()(
         project: Option.Option<string>,
         workspace: Option.Option<string>,
       ) {
-        const existing = yield* repoConfig.read
+        const directory = yield* currentDirectory
+        const existing = yield* repoConfig.read(directory)
         const resolvedProject = Option.orElse(project, () => Option.flatMap(existing, projectFrom))
         const resolvedWorkspace = Option.orElse(workspace, () =>
           Option.flatMap(existing, (config) => Option.fromUndefinedOr(config.workspace)),
@@ -72,7 +73,7 @@ class LinkService extends Context.Service<LinkService, LinkServiceShape>()(
           ...(Option.isSome(resolvedProject) ? { project: resolvedProject.value } : {}),
           ...(Option.isSome(resolvedWorkspace) ? { workspace: resolvedWorkspace.value } : {}),
         }
-        yield* repoConfig.write(config)
+        yield* repoConfig.write(directory, config)
         return { project: resolvedProject, workspace: resolvedWorkspace }
       })
 

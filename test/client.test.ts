@@ -1,5 +1,6 @@
 import type { HttpClientRequest } from "effect/http"
 
+import { databaseLayer } from "@test/database-harness"
 import { describe, expect, test } from "bun:test"
 import { ConfigProvider, Clock, Effect, Fiber, FileSystem, Layer, Path } from "effect"
 import { HttpClient, HttpClientError, HttpClientResponse } from "effect/http"
@@ -8,6 +9,7 @@ import { TestClock } from "effect/testing"
 import { LinearClient } from "@/api/client"
 import { Auth } from "@/config/auth"
 import { RepoConfigService } from "@/config/repo"
+import { RepositoryIdentity } from "@/config/repo-identity"
 
 const jsonResponse = (
   body: unknown,
@@ -26,7 +28,11 @@ const configLayer = () =>
 
 const httpClientLayer = (http: HttpClient.HttpClient) => {
   const platform = Layer.mergeAll(FileSystem.layerNoop({}), Path.layer)
-  const repoConfig = RepoConfigService.layer.pipe(Layer.provide(platform))
+  const database = databaseLayer()
+  const identity = RepositoryIdentity.layer.pipe(Layer.provide(platform))
+  const repoConfig = RepoConfigService.layer.pipe(
+    Layer.provide(Layer.mergeAll(platform, database, identity)),
+  )
   const auth = Auth.layer.pipe(Layer.provide(Layer.mergeAll(repoConfig, platform)))
   return LinearClient.layer.pipe(
     Layer.provide(Layer.mergeAll(auth, Layer.succeed(HttpClient.HttpClient, http))),

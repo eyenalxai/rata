@@ -1,7 +1,11 @@
+import type { RepositorySeed } from "@test/database-harness"
+
+import { databaseLayer } from "@test/database-harness"
 import { ConfigProvider, Effect, FileSystem, Layer, Path, Schema } from "effect"
 
 import { Auth } from "@/config/auth"
 import { RepoConfigService } from "@/config/repo"
+import { RepositoryIdentity } from "@/config/repo-identity"
 
 type WriteRecord = {
   readonly path: string
@@ -10,8 +14,6 @@ type WriteRecord = {
 }
 
 const authPath = "/home/test/.config/rata/auth.json"
-
-const repoPath = () => `${process.cwd()}/.rata.json`
 
 const authFileJson = Schema.fromJsonString(
   Schema.Struct({
@@ -54,11 +56,16 @@ const makeFileSystem = (files: Map<string, string>, writes: WriteRecord[], modes
 const testLayer = (
   env: Record<string, string>,
   files: Map<string, string>,
+  repositories: readonly RepositorySeed[],
   writes: WriteRecord[] = [],
   modes: number[] = [],
 ) => {
   const platform = Layer.mergeAll(makeFileSystem(files, writes, modes), Path.layer)
-  const repoConfig = RepoConfigService.layer.pipe(Layer.provide(platform))
+  const database = databaseLayer(repositories)
+  const identity = RepositoryIdentity.layer.pipe(Layer.provide(platform))
+  const repoConfig = RepoConfigService.layer.pipe(
+    Layer.provide(Layer.mergeAll(platform, database, identity)),
+  )
   return Layer.mergeAll(
     Auth.layer.pipe(Layer.provide(Layer.mergeAll(repoConfig, platform))),
     ConfigProvider.layer(ConfigProvider.fromEnvRecord(env)),
@@ -71,9 +78,15 @@ const runWithAuth = <A, E>(
   effect: Effect.Effect<A, E, Auth>,
   writes: WriteRecord[] = [],
   modes: number[] = [],
-) => effect.pipe(Effect.provide(testLayer(env, files, writes, modes)), Effect.runPromise)
+  repositories: readonly RepositorySeed[] = [],
+) =>
+  effect.pipe(Effect.provide(testLayer(env, files, repositories, writes, modes)), Effect.runPromise)
 
-const runResolve = (env: Record<string, string>, files: Map<string, string>) =>
+const runResolve = (
+  env: Record<string, string>,
+  files: Map<string, string>,
+  repositories: readonly RepositorySeed[] = [],
+) =>
   runWithAuth(
     env,
     files,
@@ -81,9 +94,16 @@ const runResolve = (env: Record<string, string>, files: Map<string, string>) =>
       const auth = yield* Auth
       return yield* auth.resolve
     }),
+    [],
+    [],
+    repositories,
   )
 
-const runRequire = (env: Record<string, string>, files: Map<string, string>) =>
+const runRequire = (
+  env: Record<string, string>,
+  files: Map<string, string>,
+  repositories: readonly RepositorySeed[] = [],
+) =>
   runWithAuth(
     env,
     files,
@@ -91,18 +111,12 @@ const runRequire = (env: Record<string, string>, files: Map<string, string>) =>
       const auth = yield* Auth
       return yield* auth.require
     }).pipe(Effect.flip),
+    [],
+    [],
+    repositories,
   )
 
 const decodeWrite = (writes: WriteRecord[]) =>
   Schema.decodeResult(authFileJson)(writes[0]?.content ?? "")
 
-export {
-  authPath,
-  decodeWrite,
-  profileFile,
-  repoPath,
-  runRequire,
-  runResolve,
-  runWithAuth,
-  type WriteRecord,
-}
+export { authPath, decodeWrite, profileFile, runRequire, runResolve, runWithAuth, type WriteRecord }

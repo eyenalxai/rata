@@ -8,7 +8,7 @@ import type { RepoConfigError } from "@/config/repo"
 import { LinearClient } from "@/api/client"
 import { PageInfo } from "@/api/pagination"
 import { TeamResolutionError, TeamService } from "@/api/team"
-import { RepoConfigService } from "@/config/repo"
+import { currentDirectory, RepoConfigService } from "@/config/repo"
 import { isUuid } from "@/domain/ref"
 
 const ProjectStatus = Schema.Struct({ name: Schema.String })
@@ -111,7 +111,7 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
       const create = Effect.fn("ProjectService.create")(function* createProject(
         options: ProjectCreateOptions,
       ) {
-        const config = Option.getOrUndefined(yield* repoConfig.read)
+        const config = Option.getOrUndefined(yield* repoConfig.read(yield* currentDirectory))
         const requested =
           options.teams !== undefined && options.teams.length > 0
             ? options.teams
@@ -120,7 +120,7 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
               : [config.team]
         if (requested.length === 0) {
           return yield* new TeamResolutionError({
-            message: "No team. Pass --team, or set the team in .rata.json.",
+            message: "No team. Pass --team, or run `rata link`.",
           })
         }
         const teamIds = yield* Effect.forEach(requested, (team) => teamIdFor(team))

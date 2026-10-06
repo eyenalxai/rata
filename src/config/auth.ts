@@ -13,7 +13,7 @@ import {
   Schema,
 } from "effect"
 
-import { RepoConfigService } from "@/config/repo"
+import { currentDirectory, RepoConfigService } from "@/config/repo"
 
 const WorkspaceProfile = Schema.Struct({ apiKey: Schema.String })
 
@@ -175,10 +175,9 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
           })
         }
         const requested = Option.flatMap(
-          yield* repoConfig.read.pipe(
-            Effect.mapError(
-              (error) => new AuthStoreError({ message: error.message, cause: error.cause }),
-            ),
+          yield* Effect.mapError(
+            repoConfig.read(yield* currentDirectory),
+            (error) => new AuthStoreError({ message: error.message, cause: error.cause }),
           ),
           (config) => Option.fromUndefinedOr(config.workspace),
         )

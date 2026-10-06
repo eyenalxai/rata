@@ -7,15 +7,15 @@ import { recordingConsole } from "@test/recording-console"
 import { Console, Effect, Option, Terminal } from "effect"
 
 import type { LinkOptions } from "@/config/link"
+import type { RepoConfig } from "@/config/repo"
 
 import { LinkService } from "@/config/link"
+import { currentDirectory, RepoConfigService } from "@/config/repo"
 
 const ratId = "0f8fad5b-d9cb-469f-a165-70867728950e"
 
 const rat = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
 const scratch = { id: "team-2", key: "SCR", name: "Scratch", timezone: "America/Los_Angeles" }
-
-const configPath = () => `${process.cwd()}/.rata.json`
 
 const authPath = "/home/test/.config/rata/auth.json"
 
@@ -51,6 +51,7 @@ const interactive = (input: string): Pick<Harness, "input" | "stdio"> => ({
 })
 
 type Harness = {
+  readonly config?: RepoConfig
   readonly files: Map<string, string>
   readonly stdio: Partial<Stdio.Stdio>
   readonly lines: string[]
@@ -80,11 +81,17 @@ const options = (overrides: Partial<LinkOptions>): LinkOptions => ({
 const provide = <A, E>(
   handler: Handler,
   harness: Harness,
-  effect: Effect.Effect<A, E, LinkService | Terminal.Terminal>,
+  effect: Effect.Effect<A, E, LinkService | RepoConfigService | Terminal.Terminal>,
 ): Promise<A> =>
   effect.pipe(
     Effect.provide(
-      apiLayer(handler, { files: harness.files, stdio: harness.stdio, env: harness.env }),
+      apiLayer(handler, {
+        files: harness.files,
+        repositories:
+          harness.config === undefined ? [] : [{ key: process.cwd(), ...harness.config }],
+        stdio: harness.stdio,
+        env: harness.env,
+      }),
     ),
     Effect.provideService(Terminal.Terminal, fakeTerminal(harness.input)),
     Effect.provideService(Console.Console, recordingConsole(harness.lines)),
@@ -97,7 +104,11 @@ const linkTeam = (handler: Handler, harness: Harness, linkOptions: LinkOptions) 
     harness,
     Effect.gen(function* link() {
       const service = yield* LinkService
-      return yield* service.link(linkOptions)
+      const result = yield* service.link(linkOptions)
+      const repoConfig = yield* RepoConfigService
+      const directory = yield* currentDirectory
+      const stored = yield* repoConfig.read(directory)
+      return { result, stored }
     }),
   )
 
@@ -107,16 +118,16 @@ const linkError = (handler: Handler, harness: Harness, linkOptions: LinkOptions)
     harness,
     Effect.gen(function* link() {
       const service = yield* LinkService
-      return yield* service.link(linkOptions)
-    }).pipe(Effect.flip),
+      const error = yield* Effect.flip(service.link(linkOptions))
+      const repoConfig = yield* RepoConfigService
+      const directory = yield* currentDirectory
+      const stored = yield* repoConfig.read(directory)
+      return { error, stored }
+    }),
   )
-
-const readConfig = (files: Map<string, string>): unknown =>
-  JSON.parse(files.get(configPath()) ?? "")
 
 export {
   authPath,
-  configPath,
   interactive,
   linkError,
   linkTeam,
@@ -125,7 +136,6 @@ export {
   profileFile,
   rat,
   ratId,
-  readConfig,
   scratch,
   type Harness,
 }

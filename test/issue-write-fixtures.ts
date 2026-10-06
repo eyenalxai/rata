@@ -1,3 +1,4 @@
+import type { ApiLayerOptions } from "@test/fake-linear"
 import type { GraphQLRequest, Handler } from "@test/fake-linear-model"
 import type { HttpClientRequest } from "effect/http"
 
@@ -42,11 +43,12 @@ const makeRecorder = (respond: (request: GraphQLRequest) => Response): Recorder 
 const run = <A, E>(
   handler: Handler,
   effect: Effect.Effect<A, E, IssueWriteApi>,
-  files: Map<string, string> = new Map<string, string>(),
-): Promise<A> => effect.pipe(Effect.provide(apiLayer(handler, { files })), Effect.runPromise)
+  options: ApiLayerOptions = {},
+): Promise<A> => effect.pipe(Effect.provide(apiLayer(handler, options)), Effect.runPromise)
 
-const configWithTeam = (key: string) =>
-  new Map([[`${process.cwd()}/.rata.json`, JSON.stringify({ team: key })]])
+const configWithTeam = (key: string): ApiLayerOptions => ({
+  repositories: [{ key: process.cwd(), team: key }],
+})
 
 const requestOf = (recorder: Recorder, fragment: string): GraphQLRequest | undefined =>
   recorder.requests.find((request) => request.query.includes(fragment))

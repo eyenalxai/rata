@@ -4,7 +4,6 @@ import { makeFakeLinear } from "@test/fake-linear"
 import { defaultViewer } from "@test/fake-linear-model"
 import {
   authPath,
-  configPath,
   interactive,
   linkError,
   linkTeam,
@@ -12,7 +11,6 @@ import {
   options,
   profileFile,
   rat,
-  readConfig,
   scratch,
 } from "@test/link-harness"
 import { describe, expect, test } from "bun:test"
@@ -46,10 +44,14 @@ describe("LinkService.link workspace", () => {
       ...interactive("2\nscr\n"),
     })
     const fake = makeFakeLinear({ teams: [rat], labels: [], workspaces: twoWorkspaces() })
-    const result = await linkTeam(fake.handler, harness, options({ team: Option.none() }))
+    const { result, stored } = await linkTeam(
+      fake.handler,
+      harness,
+      options({ team: Option.none() }),
+    )
 
     expect(result.team).toEqual(scratch)
-    expect(readConfig(harness.files)).toEqual({ team: "SCR", workspace: "work" })
+    expect(stored).toEqual(Option.some({ team: "SCR", workspace: "work" }))
     expect(harness.lines.some((line) => line.includes("* 1. default"))).toBe(true)
     expect(
       harness.lines.some(
@@ -77,20 +79,24 @@ describe("LinkService.link workspace", () => {
       ...interactive("banana\n1\nRAT\n"),
     })
     const fake = makeFakeLinear({ teams: [rat], labels: [], workspaces: twoWorkspaces() })
-    const result = await linkTeam(fake.handler, harness, options({ team: Option.none() }))
+    const { result, stored } = await linkTeam(
+      fake.handler,
+      harness,
+      options({ team: Option.none() }),
+    )
 
     expect(result.team).toEqual(rat)
     expect(harness.lines).toContain("Not a workspace: banana.")
-    expect(readConfig(harness.files)).toEqual({ team: "RAT", workspace: "default" })
+    expect(stored).toEqual(Option.some({ team: "RAT", workspace: "default" }))
   })
 
   test("resolves --team across the stored workspaces and records the match", async () => {
     const harness = makeHarness({ env: noEnv, files: profiles() })
     const fake = makeFakeLinear({ teams: [rat], labels: [], workspaces: twoWorkspaces() })
-    const result = await linkTeam(fake.handler, harness, options({}))
+    const { result, stored } = await linkTeam(fake.handler, harness, options({}))
 
     expect(result.team).toEqual(rat)
-    expect(readConfig(harness.files)).toEqual({ team: "RAT", workspace: "default" })
+    expect(stored).toEqual(Option.some({ team: "RAT", workspace: "default" }))
     const lookups = fake.requests.filter((request) => request.query.includes("query TeamByKey"))
     expect(lookups.map((request) => request.authorization)).toEqual(["default-key", "work-key"])
   })
@@ -105,33 +111,31 @@ describe("LinkService.link workspace", () => {
         "work-key": { viewer: bob, teams: [rat] },
       },
     })
-    const error = await linkError(fake.handler, harness, options({}))
+    const { error, stored } = await linkError(fake.handler, harness, options({}))
 
     expect(error._tag).toBe("LinkError")
     if (error._tag === "LinkError") {
       expect(error.message).toContain("default, work")
       expect(error.message).toContain("--workspace")
     }
-    expect(harness.files.has(configPath())).toBe(false)
+    expect(Option.isNone(stored)).toBe(true)
   })
 
   test("creates a missing team in the resolved profile", async () => {
     const harness = makeHarness({
       env: noEnv,
-      files: new Map([
-        [authPath, profileFile({ default: "default-key", work: "work-key" }, "default")],
-        [configPath(), JSON.stringify({ workspace: "work" })],
-      ]),
+      files: profiles(),
+      config: { workspace: "work" },
     })
     const fake = makeFakeLinear({ teams: [rat], labels: [], workspaces: twoWorkspaces() })
-    const result = await linkTeam(
+    const { result, stored } = await linkTeam(
       fake.handler,
       harness,
       options({ team: Option.some("LINKZ"), create: true, name: Option.some("Link Test") }),
     )
 
     expect(result.team.key).toBe("LINKZ")
-    expect(readConfig(harness.files)).toEqual({ team: "LINKZ", workspace: "work" })
+    expect(stored).toEqual(Option.some({ team: "LINKZ", workspace: "work" }))
     const create = fake.requests.find((request) => request.query.includes("mutation TeamCreate"))
     expect(create?.authorization).toBe("work-key")
   })
@@ -148,19 +152,23 @@ describe("LinkService.link workspace", () => {
       labels: [],
       workspaces: { "shared-key": { viewer: defaultViewer, teams: [rat] } },
     })
-    const result = await linkTeam(fake.handler, harness, options({}))
+    const { result, stored } = await linkTeam(fake.handler, harness, options({}))
 
     expect(result.team).toEqual(rat)
-    expect(readConfig(harness.files)).toEqual({ team: "RAT", workspace: "default" })
+    expect(stored).toEqual(Option.some({ team: "RAT", workspace: "default" }))
   })
 
   test("skips the workspace prompt when LINEAR_API_KEY is set", async () => {
     const harness = makeHarness({ files: profiles(), ...interactive("RAT\n") })
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
-    const result = await linkTeam(fake.handler, harness, options({ team: Option.none() }))
+    const { result, stored } = await linkTeam(
+      fake.handler,
+      harness,
+      options({ team: Option.none() }),
+    )
 
     expect(result.team).toEqual(rat)
-    expect(readConfig(harness.files)).toEqual({ team: "RAT" })
+    expect(stored).toEqual(Option.some({ team: "RAT" }))
     expect(harness.lines.some((line) => line.includes("Select a workspace"))).toBe(false)
     expect(harness.lines.some((line) => line.includes("Select a team"))).toBe(true)
   })
@@ -168,13 +176,13 @@ describe("LinkService.link workspace", () => {
   test("records --workspace in the repository config and uses its key", async () => {
     const harness = makeHarness({ env: noEnv, files: profiles() })
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
-    const result = await linkTeam(
+    const { result, stored } = await linkTeam(
       fake.handler,
       harness,
       options({ workspace: Option.some("work") }),
     )
 
-    expect(readConfig(harness.files)).toEqual({ team: "RAT", workspace: "work" })
+    expect(stored).toEqual(Option.some({ team: "RAT", workspace: "work" }))
     expect(result.workspace).toEqual(Option.some("work"))
     const lookup = fake.requests.find((request) => request.query.includes("query TeamByKey"))
     expect(lookup?.authorization).toBe("work-key")
@@ -183,7 +191,7 @@ describe("LinkService.link workspace", () => {
   test("fails when --workspace names a missing profile", async () => {
     const harness = makeHarness({ env: noEnv })
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
-    const error = await linkError(
+    const { error, stored } = await linkError(
       fake.handler,
       harness,
       options({ workspace: Option.some("nope") }),
@@ -193,26 +201,24 @@ describe("LinkService.link workspace", () => {
     if (error._tag === "LinkError") {
       expect(error.message).toContain("nope")
     }
-    expect(harness.files.has(configPath())).toBe(false)
+    expect(Option.isNone(stored)).toBe(true)
   })
 
   test("records --workspace over an existing config", async () => {
     const harness = makeHarness({
       env: noEnv,
-      files: new Map([
-        [authPath, profileFile({ default: "default-key", work: "work-key" }, "default")],
-        [configPath(), JSON.stringify({ team: "RAT", workspace: "personal" })],
-      ]),
+      files: profiles(),
+      config: { team: "RAT", workspace: "personal" },
     })
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
-    const result = await linkTeam(
+    const { result, stored } = await linkTeam(
       fake.handler,
       harness,
       options({ workspace: Option.some("work") }),
     )
 
     expect(result.workspace).toEqual(Option.some("work"))
-    expect(readConfig(harness.files)).toEqual({ team: "RAT", workspace: "work" })
+    expect(stored).toEqual(Option.some({ team: "RAT", workspace: "work" }))
   })
 
   test("ignores a corrupt auth file when LINEAR_API_KEY is set", async () => {
@@ -220,10 +226,10 @@ describe("LinkService.link workspace", () => {
       files: new Map([[authPath, "{ not json"]]),
     })
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
-    const result = await linkTeam(fake.handler, harness, options({}))
+    const { result, stored } = await linkTeam(fake.handler, harness, options({}))
 
     expect(result.team).toEqual(rat)
-    expect(readConfig(harness.files)).toEqual({ team: "RAT" })
+    expect(stored).toEqual(Option.some({ team: "RAT" }))
   })
 
   test("lists a profile with a rejected key in the prompt and links the others", async () => {
@@ -238,10 +244,14 @@ describe("LinkService.link workspace", () => {
       workspaces: twoWorkspaces(),
       rejectedKeys: ["default-key"],
     })
-    const result = await linkTeam(fake.handler, harness, options({ team: Option.none() }))
+    const { result, stored } = await linkTeam(
+      fake.handler,
+      harness,
+      options({ team: Option.none() }),
+    )
 
     expect(result.team).toEqual(scratch)
-    expect(readConfig(harness.files)).toEqual({ team: "SCR", workspace: "work" })
+    expect(stored).toEqual(Option.some({ team: "SCR", workspace: "work" }))
     expect(harness.lines.some((line) => line.includes("1. default") && line.includes("!"))).toBe(
       true,
     )
