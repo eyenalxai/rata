@@ -29,7 +29,6 @@ import {
 } from "@/api/issue-schema"
 import {
   parseRefOrFail,
-  ProjectNotFoundError,
   StateNotFoundError,
   stateByName,
   stateByType,
@@ -38,6 +37,7 @@ import {
 } from "@/api/issue-write-model"
 import { labelNotFoundError } from "@/api/label"
 import { collectConnection, collectPages, pageSize } from "@/api/pagination"
+import { ProjectNotFoundError } from "@/api/project"
 import { TeamResolutionError } from "@/api/team"
 import { findLabelByName } from "@/domain/labels"
 import { isUuid } from "@/domain/ref"
@@ -99,7 +99,7 @@ const makeIssueWriteResolvers = ({ client, teams, labels, projects }: IssueWrite
     const match = all.find((project) => project.name.toLowerCase() === value.toLowerCase())
     if (match === undefined) {
       return yield* new ProjectNotFoundError({
-        name: value,
+        ref: value,
         message: `No project named ${value}. Run \`rata project list\` to see the projects.`,
       })
     }

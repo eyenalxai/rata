@@ -6,7 +6,13 @@ import type { TeamNotFoundError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
 
 import { LinearClient } from "@/api/client"
-import { PageInfo } from "@/api/pagination"
+import { collectConnection, PageInfo, pageSize } from "@/api/pagination"
+import {
+  listProjectsQuery,
+  projectByIdQuery,
+  projectCreateMutation,
+  projectDeleteMutation,
+} from "@/api/project/query"
 import { TeamResolutionError, TeamService } from "@/api/team"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
 import { isUuid } from "@/domain/ref"
@@ -40,40 +46,52 @@ const ProjectCreatePayload = Schema.Struct({
   project: Schema.NullOr(Project),
 })
 
-const listProjectsQuery = `query Projects($first: Int!, $after: String, $includeArchived: Boolean) {
-  projects(first: $first, after: $after, orderBy: createdAt, includeArchived: $includeArchived) {
-    nodes {
-      id
-      name
-      progress
-      status {
-        name
-      }
-      trashed
-    }
-    pageInfo { hasNextPage endCursor }
-  }
-}`
-
-const projectCreateMutation = `mutation ProjectCreate($input: ProjectCreateInput!) {
-  projectCreate(input: $input) {
-    success
-    project {
-      id
-      name
-      progress
-      status {
-        name
-      }
-      trashed
-    }
-  }
-}`
+const ProjectArchivePayload = Schema.Struct({
+  success: Schema.Boolean,
+  entity: Schema.NullOr(Project),
+})
 
 class ProjectCreateError extends Schema.TaggedError<ProjectCreateError>()("ProjectCreateError", {
   name: Schema.String,
   message: Schema.String,
 }) {}
+
+class ProjectNotFoundError extends Schema.TaggedError<ProjectNotFoundError>()(
+  "ProjectNotFoundError",
+  {
+    ref: Schema.String,
+    message: Schema.String,
+  },
+) {}
+
+class ProjectAlreadyDeletedError extends Schema.TaggedError<ProjectAlreadyDeletedError>()(
+  "ProjectAlreadyDeletedError",
+  {
+    name: Schema.String,
+    id: Schema.String,
+    message: Schema.String,
+  },
+) {}
+
+class ProjectNameAmbiguousError extends Schema.TaggedError<ProjectNameAmbiguousError>()(
+  "ProjectNameAmbiguousError",
+  {
+    name: Schema.String,
+    message: Schema.String,
+  },
+) {}
+
+class ProjectDeleteError extends Schema.TaggedError<ProjectDeleteError>()("ProjectDeleteError", {
+  name: Schema.String,
+  message: Schema.String,
+}) {}
+
+const alreadyDeleted = (project: Project): ProjectAlreadyDeletedError =>
+  new ProjectAlreadyDeletedError({
+    name: project.name,
+    id: project.id,
+    message: `The project ${project.name} (${project.id}) is in the trash. Run \`rata project restore\` to bring it back.`,
+  })
 
 type ProjectCreateOptions = {
   readonly name: string
@@ -85,8 +103,22 @@ type ProjectListOptions = PageOptions & {
   readonly includeArchived?: boolean
 }
 
+type DeletedProject = {
+  readonly id: string
+  readonly name: string
+}
+
 type ProjectServiceShape = {
   readonly list: (options: ProjectListOptions) => Effect.Effect<Connection<Project>, LinearApiError>
+  readonly resolve: (
+    ref: string,
+  ) => Effect.Effect<
+    Project,
+    LinearApiError | ProjectNotFoundError | ProjectAlreadyDeletedError | ProjectNameAmbiguousError
+  >
+  readonly delete: (
+    project: Project,
+  ) => Effect.Effect<DeletedProject, LinearApiError | ProjectDeleteError>
   readonly create: (
     options: ProjectCreateOptions,
   ) => Effect.Effect<
@@ -128,6 +160,71 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
         return team.id
       })
 
+      const projectById = Effect.fn("ProjectService.projectById")(function* projectById(
+        id: string,
+      ) {
+        const data = yield* client.execute(
+          projectByIdQuery,
+          { id },
+          Schema.Struct({ project: Project }),
+        )
+        return data.project
+      })
+
+      const allByName = Effect.fn("ProjectService.allByName")(function* allByName(name: string) {
+        const all = yield* collectConnection((after) =>
+          list({ after, limit: pageSize, includeArchived: true }),
+        )
+        return all.filter((project) => project.name.toLowerCase() === name.toLowerCase())
+      })
+
+      const resolve = Effect.fn("ProjectService.resolve")(function* resolveProject(ref: string) {
+        if (isUuid(ref)) {
+          const project = yield* projectById(ref)
+          if (project.trashed) {
+            return yield* alreadyDeleted(project)
+          }
+          return project
+        }
+        const matches = yield* allByName(ref)
+        const live = matches.filter((project) => !project.trashed)
+        if (live.length > 1) {
+          return yield* new ProjectNameAmbiguousError({
+            name: ref,
+            message: `More than one live project is named ${ref}. Pass the project UUID instead.`,
+          })
+        }
+        const match = live[0]
+        if (match === undefined) {
+          const deleted = matches[0]
+          if (deleted !== undefined) {
+            return yield* alreadyDeleted(deleted)
+          }
+          return yield* new ProjectNotFoundError({
+            ref,
+            message: `No project named ${ref}. Run \`rata project list\` to see the projects.`,
+          })
+        }
+        return match
+      })
+
+      const deleteProject = Effect.fn("ProjectService.delete")(function* deleteProject(
+        project: Project,
+      ) {
+        const data = yield* client.execute(
+          projectDeleteMutation,
+          { id: project.id },
+          Schema.Struct({ projectDelete: ProjectArchivePayload }),
+        )
+        if (!data.projectDelete.success || data.projectDelete.entity === null) {
+          return yield* new ProjectDeleteError({
+            name: project.name,
+            message: `Linear did not delete the project ${project.name}.`,
+          })
+        }
+        return { id: data.projectDelete.entity.id, name: data.projectDelete.entity.name }
+      })
+
       const create = Effect.fn("ProjectService.create")(function* createProject(
         options: ProjectCreateOptions,
       ) {
@@ -162,9 +259,19 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
         return data.projectCreate.project
       })
 
-      return ProjectService.of({ create, list })
+      return ProjectService.of({ create, delete: deleteProject, list, resolve })
     }),
   )
 }
 
-export { Project, ProjectCreateError, type ProjectCreateOptions, ProjectService }
+export {
+  type DeletedProject,
+  Project,
+  ProjectAlreadyDeletedError,
+  ProjectCreateError,
+  type ProjectCreateOptions,
+  ProjectDeleteError,
+  ProjectNameAmbiguousError,
+  ProjectNotFoundError,
+  ProjectService,
+}

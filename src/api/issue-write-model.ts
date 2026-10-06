@@ -10,6 +10,7 @@ import type {
   WorkflowState,
 } from "@/api/issue-schema"
 import type { LabelNotFoundError } from "@/api/label"
+import type { ProjectNotFoundError } from "@/api/project"
 import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
 import type { InvalidIssueRef, IssueRef } from "@/domain/ref"
@@ -26,14 +27,6 @@ class StateNotFoundError extends Schema.TaggedError<StateNotFoundError>()("State
   teamId: Schema.String,
   message: Schema.String,
 }) {}
-
-class ProjectNotFoundError extends Schema.TaggedError<ProjectNotFoundError>()(
-  "ProjectNotFoundError",
-  {
-    name: Schema.String,
-    message: Schema.String,
-  },
-) {}
 
 const relationKinds = ["blocks", "blockedBy", "related", "duplicate"] as const
 type RelationKind = (typeof relationKinds)[number]
@@ -279,7 +272,6 @@ export {
   type PlannedRelationLink,
   type PlannedRelationUnlink,
   planRelationUnlinks,
-  ProjectNotFoundError,
   type RelationKind,
   relationKindInfo,
   RelationNotFoundError,
