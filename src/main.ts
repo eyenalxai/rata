@@ -54,6 +54,6 @@ const appLayer = Layer.mergeAll(
 )
 
 // oxlint-disable-next-line effecttsgo/strict-effect-provide -- This is the application entry point; it owns the layer graph.
-const program = Command.run(root, { version: "0.2.1" }).pipe(Effect.provide(appLayer))
+const program = Command.run(root, { version: "0.3.0" }).pipe(Effect.provide(appLayer))
 
 BunRuntime.runMain(program)
