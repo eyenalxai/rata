@@ -158,7 +158,8 @@ surface.
 
 ### Issue tracker
 
-Issues live in Linear, driven with the `rata` CLI. See `docs/agents/issue-tracker.md`.
+Issues live in Linear, driven with the `rata` CLI. Every issue must carry a
+priority. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

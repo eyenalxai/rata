@@ -40,7 +40,8 @@ they explore the codebase. Use these terms; do not drift to synonyms.
 - **Triage role**: one of the five canonical states, or a category. States:
   `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`,
   `wontfix`. Categories: `bug`, `enhancement`.
-- **Spec**: an issue that holds a spec, published by `/to-spec`.
+- **Spec**: an issue that holds a spec, published by `/to-spec`. The spec's
+  tickets are its child issues.
 - **Ticket**: a tracer-bullet issue created by `/to-tickets`. It carries its
   **blocking edges** as Linear relations.
 - **Blocking edge**: a relation that gates a ticket. A ticket is **unblocked**

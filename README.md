@@ -42,7 +42,7 @@ rata team list                           # list teams: key, name, id
 rata team create --name "Scratch" --key SCR   # create a team
 rata team delete SCR --yes               # delete a team
 rata project list                        # list projects: name, state, progress, id
-rata project create --name "Spec: login" --team RAT   # create a project
+rata project create --name "Login revamp" --team RAT  # create a project
 rata label list --team RAT               # list a team's labels
 rata link --team RAT                     # bind this repository to a Linear team
 rata unlink                              # remove the stored link of this repository
@@ -247,8 +247,8 @@ rata team delete SCR --yes
 A Linear project groups issues. `rata project create` creates one:
 
 ```bash
-rata project create --name "Spec: login" --team RAT
-rata project create --name "Spec: login" --team RAT --team OPS --description "The login spec."
+rata project create --name "Login revamp" --team RAT
+rata project create --name "Login revamp" --team RAT --team OPS --description "The login work."
 ```
 
 | Flag            | Meaning                                                                |
@@ -263,7 +263,7 @@ rata project create --name "Spec: login" --team RAT --team OPS --description "Th
 {
   "project": {
     "id": "p1",
-    "name": "Spec: login",
+    "name": "Login revamp",
     "progress": 0.25,
     "status": { "name": "Started" }
   }
@@ -282,22 +282,25 @@ with the same fields. `--limit` and `--after` page the list; see **Paging
 lists**. `progress` is the fraction of the project's issues that are done,
 between 0 and 1.
 
-### Specs as projects
+### Specs and tickets
 
-The ask-matt skills group a spec with its tickets in one project:
+A spec is an issue. Do not prefix the title with `Spec:`. Its tickets are child
+issues of the spec, so the set stays together:
 
-1. `/to-spec` creates a project named after the spec, then creates the spec
-   issue in that project:
-   `rata project create --name "Spec: login"` and
-   `rata issue create --title "Spec: login" --project "Spec: login" --body-file -`.
-2. `/to-tickets` creates each ticket in the same project:
-   `rata issue create --title "Add the form" --project "Spec: login" --label ready-for-agent --body-file -`.
+1. `/to-spec` creates the spec issue:
+   `rata issue create --title "Switch billing to Stripe" --label ready-for-agent --priority medium --body-file -`.
+2. `/to-tickets` creates each ticket as a child of the spec:
+   `rata issue create --title "Add the Stripe client" --parent ABC-42 --label ready-for-agent --priority medium --body-file -`.
+   Wire the blocking edges between the tickets with
+   `rata issue link ABC-44 --blocked-by ABC-43`.
 3. `/implement-spec` fetches the whole set one page at a time:
-   `rata issue list --project "Spec: login" --limit 250 --json`, then continue
-   with `--after <endCursor>` while `pageInfo.hasNextPage` is true.
+   `rata issue list --parent ABC-42 --limit 250 --json`, then continue with
+   `--after <endCursor>` while `pageInfo.hasNextPage` is true.
+
+`issue show <spec-ref> --json` also lists the child issues.
 
 `issue create --project` and `issue list --project` accept a project name or a
-UUID. A project groups specs; a wayfinding map stays an issue with child issues.
+UUID. A wayfinding map stays an issue with child issues.
 
 ## Labels
 
