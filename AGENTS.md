@@ -71,7 +71,6 @@ upstream version.
 | `src/api/`     | The Linear GraphQL client and its typed operations.               |
 | `src/domain/`  | Schemas and pure logic: issue references, frontier, labels.       |
 | `src/config/`  | Auth and repository configuration.                                |
-| `src/matt/`    | Tracker documents for the `ask-matt` engineering skills.          |
 | `test/`        | Behaviour tests for the tricky logic.                             |
 | `skills/`      | Agent skills for driving rata, installable with `npx skills add`. |
 | `docs/agents/` | Skill configuration: tracker, triage labels, domain docs.         |

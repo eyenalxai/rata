@@ -25,7 +25,7 @@ import { LabelService } from "@/api/label"
 import { ProjectService } from "@/api/project"
 import { TeamService } from "@/api/team"
 import { Auth } from "@/config/auth"
-import { InitService } from "@/config/init"
+import { LinkService } from "@/config/link"
 import { RepoConfigService } from "@/config/repo"
 
 type FakeState = {
@@ -238,8 +238,8 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
   const issueWrite = IssueWriteApi.layer.pipe(
     Layer.provide(Layer.mergeAll(client, teams, labels, projects, repoConfig)),
   )
-  const init = InitService.layer.pipe(
-    Layer.provide(Layer.mergeAll(teams, labels, repoConfig, platform, auth, client)),
+  const link = LinkService.layer.pipe(
+    Layer.provide(Layer.mergeAll(teams, repoConfig, platform, auth, client)),
   )
   return Layer.mergeAll(
     configLayer(options.env ?? defaultEnv),
@@ -250,7 +250,7 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
     projects,
     repoConfig,
     issueWrite,
-    init,
+    link,
   )
 }
 

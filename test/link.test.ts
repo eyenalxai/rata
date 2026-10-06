@@ -13,19 +13,7 @@ import {
 import { describe, expect, test } from "bun:test"
 import { Option } from "effect"
 
-import {
-  agentSkillsBlock,
-  domainDocument,
-  trackerDocument,
-  triageLabelsDocument,
-} from "@/matt/tracker-doc"
-
-const trackerPath = () => `${process.cwd()}/docs/agents/issue-tracker.md`
-const triagePath = () => `${process.cwd()}/docs/agents/triage-labels.md`
-const domainPath = () => `${process.cwd()}/docs/agents/domain.md`
-const agentsPath = () => `${process.cwd()}/AGENTS.md`
-
-describe("InitService.link", () => {
+describe("LinkService.link", () => {
   test("resolves a team given by id and stores the key", async () => {
     const harness = makeHarness()
     const fake = makeFakeLinear({ teams: [{ ...rat, id: ratId }, scratch], labels: [] })
@@ -152,38 +140,13 @@ describe("InitService.link", () => {
     expect(readConfig(harness.files)).toEqual({ team: "RAT", workspace: "work" })
   })
 
-  test("records --project over an existing config without --force", async () => {
+  test("records --project over an existing config", async () => {
     const harness = makeHarness({
       files: new Map([[configPath(), '{\n  "team": "RAT"\n}']]),
     })
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
     const result = await linkTeam(fake.handler, harness, options({ project: Option.some("rata") }))
-    expect(result.files.map((file) => file.action)).toEqual([
-      "overwrite",
-      "create",
-      "create",
-      "create",
-      "create",
-    ])
+    expect(result.project).toEqual(Option.some("rata"))
     expect(readConfig(harness.files)).toEqual({ team: "RAT", project: "rata" })
-  })
-
-  test("overwrites existing files with --force", async () => {
-    const harness = makeHarness({
-      files: new Map([
-        [configPath(), '{\n  "team": "OLD"\n}'],
-        [trackerPath(), "# Custom tracker\n"],
-        [triagePath(), "# Custom triage\n"],
-        [domainPath(), "# Custom domain\n"],
-        [agentsPath(), "# Agents\n"],
-      ]),
-    })
-    const fake = makeFakeLinear({ teams: [rat], labels: [] })
-    await linkTeam(fake.handler, harness, options({ force: true }))
-    expect(readConfig(harness.files)).toEqual({ team: "RAT" })
-    expect(harness.files.get(trackerPath())).toBe(trackerDocument)
-    expect(harness.files.get(triagePath())).toBe(triageLabelsDocument)
-    expect(harness.files.get(domainPath())).toBe(domainDocument)
-    expect(harness.files.get(agentsPath())).toContain(agentSkillsBlock)
   })
 })

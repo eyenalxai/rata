@@ -5,7 +5,6 @@ import { Context, Effect, Layer, Schema } from "effect"
 import type { LinearApiError } from "@/api/errors"
 
 import { LinearClient } from "@/api/client"
-import { findLabelByName, planLabelEnsure } from "@/domain/labels"
 
 const Label = Schema.Struct({
   id: Schema.String,
@@ -37,38 +36,9 @@ const listAvailableLabelsQuery = `query AvailableLabels($teamId: ID!) {
   }
 }`
 
-const createLabelMutation = `mutation CreateLabel($input: IssueLabelCreateInput!) {
-  issueLabelCreate(input: $input) {
-    success
-    issueLabel {
-      id
-      name
-      color
-    }
-  }
-}`
-
-const IssueLabelPayload = Schema.Struct({
-  success: Schema.Boolean,
-  issueLabel: Label,
-})
-
-class LabelCreateError extends Schema.TaggedError<LabelCreateError>()("LabelCreateError", {
-  name: Schema.String,
-  message: Schema.String,
-}) {}
-
-type LabelEnsureResult = {
-  readonly created: readonly Label[]
-  readonly existing: readonly Label[]
-}
-
 type LabelOperations = {
   readonly list: (teamId: string) => Effect.Effect<readonly Label[], LinearApiError>
   readonly listAvailable: (teamId: string) => Effect.Effect<readonly Label[], LinearApiError>
-  readonly ensure: (
-    teamId: string,
-  ) => Effect.Effect<LabelEnsureResult, LinearApiError | LabelCreateError>
 }
 
 type LabelServiceShape = LabelOperations & {
@@ -96,36 +66,7 @@ const makeLabelOperations = (execute: LinearClient["Service"]["execute"]): Label
     return data.issueLabels.nodes
   })
 
-  const create = Effect.fn("LabelService.create")(function* createLabel(
-    teamId: string,
-    name: string,
-  ) {
-    const data = yield* execute(
-      createLabelMutation,
-      { input: { name, teamId } },
-      Schema.Struct({ issueLabelCreate: IssueLabelPayload }),
-    )
-    if (!data.issueLabelCreate.success) {
-      return yield* new LabelCreateError({
-        name,
-        message: `Linear did not create the label ${name}.`,
-      })
-    }
-    return data.issueLabelCreate.issueLabel
-  })
-
-  const ensure = Effect.fn("LabelService.ensure")(function* ensureLabels(teamId: string) {
-    const available = yield* listAvailable(teamId)
-    const plan = planLabelEnsure(available.map((label) => label.name))
-    const existing = plan.existing.flatMap((name) => {
-      const label = findLabelByName(available, name)
-      return label === undefined ? [] : [label]
-    })
-    const created = yield* Effect.forEach(plan.missing, (name) => create(teamId, name))
-    return { created, existing }
-  })
-
-  return { list, listAvailable, ensure }
+  return { list, listAvailable }
 }
 
 class LabelService extends Context.Service<LabelService, LabelServiceShape>()(
@@ -143,4 +84,4 @@ class LabelService extends Context.Service<LabelService, LabelServiceShape>()(
   )
 }
 
-export { Label, LabelCreateError, type LabelOperations, LabelService, type LabelEnsureResult }
+export { Label, type LabelOperations, LabelService }

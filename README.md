@@ -44,8 +44,6 @@ rata team delete SCR --yes               # delete a team
 rata project list                        # list projects: name, state, progress, id
 rata project create --name "Spec: login" --team RAT   # create a project
 rata label list --team RAT               # list a team's labels
-rata label ensure --team RAT             # create the canonical labels the team misses
-rata init                                # configure this repository for the Linear tracker
 rata link --team RAT                     # bind this repository to a Linear team
 rata issue list                          # list issues
 rata issue list --parent RAT-1 --unblocked --unassigned  # the frontier of a map
@@ -59,12 +57,6 @@ rata issue close RAT-42 --comment "..."  # close an issue
 
 Every command selects the API key in this order: `LINEAR_API_KEY`, the
 repository `workspace` from `.rata.json`, the `default` profile.
-
-`label ensure` installs the canonical labels — the five triage state roles, the
-`bug` and `enhancement` categories and the `wayfinder:*` labels — and reports
-what it created and what already existed. A canonical name counts as existing
-when a team label or a workspace label matches it, ignoring case. `label ensure`
-creates only the true misses, as team labels.
 
 `rata --help` lists every command.
 
@@ -251,30 +243,6 @@ The ask-matt skills group a spec with its tickets in one project:
 `issue create --project` and `issue list --project` accept a project name or a
 UUID. A project groups specs; a wayfinding map stays an issue with child issues.
 
-## Repository setup
-
-`rata init` configures a repository for the Linear tracker:
-
-```bash
-rata init --team RAT --project rata
-```
-
-It writes `.rata.json`, installs `docs/agents/issue-tracker.md`,
-`docs/agents/triage-labels.md` and `docs/agents/domain.md`, and updates the
-`## Agent skills` block in `AGENTS.md`. Missing files are created. Existing
-files are left alone unless `--force` is passed.
-
-| Flag              | Meaning                                                    |
-| ----------------- | ---------------------------------------------------------- |
-| `--team`          | Default team key. Required unless `.rata.json` has a team. |
-| `--project`       | Default project name for the repository.                   |
-| `--ensure-labels` | Create the canonical labels in the team.                   |
-| `--print`         | Print the tracker document and write nothing.              |
-| `--force`         | Overwrite existing files.                                  |
-
-`rata init --print` prints the tracker document, so you can review it before
-`rata init` writes it.
-
 ## Linking a repository
 
 `rata link` binds this repository to a Linear team:
@@ -304,12 +272,8 @@ When `LINEAR_API_KEY` is set, the environment key is the only target: `link`
 ignores the stored profiles. It keeps a `workspace` already recorded in
 `.rata.json`. An explicit `--workspace` still selects that profile.
 
-`link` writes `.rata.json`, installs `docs/agents/issue-tracker.md`,
-`docs/agents/triage-labels.md` and `docs/agents/domain.md`, updates the
-`## Agent skills` block in `AGENTS.md`, and creates the canonical labels in the
-team, so the ask-matt skills work in the repository. The link itself always
-rewrites `.rata.json`. The agent documents and `AGENTS.md` are created when
-missing and left alone unless `--force` is passed.
+`link` writes `.rata.json`, so every later command knows the team, the project
+and the workspace profile of the repository. The link always rewrites the file.
 
 | Flag          | Meaning                                                                |
 | ------------- | ---------------------------------------------------------------------- |
@@ -318,7 +282,6 @@ missing and left alone unless `--force` is passed.
 | `--workspace` | Workspace profile. Skips the workspace prompt.                         |
 | `--create`    | Create the team when it does not exist. Needs `--team` and `--name`.   |
 | `--name`      | Team name, used with `--create`.                                       |
-| `--force`     | Overwrite the existing agent documents and `AGENTS.md`.                |
 | `--json`      | Print machine-readable JSON.                                           |
 
 A missing team fails with `TeamNotFoundError` unless `--create` is passed.
@@ -332,8 +295,8 @@ it reports the change. When the timezone matches, or the machine reports none,
 `--workspace` wins. A team found by `--team` records the profile that holds it.
 Without a profile, `link` keeps the `workspace` of an existing config.
 
-`--json` prints one stable document with the linked team, the repository config
-and the files:
+`--json` prints one stable document with the linked team and the repository
+config:
 
 ```json
 {
@@ -345,25 +308,13 @@ and the files:
   },
   "project": "rata",
   "workspace": null,
-  "timezone": { "previous": "America/Los_Angeles", "current": "Europe/Amsterdam" },
-  "files": [
-    { "path": ".rata.json", "action": "create" },
-    { "path": "docs/agents/issue-tracker.md", "action": "create" },
-    { "path": "docs/agents/triage-labels.md", "action": "create" },
-    { "path": "docs/agents/domain.md", "action": "create" },
-    { "path": "AGENTS.md", "action": "create" }
-  ],
-  "labels": {
-    "created": [],
-    "existing": []
-  }
+  "timezone": { "previous": "America/Los_Angeles", "current": "Europe/Amsterdam" }
 }
 ```
 
 `project` is `null` when no project is recorded. `workspace` is `null` when no
 profile is recorded. `timezone` holds the previous and current IANA names when
-`link` changed the team timezone, and `null` otherwise. Each file action is
-`create`, `overwrite`, `unchanged` or `skip`.
+`link` changed the team timezone, and `null` otherwise.
 
 ## Reading issues
 

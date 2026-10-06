@@ -12,7 +12,7 @@ import {
 import { describe, expect, test } from "bun:test"
 import { Option } from "effect"
 
-describe("InitService.link prompt", () => {
+describe("LinkService.link prompt", () => {
   test("prompts with the team list when --team is absent", async () => {
     const harness = makeHarness(interactive("2\n"))
     const fake = makeFakeLinear({ teams: [rat, scratch], labels: [] })

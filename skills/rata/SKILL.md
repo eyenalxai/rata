@@ -20,12 +20,10 @@ Link the repository to its team once:
 rata link --team ABC
 ```
 
-`link` writes `.rata.json`, installs the `docs/agents/` documents, updates the
-`AGENTS.md` block, and creates the canonical labels. Every later command reads
-the team from `.rata.json`. Use `--create --name "<name>"` when the team does
-not exist yet. Without `--team`, `link` asks for the workspace first, then the
-team. When the key exists in more than one stored workspace, pass
-`--workspace <name>` to choose one.
+`link` writes `.rata.json`, so every later command knows the team. Use
+`--create --name "<name>"` when the team does not exist yet. Without `--team`,
+`link` asks for the workspace first, then the team. When the key exists in more
+than one stored workspace, pass `--workspace <name>` to choose one.
 
 ## Read before you write
 

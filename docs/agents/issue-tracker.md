@@ -23,8 +23,6 @@ An issue reference accepts an identifier (`ABC-42`), a UUID, or a linear.app
 issue URL. The repository config `.rata.json` names the default team, project
 and workspace profile, so most commands need no `--team`.
 
-The canonical labels are created with `rata label ensure --team <key>`.
-
 ## Pull requests as a triage surface
 
 **PRs as a request surface: no.** Linear holds issues only. When this repository

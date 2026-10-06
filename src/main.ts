@@ -12,7 +12,7 @@ import { ProjectService } from "@/api/project"
 import { TeamService } from "@/api/team"
 import { root } from "@/cli/root"
 import { Auth } from "@/config/auth"
-import { InitService } from "@/config/init"
+import { LinkService } from "@/config/link"
 import { RepoConfigService } from "@/config/repo"
 
 const platformLayer = BunServices.layer
@@ -30,10 +30,9 @@ const projectLayer = ProjectService.layer.pipe(
   Layer.provide(teamLayer),
   Layer.provide(repoConfigLayer),
 )
-const initLayer = InitService.layer.pipe(
+const linkLayer = LinkService.layer.pipe(
   Layer.provide(repoConfigLayer),
   Layer.provide(teamLayer),
-  Layer.provide(labelLayer),
   Layer.provide(platformLayer),
   Layer.provide(authLayer),
   Layer.provide(clientLayer),
@@ -49,7 +48,7 @@ const appLayer = Layer.mergeAll(
   labelLayer,
   projectLayer,
   repoConfigLayer,
-  initLayer,
+  linkLayer,
   issueWriteLayer,
   platformLayer,
 )

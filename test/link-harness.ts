@@ -6,10 +6,9 @@ import { defaultEnv } from "@test/fake-linear-model"
 import { recordingConsole } from "@test/recording-console"
 import { Console, Effect, Option, Terminal } from "effect"
 
-import type { LabelService } from "@/api/label"
-import type { LinkOptions } from "@/config/init-model"
+import type { LinkOptions } from "@/config/link"
 
-import { InitService } from "@/config/init"
+import { LinkService } from "@/config/link"
 
 const ratId = "0f8fad5b-d9cb-469f-a165-70867728950e"
 
@@ -74,7 +73,6 @@ const options = (overrides: Partial<LinkOptions>): LinkOptions => ({
   workspace: Option.none(),
   create: false,
   name: Option.none(),
-  force: false,
   timezone: Option.none(),
   ...overrides,
 })
@@ -82,7 +80,7 @@ const options = (overrides: Partial<LinkOptions>): LinkOptions => ({
 const provide = <A, E>(
   handler: Handler,
   harness: Harness,
-  effect: Effect.Effect<A, E, InitService | LabelService | Terminal.Terminal>,
+  effect: Effect.Effect<A, E, LinkService | Terminal.Terminal>,
 ): Promise<A> =>
   effect.pipe(
     Effect.provide(
@@ -98,7 +96,7 @@ const linkTeam = (handler: Handler, harness: Harness, linkOptions: LinkOptions) 
     handler,
     harness,
     Effect.gen(function* link() {
-      const service = yield* InitService
+      const service = yield* LinkService
       return yield* service.link(linkOptions)
     }),
   )
@@ -108,7 +106,7 @@ const linkError = (handler: Handler, harness: Harness, linkOptions: LinkOptions)
     handler,
     harness,
     Effect.gen(function* link() {
-      const service = yield* InitService
+      const service = yield* LinkService
       return yield* service.link(linkOptions)
     }).pipe(Effect.flip),
   )

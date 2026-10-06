@@ -13,9 +13,6 @@ const jsonFlag = Flag.Boolean("json").pipe(
 
 const teamFlag = Flag.String("team").pipe(Flag.withDescription("Team key, for example RAT"))
 
-const formatNames = (names: readonly string[]): string =>
-  names.length === 0 ? "none" : names.join(", ")
-
 const listCommand = Command.make("list", { json: jsonFlag, team: teamFlag }, (config) =>
   Effect.gen(function* listLabels() {
     const teams = yield* TeamService
@@ -32,23 +29,9 @@ const listCommand = Command.make("list", { json: jsonFlag, team: teamFlag }, (co
   }).pipe(Effect.catch(reportFailure)),
 ).pipe(Command.withDescription("List the labels of a team"))
 
-const ensureCommand = Command.make("ensure", { json: jsonFlag, team: teamFlag }, (config) =>
-  Effect.gen(function* ensureLabels() {
-    const teams = yield* TeamService
-    const labels = yield* LabelService
-    const team = yield* teams.byKey(config.team)
-    const result = yield* labels.ensure(team.id)
-    if (config.json) {
-      return yield* writeJson(result)
-    }
-    yield* writeLine(`created: ${formatNames(result.created.map((label) => label.name))}`)
-    return yield* writeLine(`existing: ${formatNames(result.existing.map((label) => label.name))}`)
-  }).pipe(Effect.catch(reportFailure)),
-).pipe(Command.withDescription("Create the canonical labels that a team misses"))
-
 const labelCommand = Command.make("label").pipe(
-  Command.withDescription("Inspect and set up the labels of a team"),
-  Command.withSubcommands([listCommand, ensureCommand]),
+  Command.withDescription("Inspect the labels of a team"),
+  Command.withSubcommands([listCommand]),
 )
 
 export { labelCommand }

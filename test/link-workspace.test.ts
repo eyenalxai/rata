@@ -38,7 +38,7 @@ const twoWorkspaces = () => ({
   "work-key": { viewer: bob, teams: [scratch] },
 })
 
-describe("InitService.link workspace", () => {
+describe("LinkService.link workspace", () => {
   test("prompts for the workspace, then lists that workspace's teams", async () => {
     const harness = makeHarness({
       env: noEnv,
@@ -68,13 +68,6 @@ describe("InitService.link workspace", () => {
     expect(teamPrompt).toBeGreaterThan(workspacePrompt)
     expect(harness.lines.some((line) => line.includes("1. SCR"))).toBe(true)
     expect(harness.lines.some((line) => line.includes("RAT"))).toBe(false)
-
-    expect(
-      fake.requests.some(
-        (request) =>
-          request.query.includes("query AvailableLabels") && request.authorization === "work-key",
-      ),
-    ).toBe(true)
   })
 
   test("re-prompts after an invalid workspace answer", async () => {
@@ -203,7 +196,7 @@ describe("InitService.link workspace", () => {
     expect(harness.files.has(configPath())).toBe(false)
   })
 
-  test("records --workspace over an existing config without --force", async () => {
+  test("records --workspace over an existing config", async () => {
     const harness = makeHarness({
       env: noEnv,
       files: new Map([
@@ -218,13 +211,7 @@ describe("InitService.link workspace", () => {
       options({ workspace: Option.some("work") }),
     )
 
-    expect(result.files.map((file) => file.action)).toEqual([
-      "overwrite",
-      "create",
-      "create",
-      "create",
-      "create",
-    ])
+    expect(result.workspace).toEqual(Option.some("work"))
     expect(readConfig(harness.files)).toEqual({ team: "RAT", workspace: "work" })
   })
 

@@ -1,8 +1,8 @@
 import { Effect, Option } from "effect"
 import { Command, Flag } from "effect/cli"
 
-import { formatFile, formatNames, reportFailure, writeJson, writeLine } from "@/cli/output"
-import { InitService } from "@/config/init"
+import { reportFailure, writeJson, writeLine } from "@/cli/output"
+import { LinkService } from "@/config/link"
 import { machineTimezone } from "@/domain/timezone"
 
 const jsonFlag = Flag.Boolean("json").pipe(
@@ -35,11 +35,6 @@ const nameFlag = Flag.String("name").pipe(
   Flag.optional,
 )
 
-const forceFlag = Flag.Boolean("force").pipe(
-  Flag.withDescription("Overwrite the existing agent documents and AGENTS.md"),
-  Flag.withDefault(false),
-)
-
 const linkCommand = Command.make(
   "link",
   {
@@ -48,19 +43,17 @@ const linkCommand = Command.make(
     workspace: workspaceFlag,
     create: createFlag,
     name: nameFlag,
-    force: forceFlag,
     json: jsonFlag,
   },
   (config) =>
     Effect.gen(function* link() {
-      const service = yield* InitService
+      const service = yield* LinkService
       const result = yield* service.link({
         team: config.team,
         project: config.project,
         workspace: config.workspace,
         create: config.create,
         name: config.name,
-        force: config.force,
         timezone: machineTimezone(),
       })
       if (config.json) {
@@ -69,8 +62,6 @@ const linkCommand = Command.make(
           project: Option.getOrNull(result.project),
           workspace: Option.getOrNull(result.workspace),
           timezone: Option.getOrNull(result.timezone),
-          files: result.files,
-          labels: result.labels,
         })
       }
       yield* writeLine(`Linked ${result.team.key}: ${result.team.name} (${result.team.id})`)
@@ -79,13 +70,6 @@ const linkCommand = Command.make(
           `Updated timezone: ${result.timezone.value.previous} -> ${result.timezone.value.current}`,
         )
       }
-      yield* Effect.forEach(result.files, (file) => writeLine(formatFile(file)), { discard: true })
-      yield* writeLine(
-        `created labels: ${formatNames(result.labels.created.map((label) => label.name))}`,
-      )
-      yield* writeLine(
-        `existing labels: ${formatNames(result.labels.existing.map((label) => label.name))}`,
-      )
       yield* writeLine("")
       yield* writeLine("Next steps:")
       yield* writeLine("  - Confirm the connection: `rata whoami`.")
