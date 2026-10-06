@@ -5,7 +5,7 @@ import { defaultViewer } from "@test/fake-linear-model"
 import {
   authPath,
   configPath,
-  encode,
+  interactive,
   linkError,
   linkTeam,
   makeHarness,
@@ -16,7 +16,7 @@ import {
   scratch,
 } from "@test/link-harness"
 import { describe, expect, test } from "bun:test"
-import { Effect, Option, Stream } from "effect"
+import { Option } from "effect"
 
 const bob: FakeViewer = {
   id: "user-2",
@@ -38,17 +38,12 @@ const twoWorkspaces = () => ({
   "work-key": { viewer: bob, teams: [scratch] },
 })
 
-const interactive = (input: string) => ({
-  stdin: Stream.fromIterable([encode(input)]),
-  stdinIsTerminal: Effect.succeed(true),
-})
-
 describe("InitService.link workspace", () => {
   test("prompts for the workspace, then lists that workspace's teams", async () => {
     const harness = makeHarness({
       env: noEnv,
       files: profiles(),
-      stdio: interactive("2\nscr\n"),
+      ...interactive("2\nscr\n"),
     })
     const fake = makeFakeLinear({ teams: [rat], labels: [], workspaces: twoWorkspaces() })
     const result = await linkTeam(fake.handler, harness, options({ team: Option.none() }))
@@ -86,7 +81,7 @@ describe("InitService.link workspace", () => {
     const harness = makeHarness({
       env: noEnv,
       files: profiles(),
-      stdio: interactive("banana\n1\nRAT\n"),
+      ...interactive("banana\n1\nRAT\n"),
     })
     const fake = makeFakeLinear({ teams: [rat], labels: [], workspaces: twoWorkspaces() })
     const result = await linkTeam(fake.handler, harness, options({ team: Option.none() }))
@@ -167,7 +162,7 @@ describe("InitService.link workspace", () => {
   })
 
   test("skips the workspace prompt when LINEAR_API_KEY is set", async () => {
-    const harness = makeHarness({ files: profiles(), stdio: interactive("RAT\n") })
+    const harness = makeHarness({ files: profiles(), ...interactive("RAT\n") })
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
     const result = await linkTeam(fake.handler, harness, options({ team: Option.none() }))
 
@@ -248,7 +243,7 @@ describe("InitService.link workspace", () => {
     const harness = makeHarness({
       env: noEnv,
       files: profiles(),
-      stdio: interactive("2\nSCR\n"),
+      ...interactive("2\nSCR\n"),
     })
     const fake = makeFakeLinear({
       teams: [rat],

@@ -1,4 +1,4 @@
-import type { Stdio } from "effect"
+import type { Stdio, Terminal } from "effect"
 
 import { Console, Effect, Option, Redacted, Result } from "effect"
 
@@ -6,16 +6,10 @@ import type { LinearClient, Viewer } from "@/api/client"
 import type { LinearApiError } from "@/api/errors"
 import type { Team, TeamCreateError, TeamService, TeamUpdateError } from "@/api/team"
 import type { Auth, AuthStoreError, StoredProfile } from "@/config/auth"
-import type { LineReader, LinkTargetOptions, TimezoneChange } from "@/config/link-team"
+import type { LinkTargetOptions, TimezoneChange } from "@/config/link-team"
 
 import { TeamNotFoundError } from "@/api/team"
-import {
-  LinkError,
-  makeLineReader,
-  promptForChoice,
-  resolveLinkTeam,
-  updateTeamTimezone,
-} from "@/config/link-team"
+import { LinkError, promptForChoice, resolveLinkTeam, updateTeamTimezone } from "@/config/link-team"
 import { parseWorkspaceAnswer } from "@/domain/link"
 
 type LinkTargetDependencies = {
@@ -27,13 +21,11 @@ type LinkTargetDependencies = {
 
 type ResolvedTargetDependencies = LinkTargetDependencies & {
   readonly profiles: readonly StoredProfile[]
-  readonly nextLine: LineReader
 }
 
 type LinkInDependencies = {
   readonly teams: TeamService["Service"]
   readonly stdio: Stdio.Stdio
-  readonly nextLine: LineReader
 }
 
 type LinkTarget = {
@@ -77,12 +69,12 @@ const formatWorkspace = (choice: WorkspaceChoice, index: number): string => {
 }
 
 const promptForWorkspace = Effect.fn("LinkWorkspace.promptForWorkspace")(
-  function* promptForWorkspace(nextLine: LineReader, choices: readonly WorkspaceChoice[]) {
+  function* promptForWorkspace(choices: readonly WorkspaceChoice[]) {
     yield* Console.log("Select a workspace:")
     yield* Effect.forEach(choices, (choice, index) => Console.log(formatWorkspace(choice, index)), {
       discard: true,
     })
-    return yield* promptForChoice(nextLine, {
+    return yield* promptForChoice({
       question: "Workspace number or name:",
       parse: (answer) => parseWorkspaceAnswer(choices, answer),
       invalidMessage: (answer) => `Not a workspace: ${answer.trim()}.`,
@@ -129,7 +121,6 @@ const linkIn = Effect.fn("LinkWorkspace.linkIn")(function* linkIn(
   const link = yield* resolveLinkTeam(options, {
     teams: deps.teams.withKey(apiKey),
     stdio: deps.stdio,
-    nextLine: deps.nextLine,
   })
   return { ...link, workspace, apiKey }
 })
@@ -198,53 +189,41 @@ const resolveLinkTarget = Effect.fn("LinkWorkspace.resolve")(function* resolveLi
   | LinearApiError
   | TeamCreateError
   | TeamNotFoundError
-  | TeamUpdateError
+  | TeamUpdateError,
+  Terminal.Terminal
 > {
   const envKey = yield* deps.auth.envKey
 
-  return yield* Effect.scoped(
-    Effect.gen(function* resolveWithInput() {
-      const nextLine = yield* makeLineReader(deps.stdio)
+  if (Option.isSome(options.workspace)) {
+    const profiles = yield* deps.auth.profiles
+    return yield* resolveExplicitWorkspace(options.workspace.value, options, {
+      ...deps,
+      profiles,
+    })
+  }
 
-      if (Option.isSome(options.workspace)) {
-        const profiles = yield* deps.auth.profiles
-        return yield* resolveExplicitWorkspace(options.workspace.value, options, {
-          ...deps,
-          profiles,
-          nextLine,
-        })
-      }
+  if (Option.isSome(envKey)) {
+    return yield* linkIn(envKey.value, Option.none(), options, deps)
+  }
 
-      if (Option.isSome(envKey)) {
-        return yield* linkIn(envKey.value, Option.none(), options, {
-          teams: deps.teams,
-          stdio: deps.stdio,
-          nextLine,
-        })
-      }
+  const profiles = yield* deps.auth.profiles
+  const target: ResolvedTargetDependencies = { ...deps, profiles }
 
-      const profiles = yield* deps.auth.profiles
-      const target: ResolvedTargetDependencies = { ...deps, profiles, nextLine }
+  if (profiles.length > 0 && Option.isSome(options.team)) {
+    return yield* resolveAcrossProfiles(options.team.value, options, target)
+  }
 
-      if (profiles.length > 0 && Option.isSome(options.team)) {
-        return yield* resolveAcrossProfiles(options.team.value, options, target)
-      }
+  if (profiles.length > 0) {
+    const isTerminal = yield* deps.stdio.stdinIsTerminal
+    if (isTerminal) {
+      const choices = yield* Effect.forEach(profiles, (profile) => choiceOf(deps.client, profile))
+      const choice = yield* promptForWorkspace(choices)
+      return yield* linkIn(choice.apiKey, Option.some(choice.name), options, target)
+    }
+  }
 
-      if (profiles.length > 0) {
-        const isTerminal = yield* deps.stdio.stdinIsTerminal
-        if (isTerminal) {
-          const choices = yield* Effect.forEach(profiles, (profile) =>
-            choiceOf(deps.client, profile),
-          )
-          const choice = yield* promptForWorkspace(nextLine, choices)
-          return yield* linkIn(choice.apiKey, Option.some(choice.name), options, target)
-        }
-      }
-
-      const resolved = yield* deps.auth.require
-      return yield* linkIn(resolved.key, resolved.profile, options, target)
-    }),
-  )
+  const resolved = yield* deps.auth.require
+  return yield* linkIn(resolved.key, resolved.profile, options, target)
 })
 
 export { resolveLinkTarget }

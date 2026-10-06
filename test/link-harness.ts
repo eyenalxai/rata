@@ -4,7 +4,7 @@ import type { Stdio } from "effect"
 import { apiLayer } from "@test/fake-linear"
 import { defaultEnv } from "@test/fake-linear-model"
 import { recordingConsole } from "@test/recording-console"
-import { Console, Effect, Option } from "effect"
+import { Console, Effect, Option, Terminal } from "effect"
 
 import type { LabelService } from "@/api/label"
 import type { LinkOptions } from "@/config/init-model"
@@ -31,13 +31,32 @@ const profileFile = (workspaces: Record<string, string>, defaultName?: string): 
   )
 }
 
-const encode = (text: string): Uint8Array => new TextEncoder().encode(text)
+const fakeTerminal = (input: readonly string[]): Terminal.Terminal => {
+  let index = 0
+  return Terminal.make({
+    columns: Effect.succeed(80),
+    rows: Effect.succeed(24),
+    readInput: Effect.die("unused"),
+    readLine: Effect.suspend(() => {
+      const line = input[index] ?? ""
+      index += 1
+      return Effect.succeed(line)
+    }),
+    display: () => Effect.void,
+  })
+}
+
+const interactive = (input: string): Pick<Harness, "input" | "stdio"> => ({
+  input: input.endsWith("\n") ? input.slice(0, -1).split("\n") : input.split("\n"),
+  stdio: { stdinIsTerminal: Effect.succeed(true) },
+})
 
 type Harness = {
   readonly files: Map<string, string>
   readonly stdio: Partial<Stdio.Stdio>
   readonly lines: string[]
   readonly env: Readonly<Record<string, string>>
+  readonly input: readonly string[]
 }
 
 const makeHarness = (overrides: Partial<Harness> = {}): Harness => ({
@@ -45,6 +64,7 @@ const makeHarness = (overrides: Partial<Harness> = {}): Harness => ({
   stdio: {},
   lines: [],
   env: defaultEnv,
+  input: [],
   ...overrides,
 })
 
@@ -62,12 +82,13 @@ const options = (overrides: Partial<LinkOptions>): LinkOptions => ({
 const provide = <A, E>(
   handler: Handler,
   harness: Harness,
-  effect: Effect.Effect<A, E, InitService | LabelService>,
+  effect: Effect.Effect<A, E, InitService | LabelService | Terminal.Terminal>,
 ): Promise<A> =>
   effect.pipe(
     Effect.provide(
       apiLayer(handler, { files: harness.files, stdio: harness.stdio, env: harness.env }),
     ),
+    Effect.provideService(Terminal.Terminal, fakeTerminal(harness.input)),
     Effect.provideService(Console.Console, recordingConsole(harness.lines)),
     Effect.runPromise,
   )
@@ -98,7 +119,7 @@ const readConfig = (files: Map<string, string>): unknown =>
 export {
   authPath,
   configPath,
-  encode,
+  interactive,
   linkError,
   linkTeam,
   makeHarness,

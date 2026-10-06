@@ -1,6 +1,6 @@
 import { makeFakeLinear } from "@test/fake-linear"
 import {
-  encode,
+  interactive,
   linkError,
   linkTeam,
   makeHarness,
@@ -10,16 +10,11 @@ import {
   scratch,
 } from "@test/link-harness"
 import { describe, expect, test } from "bun:test"
-import { Effect, Option, Stream } from "effect"
+import { Option } from "effect"
 
 describe("InitService.link prompt", () => {
   test("prompts with the team list when --team is absent", async () => {
-    const harness = makeHarness({
-      stdio: {
-        stdin: Stream.fromIterable([encode("2\n")]),
-        stdinIsTerminal: Effect.succeed(true),
-      },
-    })
+    const harness = makeHarness(interactive("2\n"))
     const fake = makeFakeLinear({ teams: [rat, scratch], labels: [] })
     const result = await linkTeam(fake.handler, harness, options({ team: Option.none() }))
     expect(result.team).toEqual(scratch)
@@ -29,12 +24,7 @@ describe("InitService.link prompt", () => {
   })
 
   test("accepts a team key and re-prompts on an invalid answer", async () => {
-    const harness = makeHarness({
-      stdio: {
-        stdin: Stream.fromIterable([encode("banana\n"), encode("scr\n")]),
-        stdinIsTerminal: Effect.succeed(true),
-      },
-    })
+    const harness = makeHarness(interactive("banana\nscr\n"))
     const fake = makeFakeLinear({ teams: [rat, scratch], labels: [] })
     const result = await linkTeam(fake.handler, harness, options({ team: Option.none() }))
     expect(result.team).toEqual(scratch)
@@ -42,12 +32,7 @@ describe("InitService.link prompt", () => {
   })
 
   test("fails after three invalid answers", async () => {
-    const harness = makeHarness({
-      stdio: {
-        stdin: Stream.fromIterable([encode("a\nb\nc\n")]),
-        stdinIsTerminal: Effect.succeed(true),
-      },
-    })
+    const harness = makeHarness(interactive("a\nb\nc\n"))
     const fake = makeFakeLinear({ teams: [rat, scratch], labels: [] })
     const error = await linkError(fake.handler, harness, options({ team: Option.none() }))
     expect(error._tag).toBe("LinkError")

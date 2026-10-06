@@ -1,3 +1,4 @@
+import type { Terminal } from "effect"
 import type { PlatformError } from "effect/PlatformError"
 
 import { Context, Effect, FileSystem, Layer, Option, Path, Schema, Stdio } from "effect"
@@ -74,7 +75,8 @@ type InitServiceShape = {
     | RepoConfigError
     | TeamCreateError
     | TeamNotFoundError
-    | TeamUpdateError
+    | TeamUpdateError,
+    Terminal.Terminal
   >
 }
 
