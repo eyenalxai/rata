@@ -51,14 +51,14 @@ class ProjectRestoreError extends Schema.TaggedError<ProjectRestoreError>()("Pro
   message: Schema.String,
 }) {}
 
-const alreadyDeleted = (project: Project): ProjectAlreadyDeletedError =>
+const alreadyDeletedError = (project: Project): ProjectAlreadyDeletedError =>
   new ProjectAlreadyDeletedError({
     name: project.name,
     id: project.id,
     message: `The project ${project.name} (${project.id}) is in the trash. Run \`rata project restore\` to bring it back.`,
   })
 
-const notDeleted = (project: Project): ProjectNotDeletedError =>
+const notDeletedError = (project: Project): ProjectNotDeletedError =>
   new ProjectNotDeletedError({
     name: project.name,
     id: project.id,
@@ -66,8 +66,8 @@ const notDeleted = (project: Project): ProjectNotDeletedError =>
   })
 
 export {
-  alreadyDeleted,
-  notDeleted,
+  alreadyDeletedError,
+  notDeletedError,
   ProjectAlreadyDeletedError,
   ProjectCreateError,
   ProjectDeleteError,

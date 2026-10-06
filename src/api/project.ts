@@ -15,8 +15,8 @@ import type { RepoConfigError } from "@/config/repo"
 import { LinearClient } from "@/api/client"
 import { collectConnection, pageSize } from "@/api/pagination"
 import {
-  alreadyDeleted,
-  notDeleted,
+  alreadyDeletedError,
+  notDeletedError,
   ProjectCreateError,
   ProjectDeleteError,
   ProjectNameAmbiguousError,
@@ -123,7 +123,7 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
         if (isUuid(ref)) {
           const project = yield* projectById(ref)
           if (project.trashed) {
-            return yield* alreadyDeleted(project)
+            return yield* alreadyDeletedError(project)
           }
           return project
         }
@@ -139,7 +139,7 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
         if (match === undefined) {
           const deleted = matches[0]
           if (deleted !== undefined) {
-            return yield* alreadyDeleted(deleted)
+            return yield* alreadyDeletedError(deleted)
           }
           return yield* new ProjectNotFoundError({
             ref,
@@ -154,7 +154,7 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
           if (isUuid(ref)) {
             const project = yield* projectById(ref)
             if (!project.trashed) {
-              return yield* notDeleted(project)
+              return yield* notDeletedError(project)
             }
             return project
           }
@@ -170,7 +170,7 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
           if (match === undefined) {
             const live = matches[0]
             if (live !== undefined) {
-              return yield* notDeleted(live)
+              return yield* notDeletedError(live)
             }
             return yield* new ProjectNotFoundError({
               ref,
