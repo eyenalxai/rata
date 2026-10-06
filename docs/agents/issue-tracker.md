@@ -9,10 +9,10 @@ operations.
   body with a heredoc.
 - **Read an issue**: `rata issue show <ref> --comments --json`
 - **List issues**: `rata issue list` with the filters you need. Useful filters:
-  `--team`, `--project`, `--state`, `--state-type`, `--label`, `--assignee`,
-  `--parent`, `--text`, `--unblocked`, `--unassigned`. Every list command
-  returns one page: `--limit` is the page size (default 50, maximum 250), and
-  `--after <cursor>` continues a list. See **Paging lists**.
+  `--team`, `--project`, `--state`, `--state-type`, `--priority`, `--label`,
+  `--assignee`, `--parent`, `--text`, `--unblocked`, `--unassigned`. Every list
+  command returns one page: `--limit` is the page size (default 50, maximum
+  250), and `--after <cursor>` continues a list. See **Paging lists**.
 - **Comment on an issue**: `rata issue comment <ref> --body-file -`
 - **Apply / remove labels**: `rata issue label add <ref> <label...>` and
   `rata issue label remove <ref> <label...>`
@@ -87,10 +87,11 @@ with **child** issues as tickets.
   `rata issue link <child-ref> --blocked-by <blocker-ref>`, or the inverse with
   `rata issue link <blocker-ref> --blocks <child-ref>`. A ticket is unblocked
   when every issue that blocks it is closed.
-- **Frontier query**: `rata issue list --parent <map-ref> --unblocked --unassigned --limit 1 --json`.
-  The JSON is `{ issues, pageInfo }`. The first result in map order wins: it is
-  the next ready ticket. `pageInfo.hasNextPage` says whether more ready tickets
-  exist. Read them with `--after <pageInfo.endCursor>`.
+- **Frontier query**: `rata issue list --parent <map-ref> --unblocked --unassigned --sort priority --limit 1 --json`.
+  The JSON is `{ issues, pageInfo }`. The first result is the most urgent open,
+  unblocked, unclaimed child; ties keep the previous order. The sort reads
+  every matching page before it applies the limit, so one call returns the top
+  ticket.
 - **Claim**: `rata issue assign me <ref>`, the session's first write. The
   assignee is the claim.
 - **Resolve**: `rata issue comment <ref> --body-file -`, then

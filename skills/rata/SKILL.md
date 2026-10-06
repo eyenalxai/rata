@@ -70,6 +70,22 @@ rata issue label remove ABC-42 needs-triage
 States: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`,
 `wontfix`. Categories: `bug`, `enhancement`.
 
+Set a priority on every actionable issue (`ready-for-agent` or
+`ready-for-human`):
+
+| Priority | When                                             |
+| -------- | ------------------------------------------------ |
+| `urgent` | The issue breaks production or blocks a release. |
+| `high`   | The issue blocks other work.                     |
+| `medium` | The fallback when no other value applies.        |
+| `low`    | Nice-to-have.                                    |
+
+```bash
+rata issue update ABC-42 --priority high
+```
+
+`needs-info` and `wontfix` issues may stay `none`.
+
 Post the reasoning as a comment. `--body-file -` reads markdown from stdin, so
 long bodies never touch the command line:
 
@@ -146,11 +162,12 @@ The frontier is the set of tickets under a map that are unblocked and
 unassigned. Read the first ready ticket with:
 
 ```bash
-rata issue list --parent ABC-50 --unblocked --unassigned --limit 1 --json
+rata issue list --parent ABC-50 --unblocked --unassigned --sort priority --limit 1 --json
 ```
 
-The JSON is `{ issues, pageInfo }`. The first result in map order wins.
-`pageInfo.hasNextPage` says whether more ready tickets exist.
+The JSON is `{ issues, pageInfo }`. The first result is the most urgent
+ticket; ties keep the previous order. The sort reads every matching page
+before it applies the limit, so one call returns the top ticket.
 
 ## Reference
 

@@ -47,7 +47,7 @@ rata label list --team RAT               # list a team's labels
 rata link --team RAT                     # bind this repository to a Linear team
 rata unlink                              # remove the stored link of this repository
 rata issue list                          # list issues
-rata issue list --parent RAT-1 --unblocked --unassigned --limit 1  # the frontier of a map
+rata issue list --parent RAT-1 --unblocked --unassigned --sort priority  # the frontier of a map
 rata issue list --after <cursor>         # read the next page of a list
 rata issue show RAT-42                   # read one issue
 rata search "rate limit"                 # search issues by text
@@ -400,7 +400,7 @@ document with the removed team, project and workspace:
 rata issue list --team RAT --state "In Progress" --label bug --limit 100
 rata issue list --state-type started --assignee me
 rata issue list --parent RAT-1 --text login
-rata issue list --parent RAT-1 --unblocked --unassigned --limit 1
+rata issue list --parent RAT-1 --unblocked --unassigned --sort priority
 rata issue list --limit 100 --after <cursor>
 rata issue list --priority urgent --sort priority --limit 10
 ```
@@ -435,7 +435,8 @@ blocker is a blocker whose state type is not `completed` or `canceled`.
 on the server and composes with the other filters with AND, so a state filter
 that contradicts it returns an empty list.
 `--parent` with `--unblocked` and `--unassigned` is the **frontier** of a map:
-the open, unblocked, unclaimed children.
+the open, unblocked, unclaimed children. With `--sort priority`, the first
+result is the most urgent; ties keep their incoming order.
 
 `rata issue show` accepts an identifier (`RAT-42`), a UUID, or a linear.app
 URL. `--comments` adds the comments in chronological order. A detail view is

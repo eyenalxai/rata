@@ -198,7 +198,7 @@ const listCommand = Command.make(
       description: "List the ready tickets of one team",
     },
     {
-      command: "rata issue list --parent RAT-1 --unblocked --unassigned",
+      command: "rata issue list --parent RAT-1 --unblocked --unassigned --sort priority",
       description: "List the frontier of a map",
     },
     {
