@@ -20,6 +20,7 @@ import { ConfigProvider, Effect, FileSystem, Layer, Path, Stdio } from "effect"
 import { HttpClient, HttpClientResponse } from "effect/http"
 
 import { LinearClient } from "@/api/client"
+import { IssueApi } from "@/api/issue"
 import { IssueWriteApi } from "@/api/issue-write"
 import { LabelService } from "@/api/label"
 import { ProjectService } from "@/api/project"
@@ -256,6 +257,7 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
   const projects = ProjectService.layer.pipe(
     Layer.provide(Layer.mergeAll(client, teams, repoConfig)),
   )
+  const issue = IssueApi.layer.pipe(Layer.provide(client))
   const issueWrite = IssueWriteApi.layer.pipe(
     Layer.provide(Layer.mergeAll(client, teams, labels, projects, repoConfig)),
   )
@@ -269,6 +271,7 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
     teams,
     labels,
     projects,
+    issue,
     repoConfig,
     issueWrite,
     link,

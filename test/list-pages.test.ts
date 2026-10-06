@@ -1,12 +1,15 @@
 import type { Handler } from "@test/fake-linear-model"
 
 import { apiLayer, makeFakeLinear } from "@test/fake-linear"
+import { jsonResponse } from "@test/fake-linear-model"
+import { summaryNode } from "@test/issue-fixtures"
 import { recordingConsole } from "@test/recording-console"
 import { afterEach, describe, expect, test } from "bun:test"
 import { Console, Effect, FileSystem, Layer, Path, Stdio, Terminal } from "effect"
 import { Command } from "effect/cli"
 import { ChildProcessSpawner } from "effect/process"
 
+import { issueCommand } from "@/cli/issue"
 import { labelCommand } from "@/cli/label"
 import { projectCommand } from "@/cli/project"
 import { teamCommand } from "@/cli/team"
@@ -54,7 +57,23 @@ const runLabel = (handler: Handler, args: readonly string[], lines: string[]) =>
     Effect.runPromise,
   )
 
+const runIssue = (handler: Handler, args: readonly string[], lines: string[]) =>
+  Command.run(issueCommand, { version: "test" }).pipe(
+    Effect.provide(cliLayer(handler, args, lines)),
+    Effect.runPromise,
+  )
+
 const lastJson = (lines: readonly string[]): unknown => JSON.parse(lines.at(-1) ?? "")
+
+const issuePageHandler: Handler = () =>
+  jsonResponse({
+    data: {
+      issues: {
+        nodes: [summaryNode("RAT-1")],
+        pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
+      },
+    },
+  })
 
 afterEach(() => {
   process.exitCode = 0
@@ -133,5 +152,17 @@ describe("label list pages", () => {
     })
     const request = fake.requests.find((entry) => entry.query.includes("query Labels"))
     expect(request?.variables).toEqual({ teamId: "team-1", first: 1, after: null })
+  })
+})
+
+describe("issue list pages", () => {
+  test("prints pure JSON when a next page exists", async () => {
+    const lines: string[] = []
+    await runIssue(issuePageHandler, ["list", "--json"], lines)
+    expect(lines).toHaveLength(1)
+    expect(lastJson(lines)).toEqual({
+      issues: [expect.objectContaining({ identifier: "RAT-1" })],
+      pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
+    })
   })
 })

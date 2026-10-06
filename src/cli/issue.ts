@@ -121,7 +121,11 @@ const writeHumanPage = (page: IssuePage): Effect.Effect<void> =>
 
 const writeIssuePage = (config: { readonly json: boolean }, page: IssuePage) =>
   Effect.gen(function* writePage() {
-    yield* config.json ? writeJson(page) : writeHumanPage(page)
+    if (config.json) {
+      yield* writeJson(page)
+      return
+    }
+    yield* writeHumanPage(page)
     if (page.pageInfo.hasNextPage && page.pageInfo.endCursor !== null) {
       yield* writeLine(`More issues available. Continue with --after ${page.pageInfo.endCursor}`)
     }
