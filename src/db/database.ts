@@ -11,6 +11,7 @@ class DatabaseError extends Schema.TaggedError<DatabaseError>()("DatabaseError",
 }) {}
 
 type DatabaseShape = {
+  readonly file: string
   readonly drizzle: EffectSQLiteBunDatabase
 }
 
@@ -73,7 +74,7 @@ class Database extends Context.Service<Database, DatabaseShape>()("rata-cli/db/d
           yield* migrate(drizzle, {
             migrationsFolder: path.resolve(import.meta.dir, "..", "..", "drizzle"),
           }).pipe(Effect.mapError(describeStoreFailure("migrate")(file)))
-          return Database.of({ drizzle })
+          return Database.of({ drizzle, file })
         }),
       )
     }),

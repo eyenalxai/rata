@@ -33,7 +33,7 @@ const databaseLayer = (seed: readonly RepositorySeed[] = []) =>
           })
           .run(),
       )
-      return Database.of({ drizzle })
+      return Database.of({ drizzle, file: ":memory:" })
     }),
   ).pipe(Layer.provide(SqliteClient.layer({ filename: ":memory:" })), Layer.orDie)
 
