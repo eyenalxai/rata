@@ -24,6 +24,7 @@ vocabulary.
 | ----------------------------- | ---------------------------------- |
 | Effect source                 | `~/Projects/other/effect`          |
 | Effect docs                   | `~/Projects/other/effect-docs`     |
+| Drizzle ORM and drizzle-kit   | `~/Projects/other/drizzle-orm`     |
 | Linear SDK and GraphQL schema | `~/Projects/other/linear`          |
 | oxlint and oxfmt source       | `~/Projects/other/oxc`             |
 | Bun source                    | `~/Projects/other/bun`             |
@@ -71,6 +72,8 @@ upstream version.
 | `src/api/`     | The Linear GraphQL client and its typed operations.               |
 | `src/domain/`  | Pure logic: references, labels, priorities, prompts, timezones.   |
 | `src/config/`  | Auth and repository configuration.                                |
+| `src/db/`      | The local SQLite store: Drizzle schema and the database service.  |
+| `drizzle/`     | Committed Drizzle migrations.                                     |
 | `test/`        | Behaviour tests for the tricky logic.                             |
 | `skills/`      | Agent skills for driving rata, installable with `npx skills add`. |
 | `docs/agents/` | Skill configuration: tracker, triage labels, domain docs.         |
@@ -115,6 +118,11 @@ then delete them. Never commit a wizard to this repository. They follow the
 - **Keep the docs in step.** A change to commands, flags or behaviour updates
   `README.md`, the CLI help text, and `docs/agents/issue-tracker.md` when the
   tracker workflow changes.
+- **All database migrations go through Drizzle, including custom ones.** Create
+  every migration with `drizzle-kit generate`. Write hand-written SQL migrations
+  with `drizzle-kit generate --custom`. Apply migrations only through Drizzle's
+  migrator, which runs when the database opens. Never run ad-hoc DDL or edit the
+  database by hand.
 
 ## Effect (v4, pinned)
 
