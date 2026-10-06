@@ -19,6 +19,8 @@ they explore the codebase. Use these terms; do not drift to synonyms.
 - **Restore**: bring a deleted object back from the trash.
 - **Trash**: the holding place for deleted objects. Linear keeps trashed objects
   recoverable, then removes them permanently.
+- **Archive**: hide an object from the default lists without deleting it. A
+  deleted object is also archived.
 - **Issue**: a Linear issue. Avoid: task, card, ticket, when the general Linear
   object is meant.
 - **Issue reference** (short: **ref**): the string that names an issue in a
