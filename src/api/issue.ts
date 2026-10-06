@@ -7,7 +7,13 @@ import type { InvalidIssueRef, IssueRef } from "@/domain/ref"
 
 import { LinearClient } from "@/api/client"
 import { composeFilter, projectFilter, teamFilter, textFilter } from "@/api/issue-filter"
-import { byCreatedAt, byPriority, relationTargets, toSummary } from "@/api/issue-model"
+import {
+  byCreatedAt,
+  collectsAllPages,
+  relationTargets,
+  sortAndLimitIssues,
+  toSummary,
+} from "@/api/issue-model"
 import {
   childrenQuery,
   commentsQuery,
@@ -54,9 +60,6 @@ const teamRefFilter = (value: string): Record<string, unknown> =>
 const projectRefFilter = (value: string): Record<string, unknown> =>
   isUuid(value) ? { project: { id: { eq: value } } } : projectFilter(value)
 
-const orderIssues = (issues: readonly IssueSummary[], options: IssueListOptions) =>
-  (options.sort === "priority" ? issues.toSorted(byPriority) : issues).slice(0, options.limit)
-
 class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/issue/IssueApi") {
   static readonly layer = Layer.effect(
     IssueApi,
@@ -75,7 +78,6 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
         const data = yield* client.execute(issueIdQuery, { id: ref }, IssueIdResponse)
         return data.issue.id
       })
-
 
       const list = Effect.fn("IssueApi.list")(function* list(options: IssueListOptions) {
         const parts: Record<string, unknown>[] = []
@@ -119,7 +121,7 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
         }
         const filter = composeFilter(parts)
 
-        if (options.sort === undefined) {
+        if (!collectsAllPages(options)) {
           const data = yield* client.execute(
             listQuery,
             { filter, first: options.limit, after: options.after },
@@ -139,7 +141,7 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
             .pipe(Effect.map((page) => page.issues)),
         )
         return {
-          issues: orderIssues(nodes.map(toSummary), options),
+          issues: sortAndLimitIssues(nodes.map(toSummary), options),
           pageInfo: { hasNextPage: false, endCursor: null },
         }
       })

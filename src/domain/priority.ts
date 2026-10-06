@@ -1,38 +1,35 @@
 import { Result } from "effect"
 
-const priorityTokens = ["urgent", "high", "medium", "low", "none"] as const
-type Priority = (typeof priorityTokens)[number]
+const priorityByRank = [
+  { token: "urgent", value: 1 },
+  { token: "high", value: 2 },
+  { token: "medium", value: 3 },
+  { token: "low", value: 4 },
+  { token: "none", value: 0 },
+] as const
 
-const priorityValues: Readonly<Record<string, number>> = {
-  "0": 0,
-  "1": 1,
-  "2": 2,
-  "3": 3,
-  "4": 4,
-  high: 2,
-  low: 4,
-  medium: 3,
-  none: 0,
-  urgent: 1,
-}
+type Priority = (typeof priorityByRank)[number]["token"]
+type PriorityValue = (typeof priorityByRank)[number]["value"]
 
-const priorityByValue: Readonly<Record<number, Priority>> = {
-  0: "none",
-  1: "urgent",
-  2: "high",
-  3: "medium",
-  4: "low",
-}
-
-const parsePriority = (value: string): Result.Result<number, string> => {
-  const priority = priorityValues[value.toLowerCase()]
-  return priority === undefined
+const parsePriority = (value: string): Result.Result<PriorityValue, string> => {
+  const normalized = value.toLowerCase()
+  const match = priorityByRank.find(
+    (entry) => entry.token === normalized || String(entry.value) === normalized,
+  )
+  return match === undefined
     ? Result.fail(`Expected none, urgent, high, medium, low, or 0-4, got ${value}.`)
-    : Result.succeed(priority)
+    : Result.succeed(match.value)
 }
 
-const toPriority = (value: number): Priority => priorityByValue[value] ?? "none"
+const toPriority = (value: PriorityValue): Priority => {
+  const match = priorityByRank.find((entry) => entry.value === value)
+  if (match === undefined) {
+    throw new Error(`Unknown priority value: ${String(value)}.`)
+  }
+  return match.token
+}
 
-const priorityRank = (priority: Priority): number => priorityTokens.indexOf(priority)
+const priorityRank = (priority: Priority): number =>
+  priorityByRank.findIndex((entry) => entry.token === priority)
 
-export { parsePriority, type Priority, priorityRank, priorityTokens, toPriority }
+export { parsePriority, type Priority, priorityRank, type PriorityValue, toPriority }

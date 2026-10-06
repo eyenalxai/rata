@@ -1,10 +1,10 @@
-import { Effect, Option, Result } from "effect"
+import { Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 
 import { IssueWriteApi } from "@/api/issue-write"
 import { resolveBody } from "@/cli/body"
 import { errorLine, reportFailure, writeJson, writeLine } from "@/cli/output"
-import { parsePriority } from "@/domain/priority"
+import { resolvePriority } from "@/cli/priority"
 
 const jsonFlag = Flag.Boolean("json").pipe(
   Flag.withDescription("Print machine-readable JSON"),
@@ -48,12 +48,7 @@ const createCommand = Command.make(
         config.body,
         config.bodyFile,
       )
-      const priorityText = Option.getOrUndefined(config.priority)
-      const parsedPriority = priorityText === undefined ? undefined : parsePriority(priorityText)
-      if (parsedPriority !== undefined && Result.isFailure(parsedPriority)) {
-        return yield* errorLine(1, parsedPriority.failure)
-      }
-      const priority = parsedPriority === undefined ? undefined : Result.getOrThrow(parsedPriority)
+      const priority = Option.getOrUndefined(yield* resolvePriority(config.priority))
       const api = yield* IssueWriteApi
       const issue = yield* api.create({
         title: config.title,
@@ -144,12 +139,7 @@ const updateCommand = Command.make(
         config.body,
         config.bodyFile,
       )
-      const priorityText = Option.getOrUndefined(config.priority)
-      const parsedPriority = priorityText === undefined ? undefined : parsePriority(priorityText)
-      if (parsedPriority !== undefined && Result.isFailure(parsedPriority)) {
-        return yield* errorLine(1, parsedPriority.failure)
-      }
-      const priority = parsedPriority === undefined ? undefined : Result.getOrThrow(parsedPriority)
+      const priority = Option.getOrUndefined(yield* resolvePriority(config.priority))
       const options = {
         title: Option.getOrUndefined(config.title),
         body: Option.getOrUndefined(body),

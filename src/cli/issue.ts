@@ -1,4 +1,4 @@
-import { Effect, Option, Result } from "effect"
+import { Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 
 import type { IssueDetail, IssuePage, IssueRelations, IssueSummary } from "@/api/issue-model"
@@ -11,8 +11,8 @@ import { issueLabelCommand } from "@/cli/issue-label"
 import { linkCommand, unlinkCommand } from "@/cli/issue-link"
 import { assignCommand, closeCommand, reopenCommand, unassignCommand } from "@/cli/issue-transition"
 import { commentCommand, createCommand, updateCommand } from "@/cli/issue-write"
-import { errorLine, nextPageHint, reportFailure, validatePageSize, writeJson, writeLine } from "@/cli/output"
-import { parsePriority } from "@/domain/priority"
+import { nextPageHint, reportFailure, validatePageSize, writeJson, writeLine } from "@/cli/output"
+import { resolvePriority } from "@/cli/priority"
 
 const jsonFlag = Flag.Boolean("json").pipe(
   Flag.withDescription("Print machine-readable JSON"),
@@ -39,11 +39,11 @@ const refArgument = Argument.String("ref").pipe(
 const formatIssueLine = (issue: IssueSummary): string => {
   const assignee = issue.assignee?.name ?? "unassigned"
   const labels = issue.labels.map((label) => label.name).join(",") || "-"
-  const priority = issue.priority === "none" ? [] : [issue.priority]
+  const priorityColumns = issue.priority === "none" ? [] : [issue.priority]
   return [
     issue.identifier,
     `[${issue.state.name}]`,
-    ...priority,
+    ...priorityColumns,
     assignee,
     labels,
     issue.title,
@@ -165,12 +165,7 @@ const listCommand = Command.make(
       if (!valid) {
         return
       }
-      const priorityText = Option.getOrUndefined(config.priority)
-      const parsedPriority = priorityText === undefined ? undefined : parsePriority(priorityText)
-      if (parsedPriority !== undefined && Result.isFailure(parsedPriority)) {
-        return yield* errorLine(1, parsedPriority.failure)
-      }
-      const priority = parsedPriority === undefined ? undefined : Result.getOrThrow(parsedPriority)
+      const priority = Option.getOrUndefined(yield* resolvePriority(config.priority))
       const api = yield* IssueApi
       const page = yield* api.list({
         team: Option.getOrUndefined(config.team),

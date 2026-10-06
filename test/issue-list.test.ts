@@ -132,6 +132,28 @@ describe("IssueApi list", () => {
     expect(queries[0]).toContain("priority")
   })
 
+  test("rejects an out-of-range priority from Linear", async () => {
+    const queries: string[] = []
+    const handler = (request: HttpClientRequest.HttpClientRequest): Response => {
+      queries.push(readBody(request).query)
+      return jsonResponse({
+        data: { issues: { nodes: [{ ...summaryNode("RAT-1"), priority: 5 }], pageInfo } },
+      })
+    }
+
+    const error = await run(
+      handler,
+      Effect.gen(function* listIssues() {
+        const api = yield* IssueApi
+        return yield* api.list({ after: null, limit: 50 })
+      }).pipe(Effect.flip),
+    )
+
+    expect(error._tag).toBe("LinearGraphQLError")
+    expect(error.message).toBe("Linear returned an unexpected response body.")
+    expect(queries[0]).toContain("priority")
+  })
+
   test("reads one page and returns its page info without draining", async () => {
     const requests: Record<string, unknown>[] = []
     const handler = (request: HttpClientRequest.HttpClientRequest): Response => {

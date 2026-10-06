@@ -142,9 +142,26 @@ const byCreatedAt = (left: IssueComment, right: IssueComment): number => {
   return 0
 }
 
+const sortComparators: Readonly<
+  Record<SortField, (left: IssueSummary, right: IssueSummary) => number>
+> = {
+  priority: byPriority,
+}
+
+const collectsAllPages = (options: IssueListOptions): boolean => options.sort !== undefined
+
+const sortAndLimitIssues = (
+  issues: readonly IssueSummary[],
+  options: IssueListOptions,
+): readonly IssueSummary[] =>
+  (options.sort === undefined ? issues : issues.toSorted(sortComparators[options.sort])).slice(
+    0,
+    options.limit,
+  )
+
 export {
   byCreatedAt,
-  byPriority,
+  collectsAllPages,
   type IssueDetail,
   type IssueListOptions,
   type IssuePage,
@@ -152,6 +169,7 @@ export {
   type IssueShowOptions,
   type IssueSummary,
   relationTargets,
+  sortAndLimitIssues,
   type SortField,
   sortFields,
   type StateType,
