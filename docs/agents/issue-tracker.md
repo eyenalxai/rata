@@ -71,6 +71,8 @@ together under the spec. This repository does not use Linear projects.
   a time: `rata issue list --parent <spec-ref> --limit 250 --json`, then
   continue with `--after <endCursor>` while `pageInfo.hasNextPage` is true.
   `rata issue show <spec-ref> --json` also lists the children.
+- **Close the spec**: when every ticket is Done, close the spec with a comment
+  that points at the result: `rata issue close <spec-ref> --comment "..."`.
 
 ## Wayfinding operations
 
