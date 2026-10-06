@@ -27,6 +27,20 @@ describe("IssueApi show", () => {
     expect(captured.map((variables) => variables.id)).toEqual(["RAT-42", uuid, "RAT-42"])
   })
 
+  test("decodes the priority token on the detail record", async () => {
+    const queries: string[] = []
+    const handler = (request: HttpClientRequest.HttpClientRequest): Response => {
+      const body = readBody(request)
+      queries.push(body.query)
+      return jsonResponse({ data: { issue: { ...baseDetail, priority: 1 } } })
+    }
+
+    const issue = await run(handler, showRef("RAT-1"))
+
+    expect(issue.priority).toBe("urgent")
+    expect(queries[0]).toContain("priority")
+  })
+
   test("includes comments in chronological order with --comments", async () => {
     const early = { id: "c1", body: "First", createdAt: "2026-01-01T10:00:00.000Z", user }
     const late = { id: "c2", body: "Second", createdAt: "2026-01-02T10:00:00.000Z", user }

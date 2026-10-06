@@ -6,6 +6,7 @@ const summaryFields = `
       title
       url
       state { name type }
+      priority
       assignee { id name displayName }
       project { id name }
       parent { id identifier title }
@@ -35,6 +36,7 @@ const showQuery = `query IssueShow($id: String!) {
     description
     url
     state { name type }
+    priority
     assignee { id name displayName }
     project { id name }
     parent { id identifier title }

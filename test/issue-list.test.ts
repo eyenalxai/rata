@@ -98,6 +98,38 @@ describe("IssueApi list", () => {
     expect(captured[0]?.filter).toEqual({ team: { id: { eq: uuid } } })
   })
 
+  test("decodes the priority token on the summary records", async () => {
+    const queries: string[] = []
+    const handler = (request: HttpClientRequest.HttpClientRequest): Response => {
+      const body = readBody(request)
+      queries.push(body.query)
+      return jsonResponse({
+        data: {
+          issues: {
+            nodes: [
+              { ...summaryNode("RAT-1"), priority: 1 },
+              { ...summaryNode("RAT-2"), priority: 2 },
+              { ...summaryNode("RAT-3"), priority: 4 },
+              { ...summaryNode("RAT-4"), priority: 0 },
+            ],
+            pageInfo,
+          },
+        },
+      })
+    }
+
+    const page = await run(
+      handler,
+      Effect.gen(function* listIssues() {
+        const api = yield* IssueApi
+        return yield* api.list({ after: null, limit: 50 })
+      }),
+    )
+
+    expect(page.issues.map((issue) => issue.priority)).toEqual(["urgent", "high", "low", "none"])
+    expect(queries[0]).toContain("priority")
+  })
+
   test("reads one page and returns its page info without draining", async () => {
     const requests: Record<string, unknown>[] = []
     const handler = (request: HttpClientRequest.HttpClientRequest): Response => {

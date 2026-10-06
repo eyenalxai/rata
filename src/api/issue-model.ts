@@ -12,6 +12,9 @@ import type {
   IssueUser,
 } from "@/api/issue-schema"
 import type { PageInfo, PageOptions } from "@/api/pagination"
+import type { Priority } from "@/domain/priority"
+
+import { toPriority } from "@/domain/priority"
 
 const stateTypes = ["triage", "backlog", "unstarted", "started", "completed", "canceled"] as const
 type StateType = (typeof stateTypes)[number]
@@ -22,6 +25,7 @@ type IssueSummary = {
   readonly title: string
   readonly url: string
   readonly state: IssueState
+  readonly priority: Priority
   readonly assignee: IssueUser | null
   readonly project: IssueProject | null
   readonly parent: IssueParent | null
@@ -44,6 +48,7 @@ type IssueDetail = {
   readonly description: string | null
   readonly url: string
   readonly state: IssueState
+  readonly priority: Priority
   readonly assignee: IssueUser | null
   readonly project: IssueProject | null
   readonly parent: IssueParent | null
@@ -82,6 +87,7 @@ const toSummary = (node: IssueSummaryNode): IssueSummary => ({
   title: node.title,
   url: node.url,
   state: node.state,
+  priority: toPriority(node.priority),
   assignee: node.assignee,
   project: node.project,
   parent: node.parent,

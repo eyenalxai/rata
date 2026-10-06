@@ -38,7 +38,15 @@ const refArgument = Argument.String("ref").pipe(
 const formatIssueLine = (issue: IssueSummary): string => {
   const assignee = issue.assignee?.name ?? "unassigned"
   const labels = issue.labels.map((label) => label.name).join(",") || "-"
-  return `${issue.identifier}  [${issue.state.name}]  ${assignee}  ${labels}  ${issue.title}`
+  const priority = issue.priority === "none" ? [] : [issue.priority]
+  return [
+    issue.identifier,
+    `[${issue.state.name}]`,
+    ...priority,
+    assignee,
+    labels,
+    issue.title,
+  ].join("  ")
 }
 
 const formatRelations = (relations: IssueRelations): string[] => {
@@ -64,6 +72,7 @@ const formatIssueDetail = (issue: IssueDetail): string => {
   const lines: string[] = [
     `${issue.identifier}: ${issue.title}`,
     `state: ${issue.state.name} (${issue.state.type})`,
+    `priority: ${issue.priority}`,
     `labels: ${issue.labels.map((label) => label.name).join(", ") || "-"}`,
   ]
   if (issue.assignee !== null) {

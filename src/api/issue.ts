@@ -31,6 +31,7 @@ import {
   ShowResponse,
 } from "@/api/issue-schema"
 import { collectPages, pageSize } from "@/api/pagination"
+import { toPriority } from "@/domain/priority"
 import { isUuid, parseIssueRef } from "@/domain/ref"
 
 type IssueApiShape = {
@@ -174,6 +175,7 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
           description: issue.description,
           url: issue.url,
           state: issue.state,
+          priority: toPriority(issue.priority),
           assignee: issue.assignee,
           project: issue.project,
           parent: issue.parent,

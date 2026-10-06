@@ -22,6 +22,9 @@ they explore the codebase. Use these terms; do not drift to synonyms.
   `completed`, `canceled`. Avoid: status.
 - **Open** / **closed**: an issue is **open** when its state type is not
   `completed` and not `canceled`; otherwise it is **closed**.
+- **Priority**: how urgent an issue is. Values, most urgent first: `urgent`,
+  `high`, `medium`, `low`; `none` means no priority is set. Avoid: severity,
+  importance.
 - **Label**: a Linear label attached to an issue. A label is **team-scoped** or
   **workspace-scoped**. A workspace-scoped label has no team and every team can
   use it. The triage roles are labels.

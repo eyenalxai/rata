@@ -450,6 +450,7 @@ so the best match stays first and its paging is best effort. It accepts
       "title": "Add the issue read path",
       "url": "https://linear.app/eyenalx/issue/RAT-42/add-the-issue-read-path",
       "state": { "name": "In Progress", "type": "started" },
+      "priority": "high",
       "assignee": { "id": "u1", "name": "Ada", "displayName": "ada" },
       "project": { "id": "p1", "name": "rata" },
       "parent": { "id": "i0", "identifier": "RAT-1", "title": "Map" },
@@ -460,7 +461,9 @@ so the best match stays first and its paging is best effort. It accepts
 }
 ```
 
-`assignee`, `project` and `parent` are `null` when they are unset.
+`assignee`, `project` and `parent` are `null` when they are unset. `priority`
+is one of `urgent`, `high`, `medium`, `low` or `none`; `none` means no priority
+is set.
 
 ```json
 {
@@ -471,6 +474,7 @@ so the best match stays first and its paging is best effort. It accepts
     "description": "...",
     "url": "https://linear.app/eyenalx/issue/RAT-42/add-the-issue-read-path",
     "state": { "name": "In Progress", "type": "started" },
+    "priority": "high",
     "assignee": null,
     "project": null,
     "parent": null,
@@ -569,6 +573,7 @@ assign, unassign and label commands print the summary shape:
     "title": "Fix login",
     "url": "https://linear.app/eyenalx/issue/RAT-42/fix-login",
     "state": { "name": "Todo", "type": "unstarted" },
+    "priority": "high",
     "assignee": null,
     "project": null,
     "parent": null,
