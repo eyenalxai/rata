@@ -22,8 +22,9 @@ operations.
   and its tickets live in one project. See **Specs as projects**.
 
 An issue reference accepts an identifier (`ABC-42`), a UUID, or a linear.app
-issue URL. The repository config `.rata.json` names the default team, project
-and workspace profile, so most commands need no `--team`.
+issue URL. The repository config names the default team, project and workspace
+profile, so most commands need no `--team`. Run `rata link` once to set it:
+every subdirectory and every worktree of the repository finds it.
 
 ## Paging lists
 

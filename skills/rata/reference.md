@@ -8,7 +8,8 @@
   maximum 250) and `--after <cursor>` continues the list. JSON is
   `{ <plural>, pageInfo }`.
 - `--body-file -` reads the value from stdin; `--body-file <path>` reads a file.
-- The default team and project come from `.rata.json`, written by `rata link`.
+- The default team and project come from the repository config, written by
+  `rata link`.
 - Exit code 0 on success, 1 on failure. Failures print one line to stderr.
 
 ## Setup
@@ -27,9 +28,10 @@
 | `rata link --workspace <name>`                      | Link in one workspace profile. Skips the workspace prompt.                             |
 
 The API key is resolved in order: `LINEAR_API_KEY`, the repository `workspace`
-from `.rata.json`, the `default` profile. `rata link --workspace <name>` selects
-that profile directly, also when `LINEAR_API_KEY` is set. With `LINEAR_API_KEY`
-set, `rata link` ignores the stored profiles but keeps the recorded `workspace`.
+from the repository config, the `default` profile. `rata link --workspace <name>`
+selects that profile directly, also when `LINEAR_API_KEY` is set. With
+`LINEAR_API_KEY` set, `rata link` ignores the stored profiles but keeps the
+recorded `workspace`.
 
 ## Teams, projects, labels
 
@@ -112,8 +114,8 @@ creation time.
 | -------------------------- | ------------------------------------------------------ |
 | `--title`                  | Required.                                              |
 | `--body` / `--body-file -` | Description.                                           |
-| `--team`                   | Team key or id. Default: `.rata.json`.                 |
-| `--project`                | Project. Default: `.rata.json`.                        |
+| `--team`                   | Team key or id. Default: the repository config.        |
+| `--project`                | Project. Default: the repository config.               |
 | `--label`                  | Label name. Repeatable.                                |
 | `--parent`                 | Parent issue reference.                                |
 | `--state`                  | Workflow state name.                                   |

@@ -59,9 +59,13 @@ they explore the codebase. Use these terms; do not drift to synonyms.
 ## rata
 
 - **rata**: this CLI. The binary name is `rata`; the package name is `rata-cli`.
-- **Repository config**: `.rata.json` at a repository root. It names the default
-  team, project and workspace profile for that repository. `rata link` writes
-  it.
+- **Repository config**: the team, project and workspace profile that rata
+  applies to one repository. `rata link` writes it to the local database, and
+  commands read it from any subdirectory.
+- **Repository root**: the directory that identifies the repository config.
+  Inside Git it is the Git common directory, so the main checkout and every
+  worktree share one config. Outside Git it is the directory where `rata link`
+  ran.
 - **Auth file**: the local file that holds the workspace profiles, written by
   `rata auth login`.
 - **Profile** (or **workspace profile**): an API key in the auth file, named

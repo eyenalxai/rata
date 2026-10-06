@@ -20,7 +20,8 @@ Link the repository to its team once:
 rata link --team ABC
 ```
 
-`link` writes `.rata.json`, so every later command knows the team. Use
+`link` stores the repository config in rata's local database, so every later
+command knows the team from any subdirectory, and every worktree shares it. Use
 `--create --name "<name>"` when the team does not exist yet. Without `--team`,
 `link` asks for the workspace first, then the team. When the key exists in more
 than one stored workspace, pass `--workspace <name>` to choose one.
@@ -92,8 +93,8 @@ rata issue create --title "Fix the flaky test" --label ready-for-agent --label b
 EOF
 ```
 
-`create` resolves the team and project from `.rata.json`, which `rata link`
-writes. Override them with `--team` and `--project`.
+`create` resolves the team and project from the repository config, which
+`rata link` writes. Override them with `--team` and `--project`.
 
 Wire blocking edges as you publish. Linear has one `blocks` relation, so
 `--blocked-by` records it in the direction you mean:

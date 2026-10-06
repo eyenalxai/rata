@@ -57,7 +57,7 @@ rata issue close RAT-42 --comment "..."  # close an issue
 ```
 
 Every command selects the API key in this order: `LINEAR_API_KEY`, the
-repository `workspace` from `.rata.json`, the `default` profile.
+repository `workspace` of the repository config, the `default` profile.
 
 `rata --help` lists every command.
 
@@ -131,7 +131,7 @@ the `default` profile and is rewritten in the new shape on the next write.
 Every command selects the profile in this order:
 
 1. `LINEAR_API_KEY` from the environment.
-2. The `workspace` named in `.rata.json`, recorded by
+2. The `workspace` of the repository config, recorded by
    `rata link --workspace <name>`.
 3. The `default` profile.
 
@@ -160,7 +160,7 @@ repository at one key.
 ```
 
 `rata auth status --workspace <name>` reads that profile directly; it does not
-consult `LINEAR_API_KEY` or `.rata.json`. `rata auth logout` without
+consult `LINEAR_API_KEY` or the repository config. `rata auth logout` without
 `--workspace` removes the `default` profile. When the removed profile was the
 default and other profiles remain, no profile is the default. Later commands
 fail with ``No default workspace. Run `rata workspace use <name>`.`` Run
@@ -238,11 +238,11 @@ rata project create --name "Spec: login" --team RAT
 rata project create --name "Spec: login" --team RAT --team OPS --description "The login spec."
 ```
 
-| Flag            | Meaning                                                       |
-| --------------- | ------------------------------------------------------------- |
-| `--name`        | Project name. Required.                                       |
-| `--team`        | Team key or id. Repeat for more teams. Default: `.rata.json`. |
-| `--description` | Project description.                                          |
+| Flag            | Meaning                                                                |
+| --------------- | ---------------------------------------------------------------------- |
+| `--name`        | Project name. Required.                                                |
+| `--team`        | Team key or id. Repeat for more teams. Default: the repository config. |
+| `--description` | Project description.                                                   |
 
 `--json` prints one stable document:
 
@@ -314,15 +314,22 @@ workspace:
 - One workspace holds the team: `link` uses it and records that workspace.
 - Several workspaces hold the team: `link` fails and asks for `--workspace`.
 - No workspace holds the team: `link` fails, unless `--create` is passed. Then
-  `link` creates the team in the resolved profile: the `workspace` of
-  `.rata.json`, or the default profile.
+  `link` creates the team in the resolved profile: the `workspace` of the
+  repository config, or the default profile.
 
 When `LINEAR_API_KEY` is set, the environment key is the only target: `link`
-ignores the stored profiles. It keeps a `workspace` already recorded in
-`.rata.json`. An explicit `--workspace` still selects that profile.
+ignores the stored profiles. It keeps a `workspace` already recorded in the
+repository config. An explicit `--workspace` still selects that profile.
 
-`link` writes `.rata.json`, so every later command knows the team, the project
-and the workspace profile of the repository. The link always rewrites the file.
+`link` writes the repository config to rata's local database at
+`$XDG_DATA_HOME/rata/rata.sqlite`, or `~/.local/share/rata/rata.sqlite` when
+`XDG_DATA_HOME` is unset. Every later command finds the config from any
+subdirectory. Inside a Git repository the config belongs to the Git common
+directory, so the main checkout and every worktree share it. Outside Git it
+belongs to the directory where `link` ran, and its subdirectories find it. rata
+never writes a configuration file into a repository. On first use, rata imports
+an existing `.rata.json` into the database, deletes the file and prints one
+notice on stderr.
 
 | Flag          | Meaning                                                                |
 | ------------- | ---------------------------------------------------------------------- |
@@ -340,9 +347,9 @@ the machine reports. It calls `teamUpdate` only when the timezone differs, and
 it reports the change. When the timezone matches, or the machine reports none,
 `link` makes no update.
 
-`link` records the workspace profile and the team in `.rata.json`. The explicit
-`--workspace` wins. A team found by `--team` records the profile that holds it.
-Without a profile, `link` keeps the `workspace` of an existing config.
+`link` records the workspace profile and the team in the repository config. The
+explicit `--workspace` wins. A team found by `--team` records the profile that
+holds it. Without a profile, `link` keeps the `workspace` of an existing config.
 
 `--json` prints one stable document with the linked team and the repository
 config:
@@ -476,9 +483,9 @@ lists the issues that block it. The `comments` key is present only with
 
 ## Writing issues
 
-`rata issue create` needs a team: pass `--team`, or set `team` in
-`.rata.json`. The `project` field in `.rata.json` is the default project for
-`create`. A team value is a key or a UUID. A project value is a name or a UUID.
+`rata issue create` needs a team: pass `--team`, or run `rata link` once. The
+`project` of the repository config is the default project for `create`. A team
+value is a key or a UUID. A project value is a name or a UUID.
 
 ```bash
 rata issue create --title "Fix login" --team RAT --label ready-for-agent --priority high
