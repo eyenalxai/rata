@@ -113,8 +113,18 @@ rata workspace list                                     # list the profiles with
 rata workspace use work                                 # set the default profile
 ```
 
-The auth file is `$XDG_CONFIG_HOME/rata/auth.json`, or
-`~/.config/rata/auth.json` when `XDG_CONFIG_HOME` is unset. It has mode 0600:
+The profiles live in the local database at `$XDG_DATA_HOME/rata/rata.sqlite`,
+or `~/.local/share/rata/rata.sqlite` when `XDG_DATA_HOME` is unset. The database
+holds the API keys, so rata keeps it private: mode 0600 inside a 0700 directory.
+
+On the first command that reads the profiles, rata imports a legacy `auth.json`
+file from `$XDG_CONFIG_HOME/rata/auth.json`, or `~/.config/rata/auth.json` when
+`XDG_CONFIG_HOME` is unset. Rata imports the file, deletes it and prints one
+notice on stderr. Both legacy shapes are accepted:
+
+```json
+{ "apiKey": "lin_api_..." }
+```
 
 ```json
 {
@@ -126,8 +136,10 @@ The auth file is `$XDG_CONFIG_HOME/rata/auth.json`, or
 }
 ```
 
-A file written by an earlier version, `{ "apiKey": "lin_api_..." }`, reads as
-the `default` profile and is rewritten in the new shape on the next write.
+The single-key file becomes the `default` profile. Rata never overwrites
+existing profiles: when the database already holds a profile, it leaves the
+legacy file in place. A corrupt legacy file fails the command and stays on
+disk.
 
 Every command selects the profile in this order:
 

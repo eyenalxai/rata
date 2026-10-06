@@ -69,12 +69,10 @@ they explore the codebase. Use these terms; do not drift to synonyms.
   Inside Git it is the Git common directory, so the main checkout and every
   worktree share one config. Outside Git it is the directory where `rata link`
   ran.
-- **Auth file**: the local file that holds the workspace profiles, written by
-  `rata auth login`.
-- **Profile** (or **workspace profile**): an API key in the auth file, named
-  after the Linear workspace url key. The name selects the workspace. Avoid:
-  account, credential.
-- **Default profile**: the profile named by `default` in the auth file.
+- **Profile** (or **workspace profile**): an API key in the local database,
+  named after the Linear workspace url key. The name selects the workspace.
+  Avoid: account, credential.
+- **Default profile**: the profile marked as the default in the local database.
   `rata auth login` and `rata workspace use` set it.
 - **Resolution order**: the order rata uses to select the API key:
   `LINEAR_API_KEY`, the repository `workspace`, the default profile.
