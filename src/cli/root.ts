@@ -6,6 +6,7 @@ import { labelCommand } from "@/cli/label"
 import { linkCommand } from "@/cli/link"
 import { projectCommand } from "@/cli/project"
 import { teamCommand } from "@/cli/team"
+import { unlinkCommand } from "@/cli/unlink"
 import { workspaceCommand } from "@/cli/workspace"
 
 const root = Command.make("rata").pipe(
@@ -14,6 +15,7 @@ const root = Command.make("rata").pipe(
     authCommand,
     whoamiCommand,
     linkCommand,
+    unlinkCommand,
     workspaceCommand,
     issueCommand,
     searchCommand,
