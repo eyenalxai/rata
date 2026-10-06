@@ -12,6 +12,11 @@ operations.
   Values: `urgent` (breaks production or blocks a release), `high` (blocks other
   work), `medium` (the fallback), `low` (nice-to-have). Change it with
   `rata issue update <ref> --priority <value>`.
+- **Assign the issue**: every issue must be assigned to the authenticated user.
+  Pass `--assignee me` when you create the issue; triage assigns `me` to issues
+  that arrive without an assignee. Change it with `rata issue assign me <ref>`,
+  or clear it with `rata issue unassign <ref>`. Wayfinder children are the
+  exception: they stay unassigned until the claim step.
 - **Read an issue**: `rata issue show <ref> --comments --json`
 - **List issues**: `rata issue list` with the filters you need. Useful filters:
   `--team`, `--project`, `--state`, `--state-type`, `--priority`, `--label`,
@@ -62,9 +67,9 @@ A **spec** is an issue. Do not create a project for it and do not put `Spec:`
 in its title. The spec's **tickets** are its child issues, so the set stays
 together under the spec. This repository does not use Linear projects.
 
-- **Publish a spec**: `rata issue create --title "<title>" --label ready-for-agent --priority medium --body-file -`.
+- **Publish a spec**: `rata issue create --title "<title>" --label ready-for-agent --priority medium --assignee me --body-file -`.
 - **Publish the tickets**: create each ticket as a child of the spec:
-  `rata issue create --title "..." --parent <spec-ref> --label ready-for-agent --priority medium --body-file -`.
+  `rata issue create --title "..." --parent <spec-ref> --label ready-for-agent --priority medium --assignee me --body-file -`.
   Wire the blocking edges with
   `rata issue link <ticket-ref> --blocked-by <blocker-ref>`.
 - **Implement the spec**: `/implement-spec` fetches the whole set one page at
@@ -79,10 +84,11 @@ together under the spec. This repository does not use Linear projects.
 Used by `/wayfinder`. The **map** is a single issue labelled `wayfinder:map`,
 with **child** issues as tickets.
 
-- **Map**: `rata issue create --title "..." --label wayfinder:map --body-file -`.
+- **Map**: `rata issue create --title "..." --label wayfinder:map --assignee me --body-file -`.
 - **Child ticket**: `rata issue create --title "..." --parent <map-ref> --label wayfinder:<type> --body-file -`.
   The type labels are `wayfinder:research`, `wayfinder:prototype`,
-  `wayfinder:grilling` and `wayfinder:task`.
+  `wayfinder:grilling` and `wayfinder:task`. Leave children unassigned: the
+  claim step assigns them.
 - **Blocking**: native Linear relations. Wire an edge with
   `rata issue link <child-ref> --blocked-by <blocker-ref>`, or the inverse with
   `rata issue link <blocker-ref> --blocks <child-ref>`. A ticket is unblocked
@@ -93,7 +99,7 @@ with **child** issues as tickets.
   every matching page before it applies the limit, so one call returns the top
   ticket.
 - **Claim**: `rata issue assign me <ref>`, the session's first write. The
-  assignee is the claim.
+  assignee is the claim; this is what assigns a wayfinder child.
 - **Resolve**: `rata issue comment <ref> --body-file -`, then
   `rata issue close <ref>`, then append a context pointer (gist plus link) to
   the map's Decisions-so-far with `rata issue update <map-ref> --body-file -`.
