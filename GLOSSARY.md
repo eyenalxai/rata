@@ -11,6 +11,14 @@ they explore the codebase. Use these terms; do not drift to synonyms.
 - **Team**: the Linear team that owns issues. It has a short **key** (for
   example `RAT`) and a name. An issue needs a team.
 - **Project**: a Linear project that groups issues, possibly across teams.
+- **Project status**: the named status of a project. Its type is one of
+  `backlog`, `planned`, `started`, `paused`, `completed` or `canceled`. Only a
+  project has a status; an issue has a **workflow state**.
+- **Delete**: take an object out of use by moving it to the **trash**. Linear
+  keeps a deleted object recoverable. _Avoid_: archive, remove.
+- **Restore**: bring a deleted object back from the trash.
+- **Trash**: the holding place for deleted objects. Linear keeps trashed objects
+  recoverable, then removes them permanently.
 - **Issue**: a Linear issue. Avoid: task, card, ticket, when the general Linear
   object is meant.
 - **Issue reference** (short: **ref**): the string that names an issue in a
