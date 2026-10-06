@@ -1,11 +1,19 @@
 import { Effect, Option } from "effect"
-import { Command, Flag } from "effect/cli"
+import { Argument, Command, Flag } from "effect/cli"
 import { EOL } from "node:os"
 
 import { LabelService } from "@/api/label"
 import { maxPageSize } from "@/api/pagination"
 import { TeamService } from "@/api/team"
-import { nextPageHint, reportFailure, validatePageSize, writeJson, writeLine } from "@/cli/output"
+import { resolveColor } from "@/cli/color"
+import {
+  errorLine,
+  nextPageHint,
+  reportFailure,
+  validatePageSize,
+  writeJson,
+  writeLine,
+} from "@/cli/output"
 
 const jsonFlag = Flag.Boolean("json").pipe(
   Flag.withDescription("Print machine-readable JSON"),
@@ -48,7 +56,7 @@ const listCommand = Command.make(
         yield* writeLine("No labels.")
         return
       }
-      const body = page.nodes.map((label) => `${label.name}\t${label.id}`).join(EOL)
+      const body = page.nodes.map((label) => `${label.name}\t${label.id}\t${label.color}`).join(EOL)
       const hint =
         page.pageInfo.hasNextPage && page.pageInfo.endCursor !== null
           ? `${EOL}${nextPageHint("labels", page.pageInfo.endCursor)}`
@@ -57,9 +65,97 @@ const listCommand = Command.make(
     }).pipe(Effect.catch(reportFailure)),
 ).pipe(Command.withDescription("List the labels of a team"))
 
+const optionalText = (name: string, description: string) =>
+  Flag.String(name).pipe(Flag.withDescription(description), Flag.optional)
+
+const colorFlag = optionalText(
+  "color",
+  "Label color: 6 hex digits, with or without #. For example #EB5757",
+)
+
+const createCommand = Command.make(
+  "create",
+  {
+    name: Flag.String("name").pipe(Flag.withDescription("Label name")),
+    color: colorFlag,
+    team: optionalText("team", "Team key or id. Defaults to the team from `rata link`"),
+    json: jsonFlag,
+  },
+  (config) =>
+    Effect.gen(function* createLabel() {
+      const color = yield* resolveColor(config.color)
+      const labels = yield* LabelService
+      const label = yield* labels.create({
+        name: config.name,
+        color: Option.getOrUndefined(color),
+        team: Option.getOrUndefined(config.team),
+      })
+      if (config.json) {
+        return yield* writeJson({ label })
+      }
+      return yield* writeLine(`Created label ${label.name}.`)
+    }).pipe(Effect.catch(reportFailure)),
+).pipe(
+  Command.withDescription("Create a label"),
+  Command.withExamples([
+    {
+      command: 'rata label create --team RAT --name bug --color "#EB5757"',
+      description: "Create a label with a color",
+    },
+    {
+      command: "rata label create --team RAT --name bug",
+      description: "Create a label and let Linear pick the color",
+    },
+  ]),
+)
+
+const editCommand = Command.make(
+  "edit",
+  {
+    label: Argument.String("label").pipe(
+      Argument.withDescription("Label reference: a name or a UUID"),
+    ),
+    name: optionalText("name", "New label name"),
+    color: colorFlag,
+    team: optionalText("team", "Team key or id. Defaults to the team from `rata link`"),
+    json: jsonFlag,
+  },
+  (config) =>
+    Effect.gen(function* editLabel() {
+      const color = yield* resolveColor(config.color)
+      const name = Option.getOrUndefined(config.name)
+      const colorValue = Option.getOrUndefined(color)
+      if (name === undefined && colorValue === undefined) {
+        return yield* errorLine(1, "Pass at least one of --name or --color.")
+      }
+      const labels = yield* LabelService
+      const label = yield* labels.update(config.label, {
+        name,
+        color: colorValue,
+        team: Option.getOrUndefined(config.team),
+      })
+      if (config.json) {
+        return yield* writeJson({ label })
+      }
+      return yield* writeLine(`Updated label ${label.name}.`)
+    }).pipe(Effect.catch(reportFailure)),
+).pipe(
+  Command.withDescription("Update a label"),
+  Command.withExamples([
+    {
+      command: 'rata label edit bug --color "#0F783C"',
+      description: "Change the color of a label",
+    },
+    {
+      command: "rata label edit bug --name regression --team RAT",
+      description: "Rename a label",
+    },
+  ]),
+)
+
 const labelCommand = Command.make("label").pipe(
-  Command.withDescription("Inspect the labels of a team"),
-  Command.withSubcommands([listCommand]),
+  Command.withDescription("Create and inspect the labels of a team"),
+  Command.withSubcommands([listCommand, createCommand, editCommand]),
 )
 
 export { labelCommand }

@@ -32,7 +32,11 @@ const clientLayer = LinearClient.layer.pipe(
 )
 const issueLayer = IssueApi.layer.pipe(Layer.provide(clientLayer))
 const teamLayer = TeamService.layer.pipe(Layer.provide(clientLayer))
-const labelLayer = LabelService.layer.pipe(Layer.provide(clientLayer))
+const labelLayer = LabelService.layer.pipe(
+  Layer.provide(clientLayer),
+  Layer.provide(teamLayer),
+  Layer.provide(repoConfigLayer),
+)
 const projectLayer = ProjectService.layer.pipe(
   Layer.provide(clientLayer),
   Layer.provide(teamLayer),

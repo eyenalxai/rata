@@ -9,6 +9,7 @@ import type {
   IssueSummaryNode,
   WorkflowState,
 } from "@/api/issue-schema"
+import type { LabelNotFoundError } from "@/api/label"
 import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
 import type { InvalidIssueRef, IssueRef } from "@/domain/ref"
@@ -22,12 +23,6 @@ class IssueWriteError extends Schema.TaggedError<IssueWriteError>()("IssueWriteE
 
 class StateNotFoundError extends Schema.TaggedError<StateNotFoundError>()("StateNotFoundError", {
   state: Schema.String,
-  teamId: Schema.String,
-  message: Schema.String,
-}) {}
-
-class LabelNotFoundError extends Schema.TaggedError<LabelNotFoundError>()("LabelNotFoundError", {
-  name: Schema.String,
   teamId: Schema.String,
   message: Schema.String,
 }) {}
@@ -279,7 +274,6 @@ export {
   type IssueUpdateOptions,
   type IssueWriteApiError,
   type IssueWriteApiShape,
-  LabelNotFoundError,
   linkRelationPlans,
   parseRefOrFail,
   type PlannedRelationLink,

@@ -1,13 +1,12 @@
 import type { Handler } from "@test/fake-linear-model"
 
-import { apiLayer, makeFakeLinear } from "@test/fake-linear"
+import { cliLayer, lastJson } from "@test/cli-harness"
+import { makeFakeLinear } from "@test/fake-linear"
 import { jsonResponse, readRequest } from "@test/fake-linear-model"
 import { summaryNode } from "@test/issue-fixtures"
-import { recordingConsole } from "@test/recording-console"
 import { afterEach, describe, expect, test } from "bun:test"
-import { Console, Effect, FileSystem, Layer, Path, Stdio, Terminal } from "effect"
+import { Effect } from "effect"
 import { Command } from "effect/cli"
-import { ChildProcessSpawner } from "effect/process"
 
 import { issueCommand, searchCommand } from "@/cli/issue"
 import { labelCommand } from "@/cli/label"
@@ -16,28 +15,6 @@ import { teamCommand } from "@/cli/team"
 
 const team = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
 const otherTeam = { id: "team-2", key: "OPS", name: "Operations", timezone: "America/New_York" }
-
-const terminal = Terminal.make({
-  columns: Effect.succeed(80),
-  rows: Effect.succeed(24),
-  readInput: Effect.die("unused"),
-  readLine: Effect.die("unused"),
-  display: () => Effect.void,
-})
-
-const cliLayer = (handler: Handler, args: readonly string[], lines: string[]) =>
-  Layer.mergeAll(
-    apiLayer(handler, { stdio: { args: Effect.succeed(args) } }),
-    FileSystem.layerNoop({}),
-    Path.layer,
-    Stdio.layerTest({ args: Effect.succeed(args) }),
-    Layer.succeed(Terminal.Terminal, terminal),
-    Layer.succeed(
-      ChildProcessSpawner.ChildProcessSpawner,
-      ChildProcessSpawner.make(() => Effect.die("unused")),
-    ),
-    Layer.succeed(Console.Console, recordingConsole(lines)),
-  )
 
 const runTeam = (handler: Handler, args: readonly string[], lines: string[]) =>
   Command.run(teamCommand, { version: "test" }).pipe(
@@ -68,8 +45,6 @@ const runSearch = (handler: Handler, args: readonly string[], lines: string[]) =
     Effect.provide(cliLayer(handler, args, lines)),
     Effect.runPromise,
   )
-
-const lastJson = (lines: readonly string[]): unknown => JSON.parse(lines.at(-1) ?? "")
 
 const issuePageHandler: Handler = () =>
   jsonResponse({
@@ -158,6 +133,20 @@ describe("label list pages", () => {
     })
     const request = fake.requests.find((entry) => entry.query.includes("query Labels"))
     expect(request?.variables).toEqual({ teamId: "team-1", first: 1, after: null })
+  })
+
+  test("prints the color in the human output", async () => {
+    const labels = [
+      { id: "label-1", name: "ready-for-agent", color: "#111111", teamId: "team-1" },
+      { id: "label-2", name: "bug", color: "#EB5757", teamId: "team-1" },
+    ]
+    const fake = makeFakeLinear({ teams: [team], labels })
+    const lines: string[] = []
+    await runLabel(fake.handler, ["list", "--team", "RAT"], lines)
+    expect(lines.flatMap((line) => line.split("\n"))).toEqual([
+      "ready-for-agent\tlabel-1\t#111111",
+      "bug\tlabel-2\t#EB5757",
+    ])
   })
 })
 

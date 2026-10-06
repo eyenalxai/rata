@@ -28,7 +28,6 @@ import {
   UpdateIssueResponse,
 } from "@/api/issue-schema"
 import {
-  LabelNotFoundError,
   parseRefOrFail,
   ProjectNotFoundError,
   StateNotFoundError,
@@ -37,6 +36,7 @@ import {
   unwrapComment,
   unwrapIssue,
 } from "@/api/issue-write-model"
+import { labelNotFoundError } from "@/api/label"
 import { collectConnection, collectPages, pageSize } from "@/api/pagination"
 import { TeamResolutionError } from "@/api/team"
 import { findLabelByName } from "@/domain/labels"
@@ -197,13 +197,7 @@ const makeIssueWriteResolvers = ({ client, teams, labels, projects }: IssueWrite
     return yield* Effect.forEach(names, (name) => {
       const match = findLabelByName(available, name)
       if (match === undefined) {
-        return Effect.fail(
-          new LabelNotFoundError({
-            name,
-            teamId,
-            message: `No label named ${name} in team ${teamId} or the workspace. Run \`rata label list --team <team key>\` to see the labels.`,
-          }),
-        )
+        return Effect.fail(labelNotFoundError(teamId, name))
       }
       return Effect.succeed(match.id)
     })

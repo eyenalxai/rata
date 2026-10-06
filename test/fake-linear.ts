@@ -262,7 +262,7 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
     Layer.provide(Layer.mergeAll(auth, Layer.succeed(HttpClient.HttpClient, http))),
   )
   const teams = TeamService.layer.pipe(Layer.provide(client))
-  const labels = LabelService.layer.pipe(Layer.provide(client))
+  const labels = LabelService.layer.pipe(Layer.provide(Layer.mergeAll(client, teams, repoConfig)))
   const projects = ProjectService.layer.pipe(
     Layer.provide(Layer.mergeAll(client, teams, repoConfig)),
   )

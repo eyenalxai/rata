@@ -304,9 +304,24 @@ UUID. A wayfinding map stays an issue with child issues.
 
 ## Labels
 
-`rata label list --team RAT` prints the labels of a team: name, id. It returns
-one page per call: see **Paging lists**. `--json` prints
+`rata label list --team RAT` prints the labels of a team: name, id, color. It
+returns one page per call: see **Paging lists**. `--json` prints
 `{ "labels": [...], "pageInfo": { "hasNextPage": ..., "endCursor": ... } }`.
+
+`rata label create --name <name> [--color <hex>] [--team <key>]` creates a
+team-scoped label. `--team` defaults to the team from `rata link`. A missing
+`--color` lets Linear pick the color.
+
+`rata label edit <label-ref> [--name <new-name>] [--color <hex>] [--team <key>]`
+changes an existing label. A label reference is a name or a UUID. A name
+resolves, ignoring case, against the team labels and the workspace labels. Pass
+at least one of `--name` and `--color`.
+
+The color is 6 hex digits, with or without `#`: `#EB5757` and `EB5757` are both
+valid. rata adds the `#` when it is missing and keeps the case.
+
+`create` and `edit` accept `--json` and print
+`{ "label": { "id": ..., "name": ..., "color": ... } }`.
 
 ## Linking a repository
 
