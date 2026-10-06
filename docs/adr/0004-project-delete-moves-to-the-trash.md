@@ -32,7 +32,7 @@ Linear keeps the project recoverable.
 - `project delete` does not destroy a project. `project restore` brings it back
   until Linear removes it permanently, 30 days after the delete.
 - The trash is out of the default `project list`. `project list
-  --include-archived` shows trashed projects.
+--include-archived` shows trashed projects.
 - A delete of an already trashed project fails with a message that points at
   `project restore`. A restore of a live project fails with a message that
   points at `project delete`.
