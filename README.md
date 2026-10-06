@@ -45,6 +45,7 @@ rata project list                        # list projects: name, state, progress,
 rata project create --name "Spec: login" --team RAT   # create a project
 rata label list --team RAT               # list a team's labels
 rata link --team RAT                     # bind this repository to a Linear team
+rata unlink                              # remove the stored link of this repository
 rata issue list                          # list issues
 rata issue list --parent RAT-1 --unblocked --unassigned --limit 1  # the frontier of a map
 rata issue list --after <cursor>         # read the next page of a list
@@ -371,6 +372,25 @@ config:
 `project` is `null` when no project is recorded. `workspace` is `null` when no
 profile is recorded. `timezone` holds the previous and current IANA names when
 `link` changed the team timezone, and `null` otherwise.
+
+`rata unlink` removes the stored link of this repository:
+
+```bash
+rata unlink
+rata unlink --json
+```
+
+It prints what it removed, for example `Unlinked RAT from this repository.`, and
+it exits non-zero when the repository is not linked. `--json` prints one stable
+document with the removed team, project and workspace:
+
+```json
+{
+  "team": "RAT",
+  "project": "rata",
+  "workspace": null
+}
+```
 
 ## Reading issues
 

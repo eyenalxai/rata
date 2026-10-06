@@ -9,7 +9,7 @@
   `{ <plural>, pageInfo }`.
 - `--body-file -` reads the value from stdin; `--body-file <path>` reads a file.
 - The default team and project come from the repository config, written by
-  `rata link`.
+  `rata link` and removed by `rata unlink`.
 - Exit code 0 on success, 1 on failure. Failures print one line to stderr.
 
 ## Setup
@@ -26,6 +26,7 @@
 | `rata link --team <key>`                            | Link to a team. Searches every stored workspace. `--create --name <name>` creates it.  |
 | `rata link --project <name>`                        | Record the default project for this repository.                                        |
 | `rata link --workspace <name>`                      | Link in one workspace profile. Skips the workspace prompt.                             |
+| `rata unlink`                                       | Remove the stored link of this repository.                                             |
 
 The API key is resolved in order: `LINEAR_API_KEY`, the repository `workspace`
 from the repository config, the `default` profile. `rata link --workspace <name>`
