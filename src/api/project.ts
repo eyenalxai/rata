@@ -3,12 +3,7 @@ import { Context, Effect, Layer, Option, Schema } from "effect"
 import type { LinearApiError } from "@/api/errors"
 import type { Connection } from "@/api/pagination"
 import type { ProjectAlreadyDeletedError, ProjectNotDeletedError } from "@/api/project/errors"
-import type {
-  DeletedProject,
-  ProjectCreateOptions,
-  ProjectListOptions,
-  RestoredProject,
-} from "@/api/project/model"
+import type { ProjectCreateOptions, ProjectIdentity, ProjectListOptions } from "@/api/project/model"
 import type { TeamNotFoundError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
 
@@ -56,10 +51,10 @@ type ProjectServiceShape = {
   >
   readonly delete: (
     project: Project,
-  ) => Effect.Effect<DeletedProject, LinearApiError | ProjectDeleteError>
+  ) => Effect.Effect<ProjectIdentity, LinearApiError | ProjectDeleteError>
   readonly restore: (
     project: Project,
-  ) => Effect.Effect<RestoredProject, LinearApiError | ProjectRestoreError>
+  ) => Effect.Effect<ProjectIdentity, LinearApiError | ProjectRestoreError>
   readonly create: (
     options: ProjectCreateOptions,
   ) => Effect.Effect<

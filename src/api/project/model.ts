@@ -48,23 +48,17 @@ type ProjectListOptions = PageOptions & {
   readonly includeArchived?: boolean
 }
 
-type DeletedProject = {
-  readonly id: string
-  readonly name: string
-}
-
-type RestoredProject = {
+type ProjectIdentity = {
   readonly id: string
   readonly name: string
 }
 
 export {
-  type DeletedProject,
   Project,
   ProjectArchivePayload,
   ProjectConnection,
   ProjectCreatePayload,
   type ProjectCreateOptions,
+  type ProjectIdentity,
   type ProjectListOptions,
-  type RestoredProject,
 }
