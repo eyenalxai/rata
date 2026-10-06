@@ -3,10 +3,10 @@ import { SqliteClient } from "@effect/sql-sqlite-bun"
 import { describe, expect, test } from "bun:test"
 import { makeWithDefaults } from "drizzle-orm/effect-sqlite-bun"
 import { migrate } from "drizzle-orm/effect-sqlite-bun/migrator"
-import { ConfigProvider, Effect, FileSystem, Layer } from "effect"
+import { ConfigProvider, Effect, FileSystem, Layer, Path } from "effect"
 import path from "node:path"
 
-import { Database } from "@/db/database"
+import { Database, migrationsCandidates } from "@/db/database"
 import { profiles, repositories } from "@/db/schema"
 
 const migrationsFolder = path.resolve(import.meta.dir, "../drizzle")
@@ -65,6 +65,24 @@ describe("Drizzle stack", () => {
     expect(storedRepositories).toEqual([
       { key: "/repo", team: "RAT", project: null, workspace: "work" },
       { key: "/other", team: null, project: null, workspace: null },
+    ])
+  })
+})
+
+describe("migrations folder", () => {
+  test("offers the source, compiled and installed layouts", async () => {
+    const candidates = await Effect.runPromise(
+      Effect.gen(function* candidateList() {
+        const pathService = yield* Path.Path
+        return migrationsCandidates(pathService, "/pkg/src/db", "/usr/bin/rata")
+      }).pipe(Effect.provide(Path.layer)),
+    )
+
+    expect(candidates).toEqual([
+      "/pkg/drizzle",
+      "/pkg/src/db/drizzle",
+      "/usr/bin/drizzle",
+      "/usr/share/rata/drizzle",
     ])
   })
 })

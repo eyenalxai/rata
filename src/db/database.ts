@@ -42,6 +42,32 @@ const resolveDatabaseFile = (path: Path.Path) =>
     return path.join(base.value, "rata", "rata.sqlite")
   })
 
+const migrationsCandidates = (
+  path: Path.Path,
+  moduleDirectory: string,
+  executable: string,
+): readonly string[] => [
+  path.resolve(moduleDirectory, "..", "..", "drizzle"),
+  path.resolve(moduleDirectory, "drizzle"),
+  path.resolve(path.dirname(executable), "drizzle"),
+  path.resolve(path.dirname(executable), "..", "share", "rata", "drizzle"),
+]
+
+const resolveMigrationsFolder = (fs: FileSystem.FileSystem, candidates: readonly string[]) =>
+  Effect.gen(function* migrationsFolder() {
+    for (const candidate of candidates) {
+      const exists = yield* fs
+        .exists(candidate)
+        .pipe(Effect.mapError(describeStoreFailure("read")(candidate)))
+      if (exists) {
+        return candidate
+      }
+    }
+    return yield* new DatabaseError({
+      message: `Cannot find the Drizzle migrations folder. Looked in: ${candidates.join(", ")}.`,
+    })
+  })
+
 class Database extends Context.Service<Database, DatabaseShape>()("rata-cli/db/database") {
   static readonly layer = Layer.unwrap(
     Effect.gen(function* databaseLayer() {
@@ -71,9 +97,13 @@ class Database extends Context.Service<Database, DatabaseShape>()("rata-cli/db/d
           )
           const drizzle = yield* makeWithDefaults().pipe(Effect.provideContext(clientContext))
           yield* fs.chmod(file, 0o600).pipe(Effect.mapError(describeStoreFailure("secure")(file)))
-          yield* migrate(drizzle, {
-            migrationsFolder: path.resolve(import.meta.dir, "..", "..", "drizzle"),
-          }).pipe(Effect.mapError(describeStoreFailure("migrate")(file)))
+          const migrationsFolder = yield* resolveMigrationsFolder(
+            fs,
+            migrationsCandidates(path, import.meta.dir, process.execPath),
+          )
+          yield* migrate(drizzle, { migrationsFolder }).pipe(
+            Effect.mapError(describeStoreFailure("migrate")(file)),
+          )
           return Database.of({ drizzle, file })
         }),
       )
@@ -81,4 +111,4 @@ class Database extends Context.Service<Database, DatabaseShape>()("rata-cli/db/d
   )
 }
 
-export { Database, DatabaseError }
+export { Database, DatabaseError, migrationsCandidates }
