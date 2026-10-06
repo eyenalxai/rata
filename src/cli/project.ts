@@ -25,11 +25,16 @@ const afterFlag = Flag.String("after").pipe(
   Flag.optional,
 )
 
+const includeArchivedFlag = Flag.Boolean("include-archived").pipe(
+  Flag.withDescription("Include trashed and archived projects"),
+  Flag.withDefault(false),
+)
+
 const formatProgress = (progress: number): string => `${Math.round(progress * 100)}%`
 
 const listCommand = Command.make(
   "list",
-  { json: jsonFlag, limit: limitFlag, after: afterFlag },
+  { json: jsonFlag, limit: limitFlag, after: afterFlag, includeArchived: includeArchivedFlag },
   (config) =>
     Effect.gen(function* listProjects() {
       const valid = yield* validatePageSize(config.limit)
@@ -40,6 +45,7 @@ const listCommand = Command.make(
       const page = yield* projects.list({
         after: Option.getOrNull(config.after),
         limit: config.limit,
+        includeArchived: config.includeArchived,
       })
       if (config.json) {
         yield* writeJson({ projects: page.nodes, pageInfo: page.pageInfo })
@@ -50,10 +56,10 @@ const listCommand = Command.make(
         return
       }
       const body = page.nodes
-        .map(
-          (project) =>
-            `${project.name}\t${project.status.name}\t${formatProgress(project.progress)}\t${project.id}`,
-        )
+        .map((project) => {
+          const marker = project.trashed ? " (deleted)" : ""
+          return `${project.name}${marker}\t${project.status.name}\t${formatProgress(project.progress)}\t${project.id}`
+        })
         .join(EOL)
       const hint =
         page.pageInfo.hasNextPage && page.pageInfo.endCursor !== null

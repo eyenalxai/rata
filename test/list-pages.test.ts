@@ -122,6 +122,65 @@ describe("project list pages", () => {
     expect(fake.requests[0]?.variables).toEqual({ first: 1, after: null, includeArchived: false })
     expect(fake.requests[0]?.query).toContain("orderBy: createdAt")
   })
+
+  test("includes trashed projects with --include-archived and marks them", async () => {
+    const projects = [
+      {
+        id: "project-1",
+        name: "Tracker",
+        progress: 0.5,
+        status: { name: "Started" },
+        trashed: false,
+      },
+      { id: "project-2", name: "Login", progress: 0, status: { name: "Backlog" }, trashed: true },
+    ]
+    const fake = makeFakeLinear({ teams: [], labels: [], projects })
+    const lines: string[] = []
+    await runProject(fake.handler, ["list", "--include-archived"], lines)
+    expect(fake.requests[0]?.variables).toEqual({ first: 50, after: null, includeArchived: true })
+    expect(lines.flatMap((line) => line.split("\n"))).toEqual([
+      "Tracker\tStarted\t50%\tproject-1",
+      "Login (deleted)\tBacklog\t0%\tproject-2",
+    ])
+  })
+
+  test("carries the trashed flag in --include-archived JSON", async () => {
+    const projects = [
+      {
+        id: "project-1",
+        name: "Tracker",
+        progress: 0.5,
+        status: { name: "Started" },
+        trashed: false,
+      },
+      { id: "project-2", name: "Login", progress: 0, status: { name: "Backlog" }, trashed: true },
+    ]
+    const fake = makeFakeLinear({ teams: [], labels: [], projects })
+    const lines: string[] = []
+    await runProject(fake.handler, ["list", "--include-archived", "--json"], lines)
+    expect(lastJson(lines)).toEqual({
+      projects,
+      pageInfo: { hasNextPage: false, endCursor: "project-2" },
+    })
+  })
+
+  test("hides trashed projects without the flag", async () => {
+    const projects = [
+      {
+        id: "project-1",
+        name: "Tracker",
+        progress: 0.5,
+        status: { name: "Started" },
+        trashed: false,
+      },
+      { id: "project-2", name: "Login", progress: 0, status: { name: "Backlog" }, trashed: true },
+    ]
+    const fake = makeFakeLinear({ teams: [], labels: [], projects })
+    const lines: string[] = []
+    await runProject(fake.handler, ["list"], lines)
+    expect(fake.requests[0]?.variables).toEqual({ first: 50, after: null, includeArchived: false })
+    expect(lines.flatMap((line) => line.split("\n"))).toEqual(["Tracker\tStarted\t50%\tproject-1"])
+  })
 })
 
 describe("label list pages", () => {

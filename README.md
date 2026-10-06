@@ -280,10 +280,17 @@ projects:
 rata project list
 ```
 
+`rata project list --include-archived` also shows trashed and archived
+projects. A trashed row carries a ` (deleted)` marker after the name:
+
+```bash
+rata project list --include-archived
+```
+
 `--json` prints `{ "projects": [...], "pageInfo": { "hasNextPage": ..., "endCursor": ... } }`
-with the same fields. `--limit` and `--after` page the list; see **Paging
-lists**. `progress` is the fraction of the project's issues that are done,
-between 0 and 1.
+with the same fields, and every item carries the `trashed` flag. `--limit` and
+`--after` page the list; see **Paging lists**. `progress` is the fraction of
+the project's issues that are done, between 0 and 1.
 
 `rata project delete` moves a project to the trash. It accepts a project name
 or a UUID. A name matches case-insensitively across every page. Linear keeps a
