@@ -30,6 +30,7 @@ type FakeProject = {
   readonly name: string
   readonly progress: number
   readonly status: { readonly name: string }
+  readonly trashed?: boolean
 }
 
 type FakeViewer = {
@@ -82,6 +83,27 @@ const readRequest = (request: HttpClientRequest.HttpClientRequest): GraphQLReque
 
 const recordSchema = Schema.Record(Schema.String, Schema.Unknown)
 
+const paginate = <A extends { readonly id: string }>(
+  nodes: readonly A[],
+  variables: Record<string, unknown>,
+): {
+  readonly nodes: readonly A[]
+  readonly pageInfo: { readonly hasNextPage: boolean; readonly endCursor: string | null }
+} => {
+  const first = typeof variables.first === "number" ? variables.first : 50
+  const after = typeof variables.after === "string" ? variables.after : null
+  const start = after === null ? 0 : nodes.findIndex((node) => node.id === after) + 1
+  const page = nodes.slice(start, start + first)
+  const last = page.at(-1)
+  return {
+    nodes: page,
+    pageInfo: {
+      hasNextPage: start + page.length < nodes.length,
+      endCursor: last?.id ?? null,
+    },
+  }
+}
+
 const inputOf = (variables: Record<string, unknown>): Record<string, unknown> => {
   const decoded = Schema.decodeUnknownOption(recordSchema)(variables.input)
   return Option.isSome(decoded) ? decoded.value : {}
@@ -107,6 +129,7 @@ export {
   type Handler,
   inputOf,
   jsonResponse,
+  paginate,
   readRequest,
   stringField,
 }

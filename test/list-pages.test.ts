@@ -103,8 +103,14 @@ describe("team list pages", () => {
 describe("project list pages", () => {
   test("returns one page with pageInfo", async () => {
     const projects = [
-      { id: "project-1", name: "Tracker", progress: 0.5, status: { name: "Started" } },
-      { id: "project-2", name: "Login", progress: 0, status: { name: "Backlog" } },
+      {
+        id: "project-1",
+        name: "Tracker",
+        progress: 0.5,
+        status: { name: "Started" },
+        trashed: false,
+      },
+      { id: "project-2", name: "Login", progress: 0, status: { name: "Backlog" }, trashed: false },
     ]
     const fake = makeFakeLinear({ teams: [], labels: [], projects })
     const lines: string[] = []
@@ -113,7 +119,7 @@ describe("project list pages", () => {
       projects: [projects[0]],
       pageInfo: { hasNextPage: true, endCursor: "project-1" },
     })
-    expect(fake.requests[0]?.variables).toEqual({ first: 1, after: null })
+    expect(fake.requests[0]?.variables).toEqual({ first: 1, after: null, includeArchived: false })
     expect(fake.requests[0]?.query).toContain("orderBy: createdAt")
   })
 })

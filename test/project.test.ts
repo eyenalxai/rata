@@ -34,6 +34,40 @@ const configWithTeam = (key: string): ApiLayerOptions => ({
   repositories: [{ key: process.cwd(), team: key }],
 })
 
+describe("ProjectService.list", () => {
+  test("passes includeArchived and decodes the trashed flag", async () => {
+    const projects = [
+      { id: "project-1", name: "Tracker", progress: 0.5, status: { name: "Started" } },
+      { id: "project-2", name: "Login", progress: 0, status: { name: "Backlog" }, trashed: true },
+    ]
+    const fake = makeFakeLinear({ teams: [], labels: [], projects })
+    const page = await run(
+      fake.handler,
+      Effect.gen(function* listProjects() {
+        const service = yield* ProjectService
+        return yield* service.list({ after: null, limit: 50, includeArchived: true })
+      }),
+    )
+    expect(fake.requests[0]?.variables).toEqual({ first: 50, after: null, includeArchived: true })
+    expect(page.nodes).toEqual([
+      {
+        id: "project-1",
+        name: "Tracker",
+        progress: 0.5,
+        status: { name: "Started" },
+        trashed: false,
+      },
+      {
+        id: "project-2",
+        name: "Login",
+        progress: 0,
+        status: { name: "Backlog" },
+        trashed: true,
+      },
+    ])
+  })
+})
+
 describe("ProjectService.create", () => {
   test("uses the default team and sends the name and description", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })

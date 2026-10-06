@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Option, Schema } from "effect"
+import { Context, Effect, Layer, Option, Schema, SchemaGetter } from "effect"
 
 import type { LinearApiError } from "@/api/errors"
 import type { Connection, PageOptions } from "@/api/pagination"
@@ -13,11 +13,19 @@ import { isUuid } from "@/domain/ref"
 
 const ProjectStatus = Schema.Struct({ name: Schema.String })
 
+const Trashed = Schema.NullOr(Schema.Boolean).pipe(
+  Schema.decodeTo(Schema.Boolean, {
+    decode: SchemaGetter.transform((value) => value === true),
+    encode: SchemaGetter.transform((value) => value),
+  }),
+)
+
 const Project = Schema.Struct({
   id: Schema.String,
   name: Schema.String,
   progress: Schema.Finite,
   status: ProjectStatus,
+  trashed: Trashed,
 })
 
 type Project = typeof Project.Type
@@ -32,8 +40,8 @@ const ProjectCreatePayload = Schema.Struct({
   project: Schema.NullOr(Project),
 })
 
-const listProjectsQuery = `query Projects($first: Int!, $after: String) {
-  projects(first: $first, after: $after, orderBy: createdAt) {
+const listProjectsQuery = `query Projects($first: Int!, $after: String, $includeArchived: Boolean) {
+  projects(first: $first, after: $after, orderBy: createdAt, includeArchived: $includeArchived) {
     nodes {
       id
       name
@@ -41,6 +49,7 @@ const listProjectsQuery = `query Projects($first: Int!, $after: String) {
       status {
         name
       }
+      trashed
     }
     pageInfo { hasNextPage endCursor }
   }
@@ -56,6 +65,7 @@ const projectCreateMutation = `mutation ProjectCreate($input: ProjectCreateInput
       status {
         name
       }
+      trashed
     }
   }
 }`
@@ -71,8 +81,12 @@ type ProjectCreateOptions = {
   readonly teams?: readonly string[] | undefined
 }
 
+type ProjectListOptions = PageOptions & {
+  readonly includeArchived?: boolean
+}
+
 type ProjectServiceShape = {
-  readonly list: (options: PageOptions) => Effect.Effect<Connection<Project>, LinearApiError>
+  readonly list: (options: ProjectListOptions) => Effect.Effect<Connection<Project>, LinearApiError>
   readonly create: (
     options: ProjectCreateOptions,
   ) => Effect.Effect<
@@ -91,10 +105,16 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
       const teams = yield* TeamService
       const repoConfig = yield* RepoConfigService
 
-      const list = Effect.fn("ProjectService.list")(function* listProjects(options: PageOptions) {
+      const list = Effect.fn("ProjectService.list")(function* listProjects(
+        options: ProjectListOptions,
+      ) {
         const data = yield* client.execute(
           listProjectsQuery,
-          { first: options.limit, after: options.after },
+          {
+            first: options.limit,
+            after: options.after,
+            includeArchived: options.includeArchived ?? false,
+          },
           Schema.Struct({ projects: ProjectConnection }),
         )
         return data.projects

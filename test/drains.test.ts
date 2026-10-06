@@ -81,7 +81,15 @@ const createHandler = () =>
         ? jsonResponse({
             data: {
               projects: {
-                nodes: [{ id: "p-other", name: "Other", progress: 0, status: { name: "Backlog" } }],
+                nodes: [
+                  {
+                    id: "p-other",
+                    name: "Other",
+                    progress: 0,
+                    status: { name: "Backlog" },
+                    trashed: null,
+                  },
+                ],
                 pageInfo: { hasNextPage: true, endCursor: "p-other" },
               },
             },
@@ -89,7 +97,15 @@ const createHandler = () =>
         : jsonResponse({
             data: {
               projects: {
-                nodes: [{ id: "p1", name: "Tracker", progress: 0, status: { name: "Started" } }],
+                nodes: [
+                  {
+                    id: "p1",
+                    name: "Tracker",
+                    progress: 0,
+                    status: { name: "Started" },
+                    trashed: null,
+                  },
+                ],
                 pageInfo,
               },
             },
@@ -183,7 +199,11 @@ describe("workflow-state drains", () => {
     const projectPages = recorder.requests.filter((request) =>
       request.query.includes("query Projects"),
     )
-    expect(projectPages[1]?.variables).toEqual({ first: 50, after: "p-other" })
+    expect(projectPages[1]?.variables).toEqual({
+      first: 50,
+      after: "p-other",
+      includeArchived: false,
+    })
   })
 
   test("close finds the completed state on the next page", async () => {

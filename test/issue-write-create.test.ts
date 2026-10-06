@@ -64,7 +64,15 @@ const createHandler = () =>
       return jsonResponse({
         data: {
           projects: {
-            nodes: [{ id: "p1", name: "Tracker", progress: 0, status: { name: "Started" } }],
+            nodes: [
+              {
+                id: "p1",
+                name: "Tracker",
+                progress: 0,
+                status: { name: "Started" },
+                trashed: null,
+              },
+            ],
             pageInfo,
           },
         },

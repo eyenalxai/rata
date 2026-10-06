@@ -15,9 +15,11 @@ import {
   defaultViewer,
   inputOf,
   jsonResponse,
+  paginate,
   readRequest,
   stringField,
 } from "@test/fake-linear-model"
+import { handleProjectMutation, handleProjectQuery } from "@test/fake-linear/project"
 import { ConfigProvider, Effect, FileSystem, Layer, Path, Stdio } from "effect"
 import { HttpClient, HttpClientResponse } from "effect/http"
 
@@ -92,40 +94,7 @@ const handleMutation = (graphql: GraphQLRequest, state: FakeState): Response | u
     state.teams.splice(index, 1)
     return jsonResponse({ data: { teamDelete: { success: true, entityId: id } } })
   }
-  if (query.includes("mutation ProjectCreate")) {
-    const input = inputOf(graphql.variables)
-    const name = stringField(input, "name")
-    const created: FakeProject = {
-      id: `project-${state.projects.length + 1}`,
-      name,
-      progress: 0,
-      status: { name: "Backlog" },
-    }
-    state.projects.push(created)
-    return jsonResponse({ data: { projectCreate: { success: true, project: created } } })
-  }
-  return undefined
-}
-
-const paginate = <A extends { readonly id: string }>(
-  nodes: readonly A[],
-  variables: Record<string, unknown>,
-): {
-  readonly nodes: readonly A[]
-  readonly pageInfo: { readonly hasNextPage: boolean; readonly endCursor: string | null }
-} => {
-  const first = typeof variables.first === "number" ? variables.first : 50
-  const after = typeof variables.after === "string" ? variables.after : null
-  const start = after === null ? 0 : nodes.findIndex((node) => node.id === after) + 1
-  const page = nodes.slice(start, start + first)
-  const last = page.at(-1)
-  return {
-    nodes: page,
-    pageInfo: {
-      hasNextPage: start + page.length < nodes.length,
-      endCursor: last?.id ?? null,
-    },
-  }
+  return handleProjectMutation(graphql, state.projects)
 }
 
 const handleQuery = (
@@ -136,9 +105,6 @@ const handleQuery = (
   const query = graphql.query
   if (query.includes("query Viewer")) {
     return jsonResponse({ data: { viewer } })
-  }
-  if (query.includes("query Projects")) {
-    return jsonResponse({ data: { projects: paginate(state.projects, graphql.variables) } })
   }
   if (query.includes("query TeamById")) {
     const id = graphql.variables.id
@@ -179,7 +145,7 @@ const handleQuery = (
       .map(({ id, name, color }) => ({ id, name, color }))
     return jsonResponse({ data: { issueLabels: paginate(teamLabels, graphql.variables) } })
   }
-  return undefined
+  return handleProjectQuery(graphql, state.projects)
 }
 
 const makeFakeLinear = (seed: {
