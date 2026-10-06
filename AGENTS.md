@@ -145,6 +145,11 @@ surface.
 
 Issues live in Linear, driven with the `rata` CLI. See `docs/agents/issue-tracker.md`.
 
+### Wayfinding maps
+
+Planning only: a map resolves decisions, never the build. A session never
+starts implementation from a map. See `docs/agents/issue-tracker.md`.
+
 ### Triage labels
 
 Default five-role vocabulary: `needs-triage`, `needs-info`,

@@ -64,6 +64,13 @@ maps: a map stays an issue with child issues.
 Used by \`/wayfinder\`. The **map** is a single issue labelled \`wayfinder:map\`,
 with **child** issues as tickets.
 
+**A map is planning only. It resolves decisions, never the build.** Do not
+create build tickets as map children. A session never starts implementation
+from a map. If a frontier ticket would deliver the build rather than settle a
+decision, do not take it: stop and report the problem. When the frontier is
+empty, the map has cleared: hand off to \`/to-spec\`, then \`/to-tickets\` and
+\`/implement\`.
+
 - **Map**: \`rata issue create --title "..." --label wayfinder:map --body-file -\`.
 - **Child ticket**: \`rata issue create --title "..." --parent <map-ref> --label wayfinder:<type> --body-file -\`.
   The type labels are \`wayfinder:research\`, \`wayfinder:prototype\`,
@@ -150,6 +157,11 @@ const agentSkillsBlock = `## Agent skills
 ### Issue tracker
 
 Issues live in Linear, driven with the \`rata\` CLI. See \`docs/agents/issue-tracker.md\`.
+
+### Wayfinding maps
+
+Planning only: a map resolves decisions, never the build. A session never
+starts implementation from a map. See \`docs/agents/issue-tracker.md\`.
 
 ### Triage labels
 
