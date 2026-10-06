@@ -16,7 +16,7 @@ repository builds `rata`, a Linear CLI for exactly those workflows.
 This repository uses Linear as its issue tracker, through the `rata` CLI. The
 tracker document at `docs/agents/issue-tracker.md` names the commands the
 skills use. The canonical triage and wayfinding labels live in the Linear team
-named in `.rata.json`.
+named in the repository config.
 
 ## Consequences
 
