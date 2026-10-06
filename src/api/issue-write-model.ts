@@ -10,7 +10,7 @@ import type {
   WorkflowState,
 } from "@/api/issue-schema"
 import type { LabelNotFoundError } from "@/api/label"
-import type { ProjectNotFoundError } from "@/api/project"
+import type { ProjectNotFoundError } from "@/api/project/errors"
 import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
 import type { InvalidIssueRef, IssueRef } from "@/domain/ref"

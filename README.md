@@ -44,6 +44,7 @@ rata team delete SCR --yes               # delete a team
 rata project list                        # list projects: name, state, progress, id
 rata project create --name "Login revamp" --team RAT  # create a project
 rata project delete "Login revamp" --yes # move a project to the trash
+rata project restore "Login revamp"      # bring a project back from the trash
 rata label list --team RAT               # list a team's labels
 rata link --team RAT                     # bind this repository to a Linear team
 rata unlink                              # remove the stored link of this repository
@@ -307,6 +308,29 @@ the trash fails and points at `project restore`.
 ```json
 {
   "deleted": {
+    "id": "p1",
+    "name": "Login revamp"
+  }
+}
+```
+
+`rata project restore` brings a trashed project back. It accepts a project name
+or a UUID. A name matches case-insensitively across every page. It runs without
+a confirmation prompt. Restore works within the 30 days that Linear keeps a
+trashed project.
+
+```bash
+rata project restore "Login revamp"
+```
+
+A project that is not in the trash fails and points at `project delete`. An
+ambiguous name fails and asks for the UUID.
+
+`--json` prints one stable document:
+
+```json
+{
+  "restored": {
     "id": "p1",
     "name": "Login revamp"
   }

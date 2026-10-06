@@ -37,7 +37,7 @@ import {
 } from "@/api/issue-write-model"
 import { labelNotFoundError } from "@/api/label"
 import { collectConnection, collectPages, pageSize } from "@/api/pagination"
-import { ProjectNotFoundError } from "@/api/project"
+import { ProjectNotFoundError } from "@/api/project/errors"
 import { TeamResolutionError } from "@/api/team"
 import { findLabelByName } from "@/domain/labels"
 import { isUuid } from "@/domain/ref"

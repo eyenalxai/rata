@@ -44,6 +44,7 @@ recorded `workspace`.
 | `rata project list [--limit <n>] [--after <cursor>]`                  | List projects: name, state, progress, id. One page per call.                                |
 | `rata project create --name <name> [--team <key>]`                    | Create a project. `--team` is repeatable.                                                   |
 | `rata project delete <ref> [--yes]`                                   | Move a project to the trash (Linear keeps it recoverable). `--yes` skips the confirmation.  |
+| `rata project restore <ref>`                                          | Bring a project back from the trash. Runs without a prompt.                                 |
 | `rata label list --team <key> [--limit <n>] [--after <cursor>]`       | List the labels of a team: name, id, color. One page per call.                              |
 | `rata label create --name <name> [--color <hex>] [--team <key>]`      | Create a team-scoped label. `--team` defaults to the linked team.                           |
 | `rata label edit <ref> [--name <new>] [--color <hex>] [--team <key>]` | Update a label. `<ref>` is a name or a UUID. Pass `--name`, `--color`, or both.             |

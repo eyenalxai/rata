@@ -36,4 +36,18 @@ const projectDeleteMutation = `mutation ProjectDelete($id: String!) {
   }
 }`
 
-export { listProjectsQuery, projectByIdQuery, projectCreateMutation, projectDeleteMutation }
+const projectUnarchiveMutation = `mutation ProjectUnarchive($id: String!) {
+  projectUnarchive(id: $id) {
+    success
+    entity {${projectFields}
+    }
+  }
+}`
+
+export {
+  listProjectsQuery,
+  projectByIdQuery,
+  projectCreateMutation,
+  projectDeleteMutation,
+  projectUnarchiveMutation,
+}

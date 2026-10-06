@@ -37,6 +37,19 @@ const handleProjectMutation = (
       data: { projectDelete: { success: true, entity: withTrashed(deleted) } },
     })
   }
+  if (graphql.query.includes("mutation ProjectUnarchive")) {
+    const id = stringField(graphql.variables, "id")
+    const index = projects.findIndex((item) => item.id === id)
+    const current = projects[index]
+    if (current === undefined) {
+      return jsonResponse({ data: { projectUnarchive: { success: false, entity: null } } })
+    }
+    const restored: FakeProject = { ...current, trashed: false }
+    projects[index] = restored
+    return jsonResponse({
+      data: { projectUnarchive: { success: true, entity: withTrashed(restored) } },
+    })
+  }
   return undefined
 }
 

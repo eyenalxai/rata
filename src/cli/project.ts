@@ -143,9 +143,39 @@ const deleteCommand = Command.make(
   ]),
 )
 
+const restoreCommand = Command.make(
+  "restore",
+  {
+    ref: Argument.String("ref").pipe(Argument.withDescription("Project name or UUID")),
+    json: jsonFlag,
+  },
+  (config) =>
+    Effect.gen(function* restoreProject() {
+      const projects = yield* ProjectService
+      const project = yield* projects.resolveTrashed(config.ref)
+      const restored = yield* projects.restore(project)
+      if (config.json) {
+        return yield* writeJson({ restored })
+      }
+      return yield* writeLine(`Restored ${restored.name} (${restored.id}).`)
+    }).pipe(Effect.catch(reportFailure)),
+).pipe(
+  Command.withDescription("Bring a project back from the trash, without a prompt"),
+  Command.withExamples([
+    {
+      command: 'rata project restore "Login revamp"',
+      description: "Bring a project back from the trash by name",
+    },
+    {
+      command: "rata project restore 0f8fad5b-d9cb-469f-a165-70867728950e",
+      description: "Bring a project back from the trash by UUID",
+    },
+  ]),
+)
+
 const projectCommand = Command.make("project").pipe(
-  Command.withDescription("Create, inspect and delete the projects in the workspace"),
-  Command.withSubcommands([listCommand, createCommand, deleteCommand]),
+  Command.withDescription("Create, inspect, delete and restore the projects in the workspace"),
+  Command.withSubcommands([listCommand, createCommand, deleteCommand, restoreCommand]),
 )
 
 export { projectCommand }
