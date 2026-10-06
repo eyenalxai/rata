@@ -5,7 +5,7 @@ import { Effect, Layer } from "effect"
 import path from "node:path"
 
 import { Database } from "@/db/database"
-import { repositories } from "@/db/schema"
+import { profiles, repositories } from "@/db/schema"
 
 type RepositorySeed = {
   readonly key: string
@@ -14,9 +14,18 @@ type RepositorySeed = {
   readonly workspace?: string | undefined
 }
 
+type ProfileSeed = {
+  readonly name: string
+  readonly apiKey: string
+  readonly isDefault?: boolean | undefined
+}
+
 const migrationsFolder = path.resolve(import.meta.dir, "../drizzle")
 
-const databaseLayer = (seed: readonly RepositorySeed[] = []) =>
+const databaseLayer = (
+  seed: readonly RepositorySeed[] = [],
+  profileSeed: readonly ProfileSeed[] = [],
+) =>
   Layer.effect(
     Database,
     Effect.gen(function* openTestDatabase() {
@@ -33,8 +42,18 @@ const databaseLayer = (seed: readonly RepositorySeed[] = []) =>
           })
           .run(),
       )
+      yield* Effect.forEach(profileSeed, (profile) =>
+        drizzle
+          .insert(profiles)
+          .values({
+            name: profile.name,
+            apiKey: profile.apiKey,
+            isDefault: profile.isDefault === true ? 1 : 0,
+          })
+          .run(),
+      )
       return Database.of({ drizzle, file: ":memory:" })
     }),
   ).pipe(Layer.provide(SqliteClient.layer({ filename: ":memory:" })), Layer.orDie)
 
-export { databaseLayer, type RepositorySeed }
+export { databaseLayer, type ProfileSeed, type RepositorySeed }

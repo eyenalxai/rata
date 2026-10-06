@@ -134,7 +134,7 @@ const resolveExplicitWorkspace = Effect.fn("LinkWorkspace.resolveExplicit")(
     const profile = deps.profiles.find((entry) => entry.name === name)
     if (profile === undefined) {
       return yield* new LinkError({
-        message: `No workspace named "${name}" in the auth file. Run \`rata workspace list\` to see the profiles.`,
+        message: `No workspace named "${name}" in the stored profiles. Run \`rata workspace list\` to see the profiles.`,
       })
     }
     return yield* linkIn(profile.apiKey, Option.some(name), options, deps)

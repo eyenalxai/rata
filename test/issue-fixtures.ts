@@ -107,7 +107,7 @@ const clientLayer = (handler: (request: HttpClientRequest.HttpClientRequest) => 
   const repoConfig = RepoConfigService.layer.pipe(
     Layer.provide(Layer.mergeAll(platform, database, identity)),
   )
-  const auth = Auth.layer.pipe(Layer.provide(Layer.mergeAll(repoConfig, platform)))
+  const auth = Auth.layer.pipe(Layer.provide(Layer.mergeAll(repoConfig, platform, database)))
   return LinearClient.layer.pipe(
     Layer.provide(Layer.mergeAll(auth, Layer.succeed(HttpClient.HttpClient, http))),
   )

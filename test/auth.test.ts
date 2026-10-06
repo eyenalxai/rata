@@ -1,28 +1,31 @@
-import type { WriteRecord } from "@test/auth-harness"
+import type { ProfileSeed } from "@test/database-harness"
 
 import {
   authPath,
-  decodeWrite,
-  profileFile,
+  makeAuthHarness,
   runRequire,
   runResolve,
   runWithAuth,
+  storedProfiles,
 } from "@test/auth-harness"
 import { describe, expect, test } from "bun:test"
-import { Effect, Option, Redacted, Result } from "effect"
+import { Effect, Option, Redacted } from "effect"
 
 import { Auth } from "@/config/auth"
 
-describe("Auth", () => {
+const twoProfiles: readonly ProfileSeed[] = [
+  { name: "default", apiKey: "default-key", isDefault: true },
+  { name: "work", apiKey: "work-key" },
+]
+
+describe("Auth.resolve", () => {
   test("prefers LINEAR_API_KEY over the repository workspace and the stored profiles", async () => {
-    const files = new Map([
-      [authPath, profileFile({ default: "default-key", work: "work-key" }, "default")],
-    ])
-    const repositories = [{ key: process.cwd(), team: "RAT", workspace: "work" }]
     const resolved = await runResolve(
-      { HOME: "/home/test", LINEAR_API_KEY: "env-key" },
-      files,
-      repositories,
+      makeAuthHarness({
+        env: { HOME: "/home/test", LINEAR_API_KEY: "env-key" },
+        profiles: twoProfiles,
+        repositories: [{ key: process.cwd(), team: "RAT", workspace: "work" }],
+      }),
     )
     expect(Option.isSome(resolved)).toBe(true)
     if (Option.isSome(resolved)) {
@@ -33,12 +36,12 @@ describe("Auth", () => {
   })
 
   test("selects the repository workspace over the default profile", async () => {
-    const files = new Map([
-      [authPath, profileFile({ default: "default-key", work: "work-key" }, "default")],
-    ])
-    const resolved = await runResolve({ HOME: "/home/test" }, files, [
-      { key: process.cwd(), team: "RAT", workspace: "work" },
-    ])
+    const resolved = await runResolve(
+      makeAuthHarness({
+        profiles: twoProfiles,
+        repositories: [{ key: process.cwd(), team: "RAT", workspace: "work" }],
+      }),
+    )
     expect(Option.isSome(resolved)).toBe(true)
     if (Option.isSome(resolved)) {
       expect(resolved.value.source).toBe("profile")
@@ -48,19 +51,18 @@ describe("Auth", () => {
   })
 
   test("fails when the repository workspace is missing", async () => {
-    const files = new Map([[authPath, profileFile({ default: "default-key" }, "default")]])
-    const error = await runRequire({ HOME: "/home/test" }, files, [
-      { key: process.cwd(), team: "RAT", workspace: "nope" },
-    ])
+    const error = await runRequire(
+      makeAuthHarness({
+        profiles: [{ name: "default", apiKey: "default-key", isDefault: true }],
+        repositories: [{ key: process.cwd(), team: "RAT", workspace: "nope" }],
+      }),
+    )
     expect(error._tag).toBe("AuthStoreError")
     expect(error.message).toContain("nope")
   })
 
   test("falls back to the default profile", async () => {
-    const files = new Map([
-      [authPath, profileFile({ default: "default-key", work: "work-key" }, "default")],
-    ])
-    const resolved = await runResolve({ HOME: "/home/test" }, files)
+    const resolved = await runResolve(makeAuthHarness({ profiles: twoProfiles }))
     expect(Option.isSome(resolved)).toBe(true)
     if (Option.isSome(resolved)) {
       expect(resolved.value.source).toBe("profile")
@@ -68,154 +70,157 @@ describe("Auth", () => {
       expect(Redacted.value(resolved.value.key)).toBe("default-key")
     }
   })
+})
 
-  test("reads a legacy single-key file as the default profile", async () => {
-    const files = new Map([[authPath, JSON.stringify({ apiKey: "file-key" })]])
-    const resolved = await runResolve({ HOME: "/home/test" }, files)
-    expect(Option.isSome(resolved)).toBe(true)
-    if (Option.isSome(resolved)) {
-      expect(resolved.value.profile).toEqual(Option.some("default"))
-      expect(Redacted.value(resolved.value.key)).toBe("file-key")
-    }
-  })
-
-  test("stores a key as a profile with mode 0600", async () => {
-    const files = new Map<string, string>()
-    const writes: WriteRecord[] = []
-    const modes: number[] = []
-    await runWithAuth(
-      { HOME: "/home/test" },
-      files,
+describe("Auth.login", () => {
+  test("stores a profile and makes it the default when none is set", async () => {
+    const rows = await runWithAuth(
+      makeAuthHarness(),
       Effect.gen(function* login() {
         const auth = yield* Auth
         yield* auth.login("lin_api_test", "work")
+        return yield* storedProfiles
       }),
-      writes,
-      modes,
     )
 
-    expect(writes.length).toBe(1)
-    expect(writes[0]?.path).toBe(authPath)
-    expect(writes[0]?.mode).toBe(0o600)
-    const decoded = decodeWrite(writes)
-    expect(Result.isSuccess(decoded)).toBe(true)
-    if (Result.isSuccess(decoded)) {
-      expect(decoded.success.default).toBe("work")
-      expect(decoded.success.workspaces).toEqual({ work: { apiKey: "lin_api_test" } })
-    }
-    expect(modes).toEqual([0o600])
+    expect(rows).toEqual([{ name: "work", apiKey: "lin_api_test", isDefault: 1 }])
   })
 
-  test("login keeps the existing default profile", async () => {
-    const files = new Map([[authPath, profileFile({ default: "default-key" }, "default")]])
-    const writes: WriteRecord[] = []
-    await runWithAuth(
-      { HOME: "/home/test" },
-      files,
+  test("keeps the existing default profile", async () => {
+    const rows = await runWithAuth(
+      makeAuthHarness({ profiles: [{ name: "default", apiKey: "default-key", isDefault: true }] }),
       Effect.gen(function* login() {
         const auth = yield* Auth
         yield* auth.login("work-key", "work")
+        return yield* storedProfiles
       }),
-      writes,
     )
 
-    const decoded = decodeWrite(writes)
-    expect(Result.isSuccess(decoded)).toBe(true)
-    if (Result.isSuccess(decoded)) {
-      expect(decoded.success.default).toBe("default")
-      expect(decoded.success.workspaces).toEqual({
-        default: { apiKey: "default-key" },
-        work: { apiKey: "work-key" },
-      })
-    }
-  })
-
-  test("login rewrites a legacy single-key file in the new shape with mode 0600", async () => {
-    const files = new Map([[authPath, JSON.stringify({ apiKey: "legacy-key" })]])
-    const writes: WriteRecord[] = []
-    const modes: number[] = []
-    await runWithAuth(
-      { HOME: "/home/test" },
-      files,
-      Effect.gen(function* login() {
-        const auth = yield* Auth
-        yield* auth.login("work-key", "work")
-      }),
-      writes,
-      modes,
-    )
-
-    expect(writes.length).toBe(1)
-    expect(writes[0]?.mode).toBe(0o600)
-    const decoded = decodeWrite(writes)
-    expect(Result.isSuccess(decoded)).toBe(true)
-    if (Result.isSuccess(decoded)) {
-      expect(decoded.success.default).toBe("default")
-      expect(decoded.success.workspaces).toEqual({
-        default: { apiKey: "legacy-key" },
-        work: { apiKey: "work-key" },
-      })
-    }
-    expect(modes).toEqual([0o600])
-  })
-
-  test("workspace use rewrites the default profile", async () => {
-    const files = new Map([
-      [authPath, profileFile({ default: "default-key", work: "work-key" }, "default")],
+    expect(rows).toEqual([
+      { name: "default", apiKey: "default-key", isDefault: 1 },
+      { name: "work", apiKey: "work-key", isDefault: 0 },
     ])
-    const writes: WriteRecord[] = []
-    await runWithAuth(
-      { HOME: "/home/test" },
-      files,
-      Effect.gen(function* use() {
+  })
+
+  test("replaces the key of an existing profile and keeps its default flag", async () => {
+    const rows = await runWithAuth(
+      makeAuthHarness({ profiles: [{ name: "work", apiKey: "old-key", isDefault: true }] }),
+      Effect.gen(function* login() {
+        const auth = yield* Auth
+        yield* auth.login("new-key", "work")
+        return yield* storedProfiles
+      }),
+    )
+
+    expect(rows).toEqual([{ name: "work", apiKey: "new-key", isDefault: 1 }])
+  })
+
+  test("makes the profile the default when the stored profiles have none", async () => {
+    const rows = await runWithAuth(
+      makeAuthHarness({ profiles: [{ name: "work", apiKey: "old-key" }] }),
+      Effect.gen(function* login() {
+        const auth = yield* Auth
+        yield* auth.login("new-key", "work")
+        return yield* storedProfiles
+      }),
+    )
+
+    expect(rows).toEqual([{ name: "work", apiKey: "new-key", isDefault: 1 }])
+  })
+
+  test("imports the legacy single-key file before adding a profile", async () => {
+    const harness = makeAuthHarness({
+      files: new Map([[authPath, JSON.stringify({ apiKey: "legacy-key" })]]),
+    })
+    const rows = await runWithAuth(
+      harness,
+      Effect.gen(function* login() {
+        const auth = yield* Auth
+        yield* auth.login("work-key", "work")
+        return yield* storedProfiles
+      }),
+    )
+
+    expect(rows).toEqual([
+      { name: "default", apiKey: "legacy-key", isDefault: 1 },
+      { name: "work", apiKey: "work-key", isDefault: 0 },
+    ])
+    expect(harness.files.has(authPath)).toBe(false)
+    expect(harness.lines).toEqual([`Migrated auth profiles from ${authPath}.`])
+  })
+})
+
+describe("Auth.use", () => {
+  test("switches the default profile", async () => {
+    const rows = await runWithAuth(
+      makeAuthHarness({ profiles: twoProfiles }),
+      Effect.gen(function* useWork() {
         const auth = yield* Auth
         yield* auth.use("work")
+        return yield* storedProfiles
       }),
-      writes,
     )
 
-    const decoded = decodeWrite(writes)
-    expect(Result.isSuccess(decoded)).toBe(true)
-    if (Result.isSuccess(decoded)) {
-      expect(decoded.success.default).toBe("work")
-      expect(decoded.success.workspaces).toEqual({
-        default: { apiKey: "default-key" },
-        work: { apiKey: "work-key" },
-      })
-    }
+    expect(rows).toEqual([
+      { name: "default", apiKey: "default-key", isDefault: 0 },
+      { name: "work", apiKey: "work-key", isDefault: 1 },
+    ])
   })
 
-  test("logout removes one profile and keeps the others", async () => {
-    const files = new Map([
-      [authPath, profileFile({ default: "default-key", work: "work-key" }, "default")],
-    ])
-    const writes: WriteRecord[] = []
-    const removed = await runWithAuth(
-      { HOME: "/home/test" },
-      files,
-      Effect.gen(function* logout() {
+  test("fails for a missing profile and changes nothing", async () => {
+    const result = await runWithAuth(
+      makeAuthHarness({ profiles: twoProfiles }),
+      Effect.gen(function* useMissing() {
         const auth = yield* Auth
-        return yield* auth.logout("work")
+        const error = yield* Effect.flip(auth.use("nope"))
+        const rows = yield* storedProfiles
+        return { error, rows }
       }),
-      writes,
     )
 
-    expect(removed).toBe(true)
-    const decoded = decodeWrite(writes)
-    expect(Result.isSuccess(decoded)).toBe(true)
-    if (Result.isSuccess(decoded)) {
-      expect(decoded.success.default).toBe("default")
-      expect(decoded.success.workspaces).toEqual({ default: { apiKey: "default-key" } })
-    }
+    expect(result.error._tag).toBe("AuthStoreError")
+    expect(result.error.message).toContain("nope")
+    expect(result.rows).toEqual([
+      { name: "default", apiKey: "default-key", isDefault: 1 },
+      { name: "work", apiKey: "work-key", isDefault: 0 },
+    ])
+  })
+})
+
+describe("Auth.logout", () => {
+  test("removes one profile and keeps the others", async () => {
+    const result = await runWithAuth(
+      makeAuthHarness({ profiles: twoProfiles }),
+      Effect.gen(function* logoutWork() {
+        const auth = yield* Auth
+        const removed = yield* auth.logout("work")
+        const rows = yield* storedProfiles
+        return { removed, rows }
+      }),
+    )
+
+    expect(result.removed).toBe(true)
+    expect(result.rows).toEqual([{ name: "default", apiKey: "default-key", isDefault: 1 }])
+  })
+
+  test("reports a missing profile as not removed", async () => {
+    const result = await runWithAuth(
+      makeAuthHarness({ profiles: twoProfiles }),
+      Effect.gen(function* logoutMissing() {
+        const auth = yield* Auth
+        const removed = yield* auth.logout("nope")
+        const rows = yield* storedProfiles
+        return { removed, rows }
+      }),
+    )
+
+    expect(result.removed).toBe(false)
+    expect(result.rows).toHaveLength(2)
   })
 
   test("logging out the default profile leaves the remaining profiles without a default", async () => {
-    const files = new Map([
-      [authPath, profileFile({ default: "default-key", work: "work-key" }, "default")],
-    ])
     const error = await runWithAuth(
-      { HOME: "/home/test" },
-      files,
+      makeAuthHarness({ profiles: twoProfiles }),
       Effect.gen(function* logoutDefault() {
         const auth = yield* Auth
         yield* auth.require
@@ -226,5 +231,20 @@ describe("Auth", () => {
 
     expect(error._tag).toBe("AuthStoreError")
     expect(error.message).toContain("No default workspace")
+  })
+
+  test("logging out the last profile leaves the database empty", async () => {
+    const result = await runWithAuth(
+      makeAuthHarness({ profiles: [{ name: "default", apiKey: "default-key", isDefault: true }] }),
+      Effect.gen(function* logoutLast() {
+        const auth = yield* Auth
+        const removed = yield* auth.logout("default")
+        const rows = yield* storedProfiles
+        return { removed, rows }
+      }),
+    )
+
+    expect(result.removed).toBe(true)
+    expect(result.rows).toEqual([])
   })
 })

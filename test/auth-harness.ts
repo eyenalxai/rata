@@ -1,122 +1,102 @@
-import type { RepositorySeed } from "@test/database-harness"
+import type { ProfileSeed, RepositorySeed } from "@test/database-harness"
+import type { MemoryTree } from "@test/memory-file-system"
 
 import { databaseLayer } from "@test/database-harness"
-import { ConfigProvider, Effect, FileSystem, Layer, Path, Schema } from "effect"
+import { memoryFileSystem } from "@test/memory-file-system"
+import { recordingConsole } from "@test/recording-console"
+import { ConfigProvider, Console, Effect, Layer, Path } from "effect"
 
 import { Auth } from "@/config/auth"
 import { RepoConfigService } from "@/config/repo"
 import { RepositoryIdentity } from "@/config/repo-identity"
-
-type WriteRecord = {
-  readonly path: string
-  readonly content: string
-  readonly mode: number | undefined
-}
+import { Database } from "@/db/database"
+import { profiles } from "@/db/schema"
 
 const authPath = "/home/test/.config/rata/auth.json"
 
-const authFileJson = Schema.fromJsonString(
-  Schema.Struct({
-    default: Schema.optional(Schema.String),
-    workspaces: Schema.Record(Schema.String, Schema.Struct({ apiKey: Schema.String })),
-  }),
-)
-
 const profileFile = (workspaces: Record<string, string>, defaultName?: string): string => {
-  const profiles = Object.fromEntries(
+  const stored = Object.fromEntries(
     Object.entries(workspaces).map(([name, apiKey]) => [name, { apiKey }]),
   )
   return JSON.stringify(
     defaultName === undefined
-      ? { workspaces: profiles }
-      : { default: defaultName, workspaces: profiles },
+      ? { workspaces: stored }
+      : { default: defaultName, workspaces: stored },
   )
 }
 
-const makeFileSystem = (files: Map<string, string>, writes: WriteRecord[], modes: number[]) =>
-  FileSystem.layerNoop({
-    exists: (file) => Effect.succeed(files.has(file)),
-    readFileString: (file) => Effect.succeed(files.get(file) ?? ""),
-    makeDirectory: () => Effect.void,
-    writeFileString: (file, data, options) => {
-      writes.push({ path: file, content: data, mode: options?.mode })
-      files.set(file, data)
-      return Effect.void
-    },
-    chmod: (_file, mode) => {
-      modes.push(mode)
-      return Effect.void
-    },
-    remove: (file) => {
-      files.delete(file)
-      return Effect.void
-    },
-  })
+type AuthHarness = {
+  readonly env: Readonly<Record<string, string>>
+  readonly files: Map<string, string>
+  readonly lines: string[]
+  readonly profiles: readonly ProfileSeed[]
+  readonly repositories: readonly RepositorySeed[]
+}
 
-const testLayer = (
-  env: Record<string, string>,
-  files: Map<string, string>,
-  repositories: readonly RepositorySeed[],
-  writes: WriteRecord[] = [],
-  modes: number[] = [],
-) => {
-  const platform = Layer.mergeAll(makeFileSystem(files, writes, modes), Path.layer)
-  const database = databaseLayer(repositories)
+const makeAuthHarness = (overrides: Partial<AuthHarness> = {}): AuthHarness => ({
+  env: { HOME: "/home/test" },
+  files: new Map(),
+  lines: [],
+  profiles: [],
+  repositories: [],
+  ...overrides,
+})
+
+const runWithAuth = <A, E>(
+  harness: AuthHarness,
+  use: Effect.Effect<A, E, Auth | Database>,
+): Promise<A> => {
+  const tree: MemoryTree = { directories: [], files: harness.files }
+  const platform = Layer.mergeAll(memoryFileSystem(tree), Path.layer)
+  const database = databaseLayer(harness.repositories, harness.profiles)
   const identity = RepositoryIdentity.layer.pipe(Layer.provide(platform))
   const repoConfig = RepoConfigService.layer.pipe(
     Layer.provide(Layer.mergeAll(platform, database, identity)),
   )
-  return Layer.mergeAll(
-    Auth.layer.pipe(Layer.provide(Layer.mergeAll(repoConfig, platform))),
-    ConfigProvider.layer(ConfigProvider.fromEnvRecord(env)),
+  const auth = Auth.layer.pipe(Layer.provide(Layer.mergeAll(repoConfig, platform, database)))
+  return use.pipe(
+    Effect.provide(
+      Layer.mergeAll(
+        auth,
+        database,
+        ConfigProvider.layer(ConfigProvider.fromEnvRecord(harness.env)),
+      ),
+    ),
+    Effect.provideService(Console.Console, recordingConsole(harness.lines)),
+    Effect.runPromise,
   )
 }
 
-const runWithAuth = <A, E>(
-  env: Record<string, string>,
-  files: Map<string, string>,
-  effect: Effect.Effect<A, E, Auth>,
-  writes: WriteRecord[] = [],
-  modes: number[] = [],
-  repositories: readonly RepositorySeed[] = [],
-) =>
-  effect.pipe(Effect.provide(testLayer(env, files, repositories, writes, modes)), Effect.runPromise)
-
-const runResolve = (
-  env: Record<string, string>,
-  files: Map<string, string>,
-  repositories: readonly RepositorySeed[] = [],
-) =>
+const runResolve = (harness: AuthHarness) =>
   runWithAuth(
-    env,
-    files,
+    harness,
     Effect.gen(function* resolveAuth() {
       const auth = yield* Auth
       return yield* auth.resolve
     }),
-    [],
-    [],
-    repositories,
   )
 
-const runRequire = (
-  env: Record<string, string>,
-  files: Map<string, string>,
-  repositories: readonly RepositorySeed[] = [],
-) =>
+const runRequire = (harness: AuthHarness) =>
   runWithAuth(
-    env,
-    files,
+    harness,
     Effect.gen(function* requireAuth() {
       const auth = yield* Auth
       return yield* auth.require
     }).pipe(Effect.flip),
-    [],
-    [],
-    repositories,
   )
 
-const decodeWrite = (writes: WriteRecord[]) =>
-  Schema.decodeResult(authFileJson)(writes[0]?.content ?? "")
+const storedProfiles = Effect.gen(function* readStoredProfiles() {
+  const database = yield* Database
+  return yield* database.drizzle.select().from(profiles).orderBy(profiles.name).all()
+})
 
-export { authPath, decodeWrite, profileFile, runRequire, runResolve, runWithAuth, type WriteRecord }
+export {
+  authPath,
+  makeAuthHarness,
+  profileFile,
+  runRequire,
+  runResolve,
+  runWithAuth,
+  storedProfiles,
+  type AuthHarness,
+}

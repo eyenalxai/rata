@@ -1,3 +1,4 @@
+import type { ProfileSeed } from "@test/database-harness"
 import type { FakeViewer } from "@test/fake-linear-model"
 
 import { makeFakeLinear } from "@test/fake-linear"
@@ -9,7 +10,6 @@ import {
   linkTeam,
   makeHarness,
   options,
-  profileFile,
   rat,
   scratch,
 } from "@test/link-harness"
@@ -28,8 +28,10 @@ const bob: FakeViewer = {
 
 const noEnv = { HOME: "/home/test" }
 
-const profiles = () =>
-  new Map([[authPath, profileFile({ default: "default-key", work: "work-key" }, "default")]])
+const twoProfiles: readonly ProfileSeed[] = [
+  { name: "default", apiKey: "default-key", isDefault: true },
+  { name: "work", apiKey: "work-key" },
+]
 
 const twoWorkspaces = () => ({
   "default-key": { viewer: defaultViewer, teams: [rat] },
@@ -40,7 +42,7 @@ describe("LinkService.link workspace", () => {
   test("prompts for the workspace, then lists that workspace's teams", async () => {
     const harness = makeHarness({
       env: noEnv,
-      files: profiles(),
+      profiles: twoProfiles,
       ...interactive("2\nscr\n"),
     })
     const fake = makeFakeLinear({ teams: [rat], labels: [], workspaces: twoWorkspaces() })
@@ -75,7 +77,7 @@ describe("LinkService.link workspace", () => {
   test("re-prompts after an invalid workspace answer", async () => {
     const harness = makeHarness({
       env: noEnv,
-      files: profiles(),
+      profiles: twoProfiles,
       ...interactive("banana\n1\nRAT\n"),
     })
     const fake = makeFakeLinear({ teams: [rat], labels: [], workspaces: twoWorkspaces() })
@@ -91,7 +93,7 @@ describe("LinkService.link workspace", () => {
   })
 
   test("resolves --team across the stored workspaces and records the match", async () => {
-    const harness = makeHarness({ env: noEnv, files: profiles() })
+    const harness = makeHarness({ env: noEnv, profiles: twoProfiles })
     const fake = makeFakeLinear({ teams: [rat], labels: [], workspaces: twoWorkspaces() })
     const { result, stored } = await linkTeam(fake.handler, harness, options({}))
 
@@ -102,7 +104,7 @@ describe("LinkService.link workspace", () => {
   })
 
   test("fails when --team exists in several workspaces", async () => {
-    const harness = makeHarness({ env: noEnv, files: profiles() })
+    const harness = makeHarness({ env: noEnv, profiles: twoProfiles })
     const fake = makeFakeLinear({
       teams: [rat],
       labels: [],
@@ -124,7 +126,7 @@ describe("LinkService.link workspace", () => {
   test("creates a missing team in the resolved profile", async () => {
     const harness = makeHarness({
       env: noEnv,
-      files: profiles(),
+      profiles: twoProfiles,
       config: { workspace: "work" },
     })
     const fake = makeFakeLinear({ teams: [rat], labels: [], workspaces: twoWorkspaces() })
@@ -143,9 +145,10 @@ describe("LinkService.link workspace", () => {
   test("treats profiles with the same key as one workspace", async () => {
     const harness = makeHarness({
       env: noEnv,
-      files: new Map([
-        [authPath, profileFile({ default: "shared-key", work: "shared-key" }, "default")],
-      ]),
+      profiles: [
+        { name: "default", apiKey: "shared-key", isDefault: true },
+        { name: "work", apiKey: "shared-key" },
+      ],
     })
     const fake = makeFakeLinear({
       teams: [rat],
@@ -159,7 +162,7 @@ describe("LinkService.link workspace", () => {
   })
 
   test("skips the workspace prompt when LINEAR_API_KEY is set", async () => {
-    const harness = makeHarness({ files: profiles(), ...interactive("RAT\n") })
+    const harness = makeHarness({ profiles: twoProfiles, ...interactive("RAT\n") })
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
     const { result, stored } = await linkTeam(
       fake.handler,
@@ -174,7 +177,7 @@ describe("LinkService.link workspace", () => {
   })
 
   test("records --workspace in the repository config and uses its key", async () => {
-    const harness = makeHarness({ env: noEnv, files: profiles() })
+    const harness = makeHarness({ env: noEnv, profiles: twoProfiles })
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
     const { result, stored } = await linkTeam(
       fake.handler,
@@ -207,7 +210,7 @@ describe("LinkService.link workspace", () => {
   test("records --workspace over an existing config", async () => {
     const harness = makeHarness({
       env: noEnv,
-      files: profiles(),
+      profiles: twoProfiles,
       config: { team: "RAT", workspace: "personal" },
     })
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
@@ -221,7 +224,7 @@ describe("LinkService.link workspace", () => {
     expect(stored).toEqual(Option.some({ team: "RAT", workspace: "work" }))
   })
 
-  test("ignores a corrupt auth file when LINEAR_API_KEY is set", async () => {
+  test("ignores a corrupt legacy auth file when LINEAR_API_KEY is set", async () => {
     const harness = makeHarness({
       files: new Map([[authPath, "{ not json"]]),
     })
@@ -235,7 +238,7 @@ describe("LinkService.link workspace", () => {
   test("lists a profile with a rejected key in the prompt and links the others", async () => {
     const harness = makeHarness({
       env: noEnv,
-      files: profiles(),
+      profiles: twoProfiles,
       ...interactive("2\nSCR\n"),
     })
     const fake = makeFakeLinear({

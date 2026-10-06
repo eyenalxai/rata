@@ -1,4 +1,4 @@
-import type { RepositorySeed } from "@test/database-harness"
+import type { ProfileSeed, RepositorySeed } from "@test/database-harness"
 import type {
   FakeLabel,
   FakeProject,
@@ -234,6 +234,7 @@ type ApiLayerOptions = {
   readonly stdio?: Partial<Stdio.Stdio>
   readonly env?: Readonly<Record<string, string>>
   readonly repositories?: readonly RepositorySeed[]
+  readonly profiles?: readonly ProfileSeed[]
 }
 
 const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
@@ -251,12 +252,12 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
     makeDirectory: () => Effect.void,
   })
   const platform = Layer.mergeAll(fs, Path.layer, Stdio.layerTest(options.stdio ?? {}))
-  const database = databaseLayer(options.repositories)
+  const database = databaseLayer(options.repositories, options.profiles)
   const identity = RepositoryIdentity.layer.pipe(Layer.provide(platform))
   const repoConfig = RepoConfigService.layer.pipe(
     Layer.provide(Layer.mergeAll(platform, database, identity)),
   )
-  const auth = Auth.layer.pipe(Layer.provide(Layer.mergeAll(repoConfig, platform)))
+  const auth = Auth.layer.pipe(Layer.provide(Layer.mergeAll(repoConfig, platform, database)))
   const client = LinearClient.layer.pipe(
     Layer.provide(Layer.mergeAll(auth, Layer.succeed(HttpClient.HttpClient, http))),
   )

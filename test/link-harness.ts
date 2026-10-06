@@ -1,3 +1,4 @@
+import type { ProfileSeed } from "@test/database-harness"
 import type { Handler } from "@test/fake-linear-model"
 import type { Stdio } from "effect"
 
@@ -18,17 +19,6 @@ const rat = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Ang
 const scratch = { id: "team-2", key: "SCR", name: "Scratch", timezone: "America/Los_Angeles" }
 
 const authPath = "/home/test/.config/rata/auth.json"
-
-const profileFile = (workspaces: Record<string, string>, defaultName?: string): string => {
-  const profiles = Object.fromEntries(
-    Object.entries(workspaces).map(([name, apiKey]) => [name, { apiKey }]),
-  )
-  return JSON.stringify(
-    defaultName === undefined
-      ? { workspaces: profiles }
-      : { default: defaultName, workspaces: profiles },
-  )
-}
 
 const fakeTerminal = (input: readonly string[]): Terminal.Terminal => {
   let index = 0
@@ -53,6 +43,7 @@ const interactive = (input: string): Pick<Harness, "input" | "stdio"> => ({
 type Harness = {
   readonly config?: RepoConfig
   readonly files: Map<string, string>
+  readonly profiles: readonly ProfileSeed[]
   readonly stdio: Partial<Stdio.Stdio>
   readonly lines: string[]
   readonly env: Readonly<Record<string, string>>
@@ -61,6 +52,7 @@ type Harness = {
 
 const makeHarness = (overrides: Partial<Harness> = {}): Harness => ({
   files: new Map(),
+  profiles: [],
   stdio: {},
   lines: [],
   env: defaultEnv,
@@ -87,6 +79,7 @@ const provide = <A, E>(
     Effect.provide(
       apiLayer(handler, {
         files: harness.files,
+        profiles: harness.profiles,
         repositories:
           harness.config === undefined ? [] : [{ key: process.cwd(), ...harness.config }],
         stdio: harness.stdio,
@@ -133,7 +126,6 @@ export {
   linkTeam,
   makeHarness,
   options,
-  profileFile,
   rat,
   ratId,
   scratch,

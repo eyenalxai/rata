@@ -7,13 +7,6 @@ import { Effect, Result } from "effect"
 
 import { collectWorkspaces } from "@/cli/workspace"
 
-const authPath = "/home/test/.config/rata/auth.json"
-
-const authFile = JSON.stringify({
-  default: "good",
-  workspaces: { good: { apiKey: "good-key" }, bad: { apiKey: "bad-key" } },
-})
-
 const viewer = {
   id: "user-1",
   name: "Good User",
@@ -35,12 +28,17 @@ const handler: Handler = (request) => {
   return Response.json({ errors: [{ message: "Authentication required" }] }, { status: 401 })
 }
 
-const layer = apiLayer(handler, { files: new Map([[authPath, authFile]]) })
+const layer = apiLayer(handler, {
+  profiles: [
+    { name: "good", apiKey: "good-key", isDefault: true },
+    { name: "bad", apiKey: "bad-key" },
+  ],
+})
 
 describe("workspace list", () => {
   test("keeps the other profiles when one key is rejected", async () => {
     const entries = await collectWorkspaces().pipe(Effect.provide(layer), Effect.runPromise)
-    expect(entries.map((entry) => entry.name)).toEqual(["good", "bad"])
+    expect(entries.map((entry) => entry.name)).toEqual(["bad", "good"])
     const good = entries.find((entry) => entry.name === "good")
     const bad = entries.find((entry) => entry.name === "bad")
     if (good === undefined || bad === undefined) {

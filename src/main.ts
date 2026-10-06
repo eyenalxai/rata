@@ -23,7 +23,9 @@ const repoIdentityLayer = RepositoryIdentity.layer.pipe(Layer.provide(platformLa
 const repoConfigLayer = RepoConfigService.layer.pipe(
   Layer.provide(Layer.mergeAll(databaseLayer, repoIdentityLayer, platformLayer)),
 )
-const authLayer = Auth.layer.pipe(Layer.provide(Layer.mergeAll(repoConfigLayer, platformLayer)))
+const authLayer = Auth.layer.pipe(
+  Layer.provide(Layer.mergeAll(repoConfigLayer, databaseLayer, platformLayer)),
+)
 const clientLayer = LinearClient.layer.pipe(
   Layer.provide(authLayer),
   Layer.provide(FetchHttpClient.layer),

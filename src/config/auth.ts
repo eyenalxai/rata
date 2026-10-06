@@ -1,7 +1,9 @@
 import type { PlatformError } from "effect/PlatformError"
 
+import { eq } from "drizzle-orm"
 import {
   Config,
+  Console,
   Context,
   Effect,
   FileSystem,
@@ -14,35 +16,9 @@ import {
 } from "effect"
 
 import { currentDirectory, RepoConfigService } from "@/config/repo"
-
-const WorkspaceProfile = Schema.Struct({ apiKey: Schema.String })
-
-type WorkspaceProfile = typeof WorkspaceProfile.Type
-
-const AuthFile = Schema.Struct({
-  default: Schema.optional(Schema.String),
-  workspaces: Schema.Record(Schema.String, WorkspaceProfile),
-})
-
-type AuthFile = typeof AuthFile.Type
-
-const LegacyAuthFile = Schema.Struct({ apiKey: Schema.String })
-const StoredAuth = Schema.Union([AuthFile, LegacyAuthFile])
-
-type StoredAuth = typeof StoredAuth.Type
-
-const StoredAuthJson = Schema.fromJsonString(StoredAuth)
-const AuthFileJson = Schema.fromJsonString(AuthFile)
-const normalize = (stored: StoredAuth): AuthFile =>
-  "workspaces" in stored
-    ? stored
-    : { default: "default", workspaces: { default: { apiKey: stored.apiKey } } }
-
-const withoutProfile = (
-  profiles: Record<string, WorkspaceProfile>,
-  name: string,
-): Record<string, WorkspaceProfile> =>
-  Object.fromEntries(Object.entries(profiles).filter(([key]) => key !== name))
+import { Database } from "@/db/database"
+import { profiles } from "@/db/schema"
+import { normalize, StoredAuthJson } from "@/domain/auth"
 
 class AuthStoreError extends Schema.TaggedError<AuthStoreError>()("AuthStoreError", {
   message: Schema.String,
@@ -100,9 +76,14 @@ const describeStoreFailure =
   (cause: PlatformError): AuthStoreError =>
     new AuthStoreError({ message: `Could not ${action} ${target}.`, cause })
 
+const describeQueryFailure =
+  (action: string) =>
+  (cause: unknown): AuthStoreError =>
+    new AuthStoreError({ message: `Could not ${action} the stored profiles.`, cause })
+
 const noWorkspace = (workspace: string): AuthStoreError =>
   new AuthStoreError({
-    message: `No workspace named "${workspace}" in the auth file. Run \`rata auth login --workspace ${workspace} --with-token\` to add it.`,
+    message: `No workspace named "${workspace}" in the stored profiles. Run \`rata auth login --workspace ${workspace} --with-token\` to add it.`,
   })
 
 const readEnvKey = Config.Redacted("LINEAR_API_KEY").pipe(
@@ -114,22 +95,34 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
   static readonly layer = Layer.effect(
     Auth,
     Effect.gen(function* authLayer() {
+      const database = yield* Database
       const fs = yield* FileSystem.FileSystem
       const path = yield* Path.Path
       const repoConfig = yield* RepoConfigService
 
-      const storePath = makeConfigHome(path).pipe(
-        Effect.map((base) => path.join(base, "rata", "auth.json")),
-        Effect.withSpan("Auth.storePath"),
-      )
+      const storePath = Effect.succeed(database.file).pipe(Effect.withSpan("Auth.storePath"))
 
-      const readFile = Effect.fn("Auth.readFile")(function* readStoredAuth() {
-        const file = yield* storePath
+      const readRows = Effect.fn("Auth.readRows")(function* readStoredRows() {
+        return yield* database.drizzle
+          .select()
+          .from(profiles)
+          .orderBy(profiles.name)
+          .all()
+          .pipe(Effect.mapError(describeQueryFailure("read")))
+      })
+
+      const loadRows = Effect.fn("Auth.loadRows")(function* loadStoredRows() {
+        const stored = yield* readRows()
+        if (stored.length > 0) {
+          return stored
+        }
+        const base = yield* makeConfigHome(path)
+        const file = path.join(base, "rata", "auth.json")
         const exists = yield* fs
           .exists(file)
           .pipe(Effect.mapError(describeStoreFailure("read")(file)))
         if (!exists) {
-          return Option.none<AuthFile>()
+          return stored
         }
         const content = yield* fs
           .readFileString(file)
@@ -140,27 +133,22 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
             message: `The auth file at ${file} is not a valid auth file.`,
           })
         }
-        return Option.some(normalize(decoded.success))
-      })
-
-      const writeFile = Effect.fn("Auth.writeFile")(function* writeStoredAuth(file: AuthFile) {
-        const target = yield* storePath
-        const directory = path.dirname(target)
-        yield* fs
-          .makeDirectory(directory, { recursive: true })
-          .pipe(Effect.mapError(describeStoreFailure("create")(directory)))
-        const encoded = yield* Schema.encodeEffect(AuthFileJson)(file).pipe(
-          Effect.mapError(
-            () =>
-              new AuthStoreError({
-                message: `Could not encode the workspaces for ${target}.`,
-              }),
-          ),
-        )
-        yield* fs
-          .writeFileString(target, encoded, { mode: 0o600 })
-          .pipe(Effect.mapError(describeStoreFailure("write")(target)))
-        yield* fs.chmod(target, 0o600).pipe(Effect.mapError(describeStoreFailure("secure")(target)))
+        const legacy = normalize(decoded.success)
+        const rows = Object.entries(legacy.workspaces).map(([name, profile]) => ({
+          name,
+          apiKey: profile.apiKey,
+          isDefault: legacy.default === name ? 1 : 0,
+        }))
+        if (rows.length > 0) {
+          yield* database.drizzle
+            .insert(profiles)
+            .values(rows)
+            .run()
+            .pipe(Effect.mapError(describeQueryFailure("import")))
+        }
+        yield* fs.remove(file).pipe(Effect.mapError(describeStoreFailure("remove")(file)))
+        yield* Console.error(`Migrated auth profiles from ${file}.`)
+        return yield* readRows()
       })
 
       const envKey = readEnvKey.pipe(Effect.withSpan("Auth.envKey"))
@@ -181,43 +169,32 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
           ),
           (config) => Option.fromUndefinedOr(config.workspace),
         )
-        const stored = yield* readFile()
+        const stored = yield* loadRows()
         if (Option.isSome(requested)) {
           const name = requested.value
-          const profile = Option.flatMap(stored, (file) =>
-            Option.fromUndefinedOr(file.workspaces[name]),
-          )
-          if (Option.isNone(profile)) {
+          const profile = stored.find((row) => row.name === name)
+          if (profile === undefined) {
             return yield* noWorkspace(name)
           }
           return Option.some({
-            key: Redacted.make(profile.value.apiKey),
+            key: Redacted.make(profile.apiKey),
             source: "profile" as const,
             profile: Option.some(name),
           })
         }
-        const defaultName = Option.flatMap(stored, (file) => Option.fromUndefinedOr(file.default))
-        if (Option.isNone(defaultName)) {
-          if (Option.isSome(stored) && Object.keys(stored.value.workspaces).length > 0) {
+        const defaultProfile = stored.find((row) => row.isDefault === 1)
+        if (defaultProfile === undefined) {
+          if (stored.length > 0) {
             return yield* new AuthStoreError({
               message: "No default workspace. Run `rata workspace use <name>`.",
             })
           }
           return Option.none<ResolvedAuth>()
         }
-        const name = defaultName.value
-        const profile = Option.flatMap(stored, (file) =>
-          Option.fromUndefinedOr(file.workspaces[name]),
-        )
-        if (Option.isNone(profile)) {
-          return yield* new AuthStoreError({
-            message: `The default workspace "${name}" is not in the auth file. Run \`rata workspace use <name>\`.`,
-          })
-        }
         return Option.some({
-          key: Redacted.make(profile.value.apiKey),
+          key: Redacted.make(defaultProfile.apiKey),
           source: "profile" as const,
-          profile: Option.some(name),
+          profile: Option.some(defaultProfile.name),
         })
       })
 
@@ -240,58 +217,74 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
         apiKey: string,
         workspace: string,
       ) {
-        const stored = yield* readFile()
-        const file: AuthFile = Option.isSome(stored)
-          ? {
-              default: stored.value.default ?? workspace,
-              workspaces: { ...stored.value.workspaces, [workspace]: { apiKey } },
-            }
-          : { default: workspace, workspaces: { [workspace]: { apiKey } } }
-        yield* writeFile(file)
+        const stored = yield* loadRows()
+        const hasDefault = stored.some((row) => row.isDefault === 1)
+        const query = database.drizzle.insert(profiles).values({
+          name: workspace,
+          apiKey,
+          isDefault: hasDefault ? 0 : 1,
+        })
+        const upsert = hasDefault
+          ? query.onConflictDoUpdate({ target: profiles.name, set: { apiKey } })
+          : query.onConflictDoUpdate({ target: profiles.name, set: { apiKey, isDefault: 1 } })
+        yield* upsert.run().pipe(Effect.mapError(describeQueryFailure("write")))
       })
 
       const logout = Effect.fn("Auth.logout")(function* logoutStoredKey(workspace: string) {
-        const file = yield* storePath
-        const stored = yield* readFile()
-        if (Option.isNone(stored) || stored.value.workspaces[workspace] === undefined) {
-          return false
-        }
-        const workspaces = withoutProfile(stored.value.workspaces, workspace)
-        if (Object.keys(workspaces).length === 0) {
-          yield* fs.remove(file).pipe(Effect.mapError(describeStoreFailure("remove")(file)))
-          return true
-        }
-        const next: AuthFile =
-          stored.value.default === undefined || stored.value.default === workspace
-            ? { workspaces }
-            : { default: stored.value.default, workspaces }
-        yield* writeFile(next)
-        return true
+        yield* loadRows()
+        const removed = yield* database.drizzle
+          .delete(profiles)
+          .where(eq(profiles.name, workspace))
+          .returning()
+          .all()
+          .pipe(Effect.mapError(describeQueryFailure("remove")))
+        return removed.length > 0
       })
 
       const use = Effect.fn("Auth.use")(function* useWorkspace(workspace: string) {
-        const stored = yield* readFile()
-        if (Option.isNone(stored) || stored.value.workspaces[workspace] === undefined) {
+        const stored = yield* loadRows()
+        if (!stored.some((row) => row.name === workspace)) {
           return yield* noWorkspace(workspace)
         }
-        return yield* writeFile({ default: workspace, workspaces: stored.value.workspaces })
+        return yield* database.drizzle
+          .transaction((tx) =>
+            Effect.gen(function* setDefaultProfile() {
+              yield* tx
+                .update(profiles)
+                .set({ isDefault: 0 })
+                .where(eq(profiles.isDefault, 1))
+                .run()
+              yield* tx
+                .update(profiles)
+                .set({ isDefault: 1 })
+                .where(eq(profiles.name, workspace))
+                .run()
+            }),
+          )
+          .pipe(Effect.mapError(describeQueryFailure("write")))
       })
 
-      const profiles: Effect.Effect<readonly StoredProfile[], AuthStoreError> = Effect.gen(
-        function* listProfiles() {
-          const stored = yield* readFile()
-          if (Option.isNone(stored)) {
-            return []
-          }
-          return Object.entries(stored.value.workspaces).map(([name, profile]) => ({
-            name,
-            apiKey: Redacted.make(profile.apiKey),
-            isDefault: stored.value.default === name,
+      const profilesList: Effect.Effect<readonly StoredProfile[], AuthStoreError> = Effect.gen(
+        function* listStoredProfiles() {
+          const stored = yield* loadRows()
+          return stored.map((row) => ({
+            name: row.name,
+            apiKey: Redacted.make(row.apiKey),
+            isDefault: row.isDefault === 1,
           }))
         },
       ).pipe(Effect.withSpan("Auth.profiles"))
 
-      return Auth.of({ envKey, login, logout, profiles, require, resolve, storePath, use })
+      return Auth.of({
+        envKey,
+        login,
+        logout,
+        profiles: profilesList,
+        require,
+        resolve,
+        storePath,
+        use,
+      })
     }),
   )
 }
