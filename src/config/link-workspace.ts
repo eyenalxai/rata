@@ -1,6 +1,6 @@
 import type { Stdio } from "effect"
 
-import { Console, Effect, Option, Redacted } from "effect"
+import { Console, Effect, Option, Redacted, Result } from "effect"
 
 import type { LinearClient, Viewer } from "@/api/client"
 import type { LinearApiError } from "@/api/errors"
@@ -30,6 +30,12 @@ type ResolvedTargetDependencies = LinkTargetDependencies & {
   readonly nextLine: LineReader
 }
 
+type LinkInDependencies = {
+  readonly teams: TeamService["Service"]
+  readonly stdio: Stdio.Stdio
+  readonly nextLine: LineReader
+}
+
 type LinkTarget = {
   readonly team: Team
   readonly timezone: Option.Option<TimezoneChange>
@@ -41,7 +47,7 @@ type WorkspaceChoice = {
   readonly name: string
   readonly isDefault: boolean
   readonly apiKey: Redacted.Redacted
-  readonly viewer: Viewer
+  readonly viewer: Result.Result<Viewer, LinearApiError>
 }
 
 type ProfileMatch = {
@@ -52,8 +58,8 @@ type ProfileMatch = {
 const choiceOf = Effect.fn("LinkWorkspace.choice")(function* choiceOf(
   client: LinearClient["Service"],
   profile: StoredProfile,
-): Effect.fn.Return<WorkspaceChoice, LinearApiError> {
-  const viewer = yield* client.viewerWithKey(profile.apiKey)
+): Effect.fn.Return<WorkspaceChoice> {
+  const viewer = yield* Effect.result(client.viewerWithKey(profile.apiKey))
   return {
     name: profile.name,
     isDefault: profile.isDefault,
@@ -62,8 +68,13 @@ const choiceOf = Effect.fn("LinkWorkspace.choice")(function* choiceOf(
   }
 })
 
-const formatWorkspace = (choice: WorkspaceChoice, index: number): string =>
-  `  ${choice.isDefault ? "*" : " "} ${index + 1}. ${choice.name}  ${choice.viewer.name} <${choice.viewer.email}>  ${choice.viewer.organization.name}`
+const formatWorkspace = (choice: WorkspaceChoice, index: number): string => {
+  const marker = choice.isDefault ? "*" : " "
+  const viewer = choice.viewer
+  return Result.isSuccess(viewer)
+    ? `  ${marker} ${index + 1}. ${choice.name}  ${viewer.success.name} <${viewer.success.email}>  ${viewer.success.organization.name}`
+    : `  ${marker} ${index + 1}. ${choice.name}  ! ${viewer.failure.message}`
+}
 
 const promptForWorkspace = Effect.fn("LinkWorkspace.promptForWorkspace")(
   function* promptForWorkspace(nextLine: LineReader, choices: readonly WorkspaceChoice[]) {
@@ -109,6 +120,20 @@ const searchTeam = Effect.fn("LinkWorkspace.searchTeam")(function* searchTeam(
   return matches
 })
 
+const linkIn = Effect.fn("LinkWorkspace.linkIn")(function* linkIn(
+  apiKey: Redacted.Redacted,
+  workspace: Option.Option<string>,
+  options: LinkTargetOptions,
+  deps: LinkInDependencies,
+) {
+  const link = yield* resolveLinkTeam(options, {
+    teams: deps.teams.withKey(apiKey),
+    stdio: deps.stdio,
+    nextLine: deps.nextLine,
+  })
+  return { ...link, workspace, apiKey }
+})
+
 const resolveExplicitWorkspace = Effect.fn("LinkWorkspace.resolveExplicit")(
   function* resolveExplicit(
     name: string,
@@ -121,12 +146,7 @@ const resolveExplicitWorkspace = Effect.fn("LinkWorkspace.resolveExplicit")(
         message: `No workspace named "${name}" in the auth file. Run \`rata workspace list\` to see the profiles.`,
       })
     }
-    const link = yield* resolveLinkTeam(options, {
-      teams: deps.teams.withKey(profile.apiKey),
-      stdio: deps.stdio,
-      nextLine: deps.nextLine,
-    })
-    return { ...link, workspace: Option.some(name), apiKey: profile.apiKey }
+    return yield* linkIn(profile.apiKey, Option.some(name), options, deps)
   },
 )
 
@@ -164,12 +184,7 @@ const resolveAcrossProfiles = Effect.fn("LinkWorkspace.resolveAcrossProfiles")(
       })
     }
     const resolved = yield* deps.auth.require
-    const link = yield* resolveLinkTeam(options, {
-      teams: deps.teams.withKey(resolved.key),
-      stdio: deps.stdio,
-      nextLine: deps.nextLine,
-    })
-    return { ...link, workspace: resolved.profile, apiKey: resolved.key }
+    return yield* linkIn(resolved.key, resolved.profile, options, deps)
   },
 )
 
@@ -185,26 +200,31 @@ const resolveLinkTarget = Effect.fn("LinkWorkspace.resolve")(function* resolveLi
   | TeamNotFoundError
   | TeamUpdateError
 > {
-  const profiles = yield* deps.auth.profiles
   const envKey = yield* deps.auth.envKey
 
   return yield* Effect.scoped(
     Effect.gen(function* resolveWithInput() {
       const nextLine = yield* makeLineReader(deps.stdio)
-      const target: ResolvedTargetDependencies = { ...deps, profiles, nextLine }
 
       if (Option.isSome(options.workspace)) {
-        return yield* resolveExplicitWorkspace(options.workspace.value, options, target)
+        const profiles = yield* deps.auth.profiles
+        return yield* resolveExplicitWorkspace(options.workspace.value, options, {
+          ...deps,
+          profiles,
+          nextLine,
+        })
       }
 
       if (Option.isSome(envKey)) {
-        const link = yield* resolveLinkTeam(options, {
-          teams: deps.teams.withKey(envKey.value),
+        return yield* linkIn(envKey.value, Option.none(), options, {
+          teams: deps.teams,
           stdio: deps.stdio,
           nextLine,
         })
-        return { ...link, workspace: Option.none(), apiKey: envKey.value }
       }
+
+      const profiles = yield* deps.auth.profiles
+      const target: ResolvedTargetDependencies = { ...deps, profiles, nextLine }
 
       if (profiles.length > 0 && Option.isSome(options.team)) {
         return yield* resolveAcrossProfiles(options.team.value, options, target)
@@ -217,22 +237,12 @@ const resolveLinkTarget = Effect.fn("LinkWorkspace.resolve")(function* resolveLi
             choiceOf(deps.client, profile),
           )
           const choice = yield* promptForWorkspace(nextLine, choices)
-          const link = yield* resolveLinkTeam(options, {
-            teams: deps.teams.withKey(choice.apiKey),
-            stdio: deps.stdio,
-            nextLine,
-          })
-          return { ...link, workspace: Option.some(choice.name), apiKey: choice.apiKey }
+          return yield* linkIn(choice.apiKey, Option.some(choice.name), options, target)
         }
       }
 
       const resolved = yield* deps.auth.require
-      const link = yield* resolveLinkTeam(options, {
-        teams: deps.teams.withKey(resolved.key),
-        stdio: deps.stdio,
-        nextLine,
-      })
-      return { ...link, workspace: resolved.profile, apiKey: resolved.key }
+      return yield* linkIn(resolved.key, resolved.profile, options, target)
     }),
   )
 })

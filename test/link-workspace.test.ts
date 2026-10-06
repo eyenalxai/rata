@@ -1,6 +1,7 @@
 import type { FakeViewer } from "@test/fake-linear-model"
 
 import { makeFakeLinear } from "@test/fake-linear"
+import { defaultViewer } from "@test/fake-linear-model"
 import {
   authPath,
   configPath,
@@ -16,16 +17,6 @@ import {
 } from "@test/link-harness"
 import { describe, expect, test } from "bun:test"
 import { Effect, Option, Stream } from "effect"
-
-const ada: FakeViewer = {
-  id: "user-1",
-  name: "Ada",
-  displayName: "ada",
-  email: "ada@example.com",
-  active: true,
-  admin: true,
-  organization: { id: "org-1", name: "Acme", urlKey: "acme" },
-}
 
 const bob: FakeViewer = {
   id: "user-2",
@@ -43,7 +34,7 @@ const profiles = () =>
   new Map([[authPath, profileFile({ default: "default-key", work: "work-key" }, "default")]])
 
 const twoWorkspaces = () => ({
-  "default-key": { viewer: ada, teams: [rat] },
+  "default-key": { viewer: defaultViewer, teams: [rat] },
   "work-key": { viewer: bob, teams: [scratch] },
 })
 
@@ -122,7 +113,7 @@ describe("InitService.link workspace", () => {
       teams: [rat],
       labels: [],
       workspaces: {
-        "default-key": { viewer: ada, teams: [rat] },
+        "default-key": { viewer: defaultViewer, teams: [rat] },
         "work-key": { viewer: bob, teams: [rat] },
       },
     })
@@ -167,7 +158,7 @@ describe("InitService.link workspace", () => {
     const fake = makeFakeLinear({
       teams: [rat],
       labels: [],
-      workspaces: { "shared-key": { viewer: ada, teams: [rat] } },
+      workspaces: { "shared-key": { viewer: defaultViewer, teams: [rat] } },
     })
     const result = await linkTeam(fake.handler, harness, options({}))
 
@@ -240,5 +231,42 @@ describe("InitService.link workspace", () => {
       "create",
     ])
     expect(readConfig(harness.files)).toEqual({ team: "RAT", workspace: "work" })
+  })
+
+  test("ignores a corrupt auth file when LINEAR_API_KEY is set", async () => {
+    const harness = makeHarness({
+      files: new Map([[authPath, "{ not json"]]),
+    })
+    const fake = makeFakeLinear({ teams: [rat], labels: [] })
+    const result = await linkTeam(fake.handler, harness, options({}))
+
+    expect(result.team).toEqual(rat)
+    expect(readConfig(harness.files)).toEqual({ team: "RAT" })
+  })
+
+  test("lists a profile with a rejected key in the prompt and links the others", async () => {
+    const harness = makeHarness({
+      env: noEnv,
+      files: profiles(),
+      stdio: interactive("2\nSCR\n"),
+    })
+    const fake = makeFakeLinear({
+      teams: [rat],
+      labels: [],
+      workspaces: twoWorkspaces(),
+      rejectedKeys: ["default-key"],
+    })
+    const result = await linkTeam(fake.handler, harness, options({ team: Option.none() }))
+
+    expect(result.team).toEqual(scratch)
+    expect(readConfig(harness.files)).toEqual({ team: "SCR", workspace: "work" })
+    expect(harness.lines.some((line) => line.includes("1. default") && line.includes("!"))).toBe(
+      true,
+    )
+    expect(
+      harness.lines.some(
+        (line) => line.includes("work") && line.includes("Bob") && line.includes("Globex"),
+      ),
+    ).toBe(true)
   })
 })

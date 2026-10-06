@@ -301,8 +301,8 @@ workspace:
   `.rata.json`, or the default profile.
 
 When `LINEAR_API_KEY` is set, the environment key is the only target: `link`
-ignores the stored profiles and records no workspace. An explicit `--workspace`
-still selects that profile.
+ignores the stored profiles. It keeps a `workspace` already recorded in
+`.rata.json`. An explicit `--workspace` still selects that profile.
 
 `link` writes `.rata.json`, installs `docs/agents/issue-tracker.md`,
 `docs/agents/triage-labels.md` and `docs/agents/domain.md`, updates the

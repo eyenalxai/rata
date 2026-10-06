@@ -30,7 +30,8 @@
 
 The API key is resolved in order: `LINEAR_API_KEY`, the repository `workspace`
 from `.rata.json`, the `default` profile. `rata link --workspace <name>` selects
-that profile directly, also when `LINEAR_API_KEY` is set.
+that profile directly, also when `LINEAR_API_KEY` is set. With `LINEAR_API_KEY`
+set, `rata link` ignores the stored profiles but keeps the recorded `workspace`.
 
 ## Teams, projects, labels
 

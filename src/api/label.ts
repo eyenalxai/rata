@@ -137,10 +137,7 @@ class LabelService extends Context.Service<LabelService, LabelServiceShape>()(
       const client = yield* LinearClient
       return LabelService.of({
         ...makeLabelOperations(client.execute),
-        withKey: (apiKey) =>
-          makeLabelOperations((query, variables, data) =>
-            client.executeWithKey(apiKey, query, variables, data),
-          ),
+        withKey: (apiKey) => makeLabelOperations(client.withKey(apiKey).execute),
       })
     }),
   )

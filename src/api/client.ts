@@ -68,6 +68,7 @@ type LinearClientShape = {
     variables: Record<string, unknown>,
     data: S,
   ) => Effect.Effect<S["Type"], LinearApiError>
+  readonly withKey: (apiKey: Redacted.Redacted) => LinearClientShape
   readonly viewer: Effect.Effect<Viewer, LinearApiError>
   readonly viewerWithKey: (apiKey: Redacted.Redacted) => Effect.Effect<Viewer, LinearApiError>
 }
@@ -194,13 +195,16 @@ const makeClient = (
     Effect.withSpan("LinearClient.viewer"),
   )
 
+  const withKey = (apiKey: Redacted.Redacted): LinearClientShape =>
+    makeClient(http, Effect.succeed(apiKey))
+
   const viewerWithKey = (apiKey: Redacted.Redacted) =>
     executeWithKey(apiKey, viewerQuery, {}, Schema.Struct({ viewer: Viewer })).pipe(
       Effect.map((data) => data.viewer),
       Effect.withSpan("LinearClient.viewerWithKey"),
     )
 
-  return { execute, executeWithKey, viewer, viewerWithKey }
+  return { execute, executeWithKey, viewer, viewerWithKey, withKey }
 }
 
 class LinearClient extends Context.Service<LinearClient, LinearClientShape>()(

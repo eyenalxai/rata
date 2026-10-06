@@ -80,24 +80,23 @@ const makeLineReader = Effect.fnUntraced(function* makeLineReader(stdio: Stdio.S
   return nextLine
 })
 
-const promptForChoice = <A>(
+const promptForChoice = Effect.fn("LinkTeam.promptForChoice")(function* promptForChoice<A>(
   nextLine: LineReader,
   input: PromptInput<A>,
-): Effect.Effect<A, LinkError> =>
-  Effect.gen(function* readChoice() {
-    let attempt = 0
-    while (attempt < maxPromptAttempts) {
-      yield* Console.log(input.question)
-      const answer = yield* nextLine()
-      const selected = input.parse(answer)
-      if (Option.isSome(selected)) {
-        return selected.value
-      }
-      yield* Console.log(input.invalidMessage(answer))
-      attempt += 1
+) {
+  let attempt = 0
+  while (attempt < maxPromptAttempts) {
+    yield* Console.log(input.question)
+    const answer = yield* nextLine()
+    const selected = input.parse(answer)
+    if (Option.isSome(selected)) {
+      return selected.value
     }
-    return yield* new LinkError({ message: input.failureMessage })
-  })
+    yield* Console.log(input.invalidMessage(answer))
+    attempt += 1
+  }
+  return yield* new LinkError({ message: input.failureMessage })
+})
 
 const promptForTeam = Effect.fn("LinkTeam.promptForTeam")(function* promptForTeam(
   deps: LinkTeamDependencies,

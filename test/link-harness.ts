@@ -2,6 +2,7 @@ import type { Handler } from "@test/fake-linear-model"
 import type { Stdio } from "effect"
 
 import { apiLayer } from "@test/fake-linear"
+import { defaultEnv } from "@test/fake-linear-model"
 import { recordingConsole } from "@test/recording-console"
 import { Console, Effect, Option } from "effect"
 
@@ -18,8 +19,6 @@ const scratch = { id: "team-2", key: "SCR", name: "Scratch", timezone: "America/
 const configPath = () => `${process.cwd()}/.rata.json`
 
 const authPath = "/home/test/.config/rata/auth.json"
-
-const defaultEnv = { HOME: "/home/test", LINEAR_API_KEY: "test-key" }
 
 const profileFile = (workspaces: Record<string, string>, defaultName?: string): string => {
   const profiles = Object.fromEntries(
@@ -99,7 +98,6 @@ const readConfig = (files: Map<string, string>): unknown =>
 export {
   authPath,
   configPath,
-  defaultEnv,
   encode,
   linkError,
   linkTeam,

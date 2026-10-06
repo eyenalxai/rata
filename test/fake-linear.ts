@@ -9,13 +9,14 @@ import type {
 } from "@test/fake-linear-model"
 
 import {
+  defaultEnv,
   defaultViewer,
   inputOf,
   jsonResponse,
   readRequest,
   stringField,
 } from "@test/fake-linear-model"
-import { ConfigProvider, Effect, FileSystem, Layer, Option, Path, Stdio } from "effect"
+import { ConfigProvider, Effect, FileSystem, Layer, Path, Stdio } from "effect"
 import { HttpClient, HttpClientResponse } from "effect/http"
 
 import { LinearClient } from "@/api/client"
@@ -161,6 +162,7 @@ const makeFakeLinear = (seed: {
   readonly labels: readonly FakeLabel[]
   readonly projects?: readonly FakeProject[]
   readonly workspaces?: Readonly<Record<string, FakeWorkspace>>
+  readonly rejectedKeys?: readonly string[]
 }) => {
   const labels = [...seed.labels]
   const teams = [...seed.teams]
@@ -175,10 +177,14 @@ const makeFakeLinear = (seed: {
       },
     ]),
   )
+  const rejectedKeys = new Set(seed.rejectedKeys)
   const requests: GraphQLRequest[] = []
   const handler: Handler = (request) => {
     const graphql = readRequest(request)
-    const apiKey = Option.getOrUndefined(Option.fromUndefinedOr(request.headers.authorization))
+    const apiKey = request.headers.authorization
+    if (apiKey !== undefined && rejectedKeys.has(apiKey)) {
+      return jsonResponse({ errors: [{ message: "Authentication required" }] }, 401)
+    }
     requests.push(apiKey === undefined ? graphql : { ...graphql, authorization: apiKey })
     const scoped = apiKey === undefined ? undefined : workspaces.get(apiKey)
     const state: FakeState = {
@@ -194,8 +200,6 @@ const makeFakeLinear = (seed: {
   }
   return { handler, requests }
 }
-
-const defaultEnv = { HOME: "/home/test", LINEAR_API_KEY: "test-key" }
 
 const configLayer = (env: Readonly<Record<string, string>>) =>
   ConfigProvider.layer(ConfigProvider.fromEnvRecord(env))

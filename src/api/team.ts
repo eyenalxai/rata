@@ -266,10 +266,7 @@ class TeamService extends Context.Service<TeamService, TeamServiceShape>()(
       const client = yield* LinearClient
       return TeamService.of({
         ...makeTeamOperations(client.execute),
-        withKey: (apiKey) =>
-          makeTeamOperations((query, variables, data) =>
-            client.executeWithKey(apiKey, query, variables, data),
-          ),
+        withKey: (apiKey) => makeTeamOperations(client.withKey(apiKey).execute),
       })
     }),
   )

@@ -52,6 +52,8 @@ type FakeWorkspace = {
   readonly labels?: readonly FakeLabel[]
 }
 
+const defaultEnv = { HOME: "/home/test", LINEAR_API_KEY: "test-key" }
+
 const defaultViewer: FakeViewer = {
   id: "user-1",
   name: "Ada",
@@ -94,6 +96,7 @@ const stringField = (record: Record<string, unknown>, name: string): string => {
 }
 
 export {
+  defaultEnv,
   defaultViewer,
   type FakeLabel,
   type FakeProject,
