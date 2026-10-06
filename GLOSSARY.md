@@ -20,6 +20,8 @@ they explore the codebase. Use these terms; do not drift to synonyms.
   example `Triage`, `Backlog`, `Todo`, `In Progress`, `Done`, `Canceled`. Each
   state has a **state type**: `triage`, `backlog`, `unstarted`, `started`,
   `completed`, `canceled`. Avoid: status.
+- **Open** / **closed**: an issue is **open** when its state type is not
+  `completed` and not `canceled`; otherwise it is **closed**.
 - **Label**: a Linear label attached to an issue. A label is **team-scoped** or
   **workspace-scoped**. A workspace-scoped label has no team and every team can
   use it. The triage roles are labels.
