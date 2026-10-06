@@ -35,6 +35,14 @@ import { TeamResolutionError, TeamService } from "@/api/team"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
 import { isUuid } from "@/domain/ref"
 
+const unwrapProjectArchive = <E>(
+  payload: { readonly success: boolean; readonly entity: Project | null },
+  failure: () => E,
+): Effect.Effect<ProjectIdentity, E> =>
+  payload.success && payload.entity !== null
+    ? Effect.succeed({ id: payload.entity.id, name: payload.entity.name })
+    : Effect.fail(failure())
+
 type ProjectServiceShape = {
   readonly list: (options: ProjectListOptions) => Effect.Effect<Connection<Project>, LinearApiError>
   readonly resolve: (
@@ -170,13 +178,14 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
           { id: project.id },
           Schema.Struct({ projectDelete: ProjectArchivePayload }),
         )
-        if (!data.projectDelete.success || data.projectDelete.entity === null) {
-          return yield* new ProjectDeleteError({
-            name: project.name,
-            message: `Linear did not delete the project ${project.name}.`,
-          })
-        }
-        return { id: data.projectDelete.entity.id, name: data.projectDelete.entity.name }
+        return yield* unwrapProjectArchive(
+          data.projectDelete,
+          () =>
+            new ProjectDeleteError({
+              name: project.name,
+              message: `Linear did not delete the project ${project.name}.`,
+            }),
+        )
       })
 
       const restoreProject = Effect.fn("ProjectService.restore")(function* restoreProject(
@@ -187,13 +196,14 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
           { id: project.id },
           Schema.Struct({ projectUnarchive: ProjectArchivePayload }),
         )
-        if (!data.projectUnarchive.success || data.projectUnarchive.entity === null) {
-          return yield* new ProjectRestoreError({
-            name: project.name,
-            message: `Linear did not restore the project ${project.name}.`,
-          })
-        }
-        return { id: data.projectUnarchive.entity.id, name: data.projectUnarchive.entity.name }
+        return yield* unwrapProjectArchive(
+          data.projectUnarchive,
+          () =>
+            new ProjectRestoreError({
+              name: project.name,
+              message: `Linear did not restore the project ${project.name}.`,
+            }),
+        )
       })
 
       const create = Effect.fn("ProjectService.create")(function* createProject(
