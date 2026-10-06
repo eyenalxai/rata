@@ -3,7 +3,12 @@ import { Context, Effect, Layer, Option, Schema } from "effect"
 import type { LinearApiError } from "@/api/errors"
 import type { Connection } from "@/api/pagination"
 import type { ProjectAlreadyDeletedError, ProjectNotDeletedError } from "@/api/project/errors"
-import type { ProjectCreateOptions, ProjectIdentity, ProjectListOptions } from "@/api/project/model"
+import type {
+  Project,
+  ProjectCreateOptions,
+  ProjectIdentity,
+  ProjectListOptions,
+} from "@/api/project/model"
 import type { TeamNotFoundError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
 
@@ -18,12 +23,7 @@ import {
   ProjectNotFoundError,
   ProjectRestoreError,
 } from "@/api/project/errors"
-import {
-  Project,
-  ProjectArchivePayload,
-  ProjectConnection,
-  ProjectCreatePayload,
-} from "@/api/project/model"
+import { ProjectArchivePayload, ProjectConnection, ProjectCreatePayload } from "@/api/project/model"
 import {
   listProjectsQuery,
   projectByIdQuery,
@@ -109,10 +109,10 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
       ) {
         const data = yield* client.execute(
           projectByIdQuery,
-          { id },
-          Schema.Struct({ project: Project }),
+          { id, includeArchived: true },
+          Schema.Struct({ projects: ProjectConnection }),
         )
-        return data.project
+        return data.projects.nodes[0]
       })
 
       const allByName = Effect.fn("ProjectService.allByName")(function* allByName(name: string) {
@@ -133,6 +133,12 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
         const wantTrashed = state === "trashed"
         if (isUuid(ref)) {
           const project = yield* projectById(ref)
+          if (project === undefined) {
+            return yield* new ProjectNotFoundError({
+              ref,
+              message: `No project with id ${ref}. Run \`rata project list\` to see the projects.`,
+            })
+          }
           if (project.trashed !== wantTrashed) {
             return yield* Effect.fail(wrongState(project))
           }

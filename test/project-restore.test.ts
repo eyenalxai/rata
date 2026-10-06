@@ -67,7 +67,7 @@ describe("ProjectService.resolveTrashed", () => {
     const found = await run(fake.handler, resolveTrashedProject(id))
     expect(found).toEqual({ ...tracker, id, trashed: true })
     const byId = fake.requests.find((request) => request.query.includes("query ProjectById"))
-    expect(byId?.variables).toEqual({ id })
+    expect(byId?.variables).toEqual({ id, includeArchived: true })
     expect(fake.requests.some((request) => request.query.includes("query Projects"))).toBe(false)
   })
 

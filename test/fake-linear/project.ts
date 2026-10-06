@@ -66,11 +66,11 @@ const handleProjectQuery = (
   }
   if (graphql.query.includes("query ProjectById")) {
     const id = graphql.variables.id
-    const project = projects.find((item) => item.id === id)
-    if (project === undefined) {
-      return jsonResponse({ errors: [{ message: `Entity not found: project ${String(id)}` }] })
-    }
-    return jsonResponse({ data: { project: withTrashed(project) } })
+    const includeArchived = graphql.variables.includeArchived === true
+    const visible = projects
+      .filter((project) => project.id === id && (includeArchived || project.trashed !== true))
+      .map(withTrashed)
+    return jsonResponse({ data: { projects: paginate(visible, graphql.variables) } })
   }
   return undefined
 }

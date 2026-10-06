@@ -23,8 +23,10 @@ const projectCreateMutation = `mutation ProjectCreate($input: ProjectCreateInput
   }
 }`
 
-const projectByIdQuery = `query ProjectById($id: String!) {
-  project(id: $id) {${projectFields}
+const projectByIdQuery = `query ProjectById($id: ID!, $includeArchived: Boolean) {
+  projects(first: 1, filter: { id: { eq: $id } }, includeArchived: $includeArchived) {
+    nodes {${projectFields}
+    }
   }
 }`
 

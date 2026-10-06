@@ -88,8 +88,16 @@ describe("ProjectService.resolve", () => {
     )
     expect(found).toEqual({ ...tracker, trashed: false })
     const byId = fake.requests.find((request) => request.query.includes("query ProjectById"))
-    expect(byId?.variables).toEqual({ id })
+    expect(byId?.variables).toEqual({ id, includeArchived: true })
     expect(fake.requests.some((request) => request.query.includes("query Projects"))).toBe(false)
+  })
+
+  test("fails with the project list hint when no project matches the UUID", async () => {
+    const id = "0f8fad5b-d9cb-469f-a165-70867728950e"
+    const fake = makeFakeLinear({ teams: [], labels: [] })
+    const error = await run(fake.handler, resolveProject(id).pipe(Effect.flip))
+    expect(error._tag).toBe("ProjectNotFoundError")
+    expect(error.message).toContain("project list")
   })
 
   test("fails when no project matches the name", async () => {
