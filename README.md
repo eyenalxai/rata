@@ -512,6 +512,7 @@ rata issue create --title "Fix login" --team RAT --label ready-for-agent --prior
 rata issue comment RAT-42 --body "Looks good."
 printf 'From a pipe' | rata issue update RAT-42 --body-file -
 rata issue update RAT-42 --state "In Progress" --assignee me
+rata issue update RAT-42 --priority high
 rata issue label add RAT-42 ready-for-agent bug
 rata issue label remove RAT-42 needs-triage
 rata issue close RAT-42 --comment "Done in PR #12"
@@ -527,7 +528,7 @@ rata issue unlink RAT-43 --blocked-by RAT-42
 | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | `issue create`                        | `--title` (required), `--body`, `--body-file`, `--team`, `--label` (repeatable), `--parent`, `--project`, `--state`, `--assignee`, `--priority` |
 | `issue comment <ref>`                 | `--body`, `--body-file` (one is required)                                                                                                       |
-| `issue update <ref>`                  | `--title`, `--body`, `--body-file`, `--state`, `--assignee`, `--project`, `--parent`                                                            |
+| `issue update <ref>`                  | `--title`, `--body`, `--body-file`, `--state`, `--assignee`, `--project`, `--parent`, `--priority`                                              |
 | `issue label add <ref> <label...>`    | label names                                                                                                                                     |
 | `issue label remove <ref> <label...>` | label names                                                                                                                                     |
 | `issue close <ref>`                   | `--comment`, `--comment-file`                                                                                                                   |

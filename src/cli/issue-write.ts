@@ -134,6 +134,7 @@ const updateCommand = Command.make(
     assignee: optionalText("assignee", "Assignee: `me` or a user id"),
     project: optionalText("project", "Project id or name"),
     parent: optionalText("parent", "Parent issue reference"),
+    priority: optionalText("priority", "Priority: none, urgent, high, medium, low, or 0-4"),
     json: jsonFlag,
   },
   (config) =>
@@ -143,6 +144,12 @@ const updateCommand = Command.make(
         config.body,
         config.bodyFile,
       )
+      const priorityText = Option.getOrUndefined(config.priority)
+      const parsedPriority = priorityText === undefined ? undefined : parsePriority(priorityText)
+      if (parsedPriority !== undefined && Result.isFailure(parsedPriority)) {
+        return yield* errorLine(1, parsedPriority.failure)
+      }
+      const priority = parsedPriority === undefined ? undefined : Result.getOrThrow(parsedPriority)
       const options = {
         title: Option.getOrUndefined(config.title),
         body: Option.getOrUndefined(body),
@@ -150,11 +157,12 @@ const updateCommand = Command.make(
         assignee: Option.getOrUndefined(config.assignee),
         project: Option.getOrUndefined(config.project),
         parent: Option.getOrUndefined(config.parent),
+        priority,
       }
       if (Object.values(options).every((value) => value === undefined)) {
         return yield* errorLine(
           1,
-          "Pass at least one of --title, --body, --state, --assignee, --project or --parent.",
+          "Pass at least one of --title, --body, --state, --assignee, --project, --parent or --priority.",
         )
       }
       const api = yield* IssueWriteApi
@@ -170,6 +178,10 @@ const updateCommand = Command.make(
     {
       command: 'rata issue update RAT-42 --state "In Progress" --assignee me',
       description: "Move an issue to a state and claim it",
+    },
+    {
+      command: "rata issue update RAT-42 --priority high",
+      description: "Set the priority",
     },
   ]),
 )

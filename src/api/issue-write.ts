@@ -116,6 +116,9 @@ class IssueWriteApi extends Context.Service<IssueWriteApi, IssueWriteApiShape>()
         if (options.parent !== undefined) {
           input.parentId = yield* resolvers.resolveIssueId(options.parent)
         }
+        if (options.priority !== undefined) {
+          input.priority = options.priority
+        }
         const data = yield* client.execute(
           updateIssueMutation,
           { id: issueId, input },

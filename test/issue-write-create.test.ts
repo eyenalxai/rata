@@ -225,6 +225,34 @@ describe("IssueWriteApi create payload", () => {
   })
 })
 
+describe("IssueWriteApi update payload", () => {
+  test("sends the priority number", async () => {
+    const recorder = updateHandler()
+    await run(
+      recorder.handler,
+      Effect.gen(function* updateIssue() {
+        const api = yield* IssueWriteApi
+        return yield* api.update("RAT-1", { priority: 2 })
+      }),
+    )
+    const update = requestOf(recorder, "mutation UpdateIssue")
+    expect(inputOf(update?.variables ?? {})).toEqual({ priority: 2 })
+  })
+
+  test("sends an explicit 0 for none instead of dropping it", async () => {
+    const recorder = updateHandler()
+    await run(
+      recorder.handler,
+      Effect.gen(function* updateIssue() {
+        const api = yield* IssueWriteApi
+        return yield* api.update("RAT-1", { priority: 0 })
+      }),
+    )
+    const update = requestOf(recorder, "mutation UpdateIssue")
+    expect(inputOf(update?.variables ?? {})).toEqual({ priority: 0 })
+  })
+})
+
 describe("IssueWriteApi unassign", () => {
   test("sends assigneeId null instead of omitting the field", async () => {
     const recorder = updateHandler()

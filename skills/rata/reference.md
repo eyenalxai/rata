@@ -126,7 +126,8 @@ creation time.
 ### `issue update` flags
 
 `--title`, `--body` / `--body-file -`, `--state`, `--assignee`, `--project`,
-`--parent`.
+`--parent`, `--priority`. The priority values are the same as `issue create`,
+and `none` clears the priority.
 
 ### `issue link` and `issue unlink` flags
 

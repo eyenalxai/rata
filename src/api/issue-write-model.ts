@@ -71,6 +71,7 @@ type IssueUpdateOptions = {
   readonly assignee?: string | undefined
   readonly project?: string | undefined
   readonly parent?: string | undefined
+  readonly priority?: number | undefined
 }
 
 type IssueRelationChanges = {
