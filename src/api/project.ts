@@ -114,27 +114,35 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
         return all.filter((project) => project.name.toLowerCase() === name.toLowerCase())
       })
 
-      const resolve = Effect.fn("ProjectService.resolve")(function* resolveProject(ref: string) {
+      const resolveProject = Effect.fn("ProjectService.resolveProject")(function* resolveProject<E>(
+        ref: string,
+        state: "live" | "trashed",
+        wrongState: (project: Project) => E,
+      ): Effect.fn.Return<
+        Project,
+        LinearApiError | ProjectNotFoundError | ProjectNameAmbiguousError | E
+      > {
+        const wantTrashed = state === "trashed"
         if (isUuid(ref)) {
           const project = yield* projectById(ref)
-          if (project.trashed) {
-            return yield* alreadyDeletedError(project)
+          if (project.trashed !== wantTrashed) {
+            return yield* Effect.fail(wrongState(project))
           }
           return project
         }
         const matches = yield* allByName(ref)
-        const live = matches.filter((project) => !project.trashed)
-        if (live.length > 1) {
+        const wanted = matches.filter((project) => project.trashed === wantTrashed)
+        if (wanted.length > 1) {
           return yield* new ProjectNameAmbiguousError({
             name: ref,
-            message: `More than one live project is named ${ref}. Pass the project UUID instead.`,
+            message: `More than one ${state} project is named ${ref}. Pass the project UUID instead.`,
           })
         }
-        const match = live[0]
+        const match = wanted[0]
         if (match === undefined) {
-          const deleted = matches[0]
-          if (deleted !== undefined) {
-            return yield* alreadyDeletedError(deleted)
+          const other = matches[0]
+          if (other !== undefined) {
+            return yield* Effect.fail(wrongState(other))
           }
           return yield* new ProjectNotFoundError({
             ref,
@@ -144,35 +152,13 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
         return match
       })
 
+      const resolve = Effect.fn("ProjectService.resolve")(function* resolveLive(ref: string) {
+        return yield* resolveProject(ref, "live", alreadyDeletedError)
+      })
+
       const resolveTrashed = Effect.fn("ProjectService.resolveTrashed")(
         function* resolveTrashedProject(ref: string) {
-          if (isUuid(ref)) {
-            const project = yield* projectById(ref)
-            if (!project.trashed) {
-              return yield* notDeletedError(project)
-            }
-            return project
-          }
-          const matches = yield* allByName(ref)
-          const trashed = matches.filter((project) => project.trashed)
-          if (trashed.length > 1) {
-            return yield* new ProjectNameAmbiguousError({
-              name: ref,
-              message: `More than one trashed project is named ${ref}. Pass the project UUID instead.`,
-            })
-          }
-          const match = trashed[0]
-          if (match === undefined) {
-            const live = matches[0]
-            if (live !== undefined) {
-              return yield* notDeletedError(live)
-            }
-            return yield* new ProjectNotFoundError({
-              ref,
-              message: `No project named ${ref}. Run \`rata project list\` to see the projects.`,
-            })
-          }
-          return match
+          return yield* resolveProject(ref, "trashed", notDeletedError)
         },
       )
 
