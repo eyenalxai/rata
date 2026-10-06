@@ -1,9 +1,10 @@
 import { Effect, Option } from "effect"
-import { Command, Flag } from "effect/cli"
+import { Argument, Command, Flag } from "effect/cli"
 import { EOL } from "node:os"
 
 import { maxPageSize } from "@/api/pagination"
 import { ProjectService } from "@/api/project"
+import { confirm } from "@/cli/confirm"
 import { nextPageHint, reportFailure, validatePageSize, writeJson, writeLine } from "@/cli/output"
 
 const jsonFlag = Flag.Boolean("json").pipe(
@@ -101,9 +102,50 @@ const createCommand = Command.make(
   ]),
 )
 
+const deleteCommand = Command.make(
+  "delete",
+  {
+    ref: Argument.String("ref").pipe(Argument.withDescription("Project name or UUID")),
+    yes: Flag.Boolean("yes").pipe(
+      Flag.withDescription("Skip the confirmation prompt"),
+      Flag.withDefault(false),
+    ),
+    json: jsonFlag,
+  },
+  (config) =>
+    Effect.gen(function* deleteProject() {
+      const projects = yield* ProjectService
+      const project = yield* projects.resolve(config.ref)
+      const confirmed = yield* confirm(
+        `Delete project ${project.name} (${project.id})?`,
+        config.yes,
+      )
+      if (!confirmed) {
+        return yield* writeLine("Aborted.")
+      }
+      const deleted = yield* projects.delete(project)
+      if (config.json) {
+        return yield* writeJson({ deleted })
+      }
+      return yield* writeLine(`Deleted ${deleted.name} (${deleted.id}).`)
+    }).pipe(Effect.catch(reportFailure)),
+).pipe(
+  Command.withDescription("Move a project to the trash, where Linear keeps it recoverable"),
+  Command.withExamples([
+    {
+      command: 'rata project delete "Login revamp"',
+      description: "Move a project to the trash after a confirmation prompt",
+    },
+    {
+      command: 'rata project delete "Login revamp" --yes',
+      description: "Move a project to the trash without a prompt",
+    },
+  ]),
+)
+
 const projectCommand = Command.make("project").pipe(
-  Command.withDescription("Create and inspect the projects in the workspace"),
-  Command.withSubcommands([listCommand, createCommand]),
+  Command.withDescription("Create, inspect and delete the projects in the workspace"),
+  Command.withSubcommands([listCommand, createCommand, deleteCommand]),
 )
 
 export { projectCommand }

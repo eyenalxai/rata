@@ -36,16 +36,17 @@ recorded `workspace`.
 
 ## Teams, projects, labels
 
-| Command                                                               | Description                                                                     |
-| --------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `rata team list [--limit <n>] [--after <cursor>]`                     | List teams, one page per call.                                                  |
-| `rata team create --name <name> [--key <key>]`                        | Create a team.                                                                  |
-| `rata team delete <key> [--yes]`                                      | Delete a team (Linear keeps it recoverable). `--yes` skips the confirmation.    |
-| `rata project list [--limit <n>] [--after <cursor>]`                  | List projects: name, state, progress, id. One page per call.                    |
-| `rata project create --name <name> [--team <key>]`                    | Create a project. `--team` is repeatable.                                       |
-| `rata label list --team <key> [--limit <n>] [--after <cursor>]`       | List the labels of a team: name, id, color. One page per call.                  |
-| `rata label create --name <name> [--color <hex>] [--team <key>]`      | Create a team-scoped label. `--team` defaults to the linked team.               |
-| `rata label edit <ref> [--name <new>] [--color <hex>] [--team <key>]` | Update a label. `<ref>` is a name or a UUID. Pass `--name`, `--color`, or both. |
+| Command                                                               | Description                                                                                 |
+| --------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `rata team list [--limit <n>] [--after <cursor>]`                     | List teams, one page per call.                                                              |
+| `rata team create --name <name> [--key <key>]`                        | Create a team.                                                                              |
+| `rata team delete <key> [--yes]`                                      | Delete a team (Linear keeps it recoverable). `--yes` skips the confirmation.                |
+| `rata project list [--limit <n>] [--after <cursor>]`                  | List projects: name, state, progress, id. One page per call.                                |
+| `rata project create --name <name> [--team <key>]`                    | Create a project. `--team` is repeatable.                                                   |
+| `rata project delete <ref> [--yes]`                                   | Move a project to the trash (Linear keeps it recoverable). `--yes` skips the confirmation.  |
+| `rata label list --team <key> [--limit <n>] [--after <cursor>]`       | List the labels of a team: name, id, color. One page per call.                              |
+| `rata label create --name <name> [--color <hex>] [--team <key>]`      | Create a team-scoped label. `--team` defaults to the linked team.                           |
+| `rata label edit <ref> [--name <new>] [--color <hex>] [--team <key>]` | Update a label. `<ref>` is a name or a UUID. Pass `--name`, `--color`, or both.             |
 
 ## Issues
 

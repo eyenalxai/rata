@@ -43,6 +43,7 @@ rata team create --name "Scratch" --key SCR   # create a team
 rata team delete SCR --yes               # delete a team
 rata project list                        # list projects: name, state, progress, id
 rata project create --name "Login revamp" --team RAT  # create a project
+rata project delete "Login revamp" --yes # move a project to the trash
 rata label list --team RAT               # list a team's labels
 rata link --team RAT                     # bind this repository to a Linear team
 rata unlink                              # remove the stored link of this repository
@@ -281,6 +282,35 @@ rata project list
 with the same fields. `--limit` and `--after` page the list; see **Paging
 lists**. `progress` is the fraction of the project's issues that are done,
 between 0 and 1.
+
+`rata project delete` moves a project to the trash. It accepts a project name
+or a UUID. A name matches case-insensitively across every page. Linear keeps a
+deleted project recoverable for 30 days.
+
+```bash
+rata project delete "Login revamp"
+rata project delete "Login revamp" --yes
+```
+
+| Flag    | Meaning                       |
+| ------- | ----------------------------- |
+| `--yes` | Skip the confirmation prompt. |
+
+The command asks for confirmation before it calls the API, and it aborts unless
+the answer is `y` or `yes`, in any case. The prompt names the project and its
+id. An ambiguous name fails and asks for the UUID. A project that is already in
+the trash fails and points at `project restore`.
+
+`--json` prints one stable document:
+
+```json
+{
+  "deleted": {
+    "id": "p1",
+    "name": "Login revamp"
+  }
+}
+```
 
 ### Specs and tickets
 
