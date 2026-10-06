@@ -4,8 +4,9 @@
   "compilerOptions": {
     "paths": {
       "@/*": ["./src/*"],
-      "@test/*": ["./test/*"]
+      "@test/*": ["./test/*"],
+      "effect/unstable/*": ["./node_modules/effect/dist/*"]
     }
   },
-  "include": ["src", "test", "oxlint.config.ts"]
+  "include": ["src", "test", "drizzle.config.ts", "oxlint.config.ts"]
 }
