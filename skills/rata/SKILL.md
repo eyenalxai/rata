@@ -28,13 +28,34 @@ than one stored workspace, pass `--workspace <name>` to choose one.
 ## Read before you write
 
 ```bash
-rata issue list --json                    # the default team's open issues
+rata issue list --json                    # list issues; returns one page
+rata issue list --after <cursor> --json   # read the next page
 rata issue show ABC-42 --comments --json  # one issue with its comments
 rata search "flaky test" --json
 ```
 
 An issue reference is an identifier (`ABC-42`), a UUID, or a `linear.app` URL.
-Every command supports `--json`; parse that, not the human output.
+Every command supports `--json`; parse that, not the human output. List
+commands return one page with `pageInfo`: see **Paging lists**.
+
+## Paging lists
+
+`issue list`, `search`, `team list`, `project list` and `label list` return one
+page per call. `--limit` is the page size: 50 by default, 250 at most.
+`--after <cursor>` reads the next page. JSON is `{ <plural>, pageInfo }`:
+
+```json
+{
+  "issues": [],
+  "pageInfo": { "hasNextPage": true, "endCursor": "b2c3..." }
+}
+```
+
+Continue with `--after b2c3...` while `pageInfo.hasNextPage` is true. Keep the
+filters and the order fixed across pages: a cursor is bound to its query. Lists
+are ordered by creation time; `search` keeps Linear's relevance ranking, so its
+paging is best effort. The human output prints a next-page hint when more
+results exist. Internal reads drain every page, so `issue show` is complete.
 
 ## Triage
 
@@ -90,7 +111,8 @@ project first, then put the spec issue and its tickets in it:
 rata project create --name "Spec: switch billing to Stripe"
 rata issue create --title "Spec: switch billing to Stripe" --project "Spec: switch billing to Stripe" --body-file -
 rata issue create --title "Add the Stripe client" --project "Spec: switch billing to Stripe" --label ready-for-agent --body-file -
-rata issue list --project "Spec: switch billing to Stripe" --json
+rata issue list --project "Spec: switch billing to Stripe" --limit 250 --json
+# continue with --after <pageInfo.endCursor> while pageInfo.hasNextPage is true
 ```
 
 The project rolls up the progress of the set. Wayfinding maps stay issues with
@@ -120,11 +142,14 @@ rata issue close ABC-51
 ```
 
 The frontier is the set of tickets under a map that are unblocked and
-unassigned:
+unassigned. Read the first ready ticket with:
 
 ```bash
-rata issue list --parent ABC-50 --unblocked --unassigned --json
+rata issue list --parent ABC-50 --unblocked --unassigned --limit 1 --json
 ```
+
+The JSON is `{ issues, pageInfo }`. The first result in map order wins.
+`pageInfo.hasNextPage` says whether more ready tickets exist.
 
 ## Reference
 

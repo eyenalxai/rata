@@ -47,6 +47,7 @@ rata label list --team RAT               # list a team's labels
 rata link --team RAT                     # bind this repository to a Linear team
 rata issue list                          # list issues
 rata issue list --parent RAT-1 --unblocked --unassigned  # the frontier of a map
+rata issue list --after <cursor>         # read the next page of a list
 rata issue show RAT-42                   # read one issue
 rata search "rate limit"                 # search issues by text
 rata issue create --title "Fix login" --team RAT   # create an issue
@@ -59,6 +60,42 @@ Every command selects the API key in this order: `LINEAR_API_KEY`, the
 repository `workspace` from `.rata.json`, the `default` profile.
 
 `rata --help` lists every command.
+
+## Paging lists
+
+`issue list`, `search`, `team list`, `project list` and `label list` return one
+page per call. `--limit` sets the page size: 50 by default, 250 at most. A
+value above 250 fails before the API call. `--after <cursor>` reads the page
+after a cursor.
+
+`--json` prints one page and its page state:
+
+```json
+{
+  "issues": [],
+  "pageInfo": { "hasNextPage": true, "endCursor": "b2c3..." }
+}
+```
+
+Every list command uses the same shape, with its own plural key: `issues`,
+`teams`, `projects`, or `labels`. `pageInfo.hasNextPage` says whether a next
+page exists. `pageInfo.endCursor` is the cursor for `--after`. The output is
+pure JSON; there is no hint.
+
+The human output prints a next-page hint when `hasNextPage` is true:
+
+```
+More issues available. Continue with --after b2c3...
+```
+
+Every list is ordered by creation time (`createdAt`). Cursors are bound to the
+query: keep the filters and the order fixed across pages. Pages are consistent
+while the data does not change, and best effort when it does. `search` keeps
+Linear's relevance ranking, so its paging is best effort.
+
+Internal reads always drain every page. Only these list commands return one
+page. In particular, `issue show` is complete: it reads every page of an
+issue's labels, children, relations and comments.
 
 ## Authentication
 
@@ -131,7 +168,9 @@ fail with ``No default workspace. Run `rata workspace use <name>`.`` Run
 
 ## Teams
 
-`rata team list` prints the teams in the workspace: key, name, id.
+`rata team list` prints the teams in the workspace: key, name, id. It returns
+one page per call: see **Paging lists**. `--json` prints
+`{ "teams": [...], "pageInfo": { "hasNextPage": ..., "endCursor": ... } }`.
 
 `rata team create` creates a team. The viewer becomes the team owner. Linear
 creates the default workflow states and labels with the team. `create` sets the
@@ -218,14 +257,17 @@ rata project create --name "Spec: login" --team RAT --team OPS --description "Th
 }
 ```
 
-`rata project list` prints the name, state, progress and id of every project:
+`rata project list` prints the name, state, progress and id of one page of
+projects:
 
 ```bash
 rata project list
 ```
 
-`--json` prints `{ "projects": [...] }` with the same fields. `progress` is the
-fraction of the project's issues that are done, between 0 and 1.
+`--json` prints `{ "projects": [...], "pageInfo": { "hasNextPage": ..., "endCursor": ... } }`
+with the same fields. `--limit` and `--after` page the list; see **Paging
+lists**. `progress` is the fraction of the project's issues that are done,
+between 0 and 1.
 
 ### Specs as projects
 
@@ -237,11 +279,18 @@ The ask-matt skills group a spec with its tickets in one project:
    `rata issue create --title "Spec: login" --project "Spec: login" --body-file -`.
 2. `/to-tickets` creates each ticket in the same project:
    `rata issue create --title "Add the form" --project "Spec: login" --label ready-for-agent --body-file -`.
-3. `/implement-spec` fetches the whole set:
-   `rata issue list --project "Spec: login" --json`.
+3. `/implement-spec` fetches the whole set one page at a time:
+   `rata issue list --project "Spec: login" --limit 250 --json`, then continue
+   with `--after <endCursor>` while `pageInfo.hasNextPage` is true.
 
 `issue create --project` and `issue list --project` accept a project name or a
 UUID. A project groups specs; a wayfinding map stays an issue with child issues.
+
+## Labels
+
+`rata label list --team RAT` prints the labels of a team: name, id. It returns
+one page per call: see **Paging lists**. `--json` prints
+`{ "labels": [...], "pageInfo": { "hasNextPage": ..., "endCursor": ... } }`.
 
 ## Linking a repository
 
@@ -325,6 +374,7 @@ rata issue list --team RAT --state "In Progress" --label bug --limit 100
 rata issue list --state-type started --assignee me
 rata issue list --parent RAT-1 --text login
 rata issue list --parent RAT-1 --unblocked --unassigned
+rata issue list --limit 100 --after <cursor>
 ```
 
 | Flag           | Meaning                                                                      |
@@ -339,20 +389,30 @@ rata issue list --parent RAT-1 --unblocked --unassigned
 | `--text`       | Text that appears in the title or the description.                           |
 | `--unblocked`  | Keep only open issues with no open blocker.                                  |
 | `--unassigned` | Keep only issues with no assignee.                                           |
-| `--limit`      | Maximum number of issues. Default: 50.                                       |
+| `--limit`      | Page size. Default: 50, maximum: 250.                                        |
+| `--after`      | Continue after a cursor from a previous page.                                |
 
 An open issue is one whose state type is not `completed` or `canceled`. An open
 blocker is a blocker whose state type is not `completed` or `canceled`.
-`--unblocked` keeps the open issues whose blockers are all closed.
+`--unblocked` keeps the open issues whose blockers are all closed. It filters
+on the server and composes with the other filters with AND, so a state filter
+that contradicts it returns an empty list.
 `--parent` with `--unblocked` and `--unassigned` is the **frontier** of a map:
 the open, unblocked, unclaimed children.
 
 `rata issue show` accepts an identifier (`RAT-42`), a UUID, or a linear.app
-URL. `--comments` adds the comments in chronological order.
+URL. `--comments` adds the comments in chronological order. A detail view is
+complete: `show` reads every page of the issue's labels, children, relations
+and comments.
 
 Every read command accepts `--json` and prints one stable JSON document. The
-list and search commands print `{ "issues": [...] }`; the show command prints
-`{ "issue": {...} }`.
+list and search commands print one page:
+`{ "issues": [...], "pageInfo": { "hasNextPage": ..., "endCursor": ... } }`.
+The show command prints `{ "issue": {...} }`.
+
+`rata search "<text>"` searches by text. It keeps Linear's relevance ranking,
+so the best match stays first and its paging is best effort. It accepts
+`--limit`, `--after` and `--json`.
 
 ```json
 {
@@ -368,7 +428,8 @@ list and search commands print `{ "issues": [...] }`; the show command prints
       "parent": { "id": "i0", "identifier": "RAT-1", "title": "Map" },
       "labels": [{ "id": "l1", "name": "ready-for-agent" }]
     }
-  ]
+  ],
+  "pageInfo": { "hasNextPage": true, "endCursor": "b2c3..." }
 }
 ```
 

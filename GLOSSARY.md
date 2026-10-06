@@ -71,3 +71,10 @@ they explore the codebase. Use these terms; do not drift to synonyms.
   `rata auth login` and `rata workspace use` set it.
 - **Resolution order**: the order rata uses to select the API key:
   `LINEAR_API_KEY`, the repository `workspace`, the default profile.
+- **Page**: one call's slice of a list. Every list command returns one page.
+  `--limit` sets the page size: 50 by default, 250 at most.
+- **Cursor**: the value that continues a list. Pass the `endCursor` of a page
+  to `--after`. A cursor is bound to its query: keep the filters and the order
+  fixed across pages.
+- **Page info**: the `pageInfo` object on every list result:
+  `{ hasNextPage, endCursor }`. `hasNextPage` says whether a next page exists.

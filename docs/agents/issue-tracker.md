@@ -10,7 +10,9 @@ operations.
 - **Read an issue**: `rata issue show <ref> --comments --json`
 - **List issues**: `rata issue list` with the filters you need. Useful filters:
   `--team`, `--project`, `--state`, `--state-type`, `--label`, `--assignee`,
-  `--parent`, `--text`, `--limit`.
+  `--parent`, `--text`, `--unblocked`, `--unassigned`. Every list command
+  returns one page: `--limit` is the page size (default 50, maximum 250), and
+  `--after <cursor>` continues a list. See **Paging lists**.
 - **Comment on an issue**: `rata issue comment <ref> --body-file -`
 - **Apply / remove labels**: `rata issue label add <ref> <label...>` and
   `rata issue label remove <ref> <label...>`
@@ -22,6 +24,18 @@ operations.
 An issue reference accepts an identifier (`ABC-42`), a UUID, or a linear.app
 issue URL. The repository config `.rata.json` names the default team, project
 and workspace profile, so most commands need no `--team`.
+
+## Paging lists
+
+Every user-facing list command returns one page per call: `issue list`,
+`search`, `team list`, `project list` and `label list`. `--limit` is the page
+size (default 50, maximum 250). `--after <cursor>` continues a list. JSON is
+`{ <plural>, pageInfo }`: `pageInfo.hasNextPage` says whether a next page
+exists, and `pageInfo.endCursor` is the cursor for `--after`. Keep the filters
+and the order fixed across pages: a cursor is bound to its query. Lists are
+ordered by creation time (`createdAt`); `search` keeps Linear's relevance
+ranking, so its paging is best effort. Internal reads drain every page, so
+`issue show` is complete.
 
 ## Pull requests as a triage surface
 
@@ -52,10 +66,12 @@ maps: a map stays an issue with child issues.
   `rata issue create --title "..." --project "Spec: <title>" --label ready-for-agent --body-file -`.
   Wire the blocking edges with
   `rata issue link <ticket-ref> --blocked-by <blocker-ref>`.
-- **Implement the spec**: `/implement-spec` fetches the whole set with
-  `rata issue list --project "Spec: <title>" --json`.
+- **Implement the spec**: `/implement-spec` fetches the whole set one page at
+  a time: `rata issue list --project "Spec: <title>" --limit 250 --json`, then
+  continue with `--after <endCursor>` while `pageInfo.hasNextPage` is true.
 - **Read the progress**: `rata project list` prints each project's state and
-  the percentage of its issues that are done.
+  the percentage of its issues that are done. It returns one page: see
+  **Paging lists**.
 
 ## Wayfinding operations
 
@@ -70,8 +86,10 @@ with **child** issues as tickets.
   `rata issue link <child-ref> --blocked-by <blocker-ref>`, or the inverse with
   `rata issue link <blocker-ref> --blocks <child-ref>`. A ticket is unblocked
   when every issue that blocks it is closed.
-- **Frontier query**: `rata issue list --parent <map-ref> --unblocked --unassigned --json`.
-  The first result in map order wins.
+- **Frontier query**: `rata issue list --parent <map-ref> --unblocked --unassigned --limit 1 --json`.
+  The JSON is `{ issues, pageInfo }`. The first result in map order wins: it is
+  the next ready ticket. `pageInfo.hasNextPage` says whether more ready tickets
+  exist. Read them with `--after <pageInfo.endCursor>`.
 - **Claim**: `rata issue assign me <ref>`, the session's first write. The
   assignee is the claim.
 - **Resolve**: `rata issue comment <ref> --body-file -`, then
