@@ -1,11 +1,12 @@
 import { Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 
-import type { IssueDetail, IssueRelations, IssueSummary } from "@/api/issue-model"
+import type { IssueDetail, IssuePage, IssueRelations, IssueSummary } from "@/api/issue-model"
 import type { IssueChild } from "@/api/issue-schema"
 
 import { IssueApi } from "@/api/issue"
 import { stateTypes } from "@/api/issue-model"
+import { maxPageSize } from "@/api/pagination"
 import { issueLabelCommand } from "@/cli/issue-label"
 import { linkCommand, unlinkCommand } from "@/cli/issue-link"
 import { assignCommand, closeCommand, reopenCommand, unassignCommand } from "@/cli/issue-transition"
@@ -18,9 +19,27 @@ const jsonFlag = Flag.Boolean("json").pipe(
 )
 
 const limitFlag = Flag.Int("limit").pipe(
-  Flag.withDescription("Maximum number of issues to return"),
+  Flag.withDescription(`Page size, at most ${maxPageSize}`),
   Flag.withDefault(50),
 )
+
+const afterFlag = Flag.String("after").pipe(
+  Flag.withDescription("Continue after this cursor from a previous page"),
+  Flag.optional,
+)
+
+const validatePageSize = (limit: number): Effect.Effect<boolean> =>
+  Effect.gen(function* validate() {
+    if (limit < 1) {
+      yield* errorLine(1, "The --limit flag must be at least 1.")
+      return false
+    }
+    if (limit > maxPageSize) {
+      yield* errorLine(1, `The --limit flag must be at most ${maxPageSize}.`)
+      return false
+    }
+    return true
+  })
 
 const optionalText = (name: string, description: string) =>
   Flag.String(name).pipe(Flag.withDescription(description), Flag.optional)
@@ -95,17 +114,17 @@ const formatIssueDetail = (issue: IssueDetail): string => {
   return lines.join("\n")
 }
 
-const writeIssueList = (config: { readonly json: boolean }, issues: readonly IssueSummary[]) =>
-  Effect.gen(function* writeList() {
-    if (config.json) {
-      return yield* writeJson({ issues })
+const writeHumanPage = (page: IssuePage): Effect.Effect<void> =>
+  page.issues.length === 0
+    ? writeLine("No issues found.")
+    : Effect.forEach(page.issues, (issue) => writeLine(formatIssueLine(issue)), { discard: true })
+
+const writeIssuePage = (config: { readonly json: boolean }, page: IssuePage) =>
+  Effect.gen(function* writePage() {
+    yield* config.json ? writeJson(page) : writeHumanPage(page)
+    if (page.pageInfo.hasNextPage && page.pageInfo.endCursor !== null) {
+      yield* writeLine(`More issues available. Continue with --after ${page.pageInfo.endCursor}`)
     }
-    if (issues.length === 0) {
-      return yield* writeLine("No issues found.")
-    }
-    return yield* Effect.forEach(issues, (issue) => writeLine(formatIssueLine(issue)), {
-      discard: true,
-    })
   })
 
 const listCommand = Command.make(
@@ -131,15 +150,17 @@ const listCommand = Command.make(
       Flag.withDefault(false),
     ),
     limit: limitFlag,
+    after: afterFlag,
     json: jsonFlag,
   },
   (config) =>
     Effect.gen(function* list() {
-      if (config.limit < 1) {
-        return yield* errorLine(1, "The --limit flag must be at least 1.")
+      const valid = yield* validatePageSize(config.limit)
+      if (!valid) {
+        return
       }
       const api = yield* IssueApi
-      const issues = yield* api.list({
+      const page = yield* api.list({
         team: Option.getOrUndefined(config.team),
         state: Option.getOrUndefined(config.state),
         stateType: Option.getOrUndefined(config.stateType),
@@ -150,9 +171,10 @@ const listCommand = Command.make(
         text: Option.getOrUndefined(config.text),
         unblocked: config.unblocked,
         unassigned: config.unassigned,
+        after: Option.getOrUndefined(config.after),
         limit: config.limit,
       })
-      return yield* writeIssueList(config, issues)
+      yield* writeIssuePage(config, page)
     }).pipe(Effect.catch(reportFailure)),
 ).pipe(
   Command.withDescription("List issues"),
@@ -164,6 +186,10 @@ const listCommand = Command.make(
     {
       command: "rata issue list --parent RAT-1 --unblocked --unassigned",
       description: "List the frontier of a map",
+    },
+    {
+      command: "rata issue list --limit 100 --after <cursor>",
+      description: "Read the next page from the endCursor of the previous call",
     },
   ]),
 )
@@ -202,16 +228,21 @@ const searchCommand = Command.make(
   {
     text: Argument.String("text").pipe(Argument.withDescription("Text to search for")),
     limit: limitFlag,
+    after: afterFlag,
     json: jsonFlag,
   },
   (config) =>
     Effect.gen(function* search() {
-      if (config.limit < 1) {
-        return yield* errorLine(1, "The --limit flag must be at least 1.")
+      const valid = yield* validatePageSize(config.limit)
+      if (!valid) {
+        return
       }
       const api = yield* IssueApi
-      const issues = yield* api.search(config.text, config.limit)
-      return yield* writeIssueList(config, issues)
+      const page = yield* api.search(config.text, {
+        after: Option.getOrUndefined(config.after),
+        limit: config.limit,
+      })
+      yield* writeIssuePage(config, page)
     }).pipe(Effect.catch(reportFailure)),
 ).pipe(
   Command.withDescription("Search issues by text"),
@@ -219,6 +250,10 @@ const searchCommand = Command.make(
     {
       command: 'rata search "rate limit"',
       description: "Search issues by text",
+    },
+    {
+      command: 'rata search "rate limit" --after <cursor>',
+      description: "Read the next page of results",
     },
   ]),
 )

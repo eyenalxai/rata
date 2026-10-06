@@ -4,10 +4,10 @@ import type { LinearApiError } from "@/api/errors"
 import type {
   IssueDetail,
   IssueListOptions,
-  IssueSummary,
+  IssuePage,
   IssueShowOptions,
+  PageRequest,
 } from "@/api/issue-model"
-import type { IssueBlockedByNode, IssueSummaryNode } from "@/api/issue-schema"
 import type { InvalidIssueRef, IssueRef } from "@/domain/ref"
 
 import { LinearClient } from "@/api/client"
@@ -24,7 +24,6 @@ import {
   relationsQuery,
   searchQuery,
   showQuery,
-  unblockedListQuery,
 } from "@/api/issue-query"
 import {
   ChildrenResponse,
@@ -36,20 +35,15 @@ import {
   RelationsResponse,
   SearchResponse,
   ShowResponse,
-  UnblockedListResponse,
 } from "@/api/issue-schema"
 import { collectPages } from "@/api/pagination"
-import { isUnblocked } from "@/domain/frontier"
 import { isUuid, parseIssueRef } from "@/domain/ref"
 
 type IssueApiShape = {
   readonly list: (
     options: IssueListOptions,
-  ) => Effect.Effect<readonly IssueSummary[], LinearApiError | InvalidIssueRef>
-  readonly search: (
-    term: string,
-    limit: number,
-  ) => Effect.Effect<readonly IssueSummary[], LinearApiError>
+  ) => Effect.Effect<IssuePage, LinearApiError | InvalidIssueRef>
+  readonly search: (term: string, options: PageRequest) => Effect.Effect<IssuePage, LinearApiError>
   readonly show: (
     ref: string,
     options: IssueShowOptions,
@@ -84,57 +78,6 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
         return data.issue.id
       })
 
-      const blockersOf = Effect.fn("IssueApi.blockersOf")(function* blockersOf(
-        node: IssueBlockedByNode,
-      ) {
-        const relations = yield* collectPages(node.inverseRelations, (after) =>
-          client
-            .execute(
-              inverseRelationsQuery,
-              { id: node.id, first: pageSize, after },
-              InverseRelationsResponse,
-            )
-            .pipe(Effect.map((page) => page.issue.inverseRelations)),
-        )
-        return relations
-          .filter((relation) => relation.type === "blocks")
-          .map((relation) => relation.issue)
-      })
-
-      const listUnblocked = Effect.fn("IssueApi.listUnblocked")(function* listUnblocked(
-        filter: Record<string, unknown> | undefined,
-        options: IssueListOptions,
-      ) {
-        const issues: IssueSummary[] = []
-        let after: string | null = null
-        while (issues.length < options.limit) {
-          const data: typeof UnblockedListResponse.Type = yield* client.execute(
-            unblockedListQuery,
-            { filter, first: pageSize, after },
-            UnblockedListResponse,
-          )
-          for (const node of data.issues.nodes) {
-            const blockers = yield* blockersOf(node)
-            if (!isUnblocked({ state: node.state, blockers })) {
-              continue
-            }
-            if (options.unassigned === true && node.assignee !== null) {
-              continue
-            }
-            issues.push(toSummary(node))
-            if (issues.length >= options.limit) {
-              break
-            }
-          }
-          const pageInfo = data.issues.pageInfo
-          if (!pageInfo.hasNextPage || pageInfo.endCursor === null) {
-            break
-          }
-          after = pageInfo.endCursor
-        }
-        return issues
-      })
-
       const list = Effect.fn("IssueApi.list")(function* list(options: IssueListOptions) {
         const parts: Record<string, unknown>[] = []
         if (options.team !== undefined) {
@@ -166,49 +109,35 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
         if (options.text !== undefined) {
           parts.push(textFilter(options.text))
         }
+        if (options.unblocked === true) {
+          parts.push(
+            { hasBlockedByRelations: { eq: false } },
+            { state: { type: { nin: ["completed", "canceled"] } } },
+          )
+        }
         const filter = composeFilter(parts)
 
-        if (options.unblocked === true) {
-          return yield* listUnblocked(filter, options)
-        }
-
-        const nodes: IssueSummaryNode[] = []
-        let after: string | null = null
-        while (nodes.length < options.limit) {
-          const first = Math.min(pageSize, options.limit - nodes.length)
-          const data: typeof ListResponse.Type = yield* client.execute(
-            listQuery,
-            { filter, first, after },
-            ListResponse,
-          )
-          nodes.push(...data.issues.nodes)
-          const pageInfo = data.issues.pageInfo
-          if (!pageInfo.hasNextPage || pageInfo.endCursor === null) {
-            break
-          }
-          after = pageInfo.endCursor
-        }
-        return nodes.slice(0, options.limit).map(toSummary)
+        const data = yield* client.execute(
+          listQuery,
+          { filter, first: options.limit, after: options.after ?? null },
+          ListResponse,
+        )
+        return { issues: data.issues.nodes.map(toSummary), pageInfo: data.issues.pageInfo }
       })
 
-      const search = Effect.fn("IssueApi.search")(function* search(term: string, limit: number) {
-        const nodes: IssueSummaryNode[] = []
-        let after: string | null = null
-        while (nodes.length < limit) {
-          const first = Math.min(pageSize, limit - nodes.length)
-          const data: typeof SearchResponse.Type = yield* client.execute(
-            searchQuery,
-            { term, first, after },
-            SearchResponse,
-          )
-          nodes.push(...data.searchIssues.nodes)
-          const pageInfo = data.searchIssues.pageInfo
-          if (!pageInfo.hasNextPage || pageInfo.endCursor === null) {
-            break
-          }
-          after = pageInfo.endCursor
+      const search = Effect.fn("IssueApi.search")(function* search(
+        term: string,
+        options: PageRequest,
+      ) {
+        const data = yield* client.execute(
+          searchQuery,
+          { term, first: options.limit, after: options.after ?? null },
+          SearchResponse,
+        )
+        return {
+          issues: data.searchIssues.nodes.map(toSummary),
+          pageInfo: data.searchIssues.pageInfo,
         }
-        return nodes.slice(0, limit).map(toSummary)
       })
 
       const show = Effect.fn("IssueApi.show")(function* show(

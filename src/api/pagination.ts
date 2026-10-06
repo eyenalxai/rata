@@ -3,6 +3,8 @@ import { Effect } from "effect"
 import type { LinearApiError } from "@/api/errors"
 import type { PageInfo } from "@/api/issue-schema"
 
+const maxPageSize = 250
+
 type Connection<A> = {
   readonly nodes: readonly A[]
   readonly pageInfo: PageInfo
@@ -23,4 +25,4 @@ const collectPages = <A>(
     return nodes
   })
 
-export { type Connection, collectPages }
+export { type Connection, collectPages, maxPageSize }

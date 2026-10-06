@@ -15,8 +15,9 @@ import { Effect } from "effect"
 import { IssueApi } from "@/api/issue"
 
 describe("IssueApi list", () => {
-  test("composes every list filter", async () => {
+  test("composes every list filter, including the server-side unblocked rule", async () => {
     const captured: Record<string, unknown>[] = []
+    const queries: string[] = []
     const handler = (request: HttpClientRequest.HttpClientRequest): Response => {
       const body = readBody(request)
       if (body.query.includes("query IssueId")) {
@@ -26,10 +27,11 @@ describe("IssueApi list", () => {
         return jsonResponse({ data: { viewer } })
       }
       captured.push(body.variables)
+      queries.push(body.query)
       return jsonResponse({ data: { issues: { nodes: [summaryNode("RAT-1")], pageInfo } } })
     }
 
-    const issues = await run(
+    const page = await run(
       handler,
       Effect.gen(function* listIssues() {
         const api = yield* IssueApi
@@ -42,12 +44,15 @@ describe("IssueApi list", () => {
           project: "Tracker",
           parent: "RAT-0",
           text: "login",
+          unblocked: true,
+          unassigned: true,
+          after: "cursor-before",
           limit: 50,
         })
       }),
     )
 
-    expect(issues.map((issue) => issue.identifier)).toEqual(["RAT-1"])
+    expect(page.issues.map((issue) => issue.identifier)).toEqual(["RAT-1"])
     expect(captured).toHaveLength(1)
     expect(captured[0]?.filter).toEqual({
       and: [
@@ -56,6 +61,7 @@ describe("IssueApi list", () => {
         { state: { type: { eq: "started" } } },
         { labels: { some: { name: { eqIgnoreCase: "ready-for-agent" } } } },
         { assignee: { id: { eq: "u1" } } },
+        { assignee: { null: true } },
         { project: { name: { eqIgnoreCase: "Tracker" } } },
         { parent: { id: { eq: "parent-uuid" } } },
         {
@@ -64,8 +70,13 @@ describe("IssueApi list", () => {
             { description: { containsIgnoreCase: "login" } },
           ],
         },
+        { hasBlockedByRelations: { eq: false } },
+        { state: { type: { nin: ["completed", "canceled"] } } },
       ],
     })
+    expect(captured[0]?.first).toBe(50)
+    expect(captured[0]?.after).toBe("cursor-before")
+    expect(queries[0] ?? "").toContain("orderBy: createdAt")
   })
 
   test("uses the team id when the value is a UUID", async () => {
@@ -75,7 +86,7 @@ describe("IssueApi list", () => {
       return jsonResponse({ data: { issues: { nodes: [], pageInfo } } })
     }
 
-    await run(
+    const page = await run(
       handler,
       Effect.gen(function* listIssues() {
         const api = yield* IssueApi
@@ -83,43 +94,69 @@ describe("IssueApi list", () => {
       }),
     )
 
+    expect(page.issues).toEqual([])
     expect(captured[0]?.filter).toEqual({ team: { id: { eq: uuid } } })
   })
 
-  test("follows the cursor up to the limit", async () => {
+  test("reads one page and returns its page info without draining", async () => {
     const requests: Record<string, unknown>[] = []
-    const pages = [
-      {
-        nodes: [summaryNode("RAT-1"), summaryNode("RAT-2")],
-        pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
-      },
-      {
-        nodes: [summaryNode("RAT-3"), summaryNode("RAT-4")],
-        pageInfo: { hasNextPage: false, endCursor: null },
-      },
-    ]
-    let calls = 0
     const handler = (request: HttpClientRequest.HttpClientRequest): Response => {
       requests.push(readBody(request).variables)
-      const page = pages[calls]
-      calls += 1
-      if (page === undefined) {
-        throw new Error("Unexpected extra page request.")
-      }
-      return jsonResponse({ data: { issues: page } })
+      return jsonResponse({
+        data: {
+          issues: {
+            nodes: [summaryNode("RAT-1"), summaryNode("RAT-2")],
+            pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
+          },
+        },
+      })
     }
 
-    const issues = await run(
+    const page = await run(
       handler,
       Effect.gen(function* listIssues() {
         const api = yield* IssueApi
-        return yield* api.list({ limit: 3 })
+        return yield* api.list({ limit: 2, after: "cursor-0" })
       }),
     )
 
-    expect(issues.map((issue) => issue.identifier)).toEqual(["RAT-1", "RAT-2", "RAT-3"])
-    expect(requests).toHaveLength(2)
-    expect(requests[1]?.after).toBe("cursor-1")
-    expect(requests[1]?.first).toBe(1)
+    expect(page.issues.map((issue) => issue.identifier)).toEqual(["RAT-1", "RAT-2"])
+    expect(page.pageInfo).toEqual({ hasNextPage: true, endCursor: "cursor-1" })
+    expect(requests).toHaveLength(1)
+    expect(requests[0]?.first).toBe(2)
+    expect(requests[0]?.after).toBe("cursor-0")
+  })
+})
+
+describe("IssueApi search", () => {
+  test("reads one relevance-ranked page and passes the cursor", async () => {
+    const captured: Record<string, unknown>[] = []
+    const queries: string[] = []
+    const handler = (request: HttpClientRequest.HttpClientRequest): Response => {
+      const body = readBody(request)
+      captured.push(body.variables)
+      queries.push(body.query)
+      return jsonResponse({
+        data: {
+          searchIssues: {
+            nodes: [summaryNode("RAT-1")],
+            pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
+          },
+        },
+      })
+    }
+
+    const page = await run(
+      handler,
+      Effect.gen(function* searchIssues() {
+        const api = yield* IssueApi
+        return yield* api.search("login", { after: "cursor-0", limit: 10 })
+      }),
+    )
+
+    expect(page.issues.map((issue) => issue.identifier)).toEqual(["RAT-1"])
+    expect(page.pageInfo).toEqual({ hasNextPage: true, endCursor: "cursor-1" })
+    expect(captured).toEqual([{ term: "login", first: 10, after: "cursor-0" }])
+    expect(queries[0] ?? "").not.toContain("orderBy")
   })
 })

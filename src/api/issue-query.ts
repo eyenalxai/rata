@@ -12,7 +12,7 @@ const summaryFields = `
       labels { nodes { id name } }`
 
 const listQuery = `query IssueList($filter: IssueFilter, $first: Int!, $after: String) {
-  issues(filter: $filter, first: $first, after: $after) {
+  issues(filter: $filter, first: $first, after: $after, orderBy: createdAt) {
     nodes {${summaryFields}
     }
     pageInfo { hasNextPage endCursor }
@@ -85,15 +85,6 @@ const inverseRelationsQuery = `query IssueInverseRelations($id: String!, $first:
       nodes { id type issue { id identifier title state { name type } } }
       pageInfo { hasNextPage endCursor }
     }
-  }
-}`
-
-const unblockedListQuery = `query IssueListUnblocked($filter: IssueFilter, $first: Int!, $after: String) {
-  issues(filter: $filter, first: $first, after: $after) {
-    nodes {${summaryFields}
-      inverseRelations(first: ${pageSize}) { nodes { id type issue { id identifier title state { name type } } } pageInfo { hasNextPage endCursor } }
-    }
-    pageInfo { hasNextPage endCursor }
   }
 }`
 
@@ -204,6 +195,5 @@ export {
   searchQuery,
   showQuery,
   teamStatesQuery,
-  unblockedListQuery,
   updateIssueMutation,
 }

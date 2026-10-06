@@ -1,21 +1,10 @@
-import type { HttpClientRequest } from "effect/http"
-
 import { inputOf } from "@test/fake-linear-model"
-import {
-  jsonResponse,
-  pageInfo,
-  readBody,
-  run as runIssue,
-  summaryNode,
-  user,
-} from "@test/issue-fixtures"
+import { jsonResponse, pageInfo } from "@test/issue-fixtures"
 import { makeRecorder, run as runWrite } from "@test/issue-write-fixtures"
 import { describe, expect, test } from "bun:test"
 import { Effect } from "effect"
 
-import { IssueApi } from "@/api/issue"
 import { IssueWriteApi } from "@/api/issue-write"
-import { isUnblocked } from "@/domain/frontier"
 
 const issueIds =
   (ids: Readonly<Record<string, string>>) => (request: { variables: Record<string, unknown> }) =>
@@ -54,18 +43,6 @@ const relations = () => ({
     ],
     pageInfo,
   },
-})
-
-const blockerNode = (identifier: string, type: string) => ({
-  id: `id-${identifier}`,
-  identifier,
-  title: `Title ${identifier}`,
-  state: { name: type, type },
-})
-
-const blockedBy = (...blockers: readonly ReturnType<typeof blockerNode>[]) => ({
-  nodes: blockers.map((issue, index) => ({ id: `rel-${index}`, type: "blocks", issue })),
-  pageInfo,
 })
 
 const handlerFor = () =>
@@ -180,91 +157,5 @@ describe("IssueWriteApi unlink", () => {
     expect(
       recorder.requests.some((request) => request.query.includes("mutation IssueRelationDelete")),
     ).toBe(false)
-  })
-})
-
-describe("frontier", () => {
-  test("counts completed and canceled blockers as closed", () => {
-    const open = { state: { type: "started" } }
-    const completed = { state: { type: "completed" } }
-    const canceled = { state: { type: "canceled" } }
-    const backlog = { state: { type: "backlog" } }
-
-    expect(isUnblocked({ state: open.state, blockers: [] })).toBe(true)
-    expect(isUnblocked({ state: open.state, blockers: [completed, canceled] })).toBe(true)
-    expect(isUnblocked({ state: open.state, blockers: [completed, backlog] })).toBe(false)
-    expect(isUnblocked({ state: completed.state, blockers: [] })).toBe(false)
-  })
-
-  test("list --parent --unblocked --unassigned keeps only the frontier", async () => {
-    const captured: Record<string, unknown>[] = []
-    const openState = { name: "Todo", type: "unstarted" }
-    const handler = (request: HttpClientRequest.HttpClientRequest): Response => {
-      const body = readBody(request)
-      if (body.query.includes("query IssueId")) {
-        return jsonResponse({ data: { issue: { id: "map-id" } } })
-      }
-      if (body.query.includes("query IssueListUnblocked")) {
-        captured.push(body.variables)
-        return jsonResponse({
-          data: {
-            issues: {
-              nodes: [
-                {
-                  ...summaryNode("RAT-1"),
-                  state: openState,
-                  assignee: null,
-                  inverseRelations: blockedBy(),
-                },
-                {
-                  ...summaryNode("RAT-2"),
-                  state: openState,
-                  assignee: null,
-                  inverseRelations: blockedBy(blockerNode("RAT-9", "started")),
-                },
-                {
-                  ...summaryNode("RAT-3"),
-                  state: { name: "Done", type: "completed" },
-                  assignee: null,
-                  inverseRelations: blockedBy(),
-                },
-                {
-                  ...summaryNode("RAT-4"),
-                  state: openState,
-                  assignee: user,
-                  inverseRelations: blockedBy(),
-                },
-                {
-                  ...summaryNode("RAT-5"),
-                  state: openState,
-                  assignee: null,
-                  inverseRelations: blockedBy(blockerNode("RAT-8", "completed")),
-                },
-              ],
-              pageInfo,
-            },
-          },
-        })
-      }
-      return jsonResponse({ errors: [{ message: `Unexpected query: ${body.query}` }] }, 400)
-    }
-
-    const issues = await runIssue(
-      handler,
-      Effect.gen(function* listFrontier() {
-        const api = yield* IssueApi
-        return yield* api.list({
-          parent: "RAT-0",
-          unblocked: true,
-          unassigned: true,
-          limit: 50,
-        })
-      }),
-    )
-
-    expect(issues.map((issue) => issue.identifier)).toEqual(["RAT-1", "RAT-5"])
-    expect(captured[0]?.filter).toEqual({
-      and: [{ assignee: { null: true } }, { parent: { id: { eq: "map-id" } } }],
-    })
   })
 })

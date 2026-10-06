@@ -10,6 +10,7 @@ import type {
   IssueSummaryNode,
   IssueTeam,
   IssueUser,
+  PageInfo,
 } from "@/api/issue-schema"
 
 const stateTypes = ["triage", "backlog", "unstarted", "started", "completed", "canceled"] as const
@@ -53,7 +54,17 @@ type IssueDetail = {
   readonly comments?: readonly IssueComment[]
 }
 
-type IssueListOptions = {
+type PageRequest = {
+  readonly after?: string | undefined
+  readonly limit: number
+}
+
+type IssuePage = {
+  readonly issues: readonly IssueSummary[]
+  readonly pageInfo: PageInfo
+}
+
+type IssueListOptions = PageRequest & {
   readonly team?: string | undefined
   readonly state?: string | undefined
   readonly stateType?: StateType | undefined
@@ -64,7 +75,6 @@ type IssueListOptions = {
   readonly text?: string | undefined
   readonly unblocked?: boolean | undefined
   readonly unassigned?: boolean | undefined
-  readonly limit: number
 }
 
 type IssueShowOptions = {
@@ -127,9 +137,11 @@ export {
   byCreatedAt,
   type IssueDetail,
   type IssueListOptions,
+  type IssuePage,
   type IssueRelations,
   type IssueShowOptions,
   type IssueSummary,
+  type PageRequest,
   relationTargets,
   type StateType,
   stateTypes,

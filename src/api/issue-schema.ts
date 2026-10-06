@@ -133,18 +133,8 @@ const IssueDetailNode = Schema.Struct({
 })
 type IssueDetailNode = typeof IssueDetailNode.Type
 
-const IssueBlockedByNode = Schema.Struct({
-  ...IssueSummaryNode.fields,
-  inverseRelations: IssueInverseRelationConnection,
-})
-type IssueBlockedByNode = typeof IssueBlockedByNode.Type
-
 const ListResponse = Schema.Struct({
   issues: Schema.Struct({ nodes: Schema.Array(IssueSummaryNode), pageInfo: PageInfo }),
-})
-
-const UnblockedListResponse = Schema.Struct({
-  issues: Schema.Struct({ nodes: Schema.Array(IssueBlockedByNode), pageInfo: PageInfo }),
 })
 
 const SearchResponse = Schema.Struct({
@@ -233,7 +223,6 @@ export {
   CreateRelationResponse,
   DeleteRelationResponse,
   InverseRelationsResponse,
-  type IssueBlockedByNode,
   type IssueChild,
   type IssueComment,
   IssueIdResponse,
@@ -256,7 +245,6 @@ export {
   SearchResponse,
   ShowResponse,
   TeamStatesResponse,
-  UnblockedListResponse,
   UpdateIssueResponse,
   type WorkflowState,
 }
