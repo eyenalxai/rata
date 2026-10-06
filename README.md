@@ -266,7 +266,8 @@ rata project create --name "Login revamp" --team RAT --team OPS --description "T
     "id": "p1",
     "name": "Login revamp",
     "progress": 0.25,
-    "status": { "name": "Started" }
+    "status": { "name": "Started" },
+    "trashed": false
   }
 }
 ```
