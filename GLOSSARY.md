@@ -5,7 +5,8 @@ they explore the codebase. Use these terms; do not drift to synonyms.
 
 ## Issue tracking
 
-- **Workspace**: a Linear workspace. One API key belongs to one workspace.
+- **Workspace**: a Linear workspace. One API key belongs to one workspace. A
+  workspace has a **url key**: a short slug, for example `acme`.
 - **Viewer**: the user that owns the API key.
 - **Team**: the Linear team that owns issues. It has a short **key** (for
   example `RAT`) and a name. An issue needs a team.
@@ -61,9 +62,10 @@ they explore the codebase. Use these terms; do not drift to synonyms.
   it.
 - **Auth file**: the local file that holds the workspace profiles, written by
   `rata auth login`.
-- **Profile** (or **workspace profile**): a named API key in the auth file. The
-  name selects the Linear workspace. Avoid: account, credential.
+- **Profile** (or **workspace profile**): an API key in the auth file, named
+  after the Linear workspace url key. The name selects the workspace. Avoid:
+  account, credential.
 - **Default profile**: the profile named by `default` in the auth file.
-  `rata workspace use` sets it.
+  `rata auth login` and `rata workspace use` set it.
 - **Resolution order**: the order rata uses to select the API key:
   `LINEAR_API_KEY`, the repository `workspace`, the default profile.
