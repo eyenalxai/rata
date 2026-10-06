@@ -103,6 +103,27 @@ const handleMutation = (graphql: GraphQLRequest, state: FakeState): Response | u
   return undefined
 }
 
+const paginate = <A extends { readonly id: string }>(
+  nodes: readonly A[],
+  variables: Record<string, unknown>,
+): {
+  readonly nodes: readonly A[]
+  readonly pageInfo: { readonly hasNextPage: boolean; readonly endCursor: string | null }
+} => {
+  const first = typeof variables.first === "number" ? variables.first : 50
+  const after = typeof variables.after === "string" ? variables.after : null
+  const start = after === null ? 0 : nodes.findIndex((node) => node.id === after) + 1
+  const page = nodes.slice(start, start + first)
+  const last = page.at(-1)
+  return {
+    nodes: page,
+    pageInfo: {
+      hasNextPage: start + page.length < nodes.length,
+      endCursor: last?.id ?? null,
+    },
+  }
+}
+
 const handleQuery = (
   graphql: GraphQLRequest,
   state: FakeState,
@@ -113,46 +134,46 @@ const handleQuery = (
     return jsonResponse({ data: { viewer } })
   }
   if (query.includes("query Projects")) {
-    return jsonResponse({ data: { projects: { nodes: state.projects } } })
+    return jsonResponse({ data: { projects: paginate(state.projects, graphql.variables) } })
   }
   if (query.includes("query TeamById")) {
     const id = graphql.variables.id
     return jsonResponse({
-      data: { teams: { nodes: state.teams.filter((item) => item.id === id) } },
+      data: {
+        teams: paginate(
+          state.teams.filter((item) => item.id === id),
+          graphql.variables,
+        ),
+      },
     })
   }
   if (query.includes("query TeamByKey")) {
     const key = graphql.variables.key
     return jsonResponse({
-      data: { teams: { nodes: state.teams.filter((item) => item.key === key) } },
+      data: {
+        teams: paginate(
+          state.teams.filter((item) => item.key === key),
+          graphql.variables,
+        ),
+      },
     })
   }
   if (query.includes("query Teams")) {
-    return jsonResponse({ data: { teams: { nodes: state.teams } } })
+    return jsonResponse({ data: { teams: paginate(state.teams, graphql.variables) } })
   }
   if (query.includes("query AvailableLabels")) {
     const teamId = graphql.variables.teamId
-    return jsonResponse({
-      data: {
-        issueLabels: {
-          nodes: state.labels
-            .filter((label) => label.teamId === teamId || label.teamId === null)
-            .map(({ id, name, color }) => ({ id, name, color })),
-        },
-      },
-    })
+    const available = state.labels
+      .filter((label) => label.teamId === teamId || label.teamId === null)
+      .map(({ id, name, color }) => ({ id, name, color }))
+    return jsonResponse({ data: { issueLabels: paginate(available, graphql.variables) } })
   }
   if (query.includes("query Labels")) {
     const teamId = graphql.variables.teamId
-    return jsonResponse({
-      data: {
-        issueLabels: {
-          nodes: state.labels
-            .filter((label) => label.teamId === teamId)
-            .map(({ id, name, color }) => ({ id, name, color })),
-        },
-      },
-    })
+    const teamLabels = state.labels
+      .filter((label) => label.teamId === teamId)
+      .map(({ id, name, color }) => ({ id, name, color }))
+    return jsonResponse({ data: { issueLabels: paginate(teamLabels, graphql.variables) } })
   }
   return undefined
 }

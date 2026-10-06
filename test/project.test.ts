@@ -62,7 +62,11 @@ describe("ProjectService.create", () => {
       name: "Spec: login",
       teamIds: ["team-2", id],
     })
-    expect(requestOf(fake.requests, "query TeamByKey")?.variables).toEqual({ key: "OPS" })
+    expect(requestOf(fake.requests, "query TeamByKey")?.variables).toEqual({
+      key: "OPS",
+      first: 50,
+      after: null,
+    })
   })
 
   test("fails without a team when the config has none", async () => {

@@ -2,9 +2,10 @@ import { Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 import { EOL } from "node:os"
 
+import { maxPageSize } from "@/api/pagination"
 import { TeamService } from "@/api/team"
 import { confirm } from "@/cli/confirm"
-import { reportFailure, writeJson, writeLine } from "@/cli/output"
+import { errorLine, nextPageHint, reportFailure, writeJson, writeLine } from "@/cli/output"
 import { machineTimezone } from "@/domain/timezone"
 
 const jsonFlag = Flag.Boolean("json").pipe(
@@ -15,18 +16,45 @@ const jsonFlag = Flag.Boolean("json").pipe(
 const optionalText = (name: string, description: string) =>
   Flag.String(name).pipe(Flag.withDescription(description), Flag.optional)
 
-const listCommand = Command.make("list", { json: jsonFlag }, (config) =>
-  Effect.gen(function* listTeams() {
-    const teams = yield* TeamService
-    const all = yield* teams.list
-    if (config.json) {
-      return yield* writeJson(all)
-    }
-    if (all.length === 0) {
-      return yield* writeLine("No teams.")
-    }
-    return yield* writeLine(all.map((team) => `${team.key}\t${team.name}\t${team.id}`).join(EOL))
-  }).pipe(Effect.catch(reportFailure)),
+const limitFlag = Flag.Int("limit").pipe(
+  Flag.withDescription("Maximum number of teams to return"),
+  Flag.withDefault(50),
+)
+
+const afterFlag = Flag.String("after").pipe(
+  Flag.withDescription("Continue from the endCursor of a previous page"),
+  Flag.optional,
+)
+
+const listCommand = Command.make(
+  "list",
+  { json: jsonFlag, limit: limitFlag, after: afterFlag },
+  (config) =>
+    Effect.gen(function* listTeams() {
+      if (config.limit < 1) {
+        return yield* errorLine(1, "The --limit flag must be at least 1.")
+      }
+      if (config.limit > maxPageSize) {
+        return yield* errorLine(1, `The --limit flag must be at most ${maxPageSize}.`)
+      }
+      const teams = yield* TeamService
+      const page = yield* teams.list({
+        after: Option.getOrNull(config.after),
+        limit: config.limit,
+      })
+      if (config.json) {
+        return yield* writeJson({ teams: page.nodes, pageInfo: page.pageInfo })
+      }
+      if (page.nodes.length === 0) {
+        return yield* writeLine("No teams.")
+      }
+      const body = page.nodes.map((team) => `${team.key}\t${team.name}\t${team.id}`).join(EOL)
+      const hint =
+        page.pageInfo.hasNextPage && page.pageInfo.endCursor !== null
+          ? `${EOL}${nextPageHint("teams", page.pageInfo.endCursor)}`
+          : ""
+      return yield* writeLine(`${body}${hint}`)
+    }).pipe(Effect.catch(reportFailure)),
 ).pipe(Command.withDescription("List the teams in the workspace"))
 
 const createCommand = Command.make(

@@ -41,6 +41,27 @@ describe("LinkService.link prompt", () => {
     }
   })
 
+  test("lists a team from the next page", async () => {
+    const last = { id: "team-51", key: "T51", name: "Team 51", timezone: "America/Los_Angeles" }
+    const teams = [
+      ...Array.from({ length: 50 }, (_, index) => ({
+        id: `team-${index + 1}`,
+        key: `T${index + 1}`,
+        name: `Team ${index + 1}`,
+        timezone: "America/Los_Angeles",
+      })),
+      last,
+    ]
+    const harness = makeHarness(interactive("51\n"))
+    const fake = makeFakeLinear({ teams, labels: [] })
+    const result = await linkTeam(fake.handler, harness, options({ team: Option.none() }))
+
+    expect(result.team).toEqual(last)
+    const pages = fake.requests.filter((request) => request.query.includes("query Teams"))
+    expect(pages).toHaveLength(2)
+    expect(pages[1]?.variables).toEqual({ first: 50, after: "team-50" })
+  })
+
   test("fails without listing teams when standard input is not a terminal", async () => {
     const harness = makeHarness()
     const fake = makeFakeLinear({ teams: [rat, scratch], labels: [] })

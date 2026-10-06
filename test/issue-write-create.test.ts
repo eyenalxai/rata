@@ -1,5 +1,5 @@
 import { inputOf } from "@test/fake-linear-model"
-import { jsonResponse, summaryNode, viewer } from "@test/issue-fixtures"
+import { jsonResponse, pageInfo, summaryNode, viewer } from "@test/issue-fixtures"
 import {
   issueCreated,
   issueUpdated,
@@ -31,6 +31,7 @@ const labelsHandler = () =>
               { id: "l1", name: "ready-for-agent", color: "#111111" },
               { id: "l-bug", name: "Bug", color: "#EB5757" },
             ],
+            pageInfo,
           },
         },
       })
@@ -51,10 +52,10 @@ const labelsHandler = () =>
 const createHandler = () =>
   makeRecorder((request) => {
     if (request.query.includes("query TeamByKey")) {
-      return jsonResponse({ data: { teams: { nodes: [team] } } })
+      return jsonResponse({ data: { teams: { nodes: [team], pageInfo } } })
     }
     if (request.query.includes("query TeamStates")) {
-      return jsonResponse({ data: { team: { states: { nodes: states } } } })
+      return jsonResponse({ data: { team: { states: { nodes: states, pageInfo } } } })
     }
     if (request.query.includes("query IssueId")) {
       return jsonResponse({ data: { issue: { id: "i-parent" } } })
@@ -64,6 +65,7 @@ const createHandler = () =>
         data: {
           projects: {
             nodes: [{ id: "p1", name: "Tracker", progress: 0, status: { name: "Started" } }],
+            pageInfo,
           },
         },
       })
@@ -73,7 +75,12 @@ const createHandler = () =>
     }
     if (request.query.includes("query AvailableLabels")) {
       return jsonResponse({
-        data: { issueLabels: { nodes: [{ id: "l1", name: "ready-for-agent", color: "#111111" }] } },
+        data: {
+          issueLabels: {
+            nodes: [{ id: "l1", name: "ready-for-agent", color: "#111111" }],
+            pageInfo,
+          },
+        },
       })
     }
     if (request.query.includes("mutation CreateIssue")) {
@@ -85,7 +92,7 @@ const createHandler = () =>
 const minimalCreateHandler = () =>
   makeRecorder((request) => {
     if (request.query.includes("query TeamByKey")) {
-      return jsonResponse({ data: { teams: { nodes: [team] } } })
+      return jsonResponse({ data: { teams: { nodes: [team], pageInfo } } })
     }
     if (request.query.includes("mutation CreateIssue")) {
       return issueCreated()

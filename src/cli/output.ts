@@ -41,6 +41,9 @@ const writeJson = (value: unknown): Effect.Effect<void> =>
 
 const writeLine = (line: string): Effect.Effect<void> => Console.log(line)
 
+const nextPageHint = (name: string, endCursor: string): string =>
+  `More ${name} available. Continue with --after ${endCursor}`
+
 const errorLine = (code: number, message: string): Effect.Effect<void> =>
   Effect.gen(function* writeErrorLine() {
     yield* Console.error(`error: ${message}`)
@@ -60,4 +63,4 @@ const reportFailure = (error: ReportedError): Effect.Effect<void> =>
     }
   })
 
-export { errorLine, reportFailure, writeJson, writeLine }
+export { errorLine, nextPageHint, reportFailure, writeJson, writeLine }

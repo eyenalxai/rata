@@ -20,7 +20,6 @@ import {
   issueIdQuery,
   labelsQuery,
   listQuery,
-  pageSize,
   relationsQuery,
   searchQuery,
   showQuery,
@@ -36,7 +35,7 @@ import {
   SearchResponse,
   ShowResponse,
 } from "@/api/issue-schema"
-import { collectPages } from "@/api/pagination"
+import { collectPages, pageSize } from "@/api/pagination"
 import { isUuid, parseIssueRef } from "@/domain/ref"
 
 type IssueApiShape = {

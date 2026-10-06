@@ -3,8 +3,10 @@ import type { Redacted } from "effect"
 import { Context, Effect, Layer, Schema } from "effect"
 
 import type { LinearApiError } from "@/api/errors"
+import type { Connection, PageOptions } from "@/api/pagination"
 
 import { LinearClient } from "@/api/client"
+import { collectConnection, PageInfo, pageSize } from "@/api/pagination"
 import { isUuid } from "@/domain/ref"
 
 const Team = Schema.Struct({
@@ -16,7 +18,10 @@ const Team = Schema.Struct({
 
 type Team = typeof Team.Type
 
-const TeamConnection = Schema.Struct({ nodes: Schema.Array(Team) })
+const TeamConnection = Schema.Struct({
+  nodes: Schema.Array(Team),
+  pageInfo: PageInfo,
+})
 
 const TeamCreatePayload = Schema.Struct({
   success: Schema.Boolean,
@@ -33,47 +38,40 @@ const DeletePayload = Schema.Struct({
   entityId: Schema.String,
 })
 
-const teamsQuery = `query Teams {
-  teams(first: 250) {
-    nodes {
+const teamFields = `
       id
       key
       name
-      timezone
+      timezone`
+
+const teamsQuery = `query Teams($first: Int!, $after: String) {
+  teams(first: $first, after: $after, orderBy: createdAt) {
+    nodes {${teamFields}
     }
+    pageInfo { hasNextPage endCursor }
   }
 }`
 
-const teamByKeyQuery = `query TeamByKey($key: String!) {
-  teams(first: 1, filter: { key: { eq: $key } }) {
-    nodes {
-      id
-      key
-      name
-      timezone
+const teamByKeyQuery = `query TeamByKey($key: String!, $first: Int!, $after: String) {
+  teams(first: $first, after: $after, orderBy: createdAt, filter: { key: { eq: $key } }) {
+    nodes {${teamFields}
     }
+    pageInfo { hasNextPage endCursor }
   }
 }`
 
-const teamByIdQuery = `query TeamById($id: ID!) {
-  teams(first: 1, filter: { id: { eq: $id } }) {
-    nodes {
-      id
-      key
-      name
-      timezone
+const teamByIdQuery = `query TeamById($id: ID!, $first: Int!, $after: String) {
+  teams(first: $first, after: $after, orderBy: createdAt, filter: { id: { eq: $id } }) {
+    nodes {${teamFields}
     }
+    pageInfo { hasNextPage endCursor }
   }
 }`
 
 const teamCreateMutation = `mutation TeamCreate($input: TeamCreateInput!, $copySettingsFromTeamId: String) {
   teamCreate(input: $input, copySettingsFromTeamId: $copySettingsFromTeamId) {
     success
-    team {
-      id
-      key
-      name
-      timezone
+    team {${teamFields}
     }
   }
 }`
@@ -81,11 +79,7 @@ const teamCreateMutation = `mutation TeamCreate($input: TeamCreateInput!, $copyS
 const teamUpdateMutation = `mutation TeamUpdate($id: String!, $input: TeamUpdateInput!) {
   teamUpdate(id: $id, input: $input) {
     success
-    team {
-      id
-      key
-      name
-      timezone
+    team {${teamFields}
     }
   }
 }`
@@ -136,7 +130,7 @@ type DeletedTeam = {
 }
 
 type TeamOperations = {
-  readonly list: Effect.Effect<readonly Team[], LinearApiError>
+  readonly list: (options: PageOptions) => Effect.Effect<Connection<Team>, LinearApiError>
   readonly byKey: (ref: string) => Effect.Effect<Team, LinearApiError | TeamNotFoundError>
   readonly byId: (id: string) => Effect.Effect<Team, LinearApiError | TeamNotFoundError>
   readonly create: (
@@ -154,19 +148,35 @@ type TeamServiceShape = TeamOperations & {
 }
 
 const makeTeamOperations = (execute: LinearClient["Service"]["execute"]): TeamOperations => {
-  const list = execute(teamsQuery, {}, Schema.Struct({ teams: TeamConnection })).pipe(
-    Effect.map((data) => data.teams.nodes),
-    Effect.withSpan("TeamService.list"),
-  )
+  const list = Effect.fn("TeamService.list")(function* listTeams(options: PageOptions) {
+    const data = yield* execute(
+      teamsQuery,
+      { first: options.limit, after: options.after },
+      Schema.Struct({ teams: TeamConnection }),
+    )
+    return data.teams
+  })
+
+  const lookupTeam = Effect.fn("TeamService.lookup")(function* lookupTeam(
+    query: string,
+    variables: Record<string, unknown>,
+  ) {
+    const teams = yield* collectConnection((after) =>
+      execute(
+        query,
+        { ...variables, first: pageSize, after },
+        Schema.Struct({ teams: TeamConnection }),
+      ).pipe(Effect.map((data) => data.teams)),
+    )
+    return teams[0]
+  })
 
   const byKey = Effect.fn("TeamService.byKey")(function* findTeam(ref: string) {
     const byId = isUuid(ref)
-    const data = yield* execute(
+    const team = yield* lookupTeam(
       byId ? teamByIdQuery : teamByKeyQuery,
       byId ? { id: ref } : { key: ref },
-      Schema.Struct({ teams: TeamConnection }),
     )
-    const team = data.teams.nodes[0]
     if (team === undefined) {
       return yield* new TeamNotFoundError({
         key: ref,
@@ -179,8 +189,7 @@ const makeTeamOperations = (execute: LinearClient["Service"]["execute"]): TeamOp
   })
 
   const byId = Effect.fn("TeamService.byId")(function* findTeamById(id: string) {
-    const data = yield* execute(teamByIdQuery, { id }, Schema.Struct({ teams: TeamConnection }))
-    const team = data.teams.nodes[0]
+    const team = yield* lookupTeam(teamByIdQuery, { id })
     if (team === undefined) {
       return yield* new TeamNotFoundError({
         key: id,

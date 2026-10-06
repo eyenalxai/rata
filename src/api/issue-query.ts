@@ -1,4 +1,4 @@
-const pageSize = 50
+import { pageSize } from "@/api/pagination"
 
 const summaryFields = `
       id
@@ -148,20 +148,22 @@ const deleteRelationMutation = `mutation IssueRelationDelete($id: String!) {
   }
 }`
 
-const teamStatesQuery = `query TeamStates($teamId: String!) {
+const teamStatesQuery = `query TeamStates($teamId: String!, $first: Int!, $after: String) {
   team(id: $teamId) {
-    states(first: ${pageSize}) {
+    states(first: $first, after: $after, orderBy: createdAt) {
       nodes { id name type }
+      pageInfo { hasNextPage endCursor }
     }
   }
 }`
 
-const issueStatesQuery = `query IssueStates($id: String!) {
+const issueStatesQuery = `query IssueStates($id: String!, $first: Int!, $after: String) {
   issue(id: $id) {
     team {
       id
-      states(first: ${pageSize}) {
+      states(first: $first, after: $after, orderBy: createdAt) {
         nodes { id name type }
+        pageInfo { hasNextPage endCursor }
       }
     }
   }
@@ -189,7 +191,6 @@ export {
   issueTeamQuery,
   labelsQuery,
   listQuery,
-  pageSize,
   relationsQuery,
   removeLabelMutation,
   searchQuery,

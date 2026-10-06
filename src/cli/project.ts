@@ -2,8 +2,9 @@ import { Effect, Option } from "effect"
 import { Command, Flag } from "effect/cli"
 import { EOL } from "node:os"
 
+import { maxPageSize } from "@/api/pagination"
 import { ProjectService } from "@/api/project"
-import { reportFailure, writeJson, writeLine } from "@/cli/output"
+import { errorLine, nextPageHint, reportFailure, writeJson, writeLine } from "@/cli/output"
 
 const jsonFlag = Flag.Boolean("json").pipe(
   Flag.withDescription("Print machine-readable JSON"),
@@ -13,27 +14,52 @@ const jsonFlag = Flag.Boolean("json").pipe(
 const optionalText = (name: string, description: string) =>
   Flag.String(name).pipe(Flag.withDescription(description), Flag.optional)
 
+const limitFlag = Flag.Int("limit").pipe(
+  Flag.withDescription("Maximum number of projects to return"),
+  Flag.withDefault(50),
+)
+
+const afterFlag = Flag.String("after").pipe(
+  Flag.withDescription("Continue from the endCursor of a previous page"),
+  Flag.optional,
+)
+
 const formatProgress = (progress: number): string => `${Math.round(progress * 100)}%`
 
-const listCommand = Command.make("list", { json: jsonFlag }, (config) =>
-  Effect.gen(function* listProjects() {
-    const projects = yield* ProjectService
-    const all = yield* projects.list
-    if (config.json) {
-      return yield* writeJson({ projects: all })
-    }
-    if (all.length === 0) {
-      return yield* writeLine("No projects.")
-    }
-    return yield* writeLine(
-      all
+const listCommand = Command.make(
+  "list",
+  { json: jsonFlag, limit: limitFlag, after: afterFlag },
+  (config) =>
+    Effect.gen(function* listProjects() {
+      if (config.limit < 1) {
+        return yield* errorLine(1, "The --limit flag must be at least 1.")
+      }
+      if (config.limit > maxPageSize) {
+        return yield* errorLine(1, `The --limit flag must be at most ${maxPageSize}.`)
+      }
+      const projects = yield* ProjectService
+      const page = yield* projects.list({
+        after: Option.getOrNull(config.after),
+        limit: config.limit,
+      })
+      if (config.json) {
+        return yield* writeJson({ projects: page.nodes, pageInfo: page.pageInfo })
+      }
+      if (page.nodes.length === 0) {
+        return yield* writeLine("No projects.")
+      }
+      const body = page.nodes
         .map(
           (project) =>
             `${project.name}\t${project.status.name}\t${formatProgress(project.progress)}\t${project.id}`,
         )
-        .join(EOL),
-    )
-  }).pipe(Effect.catch(reportFailure)),
+        .join(EOL)
+      const hint =
+        page.pageInfo.hasNextPage && page.pageInfo.endCursor !== null
+          ? `${EOL}${nextPageHint("projects", page.pageInfo.endCursor)}`
+          : ""
+      return yield* writeLine(`${body}${hint}`)
+    }).pipe(Effect.catch(reportFailure)),
 ).pipe(Command.withDescription("List the projects in the workspace"))
 
 const createCommand = Command.make(

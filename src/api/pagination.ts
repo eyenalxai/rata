@@ -1,7 +1,13 @@
-import { Effect } from "effect"
+import { Effect, Schema } from "effect"
 
 import type { LinearApiError } from "@/api/errors"
-import type { PageInfo } from "@/api/issue-schema"
+
+const PageInfo = Schema.Struct({
+  hasNextPage: Schema.Boolean,
+  endCursor: Schema.NullOr(Schema.String),
+})
+
+type PageInfo = typeof PageInfo.Type
 
 const maxPageSize = 250
 
@@ -9,6 +15,13 @@ type Connection<A> = {
   readonly nodes: readonly A[]
   readonly pageInfo: PageInfo
 }
+
+type PageOptions = {
+  readonly after: string | null
+  readonly limit: number
+}
+
+const pageSize = 50
 
 const collectPages = <A>(
   initial: Connection<A>,
@@ -25,4 +38,20 @@ const collectPages = <A>(
     return nodes
   })
 
-export { type Connection, collectPages, maxPageSize }
+const collectConnection = <A>(
+  fetch: (after: string | null) => Effect.Effect<Connection<A>, LinearApiError>,
+): Effect.Effect<readonly A[], LinearApiError> =>
+  Effect.gen(function* collectEveryPage() {
+    const first = yield* fetch(null)
+    return yield* collectPages(first, (after) => fetch(after))
+  })
+
+export {
+  type Connection,
+  collectConnection,
+  collectPages,
+  maxPageSize,
+  PageInfo,
+  type PageOptions,
+  pageSize,
+}

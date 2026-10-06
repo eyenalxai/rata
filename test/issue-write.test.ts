@@ -1,5 +1,5 @@
 import { inputOf } from "@test/fake-linear-model"
-import { jsonResponse, viewer } from "@test/issue-fixtures"
+import { jsonResponse, pageInfo, viewer } from "@test/issue-fixtures"
 import {
   configWithTeam,
   issueCreated,
@@ -21,7 +21,7 @@ const teamHandler = () =>
     if (request.query.includes("query TeamByKey")) {
       const key = request.variables.key
       return jsonResponse({
-        data: { teams: { nodes: [team, otherTeam].filter((item) => item.key === key) } },
+        data: { teams: { nodes: [team, otherTeam].filter((item) => item.key === key), pageInfo } },
       })
     }
     if (request.query.includes("mutation CreateIssue")) {
@@ -37,7 +37,7 @@ const stateHandler = (workflowStates: readonly { id: string; name: string; type:
     }
     if (request.query.includes("query IssueStates")) {
       return jsonResponse({
-        data: { issue: { team: { id: "team-1", states: { nodes: workflowStates } } } },
+        data: { issue: { team: { id: "team-1", states: { nodes: workflowStates, pageInfo } } } },
       })
     }
     if (request.query.includes("mutation UpdateIssue")) {
@@ -68,7 +68,7 @@ const closeCommentHandler = () =>
     }
     if (request.query.includes("query IssueStates")) {
       return jsonResponse({
-        data: { issue: { team: { id: "team-1", states: { nodes: states } } } },
+        data: { issue: { team: { id: "team-1", states: { nodes: states, pageInfo } } } },
       })
     }
     if (request.query.includes("mutation UpdateIssue")) {

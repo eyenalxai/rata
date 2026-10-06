@@ -14,7 +14,7 @@ const recordingConsole = (lines: string[]): Console.Console => {
     debug: ignore,
     dir: ignore,
     dirxml: ignore,
-    error: ignore,
+    error: record,
     group: ignore,
     groupCollapsed: ignore,
     groupEnd: ignore,

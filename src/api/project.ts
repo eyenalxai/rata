@@ -1,10 +1,12 @@
 import { Context, Effect, Layer, Option, Schema } from "effect"
 
 import type { LinearApiError } from "@/api/errors"
+import type { Connection, PageOptions } from "@/api/pagination"
 import type { TeamNotFoundError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
 
 import { LinearClient } from "@/api/client"
+import { PageInfo } from "@/api/pagination"
 import { TeamResolutionError, TeamService } from "@/api/team"
 import { RepoConfigService } from "@/config/repo"
 import { isUuid } from "@/domain/ref"
@@ -20,15 +22,18 @@ const Project = Schema.Struct({
 
 type Project = typeof Project.Type
 
-const ProjectConnection = Schema.Struct({ nodes: Schema.Array(Project) })
+const ProjectConnection = Schema.Struct({
+  nodes: Schema.Array(Project),
+  pageInfo: PageInfo,
+})
 
 const ProjectCreatePayload = Schema.Struct({
   success: Schema.Boolean,
   project: Schema.NullOr(Project),
 })
 
-const listProjectsQuery = `query Projects {
-  projects(first: 250) {
+const listProjectsQuery = `query Projects($first: Int!, $after: String) {
+  projects(first: $first, after: $after, orderBy: createdAt) {
     nodes {
       id
       name
@@ -37,6 +42,7 @@ const listProjectsQuery = `query Projects {
         name
       }
     }
+    pageInfo { hasNextPage endCursor }
   }
 }`
 
@@ -66,7 +72,7 @@ type ProjectCreateOptions = {
 }
 
 type ProjectServiceShape = {
-  readonly list: Effect.Effect<readonly Project[], LinearApiError>
+  readonly list: (options: PageOptions) => Effect.Effect<Connection<Project>, LinearApiError>
   readonly create: (
     options: ProjectCreateOptions,
   ) => Effect.Effect<
@@ -85,12 +91,14 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
       const teams = yield* TeamService
       const repoConfig = yield* RepoConfigService
 
-      const list = client
-        .execute(listProjectsQuery, {}, Schema.Struct({ projects: ProjectConnection }))
-        .pipe(
-          Effect.map((data) => data.projects.nodes),
-          Effect.withSpan("ProjectService.list"),
+      const list = Effect.fn("ProjectService.list")(function* listProjects(options: PageOptions) {
+        const data = yield* client.execute(
+          listProjectsQuery,
+          { first: options.limit, after: options.after },
+          Schema.Struct({ projects: ProjectConnection }),
         )
+        return data.projects
+      })
 
       const teamIdFor = Effect.fn("ProjectService.teamIdFor")(function* teamIdFor(value: string) {
         if (isUuid(value)) {

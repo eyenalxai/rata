@@ -13,7 +13,6 @@ import {
   issueIdQuery,
   issueStatesQuery,
   issueTeamQuery,
-  pageSize,
   relationsQuery,
   teamStatesQuery,
   updateIssueMutation,
@@ -38,7 +37,7 @@ import {
   unwrapComment,
   unwrapIssue,
 } from "@/api/issue-write-model"
-import { collectPages } from "@/api/pagination"
+import { collectConnection, collectPages, pageSize } from "@/api/pagination"
 import { TeamResolutionError } from "@/api/team"
 import { findLabelByName } from "@/domain/labels"
 import { isUuid } from "@/domain/ref"
@@ -96,7 +95,7 @@ const makeIssueWriteResolvers = ({ client, teams, labels, projects }: IssueWrite
     if (isUuid(value)) {
       return value
     }
-    const all = yield* projects.list
+    const all = yield* collectConnection((after) => projects.list({ after, limit: pageSize }))
     const match = all.find((project) => project.name.toLowerCase() === value.toLowerCase())
     if (match === undefined) {
       return yield* new ProjectNotFoundError({
@@ -141,16 +140,36 @@ const makeIssueWriteResolvers = ({ client, teams, labels, projects }: IssueWrite
 
   const teamStateIdByName = Effect.fn("IssueWriteApi.teamStateIdByName")(
     function* teamStateIdByName(teamId: string, name: string) {
-      const data = yield* client.execute(teamStatesQuery, { teamId }, TeamStatesResponse)
-      return yield* stateIdByName(data.team.states.nodes, teamId, name)
+      const states = yield* collectConnection((after) =>
+        client
+          .execute(teamStatesQuery, { teamId, first: pageSize, after }, TeamStatesResponse)
+          .pipe(Effect.map((data) => data.team.states)),
+      )
+      return yield* stateIdByName(states, teamId, name)
     },
   )
 
+  const issueStates = Effect.fn("IssueWriteApi.issueStates")(function* issueStates(
+    issueId: string,
+  ) {
+    const first = yield* client.execute(
+      issueStatesQuery,
+      { id: issueId, first: pageSize, after: null },
+      IssueStatesResponse,
+    )
+    const teamId = first.issue.team.id
+    const states = yield* collectPages(first.issue.team.states, (after) =>
+      client
+        .execute(issueStatesQuery, { id: issueId, first: pageSize, after }, IssueStatesResponse)
+        .pipe(Effect.map((page) => page.issue.team.states)),
+    )
+    return { states, teamId }
+  })
+
   const issueStateIdByName = Effect.fn("IssueWriteApi.issueStateIdByName")(
     function* issueStateIdByName(issueId: string, name: string) {
-      const data = yield* client.execute(issueStatesQuery, { id: issueId }, IssueStatesResponse)
-      const team = data.issue.team
-      return yield* stateIdByName(team.states.nodes, team.id, name)
+      const team = yield* issueStates(issueId)
+      return yield* stateIdByName(team.states, team.teamId, name)
     },
   )
 
@@ -158,9 +177,8 @@ const makeIssueWriteResolvers = ({ client, teams, labels, projects }: IssueWrite
     issueId: string,
     type: string,
   ) {
-    const states = yield* client.execute(issueStatesQuery, { id: issueId }, IssueStatesResponse)
-    const team = states.issue.team
-    const stateId = yield* stateIdByType(team.states.nodes, team.id, type)
+    const team = yield* issueStates(issueId)
+    const stateId = yield* stateIdByType(team.states, team.teamId, type)
     const data = yield* client.execute(
       updateIssueMutation,
       { id: issueId, input: { stateId } },
@@ -173,7 +191,9 @@ const makeIssueWriteResolvers = ({ client, teams, labels, projects }: IssueWrite
     teamId: string,
     names: readonly string[],
   ) {
-    const available = yield* labels.listAvailable(teamId)
+    const available = yield* collectConnection((after) =>
+      labels.listAvailable(teamId, { after, limit: pageSize }),
+    )
     return yield* Effect.forEach(names, (name) => {
       const match = findLabelByName(available, name)
       if (match === undefined) {

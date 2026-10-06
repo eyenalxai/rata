@@ -10,8 +10,8 @@ import type {
   IssueSummaryNode,
   IssueTeam,
   IssueUser,
-  PageInfo,
 } from "@/api/issue-schema"
+import type { PageInfo } from "@/api/pagination"
 
 const stateTypes = ["triage", "backlog", "unstarted", "started", "completed", "canceled"] as const
 type StateType = (typeof stateTypes)[number]

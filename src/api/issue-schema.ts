@@ -1,5 +1,7 @@
 import { Schema } from "effect"
 
+import { PageInfo } from "@/api/pagination"
+
 const IssueState = Schema.Struct({
   name: Schema.String,
   type: Schema.String,
@@ -46,12 +48,6 @@ const IssueChild = Schema.Struct({
   state: IssueState,
 })
 type IssueChild = typeof IssueChild.Type
-
-const PageInfo = Schema.Struct({
-  hasNextPage: Schema.Boolean,
-  endCursor: Schema.NullOr(Schema.String),
-})
-type PageInfo = typeof PageInfo.Type
 
 const IssueLabelNodes = Schema.Struct({ nodes: Schema.Array(IssueLabel) })
 
@@ -172,7 +168,10 @@ const WorkflowState = Schema.Struct({
 })
 type WorkflowState = typeof WorkflowState.Type
 
-const WorkflowStateConnection = Schema.Struct({ nodes: Schema.Array(WorkflowState) })
+const WorkflowStateConnection = Schema.Struct({
+  nodes: Schema.Array(WorkflowState),
+  pageInfo: PageInfo,
+})
 
 const TeamStatesResponse = Schema.Struct({
   team: Schema.Struct({ states: WorkflowStateConnection }),
@@ -239,7 +238,6 @@ export {
   type IssueUser,
   LabelsResponse,
   ListResponse,
-  type PageInfo,
   RelationsResponse,
   RemoveLabelResponse,
   SearchResponse,

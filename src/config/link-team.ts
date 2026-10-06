@@ -4,6 +4,7 @@ import { Console, Effect, Option, Schema, Terminal } from "effect"
 
 import type { Team, TeamOperations } from "@/api/team"
 
+import { collectConnection, pageSize } from "@/api/pagination"
 import { parseTeamAnswer } from "@/domain/link"
 import { isUuid } from "@/domain/ref"
 
@@ -86,7 +87,7 @@ const promptForTeam = Effect.fn("LinkTeam.promptForTeam")(function* promptForTea
       message: "Standard input is not a terminal. Pass --team <key> instead.",
     })
   }
-  const all = yield* deps.teams.list
+  const all = yield* collectConnection((after) => deps.teams.list({ after, limit: pageSize }))
   if (all.length === 0) {
     return yield* new LinkError({
       message:
