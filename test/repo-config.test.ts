@@ -94,18 +94,21 @@ describe("RepoConfigService.write", () => {
     expect(result).toEqual(Option.some({ team: "RAT" }))
   })
 
-  test("keeps an existing link when it writes from a worktree", async () => {
+  test("writes and reads one link across a worktree and the main checkout", async () => {
     const result = await withRepoConfig(
       worktreeTree,
       [],
       Effect.gen(function* readWorktree() {
         const service = yield* RepoConfigService
-        yield* service.write("/repo", { team: "RAT", workspace: "work" })
-        return yield* service.read("/topic/src")
+        yield* service.write("/topic/src", { team: "RAT", workspace: "work" })
+        const fromWorktree = yield* service.read("/topic/src")
+        const fromMain = yield* service.read("/repo")
+        return { fromMain, fromWorktree }
       }),
     )
 
-    expect(result).toEqual(Option.some({ team: "RAT", workspace: "work" }))
+    expect(result.fromMain).toEqual(Option.some({ team: "RAT", workspace: "work" }))
+    expect(result.fromWorktree).toEqual(Option.some({ team: "RAT", workspace: "work" }))
   })
 })
 
