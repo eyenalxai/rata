@@ -5,7 +5,7 @@ import { EOL } from "node:os"
 import { LabelService } from "@/api/label"
 import { maxPageSize } from "@/api/pagination"
 import { TeamService } from "@/api/team"
-import { errorLine, nextPageHint, reportFailure, writeJson, writeLine } from "@/cli/output"
+import { nextPageHint, reportFailure, validatePageSize, writeJson, writeLine } from "@/cli/output"
 
 const jsonFlag = Flag.Boolean("json").pipe(
   Flag.withDescription("Print machine-readable JSON"),
@@ -15,12 +15,12 @@ const jsonFlag = Flag.Boolean("json").pipe(
 const teamFlag = Flag.String("team").pipe(Flag.withDescription("Team key, for example RAT"))
 
 const limitFlag = Flag.Int("limit").pipe(
-  Flag.withDescription("Maximum number of labels to return"),
+  Flag.withDescription(`Page size, at most ${maxPageSize}`),
   Flag.withDefault(50),
 )
 
 const afterFlag = Flag.String("after").pipe(
-  Flag.withDescription("Continue from the endCursor of a previous page"),
+  Flag.withDescription("Continue after this cursor"),
   Flag.optional,
 )
 
@@ -29,11 +29,9 @@ const listCommand = Command.make(
   { json: jsonFlag, team: teamFlag, limit: limitFlag, after: afterFlag },
   (config) =>
     Effect.gen(function* listLabels() {
-      if (config.limit < 1) {
-        return yield* errorLine(1, "The --limit flag must be at least 1.")
-      }
-      if (config.limit > maxPageSize) {
-        return yield* errorLine(1, `The --limit flag must be at most ${maxPageSize}.`)
+      const valid = yield* validatePageSize(config.limit)
+      if (!valid) {
+        return
       }
       const teams = yield* TeamService
       const labels = yield* LabelService
@@ -43,17 +41,19 @@ const listCommand = Command.make(
         limit: config.limit,
       })
       if (config.json) {
-        return yield* writeJson({ labels: page.nodes, pageInfo: page.pageInfo })
+        yield* writeJson({ labels: page.nodes, pageInfo: page.pageInfo })
+        return
       }
       if (page.nodes.length === 0) {
-        return yield* writeLine("No labels.")
+        yield* writeLine("No labels.")
+        return
       }
       const body = page.nodes.map((label) => `${label.name}\t${label.id}`).join(EOL)
       const hint =
         page.pageInfo.hasNextPage && page.pageInfo.endCursor !== null
           ? `${EOL}${nextPageHint("labels", page.pageInfo.endCursor)}`
           : ""
-      return yield* writeLine(`${body}${hint}`)
+      yield* writeLine(`${body}${hint}`)
     }).pipe(Effect.catch(reportFailure)),
 ).pipe(Command.withDescription("List the labels of a team"))
 

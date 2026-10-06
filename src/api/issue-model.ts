@@ -11,7 +11,7 @@ import type {
   IssueTeam,
   IssueUser,
 } from "@/api/issue-schema"
-import type { PageInfo } from "@/api/pagination"
+import type { PageInfo, PageOptions } from "@/api/pagination"
 
 const stateTypes = ["triage", "backlog", "unstarted", "started", "completed", "canceled"] as const
 type StateType = (typeof stateTypes)[number]
@@ -54,17 +54,12 @@ type IssueDetail = {
   readonly comments?: readonly IssueComment[]
 }
 
-type PageRequest = {
-  readonly after?: string | undefined
-  readonly limit: number
-}
-
 type IssuePage = {
   readonly issues: readonly IssueSummary[]
   readonly pageInfo: PageInfo
 }
 
-type IssueListOptions = PageRequest & {
+type IssueListOptions = PageOptions & {
   readonly team?: string | undefined
   readonly state?: string | undefined
   readonly stateType?: StateType | undefined
@@ -141,7 +136,6 @@ export {
   type IssueRelations,
   type IssueShowOptions,
   type IssueSummary,
-  type PageRequest,
   relationTargets,
   type StateType,
   stateTypes,

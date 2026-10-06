@@ -69,7 +69,7 @@ upstream version.
 | `src/main.ts`  | The `rata` binary entry point and the root command.               |
 | `src/cli/`     | One module per command group. Parsing, output, exit codes.        |
 | `src/api/`     | The Linear GraphQL client and its typed operations.               |
-| `src/domain/`  | Schemas and pure logic: issue references, frontier, labels.       |
+| `src/domain/`  | Pure logic: references, labels, priorities, prompts, timezones.   |
 | `src/config/`  | Auth and repository configuration.                                |
 | `test/`        | Behaviour tests for the tricky logic.                             |
 | `skills/`      | Agent skills for driving rata, installable with `npx skills add`. |

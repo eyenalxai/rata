@@ -1,13 +1,8 @@
 import { Context, Effect, Layer } from "effect"
 
 import type { LinearApiError } from "@/api/errors"
-import type {
-  IssueDetail,
-  IssueListOptions,
-  IssuePage,
-  IssueShowOptions,
-  PageRequest,
-} from "@/api/issue-model"
+import type { IssueDetail, IssueListOptions, IssuePage, IssueShowOptions } from "@/api/issue-model"
+import type { PageOptions } from "@/api/pagination"
 import type { InvalidIssueRef, IssueRef } from "@/domain/ref"
 
 import { LinearClient } from "@/api/client"
@@ -42,7 +37,7 @@ type IssueApiShape = {
   readonly list: (
     options: IssueListOptions,
   ) => Effect.Effect<IssuePage, LinearApiError | InvalidIssueRef>
-  readonly search: (term: string, options: PageRequest) => Effect.Effect<IssuePage, LinearApiError>
+  readonly search: (term: string, options: PageOptions) => Effect.Effect<IssuePage, LinearApiError>
   readonly show: (
     ref: string,
     options: IssueShowOptions,
@@ -118,7 +113,7 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
 
         const data = yield* client.execute(
           listQuery,
-          { filter, first: options.limit, after: options.after ?? null },
+          { filter, first: options.limit, after: options.after },
           ListResponse,
         )
         return { issues: data.issues.nodes.map(toSummary), pageInfo: data.issues.pageInfo }
@@ -126,11 +121,11 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
 
       const search = Effect.fn("IssueApi.search")(function* search(
         term: string,
-        options: PageRequest,
+        options: PageOptions,
       ) {
         const data = yield* client.execute(
           searchQuery,
-          { term, first: options.limit, after: options.after ?? null },
+          { term, first: options.limit, after: options.after },
           SearchResponse,
         )
         return {

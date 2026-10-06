@@ -46,7 +46,7 @@ rata project create --name "Spec: login" --team RAT   # create a project
 rata label list --team RAT               # list a team's labels
 rata link --team RAT                     # bind this repository to a Linear team
 rata issue list                          # list issues
-rata issue list --parent RAT-1 --unblocked --unassigned  # the frontier of a map
+rata issue list --parent RAT-1 --unblocked --unassigned --limit 1  # the frontier of a map
 rata issue list --after <cursor>         # read the next page of a list
 rata issue show RAT-42                   # read one issue
 rata search "rate limit"                 # search issues by text
@@ -373,7 +373,7 @@ profile is recorded. `timezone` holds the previous and current IANA names when
 rata issue list --team RAT --state "In Progress" --label bug --limit 100
 rata issue list --state-type started --assignee me
 rata issue list --parent RAT-1 --text login
-rata issue list --parent RAT-1 --unblocked --unassigned
+rata issue list --parent RAT-1 --unblocked --unassigned --limit 1
 rata issue list --limit 100 --after <cursor>
 ```
 

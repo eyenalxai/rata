@@ -90,7 +90,7 @@ describe("IssueApi list", () => {
       handler,
       Effect.gen(function* listIssues() {
         const api = yield* IssueApi
-        return yield* api.list({ team: uuid, limit: 50 })
+        return yield* api.list({ team: uuid, after: null, limit: 50 })
       }),
     )
 
@@ -125,6 +125,45 @@ describe("IssueApi list", () => {
     expect(requests).toHaveLength(1)
     expect(requests[0]?.first).toBe(2)
     expect(requests[0]?.after).toBe("cursor-0")
+  })
+
+  test("keeps the unblocked filter when it continues from a cursor", async () => {
+    const captured: Record<string, unknown>[] = []
+    const handler = (request: HttpClientRequest.HttpClientRequest): Response => {
+      captured.push(readBody(request).variables)
+      return jsonResponse({
+        data: {
+          issues: {
+            nodes: [summaryNode("RAT-1")],
+            pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
+          },
+        },
+      })
+    }
+
+    await run(
+      handler,
+      Effect.gen(function* listUnblockedPages() {
+        const api = yield* IssueApi
+        const first = yield* api.list({ unblocked: true, unassigned: true, after: null, limit: 1 })
+        const cursor = first.pageInfo.endCursor
+        if (cursor === null) {
+          return
+        }
+        yield* api.list({ unblocked: true, unassigned: true, after: cursor, limit: 1 })
+      }),
+    )
+
+    const unblocked = [
+      { hasBlockedByRelations: { eq: false } },
+      { state: { type: { nin: ["completed", "canceled"] } } },
+    ]
+    expect(captured).toHaveLength(2)
+    expect(captured[0]?.filter).toEqual({ and: [{ assignee: { null: true } }, ...unblocked] })
+    expect(captured[1]?.filter).toEqual({ and: [{ assignee: { null: true } }, ...unblocked] })
+    expect(captured[0]?.after).toBeNull()
+    expect(captured[1]?.after).toBe("cursor-1")
+    expect(captured[1]?.first).toBe(1)
   })
 })
 

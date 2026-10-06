@@ -1,5 +1,7 @@
 import { Config, Console, Effect, Option, Result, Schema } from "effect"
 
+import { maxPageSize } from "@/api/pagination"
+
 const jsonOutput = Schema.fromJsonString(Schema.Unknown, { space: 2 })
 const defectJson = Schema.Defect()
 
@@ -41,15 +43,28 @@ const writeJson = (value: unknown): Effect.Effect<void> =>
 
 const writeLine = (line: string): Effect.Effect<void> => Console.log(line)
 
-const nextPageHint = (name: string, endCursor: string): string =>
-  `More ${name} available. Continue with --after ${endCursor}`
-
 const errorLine = (code: number, message: string): Effect.Effect<void> =>
   Effect.gen(function* writeErrorLine() {
     yield* Console.error(`error: ${message}`)
     yield* Effect.sync(() => {
       process.exitCode = code
     })
+  })
+
+const nextPageHint = (name: string, endCursor: string): string =>
+  `More ${name} available. Continue with --after ${endCursor}`
+
+const validatePageSize = (limit: number): Effect.Effect<boolean> =>
+  Effect.gen(function* validate() {
+    if (limit < 1) {
+      yield* errorLine(1, "The --limit flag must be at least 1.")
+      return false
+    }
+    if (limit > maxPageSize) {
+      yield* errorLine(1, `The --limit flag must be at most ${maxPageSize}.`)
+      return false
+    }
+    return true
   })
 
 const isEnabledFlag = (value: string): boolean => value !== "" && value !== "0" && value !== "false"
@@ -63,4 +78,4 @@ const reportFailure = (error: ReportedError): Effect.Effect<void> =>
     }
   })
 
-export { errorLine, nextPageHint, reportFailure, writeJson, writeLine }
+export { errorLine, nextPageHint, reportFailure, validatePageSize, writeJson, writeLine }

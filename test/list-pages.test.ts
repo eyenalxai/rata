@@ -1,7 +1,7 @@
 import type { Handler } from "@test/fake-linear-model"
 
 import { apiLayer, makeFakeLinear } from "@test/fake-linear"
-import { jsonResponse } from "@test/fake-linear-model"
+import { jsonResponse, readRequest } from "@test/fake-linear-model"
 import { summaryNode } from "@test/issue-fixtures"
 import { recordingConsole } from "@test/recording-console"
 import { afterEach, describe, expect, test } from "bun:test"
@@ -9,7 +9,7 @@ import { Console, Effect, FileSystem, Layer, Path, Stdio, Terminal } from "effec
 import { Command } from "effect/cli"
 import { ChildProcessSpawner } from "effect/process"
 
-import { issueCommand } from "@/cli/issue"
+import { issueCommand, searchCommand } from "@/cli/issue"
 import { labelCommand } from "@/cli/label"
 import { projectCommand } from "@/cli/project"
 import { teamCommand } from "@/cli/team"
@@ -59,6 +59,12 @@ const runLabel = (handler: Handler, args: readonly string[], lines: string[]) =>
 
 const runIssue = (handler: Handler, args: readonly string[], lines: string[]) =>
   Command.run(issueCommand, { version: "test" }).pipe(
+    Effect.provide(cliLayer(handler, args, lines)),
+    Effect.runPromise,
+  )
+
+const runSearch = (handler: Handler, args: readonly string[], lines: string[]) =>
+  Command.run(searchCommand, { version: "test" }).pipe(
     Effect.provide(cliLayer(handler, args, lines)),
     Effect.runPromise,
   )
@@ -164,5 +170,39 @@ describe("issue list pages", () => {
       issues: [expect.objectContaining({ identifier: "RAT-1" })],
       pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
     })
+  })
+})
+
+describe("issue search pages", () => {
+  test("prints pure JSON and continues from --after", async () => {
+    const variables: Record<string, unknown>[] = []
+    const handler: Handler = (request) => {
+      variables.push(readRequest(request).variables)
+      return jsonResponse({
+        data: {
+          searchIssues: {
+            nodes: [summaryNode("RAT-1")],
+            pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
+          },
+        },
+      })
+    }
+
+    const first: string[] = []
+    await runSearch(handler, ["login", "--limit", "1", "--json"], first)
+    expect(first).toHaveLength(1)
+    expect(lastJson(first)).toEqual({
+      issues: [expect.objectContaining({ identifier: "RAT-1" })],
+      pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
+    })
+    expect(variables[0]).toEqual({ term: "login", first: 1, after: null })
+
+    const second: string[] = []
+    await runSearch(handler, ["login", "--limit", "1", "--after", "cursor-1", "--json"], second)
+    expect(lastJson(second)).toEqual({
+      issues: [expect.objectContaining({ identifier: "RAT-1" })],
+      pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
+    })
+    expect(variables[1]).toEqual({ term: "login", first: 1, after: "cursor-1" })
   })
 })

@@ -11,7 +11,7 @@ import { issueLabelCommand } from "@/cli/issue-label"
 import { linkCommand, unlinkCommand } from "@/cli/issue-link"
 import { assignCommand, closeCommand, reopenCommand, unassignCommand } from "@/cli/issue-transition"
 import { commentCommand, createCommand, updateCommand } from "@/cli/issue-write"
-import { errorLine, reportFailure, writeJson, writeLine } from "@/cli/output"
+import { nextPageHint, reportFailure, validatePageSize, writeJson, writeLine } from "@/cli/output"
 
 const jsonFlag = Flag.Boolean("json").pipe(
   Flag.withDescription("Print machine-readable JSON"),
@@ -24,22 +24,9 @@ const limitFlag = Flag.Int("limit").pipe(
 )
 
 const afterFlag = Flag.String("after").pipe(
-  Flag.withDescription("Continue after this cursor from a previous page"),
+  Flag.withDescription("Continue after this cursor"),
   Flag.optional,
 )
-
-const validatePageSize = (limit: number): Effect.Effect<boolean> =>
-  Effect.gen(function* validate() {
-    if (limit < 1) {
-      yield* errorLine(1, "The --limit flag must be at least 1.")
-      return false
-    }
-    if (limit > maxPageSize) {
-      yield* errorLine(1, `The --limit flag must be at most ${maxPageSize}.`)
-      return false
-    }
-    return true
-  })
 
 const optionalText = (name: string, description: string) =>
   Flag.String(name).pipe(Flag.withDescription(description), Flag.optional)
@@ -127,7 +114,7 @@ const writeIssuePage = (config: { readonly json: boolean }, page: IssuePage) =>
     }
     yield* writeHumanPage(page)
     if (page.pageInfo.hasNextPage && page.pageInfo.endCursor !== null) {
-      yield* writeLine(`More issues available. Continue with --after ${page.pageInfo.endCursor}`)
+      yield* writeLine(nextPageHint("issues", page.pageInfo.endCursor))
     }
   })
 
@@ -175,7 +162,7 @@ const listCommand = Command.make(
         text: Option.getOrUndefined(config.text),
         unblocked: config.unblocked,
         unassigned: config.unassigned,
-        after: Option.getOrUndefined(config.after),
+        after: Option.getOrNull(config.after),
         limit: config.limit,
       })
       yield* writeIssuePage(config, page)
@@ -243,7 +230,7 @@ const searchCommand = Command.make(
       }
       const api = yield* IssueApi
       const page = yield* api.search(config.text, {
-        after: Option.getOrUndefined(config.after),
+        after: Option.getOrNull(config.after),
         limit: config.limit,
       })
       yield* writeIssuePage(config, page)
