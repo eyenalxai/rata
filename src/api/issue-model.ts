@@ -14,10 +14,13 @@ import type {
 import type { PageInfo, PageOptions } from "@/api/pagination"
 import type { Priority } from "@/domain/priority"
 
-import { toPriority } from "@/domain/priority"
+import { priorityRank, toPriority } from "@/domain/priority"
 
 const stateTypes = ["triage", "backlog", "unstarted", "started", "completed", "canceled"] as const
 type StateType = (typeof stateTypes)[number]
+
+const sortFields = ["priority"] as const
+type SortField = (typeof sortFields)[number]
 
 type IssueSummary = {
   readonly id: string
@@ -68,6 +71,7 @@ type IssueListOptions = PageOptions & {
   readonly team?: string | undefined
   readonly state?: string | undefined
   readonly stateType?: StateType | undefined
+  readonly priority?: number | undefined
   readonly label?: string | undefined
   readonly assignee?: string | undefined
   readonly project?: string | undefined
@@ -75,6 +79,7 @@ type IssueListOptions = PageOptions & {
   readonly text?: string | undefined
   readonly unblocked?: boolean | undefined
   readonly unassigned?: boolean | undefined
+  readonly sort?: SortField | undefined
 }
 
 type IssueShowOptions = {
@@ -124,6 +129,9 @@ const relationTargets = (
   ],
 })
 
+const byPriority = (left: IssueSummary, right: IssueSummary): number =>
+  priorityRank(left.priority) - priorityRank(right.priority)
+
 const byCreatedAt = (left: IssueComment, right: IssueComment): number => {
   if (left.createdAt < right.createdAt) {
     return -1
@@ -136,6 +144,7 @@ const byCreatedAt = (left: IssueComment, right: IssueComment): number => {
 
 export {
   byCreatedAt,
+  byPriority,
   type IssueDetail,
   type IssueListOptions,
   type IssuePage,
@@ -143,6 +152,8 @@ export {
   type IssueShowOptions,
   type IssueSummary,
   relationTargets,
+  type SortField,
+  sortFields,
   type StateType,
   stateTypes,
   toSummary,

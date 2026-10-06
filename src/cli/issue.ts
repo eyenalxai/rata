@@ -1,17 +1,18 @@
-import { Effect, Option } from "effect"
+import { Effect, Option, Result } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 
 import type { IssueDetail, IssuePage, IssueRelations, IssueSummary } from "@/api/issue-model"
 import type { IssueChild } from "@/api/issue-schema"
 
 import { IssueApi } from "@/api/issue"
-import { stateTypes } from "@/api/issue-model"
+import { sortFields, stateTypes } from "@/api/issue-model"
 import { maxPageSize } from "@/api/pagination"
 import { issueLabelCommand } from "@/cli/issue-label"
 import { linkCommand, unlinkCommand } from "@/cli/issue-link"
 import { assignCommand, closeCommand, reopenCommand, unassignCommand } from "@/cli/issue-transition"
 import { commentCommand, createCommand, updateCommand } from "@/cli/issue-write"
-import { nextPageHint, reportFailure, validatePageSize, writeJson, writeLine } from "@/cli/output"
+import { errorLine, nextPageHint, reportFailure, validatePageSize, writeJson, writeLine } from "@/cli/output"
+import { parsePriority } from "@/domain/priority"
 
 const jsonFlag = Flag.Boolean("json").pipe(
   Flag.withDescription("Print machine-readable JSON"),
@@ -136,6 +137,7 @@ const listCommand = Command.make(
       Flag.withDescription("Filter by workflow state type"),
       Flag.optional,
     ),
+    priority: optionalText("priority", "Priority: none, urgent, high, medium, low, or 0-4"),
     label: optionalText("label", "Filter by label name"),
     assignee: optionalText("assignee", "Filter by assignee: `me` or a user id"),
     project: optionalText("project", "Filter by project id or name"),
@@ -149,6 +151,10 @@ const listCommand = Command.make(
       Flag.withDescription("Keep only issues with no assignee"),
       Flag.withDefault(false),
     ),
+    sort: Flag.Literals("sort", sortFields).pipe(
+      Flag.withDescription("Sort order: `priority` orders urgent first and none last"),
+      Flag.optional,
+    ),
     limit: limitFlag,
     after: afterFlag,
     json: jsonFlag,
@@ -159,11 +165,18 @@ const listCommand = Command.make(
       if (!valid) {
         return
       }
+      const priorityText = Option.getOrUndefined(config.priority)
+      const parsedPriority = priorityText === undefined ? undefined : parsePriority(priorityText)
+      if (parsedPriority !== undefined && Result.isFailure(parsedPriority)) {
+        return yield* errorLine(1, parsedPriority.failure)
+      }
+      const priority = parsedPriority === undefined ? undefined : Result.getOrThrow(parsedPriority)
       const api = yield* IssueApi
       const page = yield* api.list({
         team: Option.getOrUndefined(config.team),
         state: Option.getOrUndefined(config.state),
         stateType: Option.getOrUndefined(config.stateType),
+        priority,
         label: Option.getOrUndefined(config.label),
         assignee: Option.getOrUndefined(config.assignee),
         project: Option.getOrUndefined(config.project),
@@ -172,6 +185,7 @@ const listCommand = Command.make(
         unblocked: config.unblocked,
         unassigned: config.unassigned,
         after: Option.getOrNull(config.after),
+        sort: Option.getOrUndefined(config.sort),
         limit: config.limit,
       })
       yield* writeIssuePage(config, page)

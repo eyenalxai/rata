@@ -71,6 +71,7 @@ recorded `workspace`.
 | `--team`       | Team key or id.                                                          |
 | `--state`      | Workflow state name, for example `In Progress`.                          |
 | `--state-type` | `triage`, `backlog`, `unstarted`, `started`, `completed`, or `canceled`. |
+| `--priority`   | `none`, `urgent`, `high`, `medium`, `low`, or `0`-`4`.                   |
 | `--label`      | Label name.                                                              |
 | `--assignee`   | `me`, or a user id.                                                      |
 | `--project`    | Project id or name.                                                      |
@@ -78,6 +79,7 @@ recorded `workspace`.
 | `--text`       | Text in the title or the description.                                    |
 | `--unblocked`  | Only open issues with no open blocker.                                   |
 | `--unassigned` | Only issues with no assignee.                                            |
+| `--sort`       | `priority`: urgent first and none last; ties keep the incoming order.    |
 | `--limit`      | Page size. Default: 50, maximum: 250.                                    |
 | `--after`      | Continue after a cursor from a previous page.                            |
 
@@ -108,6 +110,9 @@ The plural key matches the command: `issues`, `teams`, `projects`, or `labels`.
 `pageInfo.endCursor` to `--after` to read it. Keep the filters and the order
 fixed across pages: a cursor is bound to its query. Lists are ordered by
 creation time.
+
+The priority sort fetches every matching issue across all pages before
+`--limit` applies. With `--unblocked`, blocked issues are dropped first.
 
 ### `issue create` flags
 

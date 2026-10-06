@@ -402,6 +402,7 @@ rata issue list --state-type started --assignee me
 rata issue list --parent RAT-1 --text login
 rata issue list --parent RAT-1 --unblocked --unassigned --limit 1
 rata issue list --limit 100 --after <cursor>
+rata issue list --priority urgent --sort priority --limit 10
 ```
 
 | Flag           | Meaning                                                                      |
@@ -409,6 +410,7 @@ rata issue list --limit 100 --after <cursor>
 | `--team`       | Team key or id.                                                              |
 | `--state`      | Workflow state name, for example `In Progress`.                              |
 | `--state-type` | One of `triage`, `backlog`, `unstarted`, `started`, `completed`, `canceled`. |
+| `--priority`   | `none`, `urgent`, `high`, `medium`, `low`, or `0`-`4`.                       |
 | `--label`      | Label name.                                                                  |
 | `--assignee`   | `me`, or a user id.                                                          |
 | `--project`    | Project id or name.                                                          |
@@ -416,8 +418,16 @@ rata issue list --limit 100 --after <cursor>
 | `--text`       | Text that appears in the title or the description.                           |
 | `--unblocked`  | Keep only open issues with no open blocker.                                  |
 | `--unassigned` | Keep only issues with no assignee.                                           |
+| `--sort`       | `priority` orders urgent first and none last.                                |
 | `--limit`      | Page size. Default: 50, maximum: 250.                                        |
 | `--after`      | Continue after a cursor from a previous page.                                |
+
+`--priority` keeps issues with exactly one priority value. `none` and `0`
+select the issues with no priority. `--sort priority` orders the results
+urgent, high, medium, low, then none. The sort fetches every matching issue
+across all pages before `--limit` applies. Issues with equal priorities keep
+their incoming order. With `--unblocked`, blocked issues are dropped before
+the sort.
 
 An open issue is one whose state type is not `completed` or `canceled`. An open
 blocker is a blocker whose state type is not `completed` or `canceled`.

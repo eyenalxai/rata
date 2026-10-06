@@ -7,7 +7,7 @@ import type { InvalidIssueRef, IssueRef } from "@/domain/ref"
 
 import { LinearClient } from "@/api/client"
 import { composeFilter, projectFilter, teamFilter, textFilter } from "@/api/issue-filter"
-import { byCreatedAt, relationTargets, toSummary } from "@/api/issue-model"
+import { byCreatedAt, byPriority, relationTargets, toSummary } from "@/api/issue-model"
 import {
   childrenQuery,
   commentsQuery,
@@ -54,6 +54,9 @@ const teamRefFilter = (value: string): Record<string, unknown> =>
 const projectRefFilter = (value: string): Record<string, unknown> =>
   isUuid(value) ? { project: { id: { eq: value } } } : projectFilter(value)
 
+const orderIssues = (issues: readonly IssueSummary[], options: IssueListOptions) =>
+  (options.sort === "priority" ? issues.toSorted(byPriority) : issues).slice(0, options.limit)
+
 class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/issue/IssueApi") {
   static readonly layer = Layer.effect(
     IssueApi,
@@ -73,6 +76,7 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
         return data.issue.id
       })
 
+
       const list = Effect.fn("IssueApi.list")(function* list(options: IssueListOptions) {
         const parts: Record<string, unknown>[] = []
         if (options.team !== undefined) {
@@ -83,6 +87,9 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
         }
         if (options.stateType !== undefined) {
           parts.push({ state: { type: { eq: options.stateType } } })
+        }
+        if (options.priority !== undefined) {
+          parts.push({ priority: { eq: options.priority } })
         }
         if (options.label !== undefined) {
           parts.push({ labels: { some: { name: { eqIgnoreCase: options.label } } } })
@@ -112,12 +119,29 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
         }
         const filter = composeFilter(parts)
 
-        const data = yield* client.execute(
+        if (options.sort === undefined) {
+          const data = yield* client.execute(
+            listQuery,
+            { filter, first: options.limit, after: options.after },
+            ListResponse,
+          )
+          return { issues: data.issues.nodes.map(toSummary), pageInfo: data.issues.pageInfo }
+        }
+
+        const firstPage = yield* client.execute(
           listQuery,
-          { filter, first: options.limit, after: options.after },
+          { filter, first: pageSize, after: options.after },
           ListResponse,
         )
-        return { issues: data.issues.nodes.map(toSummary), pageInfo: data.issues.pageInfo }
+        const nodes = yield* collectPages(firstPage.issues, (after) =>
+          client
+            .execute(listQuery, { filter, first: pageSize, after }, ListResponse)
+            .pipe(Effect.map((page) => page.issues)),
+        )
+        return {
+          issues: orderIssues(nodes.map(toSummary), options),
+          pageInfo: { hasNextPage: false, endCursor: null },
+        }
       })
 
       const search = Effect.fn("IssueApi.search")(function* search(

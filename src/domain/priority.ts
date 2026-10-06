@@ -33,4 +33,6 @@ const parsePriority = (value: string): Result.Result<number, string> => {
 
 const toPriority = (value: number): Priority => priorityByValue[value] ?? "none"
 
-export { parsePriority, type Priority, priorityTokens, toPriority }
+const priorityRank = (priority: Priority): number => priorityTokens.indexOf(priority)
+
+export { parsePriority, type Priority, priorityRank, priorityTokens, toPriority }
