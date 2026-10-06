@@ -125,6 +125,23 @@ describe("Database", () => {
     expect(error.message).toBe("Cannot find the data directory: set HOME or XDG_DATA_HOME.")
   })
 
+  test("fails with a clear error when the database cannot be opened", async () => {
+    const error = await Effect.runPromise(
+      withTempDirectory((directory) =>
+        Effect.gen(function* unopenable() {
+          const fs = yield* FileSystem.FileSystem
+          yield* fs.makeDirectory(path.join(directory, "rata", "rata.sqlite"), {
+            recursive: true,
+          })
+          return yield* Database.pipe(Effect.provide(databaseLayer({ XDG_DATA_HOME: directory })))
+        }),
+      ).pipe(Effect.provide(platformLayer), Effect.flip),
+    )
+
+    expect(error._tag).toBe("DatabaseError")
+    expect(error.message).toContain("Could not open the database")
+  })
+
   test("keeps the data when the database opens again", async () => {
     const rows = await Effect.runPromise(
       withTempDirectory((directory) =>

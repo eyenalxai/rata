@@ -58,14 +58,24 @@ class Database extends Context.Service<Database, DatabaseShape>()("rata-cli/db/d
       return Layer.effect(
         Database,
         Effect.gen(function* openDatabase() {
-          const drizzle = yield* makeWithDefaults()
+          const clientContext = yield* Layer.build(SqliteClient.layer({ filename: file })).pipe(
+            Effect.catchDefect((defect) =>
+              Effect.fail(
+                new DatabaseError({
+                  message: `Could not open the database at ${file}.`,
+                  cause: defect,
+                }),
+              ),
+            ),
+          )
+          const drizzle = yield* makeWithDefaults().pipe(Effect.provideContext(clientContext))
+          yield* fs.chmod(file, 0o600).pipe(Effect.mapError(describeStoreFailure("secure")(file)))
           yield* migrate(drizzle, {
             migrationsFolder: path.resolve(import.meta.dir, "..", "..", "drizzle"),
           }).pipe(Effect.mapError(describeStoreFailure("migrate")(file)))
-          yield* fs.chmod(file, 0o600).pipe(Effect.mapError(describeStoreFailure("secure")(file)))
           return Database.of({ drizzle })
         }),
-      ).pipe(Layer.provide(SqliteClient.layer({ filename: file })))
+      )
     }),
   )
 }
