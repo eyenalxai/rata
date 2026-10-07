@@ -9,6 +9,7 @@ import { IssueApi } from "@/api/issue"
 import { IssueWriteApi } from "@/api/issue-write"
 import { LabelService } from "@/api/label"
 import { ProjectService } from "@/api/project"
+import { RepoTeam } from "@/api/repo-team"
 import { TeamService } from "@/api/team"
 import { root } from "@/cli/root"
 import { Auth } from "@/config/auth"
@@ -30,17 +31,14 @@ const clientLayer = LinearClient.layer.pipe(
   Layer.provide(authLayer),
   Layer.provide(FetchHttpClient.layer),
 )
-const issueLayer = IssueApi.layer.pipe(Layer.provide(clientLayer))
 const teamLayer = TeamService.layer.pipe(Layer.provide(clientLayer))
+const repoTeamLayer = RepoTeam.layer.pipe(Layer.provide(Layer.mergeAll(teamLayer, repoConfigLayer)))
+const issueLayer = IssueApi.layer.pipe(Layer.provide(Layer.mergeAll(clientLayer, repoTeamLayer)))
 const labelLayer = LabelService.layer.pipe(
-  Layer.provide(clientLayer),
-  Layer.provide(teamLayer),
-  Layer.provide(repoConfigLayer),
+  Layer.provide(Layer.mergeAll(clientLayer, repoTeamLayer)),
 )
 const projectLayer = ProjectService.layer.pipe(
-  Layer.provide(clientLayer),
-  Layer.provide(teamLayer),
-  Layer.provide(repoConfigLayer),
+  Layer.provide(Layer.mergeAll(clientLayer, repoTeamLayer)),
 )
 const linkLayer = LinkService.layer.pipe(
   Layer.provide(repoConfigLayer),
@@ -50,7 +48,9 @@ const linkLayer = LinkService.layer.pipe(
   Layer.provide(clientLayer),
 )
 const issueWriteLayer = IssueWriteApi.layer.pipe(
-  Layer.provide(Layer.mergeAll(clientLayer, teamLayer, labelLayer, projectLayer, repoConfigLayer)),
+  Layer.provide(
+    Layer.mergeAll(clientLayer, labelLayer, projectLayer, repoConfigLayer, repoTeamLayer),
+  ),
 )
 const appLayer = Layer.mergeAll(
   authLayer,
@@ -60,6 +60,7 @@ const appLayer = Layer.mergeAll(
   labelLayer,
   projectLayer,
   repoConfigLayer,
+  repoTeamLayer,
   linkLayer,
   issueWriteLayer,
   platformLayer,

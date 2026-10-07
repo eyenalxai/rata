@@ -486,7 +486,8 @@ document with the removed team, project and workspace:
 
 ## Reading issues
 
-`rata issue list` accepts filters. Combine any of them:
+`rata issue list` accepts filters. Combine any of them. Without `--team`, the
+list shows only the linked team's issues; run `rata link` once to set the link:
 
 ```bash
 rata issue list --team RAT --state "In Progress" --label bug --limit 100
@@ -499,7 +500,7 @@ rata issue list --priority urgent --sort priority --limit 10
 
 | Flag           | Meaning                                                                      |
 | -------------- | ---------------------------------------------------------------------------- |
-| `--team`       | Team key or id.                                                              |
+| `--team`       | Team key or id. Default: the team from `rata link`.                          |
 | `--state`      | Workflow state name, for example `In Progress`.                              |
 | `--state-type` | One of `triage`, `backlog`, `unstarted`, `started`, `completed`, `canceled`. |
 | `--priority`   | `none`, `urgent`, `high`, `medium`, `low`, or `0`-`4`.                       |

@@ -31,8 +31,10 @@ operations.
 
 An issue reference accepts an identifier (`ABC-42`), a UUID, or a linear.app
 issue URL. The repository config names the default team, project and workspace
-profile, so most commands need no `--team`. Run `rata link` once to set it:
-every subdirectory and every worktree of the repository finds it.
+profile, so most commands need no `--team`. `issue list` and the other list
+commands default to the linked team; without a link they fail and ask for
+`--team` or `rata link`. Run `rata link` once to set it: every subdirectory and
+every worktree of the repository finds it.
 
 ## Paging lists
 

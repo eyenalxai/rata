@@ -9,7 +9,8 @@
   `{ <plural>, pageInfo }`.
 - `--body-file -` reads the value from stdin; `--body-file <path>` reads a file.
 - The default team and project come from the repository config, written by
-  `rata link` and removed by `rata unlink`.
+  `rata link` and removed by `rata unlink`. List commands default to the linked
+  team; without a link they fail and ask for `--team` or `rata link`.
 - Exit code 0 on success, 1 on failure. Failures print one line to stderr.
 
 ## Setup

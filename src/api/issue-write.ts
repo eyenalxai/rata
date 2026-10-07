@@ -36,7 +36,7 @@ import {
 import { makeIssueWriteResolvers } from "@/api/issue-write-resolvers"
 import { LabelService } from "@/api/label"
 import { ProjectService } from "@/api/project"
-import { TeamService } from "@/api/team"
+import { RepoTeam } from "@/api/repo-team"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
 
 class IssueWriteApi extends Context.Service<IssueWriteApi, IssueWriteApiShape>()(
@@ -46,17 +46,17 @@ class IssueWriteApi extends Context.Service<IssueWriteApi, IssueWriteApiShape>()
     IssueWriteApi,
     Effect.gen(function* issueWriteApiLayer() {
       const client = yield* LinearClient
-      const teams = yield* TeamService
       const labels = yield* LabelService
       const projects = yield* ProjectService
       const repoConfig = yield* RepoConfigService
-      const resolvers = makeIssueWriteResolvers({ client, labels, projects, teams })
+      const repoTeam = yield* RepoTeam
+      const resolvers = makeIssueWriteResolvers({ client, labels, projects })
 
       const create = Effect.fn("IssueWriteApi.create")(function* create(
         options: IssueCreateOptions,
       ) {
         const config = Option.getOrUndefined(yield* repoConfig.read(yield* currentDirectory))
-        const teamId = yield* resolvers.resolveTeamId(options.team, config?.team)
+        const teamId = yield* repoTeam.resolve(options.team)
         const input: Record<string, unknown> = { teamId, title: options.title }
         if (options.body !== undefined && options.body.length > 0) {
           input.description = options.body

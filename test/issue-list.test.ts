@@ -57,7 +57,7 @@ describe("IssueApi list", () => {
     expect(captured).toHaveLength(1)
     expect(captured[0]?.filter).toEqual({
       and: [
-        { team: { key: { eqIgnoreCase: "RAT" } } },
+        { team: { id: { eq: "team-1" } } },
         { state: { name: { eqIgnoreCase: "In Progress" } } },
         { state: { type: { eq: "started" } } },
         { priority: { eq: 1 } },
@@ -215,8 +215,13 @@ describe("IssueApi list", () => {
       { state: { type: { nin: ["completed", "canceled"] } } },
     ]
     expect(captured).toHaveLength(2)
-    expect(captured[0]?.filter).toEqual({ and: [{ assignee: { null: true } }, ...unblocked] })
-    expect(captured[1]?.filter).toEqual({ and: [{ assignee: { null: true } }, ...unblocked] })
+    const teamFilter = { team: { id: { eq: "team-1" } } }
+    expect(captured[0]?.filter).toEqual({
+      and: [teamFilter, { assignee: { null: true } }, ...unblocked],
+    })
+    expect(captured[1]?.filter).toEqual({
+      and: [teamFilter, { assignee: { null: true } }, ...unblocked],
+    })
     expect(captured[0]?.after).toBeNull()
     expect(captured[1]?.after).toBe("cursor-1")
     expect(captured[1]?.first).toBe(1)

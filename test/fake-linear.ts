@@ -28,6 +28,7 @@ import { IssueApi } from "@/api/issue"
 import { IssueWriteApi } from "@/api/issue-write"
 import { LabelService } from "@/api/label"
 import { ProjectService } from "@/api/project"
+import { RepoTeam } from "@/api/repo-team"
 import { TeamService } from "@/api/team"
 import { Auth } from "@/config/auth"
 import { LinkService } from "@/config/link"
@@ -228,13 +229,12 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
     Layer.provide(Layer.mergeAll(auth, Layer.succeed(HttpClient.HttpClient, http))),
   )
   const teams = TeamService.layer.pipe(Layer.provide(client))
-  const labels = LabelService.layer.pipe(Layer.provide(Layer.mergeAll(client, teams, repoConfig)))
-  const projects = ProjectService.layer.pipe(
-    Layer.provide(Layer.mergeAll(client, teams, repoConfig)),
-  )
-  const issue = IssueApi.layer.pipe(Layer.provide(client))
+  const repoTeam = RepoTeam.layer.pipe(Layer.provide(Layer.mergeAll(teams, repoConfig)))
+  const labels = LabelService.layer.pipe(Layer.provide(Layer.mergeAll(client, repoTeam)))
+  const projects = ProjectService.layer.pipe(Layer.provide(Layer.mergeAll(client, repoTeam)))
+  const issue = IssueApi.layer.pipe(Layer.provide(Layer.mergeAll(client, repoTeam)))
   const issueWrite = IssueWriteApi.layer.pipe(
-    Layer.provide(Layer.mergeAll(client, teams, labels, projects, repoConfig)),
+    Layer.provide(Layer.mergeAll(client, labels, projects, repoConfig, repoTeam)),
   )
   const link = LinkService.layer.pipe(
     Layer.provide(Layer.mergeAll(teams, repoConfig, platform, auth, client)),
@@ -244,6 +244,7 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
     auth,
     client,
     teams,
+    repoTeam,
     labels,
     projects,
     issue,

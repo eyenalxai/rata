@@ -36,7 +36,7 @@ const runLabel = (handler: Handler, args: readonly string[], lines: string[]) =>
 
 const runIssue = (handler: Handler, args: readonly string[], lines: string[]) =>
   Command.run(issueCommand, { version: "test" }).pipe(
-    Effect.provide(cliLayer(handler, args, lines)),
+    Effect.provide(cliLayer(handler, args, lines, [{ key: process.cwd(), team: "RAT" }])),
     Effect.runPromise,
   )
 
@@ -46,8 +46,14 @@ const runSearch = (handler: Handler, args: readonly string[], lines: string[]) =
     Effect.runPromise,
   )
 
-const issuePageHandler: Handler = () =>
-  jsonResponse({
+const issuePageHandler: Handler = (request) => {
+  const body = readRequest(request)
+  if (body.query.includes("query TeamByKey")) {
+    return jsonResponse({
+      data: { teams: { nodes: [team], pageInfo: { hasNextPage: false, endCursor: null } } },
+    })
+  }
+  return jsonResponse({
     data: {
       issues: {
         nodes: [summaryNode("RAT-1")],
@@ -55,6 +61,7 @@ const issuePageHandler: Handler = () =>
       },
     },
   })
+}
 
 afterEach(() => {
   process.exitCode = 0

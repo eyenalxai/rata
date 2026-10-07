@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Option, Schema } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
 
 import type { LinearApiError } from "@/api/errors"
 import type { Connection } from "@/api/pagination"
@@ -9,7 +9,7 @@ import type {
   ProjectIdentity,
   ProjectListOptions,
 } from "@/api/project/model"
-import type { TeamNotFoundError } from "@/api/team"
+import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
 
 import { LinearClient } from "@/api/client"
@@ -31,8 +31,7 @@ import {
   projectDeleteMutation,
   projectUnarchiveMutation,
 } from "@/api/project/query"
-import { TeamResolutionError, TeamService } from "@/api/team"
-import { currentDirectory, RepoConfigService } from "@/config/repo"
+import { RepoTeam } from "@/api/repo-team"
 import { isUuid } from "@/domain/ref"
 
 const unwrapProjectArchive = <E>(
@@ -78,8 +77,7 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
     ProjectService,
     Effect.gen(function* projectServiceLayer() {
       const client = yield* LinearClient
-      const teams = yield* TeamService
-      const repoConfig = yield* RepoConfigService
+      const repoTeam = yield* RepoTeam
 
       const list = Effect.fn("ProjectService.list")(function* listProjects(
         options: ProjectListOptions,
@@ -94,14 +92,6 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
           Schema.Struct({ projects: ProjectConnection }),
         )
         return data.projects
-      })
-
-      const teamIdFor = Effect.fn("ProjectService.teamIdFor")(function* teamIdFor(value: string) {
-        if (isUuid(value)) {
-          return value
-        }
-        const team = yield* teams.byKey(value)
-        return team.id
       })
 
       const projectById = Effect.fn("ProjectService.projectById")(function* projectById(
@@ -215,19 +205,12 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
       const create = Effect.fn("ProjectService.create")(function* createProject(
         options: ProjectCreateOptions,
       ) {
-        const config = Option.getOrUndefined(yield* repoConfig.read(yield* currentDirectory))
         const requested =
-          options.teams !== undefined && options.teams.length > 0
-            ? options.teams
-            : config?.team === undefined
-              ? []
-              : [config.team]
-        if (requested.length === 0) {
-          return yield* new TeamResolutionError({
-            message: "No team. Pass --team, or run `rata link`.",
-          })
-        }
-        const teamIds = yield* Effect.forEach(requested, (team) => teamIdFor(team))
+          options.teams !== undefined && options.teams.length > 0 ? options.teams : []
+        const teamIds =
+          requested.length > 0
+            ? yield* Effect.forEach(requested, (team) => repoTeam.resolve(team))
+            : [yield* repoTeam.resolve()]
         const input: Record<string, unknown> = { name: options.name, teamIds }
         if (options.description !== undefined) {
           input.description = options.description

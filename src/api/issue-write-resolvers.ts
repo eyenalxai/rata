@@ -5,7 +5,6 @@ import type { WorkflowState } from "@/api/issue-schema"
 import type { IssueRelationChanges, ResolvedRelationTarget } from "@/api/issue-write-model"
 import type { LabelService } from "@/api/label"
 import type { ProjectService } from "@/api/project"
-import type { TeamService } from "@/api/team"
 
 import {
   createCommentMutation,
@@ -38,18 +37,16 @@ import {
 import { labelNotFoundError } from "@/api/label"
 import { collectConnection, collectPages, pageSize } from "@/api/pagination"
 import { ProjectNotFoundError } from "@/api/project/errors"
-import { TeamResolutionError } from "@/api/team"
 import { findLabelByName } from "@/domain/labels"
 import { isUuid } from "@/domain/ref"
 
 type IssueWriteDependencies = {
   readonly client: LinearClient["Service"]
-  readonly teams: TeamService["Service"]
   readonly labels: LabelService["Service"]
   readonly projects: ProjectService["Service"]
 }
 
-const makeIssueWriteResolvers = ({ client, teams, labels, projects }: IssueWriteDependencies) => {
+const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDependencies) => {
   const resolveIssueId = Effect.fn("IssueWriteApi.resolveIssueId")(function* resolveIssueId(
     input: string,
   ) {
@@ -66,27 +63,6 @@ const makeIssueWriteResolvers = ({ client, teams, labels, projects }: IssueWrite
       return viewer.id
     }
     return value
-  })
-
-  const teamIdFor = Effect.fn("IssueWriteApi.teamIdFor")(function* teamIdFor(value: string) {
-    if (isUuid(value)) {
-      return value
-    }
-    const team = yield* teams.byKey(value)
-    return team.id
-  })
-
-  const resolveTeamId = Effect.fn("IssueWriteApi.resolveTeamId")(function* resolveTeamId(
-    flag: string | undefined,
-    fallback: string | undefined,
-  ) {
-    const value = flag ?? fallback
-    if (value === undefined) {
-      return yield* new TeamResolutionError({
-        message: "No team. Pass --team, or run `rata link`.",
-      })
-    }
-    return yield* teamIdFor(value)
   })
 
   const resolveProjectId = Effect.fn("IssueWriteApi.resolveProjectId")(function* resolveProjectId(
@@ -285,7 +261,6 @@ const makeIssueWriteResolvers = ({ client, teams, labels, projects }: IssueWrite
     resolveLabelIds,
     resolveProjectId,
     resolveRelationTargets,
-    resolveTeamId,
     setStateByType,
     teamStateIdByName,
   }

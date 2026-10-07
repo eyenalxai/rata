@@ -1,14 +1,13 @@
-import { Context, Effect, Layer, Option, Schema } from "effect"
+import { Context, Effect, Layer, Schema } from "effect"
 
 import type { LinearApiError } from "@/api/errors"
 import type { Connection, PageOptions } from "@/api/pagination"
-import type { TeamNotFoundError } from "@/api/team"
+import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
 
 import { LinearClient } from "@/api/client"
 import { collectConnection, PageInfo, pageSize } from "@/api/pagination"
-import { TeamResolutionError, TeamService } from "@/api/team"
-import { currentDirectory, RepoConfigService } from "@/config/repo"
+import { RepoTeam } from "@/api/repo-team"
 import { findLabelByName } from "@/domain/labels"
 import { isUuid } from "@/domain/ref"
 
@@ -145,8 +144,7 @@ class LabelService extends Context.Service<LabelService, LabelOperations>()(
     LabelService,
     Effect.gen(function* labelServiceLayer() {
       const client = yield* LinearClient
-      const teams = yield* TeamService
-      const repoConfig = yield* RepoConfigService
+      const repoTeam = yield* RepoTeam
 
       const list = Effect.fn("LabelService.list")(function* listLabels(
         teamId: string,
@@ -172,27 +170,6 @@ class LabelService extends Context.Service<LabelService, LabelOperations>()(
         return data.issueLabels
       })
 
-      const teamIdFor = Effect.fn("LabelService.teamIdFor")(function* teamIdFor(value: string) {
-        if (isUuid(value)) {
-          return value
-        }
-        const team = yield* teams.byKey(value)
-        return team.id
-      })
-
-      const resolveTeamId = Effect.fn("LabelService.resolveTeamId")(function* resolveTeamId(
-        team: string | undefined,
-      ) {
-        const config = Option.getOrUndefined(yield* repoConfig.read(yield* currentDirectory))
-        const value = team ?? config?.team
-        if (value === undefined) {
-          return yield* new TeamResolutionError({
-            message: "No team. Pass --team, or run `rata link`.",
-          })
-        }
-        return yield* teamIdFor(value)
-      })
-
       const byName = Effect.fn("LabelService.byName")(function* byName(
         teamId: string,
         name: string,
@@ -210,7 +187,7 @@ class LabelService extends Context.Service<LabelService, LabelOperations>()(
       const create = Effect.fn("LabelService.create")(function* createLabel(
         options: LabelCreateOptions,
       ) {
-        const teamId = yield* resolveTeamId(options.team)
+        const teamId = yield* repoTeam.resolve(options.team)
         const input: Record<string, unknown> = { name: options.name, teamId }
         if (options.color !== undefined) {
           input.color = options.color
@@ -236,10 +213,10 @@ class LabelService extends Context.Service<LabelService, LabelOperations>()(
         let id = ref
         if (isUuid(ref)) {
           if (options.team !== undefined) {
-            yield* resolveTeamId(options.team)
+            yield* repoTeam.resolve(options.team)
           }
         } else {
-          const teamId = yield* resolveTeamId(options.team)
+          const teamId = yield* repoTeam.resolve(options.team)
           const match = yield* byName(teamId, ref)
           id = match.id
         }

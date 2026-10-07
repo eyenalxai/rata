@@ -22,7 +22,9 @@ describe("IssueApi list priority", () => {
       }),
     )
 
-    expect(captured[0]?.filter).toEqual({ priority: { eq: 0 } })
+    expect(captured[0]?.filter).toEqual({
+      and: [{ team: { id: { eq: "team-1" } } }, { priority: { eq: 0 } }],
+    })
   })
 
   test("sorts priority across pages with stable ties and none last", async () => {
@@ -137,6 +139,7 @@ describe("IssueApi list priority", () => {
     expect(page.issues.map((issue) => issue.identifier)).toEqual(["RAT-2"])
     expect(requests[0]?.filter).toEqual({
       and: [
+        { team: { id: { eq: "team-1" } } },
         { hasBlockedByRelations: { eq: false } },
         { state: { type: { nin: ["completed", "canceled"] } } },
       ],

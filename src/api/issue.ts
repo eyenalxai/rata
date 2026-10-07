@@ -3,10 +3,12 @@ import { Context, Effect, Layer } from "effect"
 import type { LinearApiError } from "@/api/errors"
 import type { IssueDetail, IssueListOptions, IssuePage, IssueShowOptions } from "@/api/issue-model"
 import type { PageOptions } from "@/api/pagination"
+import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
+import type { RepoConfigError } from "@/config/repo"
 import type { InvalidIssueRef, IssueRef } from "@/domain/ref"
 
 import { LinearClient } from "@/api/client"
-import { composeFilter, projectFilter, teamFilter, textFilter } from "@/api/issue-filter"
+import { composeFilter, projectFilter, textFilter } from "@/api/issue-filter"
 import {
   byCreatedAt,
   collectsAllPages,
@@ -37,13 +39,17 @@ import {
   ShowResponse,
 } from "@/api/issue-schema"
 import { collectPages, pageSize } from "@/api/pagination"
+import { RepoTeam } from "@/api/repo-team"
 import { toPriority } from "@/domain/priority"
 import { isUuid, parseIssueRef } from "@/domain/ref"
 
 type IssueApiShape = {
   readonly list: (
     options: IssueListOptions,
-  ) => Effect.Effect<IssuePage, LinearApiError | InvalidIssueRef>
+  ) => Effect.Effect<
+    IssuePage,
+    LinearApiError | InvalidIssueRef | RepoConfigError | TeamNotFoundError | TeamResolutionError
+  >
   readonly search: (term: string, options: PageOptions) => Effect.Effect<IssuePage, LinearApiError>
   readonly show: (
     ref: string,
@@ -54,9 +60,6 @@ type IssueApiShape = {
 const parseRefOrFail = (input: string): Effect.Effect<IssueRef, InvalidIssueRef> =>
   Effect.fromResult(parseIssueRef(input))
 
-const teamRefFilter = (value: string): Record<string, unknown> =>
-  isUuid(value) ? { team: { id: { eq: value } } } : teamFilter(value)
-
 const projectRefFilter = (value: string): Record<string, unknown> =>
   isUuid(value) ? { project: { id: { eq: value } } } : projectFilter(value)
 
@@ -65,6 +68,7 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
     IssueApi,
     Effect.gen(function* issueApiLayer() {
       const client = yield* LinearClient
+      const repoTeam = yield* RepoTeam
 
       const resolveAssignee = (value: string): Effect.Effect<string, LinearApiError> =>
         value.toLowerCase() === "me"
@@ -80,10 +84,8 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
       })
 
       const list = Effect.fn("IssueApi.list")(function* list(options: IssueListOptions) {
-        const parts: Record<string, unknown>[] = []
-        if (options.team !== undefined) {
-          parts.push(teamRefFilter(options.team))
-        }
+        const teamId = yield* repoTeam.resolve(options.team)
+        const parts: Record<string, unknown>[] = [{ team: { id: { eq: teamId } } }]
         if (options.state !== undefined) {
           parts.push({ state: { name: { eqIgnoreCase: options.state } } })
         }

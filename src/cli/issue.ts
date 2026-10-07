@@ -131,7 +131,7 @@ const writeIssuePage = (config: { readonly json: boolean }, page: IssuePage) =>
 const listCommand = Command.make(
   "list",
   {
-    team: optionalText("team", "Filter by team key or id"),
+    team: optionalText("team", "Filter by team key or id. Defaults to the team from `rata link`"),
     state: optionalText("state", "Filter by workflow state name"),
     stateType: Flag.Literals("state-type", stateTypes).pipe(
       Flag.withDescription("Filter by workflow state type"),

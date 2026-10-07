@@ -1,3 +1,4 @@
+import type { RepositorySeed } from "@test/database-harness"
 import type { HttpClientRequest } from "effect/http"
 
 import { databaseLayer } from "@test/database-harness"
@@ -6,6 +7,8 @@ import { HttpClient, HttpClientResponse } from "effect/http"
 
 import { LinearClient } from "@/api/client"
 import { IssueApi } from "@/api/issue"
+import { RepoTeam } from "@/api/repo-team"
+import { TeamService } from "@/api/team"
 import { Auth } from "@/config/auth"
 import { RepoConfigService } from "@/config/repo"
 import { RepositoryIdentity } from "@/config/repo-identity"
@@ -29,6 +32,11 @@ const user = { id: "u1", name: "Ada", displayName: "ada" }
 const label = { id: "l1", name: "ready-for-agent" }
 const project = { id: "p1", name: "Tracker" }
 const parent = { id: "i0", identifier: "RAT-0", title: "Map" }
+
+const teams = [
+  { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" },
+  { id: "team-2", key: "OPS", name: "Operations", timezone: "America/New_York" },
+]
 
 const summaryNode = (identifier: string) => ({
   id: `id-${identifier}`,
@@ -97,29 +105,52 @@ const configLayer = () =>
     ConfigProvider.fromEnvRecord({ HOME: "/home/test", LINEAR_API_KEY: "test-key" }),
   )
 
-const clientLayer = (handler: (request: HttpClientRequest.HttpClientRequest) => Response) => {
+const repositorySeed: readonly RepositorySeed[] = [{ key: process.cwd(), team: "RAT" }]
+
+const withTeamLookup =
+  (handler: (request: HttpClientRequest.HttpClientRequest) => Response) =>
+  (request: HttpClientRequest.HttpClientRequest): Response => {
+    const body = readBody(request)
+    if (body.query.includes("query TeamByKey")) {
+      const key = body.variables.key
+      const nodes = typeof key === "string" ? teams.filter((team) => team.key === key) : []
+      return jsonResponse({ data: { teams: { nodes, pageInfo } } })
+    }
+    return handler(request)
+  }
+
+const issueLayer = (
+  handler: (request: HttpClientRequest.HttpClientRequest) => Response,
+  repositories: readonly RepositorySeed[],
+) => {
   const http = HttpClient.make((request) =>
     Effect.succeed(HttpClientResponse.fromWeb(request, handler(request))),
   )
   const platform = Layer.mergeAll(FileSystem.layerNoop({}), Path.layer)
-  const database = databaseLayer()
+  const database = databaseLayer(repositories)
   const identity = RepositoryIdentity.layer.pipe(Layer.provide(platform))
   const repoConfig = RepoConfigService.layer.pipe(
     Layer.provide(Layer.mergeAll(platform, database, identity)),
   )
   const auth = Auth.layer.pipe(Layer.provide(Layer.mergeAll(repoConfig, platform, database)))
-  return LinearClient.layer.pipe(
+  const client = LinearClient.layer.pipe(
     Layer.provide(Layer.mergeAll(auth, Layer.succeed(HttpClient.HttpClient, http))),
   )
+  const teamLayer = TeamService.layer.pipe(Layer.provide(client))
+  const repoTeam = RepoTeam.layer.pipe(Layer.provide(Layer.mergeAll(teamLayer, repoConfig)))
+  return IssueApi.layer.pipe(Layer.provide(Layer.mergeAll(client, repoTeam)))
 }
-
-const issueLayer = (handler: (request: HttpClientRequest.HttpClientRequest) => Response) =>
-  IssueApi.layer.pipe(Layer.provide(clientLayer(handler)))
 
 const run = <A, E>(
   handler: (request: HttpClientRequest.HttpClientRequest) => Response,
   effect: Effect.Effect<A, E, IssueApi>,
+  repositories: readonly RepositorySeed[] = repositorySeed,
 ): Promise<A> =>
-  effect.pipe(Effect.provide(Layer.mergeAll(issueLayer(handler), configLayer())), Effect.runPromise)
+  effect.pipe(
+    Effect.provide(
+      Layer.mergeAll(issueLayer(withTeamLookup(handler), repositories), configLayer()),
+    ),
+    Effect.runPromise,
+  )
 
 export { baseDetail, jsonResponse, pageInfo, readBody, run, summaryNode, user, uuid, viewer }
