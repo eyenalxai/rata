@@ -87,8 +87,8 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
           after: options.after,
           includeArchived: options.includeArchived ?? false,
         }
-        if (options.team !== undefined) {
-          variables.filter = { accessibleTeams: { some: { id: { eq: options.team } } } }
+        if (options.teamId !== undefined) {
+          variables.filter = { accessibleTeams: { some: { id: { eq: options.teamId } } } }
         }
         const data = yield* client.execute(
           listProjectsQuery,

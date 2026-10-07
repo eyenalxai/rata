@@ -1,14 +1,19 @@
 import { Context, Effect, Layer } from "effect"
 
 import type { LinearApiError } from "@/api/errors"
-import type { IssueDetail, IssueListOptions, IssuePage, IssueShowOptions } from "@/api/issue-model"
-import type { PageOptions } from "@/api/pagination"
+import type {
+  IssueDetail,
+  IssueListOptions,
+  IssuePage,
+  IssueSearchOptions,
+  IssueShowOptions,
+} from "@/api/issue-model"
 import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
 import type { InvalidIssueRef, IssueRef } from "@/domain/ref"
 
 import { LinearClient } from "@/api/client"
-import { composeFilter, projectFilter, textFilter } from "@/api/issue-filter"
+import { composeFilter, projectFilter, teamIdFilter, textFilter } from "@/api/issue-filter"
 import {
   byCreatedAt,
   collectsAllPages,
@@ -66,10 +71,6 @@ type IssueApiShape = {
 const parseRefOrFail = (input: string): Effect.Effect<IssueRef, InvalidIssueRef> =>
   Effect.fromResult(parseIssueRef(input))
 
-type IssueSearchOptions = PageOptions & {
-  readonly team?: string | undefined
-}
-
 const projectRefFilter = (value: string): Record<string, unknown> =>
   isUuid(value) ? { project: { id: { eq: value } } } : projectFilter(value)
 
@@ -95,7 +96,7 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
 
       const list = Effect.fn("IssueApi.list")(function* list(options: IssueListOptions) {
         const teamId = yield* repoTeam.resolve(options.team)
-        const parts: Record<string, unknown>[] = [{ team: { id: { eq: teamId } } }]
+        const parts: Record<string, unknown>[] = [teamIdFilter(teamId)]
         if (options.state !== undefined) {
           parts.push({ state: { name: { eqIgnoreCase: options.state } } })
         }
@@ -167,7 +168,7 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
           searchQuery,
           {
             term,
-            filter: { team: { id: { eq: teamId } } },
+            filter: teamIdFilter(teamId),
             first: options.limit,
             after: options.after,
           },

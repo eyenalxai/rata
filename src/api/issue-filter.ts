@@ -1,7 +1,8 @@
 import { isUuid } from "@/domain/ref"
 
-const teamFilter = (value: string): Record<string, unknown> =>
-  isUuid(value) ? { team: { id: { eq: value } } } : { team: { key: { eqIgnoreCase: value } } }
+const teamIdFilter = (teamId: string): Record<string, unknown> => ({
+  team: { id: { eq: teamId } },
+})
 
 const projectFilter = (value: string): Record<string, unknown> =>
   isUuid(value)
@@ -24,4 +25,4 @@ const composeFilter = (
   return { and: parts }
 }
 
-export { composeFilter, projectFilter, teamFilter, textFilter }
+export { composeFilter, projectFilter, teamIdFilter, textFilter }

@@ -25,8 +25,8 @@ what to do, and it matches the write commands.
 Every command that reads or writes team-scoped data resolves the team the same
 way: the `--team` flag first, then the repository link, then a failure with
 `No team. Pass --team, or run rata link.` One API-layer service, `RepoTeam`,
-owns that resolution. `issue list`, `issue create`, `project create`,
-`label create` and `label edit` use it.
+owns that resolution. `issue list`, `search`, `label list`, `project list`,
+`issue create`, `project create`, `label create` and `label edit` use it.
 
 ## Consequences
 

@@ -82,6 +82,10 @@ type IssueListOptions = PageOptions & {
   readonly sort?: SortField | undefined
 }
 
+type IssueSearchOptions = PageOptions & {
+  readonly team?: string | undefined
+}
+
 type IssueShowOptions = {
   readonly comments: boolean
 }
@@ -166,6 +170,7 @@ export {
   type IssueListOptions,
   type IssuePage,
   type IssueRelations,
+  type IssueSearchOptions,
   type IssueShowOptions,
   type IssueSummary,
   relationTargets,

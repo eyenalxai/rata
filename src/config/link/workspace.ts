@@ -78,7 +78,6 @@ const promptForWorkspace = Effect.fn("LinkWorkspace.promptForWorkspace")(
           title: formatWorkspace(choice),
           value: choice,
           selected: choice.isDefault,
-          disabled: Result.isFailure(choice.viewer),
         })),
       }),
     )

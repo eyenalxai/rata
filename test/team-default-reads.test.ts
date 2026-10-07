@@ -13,6 +13,7 @@ import { labelCommand } from "@/cli/label"
 import { projectCommand } from "@/cli/project"
 
 const team = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
+const otherTeam = { id: "team-2", key: "OPS", name: "Operations", timezone: "America/New_York" }
 const seed = [{ key: process.cwd(), team: "RAT" }]
 
 const runProject = (handler: Handler, args: readonly string[], lines: string[]) =>
@@ -36,6 +37,18 @@ const runLabelUnlinked = (handler: Handler, args: readonly string[], lines: stri
 const runSearch = (handler: Handler, args: readonly string[], lines: string[]) =>
   Command.run(searchCommand, { version: "test" }).pipe(
     Effect.provide(cliLayer(handler, args, lines, seed)),
+    Effect.runPromise,
+  )
+
+const runProjectUnlinked = (handler: Handler, args: readonly string[], lines: string[]) =>
+  Command.run(projectCommand, { version: "test" }).pipe(
+    Effect.provide(cliLayer(handler, args, lines)),
+    Effect.runPromise,
+  )
+
+const runSearchUnlinked = (handler: Handler, args: readonly string[], lines: string[]) =>
+  Command.run(searchCommand, { version: "test" }).pipe(
+    Effect.provide(cliLayer(handler, args, lines)),
     Effect.runPromise,
   )
 
@@ -67,6 +80,35 @@ describe("project list team default", () => {
       accessibleTeams: { some: { id: { eq: "team-1" } } },
     })
   })
+
+  test("lets --team override the linked team", async () => {
+    const projects = [
+      {
+        id: "project-1",
+        name: "Tracker",
+        progress: 0.5,
+        status: { name: "Started" },
+        trashed: false,
+      },
+    ]
+    const fake = makeFakeLinear({ teams: [team, otherTeam], labels: [], projects })
+    const lines: string[] = []
+    await runProject(fake.handler, ["list", "--team", "OPS", "--json"], lines)
+
+    const request = fake.requests.find((entry) => entry.query.includes("query Projects"))
+    expect(request?.variables.filter).toEqual({
+      accessibleTeams: { some: { id: { eq: "team-2" } } },
+    })
+  })
+
+  test("fails without a link and without --team", async () => {
+    const fake = makeFakeLinear({ teams: [team], labels: [], projects: [] })
+    const lines: string[] = []
+    await runProjectUnlinked(fake.handler, ["list"], lines)
+
+    expect(lines).toContain("error: No team. Pass --team, or run `rata link`.")
+    expect(process.exitCode).toBe(1)
+  })
 })
 
 describe("label list team default", () => {
@@ -82,6 +124,19 @@ describe("label list team default", () => {
     })
     const request = fake.requests.find((entry) => entry.query.includes("query Labels"))
     expect(request?.variables).toEqual({ teamId: "team-1", first: 50, after: null })
+  })
+
+  test("lets --team override the linked team", async () => {
+    const labels = [
+      { id: "label-1", name: "ready-for-agent", color: "#111111", teamId: "team-1" },
+      { id: "label-2", name: "bug", color: "#EB5757", teamId: "team-2" },
+    ]
+    const fake = makeFakeLinear({ teams: [team, otherTeam], labels })
+    const lines: string[] = []
+    await runLabel(fake.handler, ["list", "--team", "OPS", "--json"], lines)
+
+    const request = fake.requests.find((entry) => entry.query.includes("query Labels"))
+    expect(request?.variables).toEqual({ teamId: "team-2", first: 50, after: null })
   })
 
   test("fails without a link and without --team", async () => {
@@ -141,5 +196,14 @@ describe("issue search pages", () => {
       first: 1,
       after: "cursor-1",
     })
+  })
+
+  test("fails without a link and without --team", async () => {
+    const fake = makeFakeLinear({ teams: [team], labels: [] })
+    const lines: string[] = []
+    await runSearchUnlinked(fake.handler, ["login"], lines)
+
+    expect(lines).toContain("error: No team. Pass --team, or run `rata link`.")
+    expect(process.exitCode).toBe(1)
   })
 })

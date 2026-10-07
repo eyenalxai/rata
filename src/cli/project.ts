@@ -55,7 +55,7 @@ const listCommand = Command.make(
         after: Option.getOrNull(config.after),
         limit: config.limit,
         includeArchived: config.includeArchived,
-        team: teamId,
+        teamId,
       })
       if (config.json) {
         yield* writeJson({ projects: page.nodes, pageInfo: page.pageInfo })
