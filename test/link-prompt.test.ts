@@ -8,40 +8,24 @@ import {
   rat,
   scratch,
 } from "@test/link-harness"
+import { key } from "@test/terminal-harness"
 import { describe, expect, test } from "bun:test"
 import { Option } from "effect"
 
 describe("LinkService.link prompt", () => {
-  test("prompts with the team list when --team is absent", async () => {
-    const harness = makeHarness(interactive("2\n"))
+  test("selects a team from the list when --team is absent", async () => {
+    const harness = makeHarness(interactive([key("down"), key("enter")]))
     const fake = makeFakeLinear({ teams: [rat, scratch], labels: [] })
     const { result, stored } = await linkTeam(
       fake.handler,
       harness,
       options({ team: Option.none() }),
     )
+
     expect(result.team).toEqual(scratch)
     expect(stored).toEqual(Option.some({ team: "SCR" }))
-    expect(harness.lines.some((line) => line.includes("1. RAT"))).toBe(true)
-    expect(harness.lines.some((line) => line.includes("2. SCR"))).toBe(true)
-  })
-
-  test("accepts a team key and re-prompts on an invalid answer", async () => {
-    const harness = makeHarness(interactive("banana\nscr\n"))
-    const fake = makeFakeLinear({ teams: [rat, scratch], labels: [] })
-    const { result } = await linkTeam(fake.handler, harness, options({ team: Option.none() }))
-    expect(result.team).toEqual(scratch)
-    expect(harness.lines).toContain("Not a team: banana.")
-  })
-
-  test("fails after three invalid answers", async () => {
-    const harness = makeHarness(interactive("a\nb\nc\n"))
-    const fake = makeFakeLinear({ teams: [rat, scratch], labels: [] })
-    const { error } = await linkError(fake.handler, harness, options({ team: Option.none() }))
-    expect(error._tag).toBe("LinkError")
-    if (error._tag === "LinkError") {
-      expect(error.message).toContain("No valid team")
-    }
+    expect(harness.output.some((frame) => frame.includes("RAT  Rata"))).toBe(true)
+    expect(harness.output.some((frame) => frame.includes("SCR  Scratch"))).toBe(true)
   })
 
   test("lists a team from the next page", async () => {
@@ -55,7 +39,8 @@ describe("LinkService.link prompt", () => {
       })),
       last,
     ]
-    const harness = makeHarness(interactive("51\n"))
+    const moves = Array.from({ length: 50 }, () => key("down"))
+    const harness = makeHarness(interactive([...moves, key("enter")]))
     const fake = makeFakeLinear({ teams, labels: [] })
     const { result } = await linkTeam(fake.handler, harness, options({ team: Option.none() }))
 

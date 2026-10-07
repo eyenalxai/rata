@@ -13,6 +13,7 @@ import {
   rat,
   scratch,
 } from "@test/link-harness"
+import { key } from "@test/terminal-harness"
 import { describe, expect, test } from "bun:test"
 import { Option } from "effect"
 
@@ -43,7 +44,7 @@ describe("LinkService.link workspace", () => {
     const harness = makeHarness({
       env: noEnv,
       profiles: twoProfiles,
-      ...interactive("2\nscr\n"),
+      ...interactive([key("down"), key("enter"), key("enter")]),
     })
     const fake = makeFakeLinear({ teams: [rat], labels: [], workspaces: twoWorkspaces() })
     const { result, stored } = await linkTeam(
@@ -54,42 +55,18 @@ describe("LinkService.link workspace", () => {
 
     expect(result.team).toEqual(scratch)
     expect(stored).toEqual(Option.some({ team: "SCR", workspace: "work" }))
-    expect(harness.lines.some((line) => line.includes("* 1. default"))).toBe(true)
     expect(
-      harness.lines.some(
-        (line) => line.includes("default") && line.includes("Ada") && line.includes("Acme"),
+      harness.output.some(
+        (frame) => frame.includes("* default") && frame.includes("Ada") && frame.includes("Acme"),
       ),
     ).toBe(true)
     expect(
-      harness.lines.some(
-        (line) => line.includes("work") && line.includes("Bob") && line.includes("Globex"),
+      harness.output.some(
+        (frame) => frame.includes("work") && frame.includes("Bob") && frame.includes("Globex"),
       ),
     ).toBe(true)
-
-    const workspacePrompt = harness.lines.indexOf("Select a workspace:")
-    const teamPrompt = harness.lines.indexOf("Select a team:")
-    expect(workspacePrompt).toBeGreaterThanOrEqual(0)
-    expect(teamPrompt).toBeGreaterThan(workspacePrompt)
-    expect(harness.lines.some((line) => line.includes("1. SCR"))).toBe(true)
-    expect(harness.lines.some((line) => line.includes("RAT"))).toBe(false)
-  })
-
-  test("re-prompts after an invalid workspace answer", async () => {
-    const harness = makeHarness({
-      env: noEnv,
-      profiles: twoProfiles,
-      ...interactive("banana\n1\nRAT\n"),
-    })
-    const fake = makeFakeLinear({ teams: [rat], labels: [], workspaces: twoWorkspaces() })
-    const { result, stored } = await linkTeam(
-      fake.handler,
-      harness,
-      options({ team: Option.none() }),
-    )
-
-    expect(result.team).toEqual(rat)
-    expect(harness.lines).toContain("Not a workspace: banana.")
-    expect(stored).toEqual(Option.some({ team: "RAT", workspace: "default" }))
+    expect(harness.output.some((frame) => frame.includes("SCR"))).toBe(true)
+    expect(harness.output.some((frame) => frame.includes("RAT"))).toBe(false)
   })
 
   test("resolves --team across the stored workspaces and records the match", async () => {
@@ -162,7 +139,7 @@ describe("LinkService.link workspace", () => {
   })
 
   test("skips the workspace prompt when LINEAR_API_KEY is set", async () => {
-    const harness = makeHarness({ profiles: twoProfiles, ...interactive("RAT\n") })
+    const harness = makeHarness({ profiles: twoProfiles, ...interactive([key("enter")]) })
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
     const { result, stored } = await linkTeam(
       fake.handler,
@@ -172,8 +149,8 @@ describe("LinkService.link workspace", () => {
 
     expect(result.team).toEqual(rat)
     expect(stored).toEqual(Option.some({ team: "RAT" }))
-    expect(harness.lines.some((line) => line.includes("Select a workspace"))).toBe(false)
-    expect(harness.lines.some((line) => line.includes("Select a team"))).toBe(true)
+    expect(harness.output.some((frame) => frame.includes("Select a workspace"))).toBe(false)
+    expect(harness.output.some((frame) => frame.includes("Select a team"))).toBe(true)
   })
 
   test("records --workspace in the repository config and uses its key", async () => {
@@ -239,7 +216,7 @@ describe("LinkService.link workspace", () => {
     const harness = makeHarness({
       env: noEnv,
       profiles: twoProfiles,
-      ...interactive("2\nSCR\n"),
+      ...interactive([key("down"), key("enter"), key("enter")]),
     })
     const fake = makeFakeLinear({
       teams: [rat],
@@ -255,12 +232,12 @@ describe("LinkService.link workspace", () => {
 
     expect(result.team).toEqual(scratch)
     expect(stored).toEqual(Option.some({ team: "SCR", workspace: "work" }))
-    expect(harness.lines.some((line) => line.includes("1. default") && line.includes("!"))).toBe(
+    expect(harness.output.some((frame) => frame.includes("default") && frame.includes("!"))).toBe(
       true,
     )
     expect(
-      harness.lines.some(
-        (line) => line.includes("work") && line.includes("Bob") && line.includes("Globex"),
+      harness.output.some(
+        (frame) => frame.includes("work") && frame.includes("Bob") && frame.includes("Globex"),
       ),
     ).toBe(true)
   })

@@ -1,18 +1,18 @@
-import type { Terminal } from "effect"
+import type { FileSystem, Path, Terminal } from "effect"
 
 import { Context, Effect, Layer, Option, Stdio } from "effect"
 
 import type { LinearApiError } from "@/api/errors"
 import type { Team, TeamCreateError, TeamNotFoundError, TeamUpdateError } from "@/api/team"
 import type { AuthStoreError } from "@/config/auth"
-import type { LinkError, LinkTargetOptions, TimezoneChange } from "@/config/link-team"
+import type { LinkError, LinkTargetOptions, TimezoneChange } from "@/config/link/team"
 import type { RepoConfig, RepoConfigError } from "@/config/repo"
 
 import { LinearClient } from "@/api/client"
 import { TeamService } from "@/api/team"
 import { Auth } from "@/config/auth"
-import { invalidLinkOptions } from "@/config/link-team"
-import { resolveLinkTarget } from "@/config/link-workspace"
+import { invalidLinkOptions } from "@/config/link/team"
+import { resolveLinkTarget } from "@/config/link/workspace"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
 
 type LinkOptions = LinkTargetOptions & {
@@ -38,7 +38,7 @@ type LinkServiceShape = {
     | TeamCreateError
     | TeamNotFoundError
     | TeamUpdateError,
-    Terminal.Terminal
+    FileSystem.FileSystem | Path.Path | Terminal.Terminal
   >
 }
 

@@ -2,8 +2,8 @@ import type { GraphQLRequest } from "@test/fake-linear/model"
 
 import { makeFakeLinear } from "@test/fake-linear"
 import { lastJson, runProject, tracker } from "@test/project/harness"
+import { typed } from "@test/terminal-harness"
 import { afterEach, describe, expect, test } from "bun:test"
-import { Effect } from "effect"
 
 const deleteMutation = (requests: readonly GraphQLRequest[]): GraphQLRequest | undefined =>
   requests.find((request) => request.query.includes("mutation ProjectDelete"))
@@ -16,19 +16,16 @@ describe("project delete", () => {
   test("prompts with the project name and deletes on yes", async () => {
     const fake = makeFakeLinear({ teams: [], labels: [], projects: [tracker] })
     const lines: string[] = []
-    await runProject(fake.handler, ["delete", "tracker"], lines, Effect.succeed("y"))
-    expect(lines).toEqual([
-      "Delete project Tracker (project-1)? [y/N]",
-      "Deleted Tracker (project-1).",
-    ])
+    await runProject(fake.handler, ["delete", "tracker"], lines, [typed("y")])
+    expect(lines).toEqual(["Deleted Tracker (project-1)."])
     expect(deleteMutation(fake.requests)?.variables).toEqual({ id: "project-1" })
   })
 
   test("aborts without a mutation when the answer is not yes", async () => {
     const fake = makeFakeLinear({ teams: [], labels: [], projects: [tracker] })
     const lines: string[] = []
-    await runProject(fake.handler, ["delete", "Tracker"], lines, Effect.succeed("no"))
-    expect(lines).toEqual(["Delete project Tracker (project-1)? [y/N]", "Aborted."])
+    await runProject(fake.handler, ["delete", "Tracker"], lines, [typed("no")])
+    expect(lines).toEqual(["Aborted."])
     expect(deleteMutation(fake.requests)).toBeUndefined()
   })
 

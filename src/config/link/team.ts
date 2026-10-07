@@ -1,14 +1,13 @@
 import type { Stdio } from "effect"
 
-import { Console, Effect, Option, Schema, Terminal } from "effect"
+import { Effect, Option, Schema } from "effect"
+import { Prompt } from "effect/cli"
 
 import type { Team, TeamOperations } from "@/api/team"
 
 import { collectConnection, pageSize } from "@/api/pagination"
-import { parseTeamAnswer } from "@/domain/link"
+import { runPrompt } from "@/config/prompt"
 import { isUuid } from "@/domain/ref"
-
-const maxPromptAttempts = 3
 
 type LinkTargetOptions = {
   readonly team: Option.Option<string>
@@ -26,13 +25,6 @@ type TimezoneChange = {
 type LinkTeamDependencies = {
   readonly teams: TeamOperations
   readonly stdio: Stdio.Stdio
-}
-
-type PromptInput<A> = {
-  readonly question: string
-  readonly parse: (answer: string) => Option.Option<A>
-  readonly invalidMessage: (answer: string) => string
-  readonly failureMessage: string
 }
 
 class LinkError extends Schema.TaggedError<LinkError>()("LinkError", {
@@ -56,28 +48,6 @@ const invalidLinkOptions = (options: LinkTargetOptions): Option.Option<LinkError
   return Option.none()
 }
 
-const promptForChoice = Effect.fn("LinkTeam.promptForChoice")(function* promptForChoice<A>(
-  input: PromptInput<A>,
-) {
-  const terminal = yield* Terminal.Terminal
-  let attempt = 0
-  while (attempt < maxPromptAttempts) {
-    yield* Console.log(input.question)
-    const answer = yield* terminal.readLine.pipe(
-      Effect.catchTag("QuitError", () =>
-        Effect.fail(new LinkError({ message: "Standard input ended before an answer." })),
-      ),
-    )
-    const selected = input.parse(answer)
-    if (Option.isSome(selected)) {
-      return selected.value
-    }
-    yield* Console.log(input.invalidMessage(answer))
-    attempt += 1
-  }
-  return yield* new LinkError({ message: input.failureMessage })
-})
-
 const promptForTeam = Effect.fn("LinkTeam.promptForTeam")(function* promptForTeam(
   deps: LinkTeamDependencies,
 ) {
@@ -94,18 +64,12 @@ const promptForTeam = Effect.fn("LinkTeam.promptForTeam")(function* promptForTea
         "No teams in the workspace. Run `rata link --team <key> --create --name <name>` to create one.",
     })
   }
-  yield* Console.log("Select a team:")
-  yield* Effect.forEach(
-    all,
-    (team, index) => Console.log(`  ${index + 1}. ${team.key}  ${team.name}`),
-    { discard: true },
+  return yield* runPrompt(
+    Prompt.Select({
+      message: "Select a team",
+      choices: all.map((team) => ({ title: `${team.key}  ${team.name}`, value: team })),
+    }),
   )
-  return yield* promptForChoice({
-    question: "Team number or key:",
-    parse: (answer) => parseTeamAnswer(all, answer),
-    invalidMessage: (answer) => `Not a team: ${answer.trim()}.`,
-    failureMessage: "No valid team selected. Run `rata link --team <key>` to link directly.",
-  })
 })
 
 const resolveTeamTarget = Effect.fn("LinkTeam.resolveTarget")(function* resolveTeamTarget(
@@ -162,7 +126,6 @@ export {
   LinkError,
   type LinkTargetOptions,
   type LinkTeamDependencies,
-  promptForChoice,
   resolveLinkTeam,
   type TimezoneChange,
   updateTeamTimezone,

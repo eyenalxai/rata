@@ -1,16 +1,17 @@
-import type { Stdio, Terminal } from "effect"
+import type { FileSystem, Path, Stdio, Terminal } from "effect"
 
-import { Console, Effect, Option, Redacted, Result } from "effect"
+import { Effect, Option, Redacted, Result } from "effect"
+import { Prompt } from "effect/cli"
 
 import type { LinearClient, Viewer } from "@/api/client"
 import type { LinearApiError } from "@/api/errors"
 import type { Team, TeamCreateError, TeamService, TeamUpdateError } from "@/api/team"
 import type { Auth, AuthStoreError, StoredProfile } from "@/config/auth"
-import type { LinkTargetOptions, TimezoneChange } from "@/config/link-team"
+import type { LinkTargetOptions, TimezoneChange } from "@/config/link/team"
 
 import { TeamNotFoundError } from "@/api/team"
-import { LinkError, promptForChoice, resolveLinkTeam, updateTeamTimezone } from "@/config/link-team"
-import { parseWorkspaceAnswer } from "@/domain/link"
+import { LinkError, resolveLinkTeam, updateTeamTimezone } from "@/config/link/team"
+import { runPrompt } from "@/config/prompt"
 
 type LinkTargetDependencies = {
   readonly auth: Auth["Service"]
@@ -60,26 +61,27 @@ const choiceOf = Effect.fn("LinkWorkspace.choice")(function* choiceOf(
   }
 })
 
-const formatWorkspace = (choice: WorkspaceChoice, index: number): string => {
-  const marker = choice.isDefault ? "*" : " "
+const formatWorkspace = (choice: WorkspaceChoice): string => {
+  const marker = choice.isDefault ? "* " : ""
   const viewer = choice.viewer
   return Result.isSuccess(viewer)
-    ? `  ${marker} ${index + 1}. ${choice.name}  ${viewer.success.name} <${viewer.success.email}>  ${viewer.success.organization.name}`
-    : `  ${marker} ${index + 1}. ${choice.name}  ! ${viewer.failure.message}`
+    ? `${marker}${choice.name}  ${viewer.success.name} <${viewer.success.email}>  ${viewer.success.organization.name}`
+    : `${marker}${choice.name}  ! ${viewer.failure.message}`
 }
 
 const promptForWorkspace = Effect.fn("LinkWorkspace.promptForWorkspace")(
   function* promptForWorkspace(choices: readonly WorkspaceChoice[]) {
-    yield* Console.log("Select a workspace:")
-    yield* Effect.forEach(choices, (choice, index) => Console.log(formatWorkspace(choice, index)), {
-      discard: true,
-    })
-    return yield* promptForChoice({
-      question: "Workspace number or name:",
-      parse: (answer) => parseWorkspaceAnswer(choices, answer),
-      invalidMessage: (answer) => `Not a workspace: ${answer.trim()}.`,
-      failureMessage: "No valid workspace selected. Run `rata workspace list` to see the profiles.",
-    })
+    return yield* runPrompt(
+      Prompt.Select({
+        message: "Select a workspace",
+        choices: choices.map((choice) => ({
+          title: formatWorkspace(choice),
+          value: choice,
+          selected: choice.isDefault,
+          disabled: Result.isFailure(choice.viewer),
+        })),
+      }),
+    )
   },
 )
 
@@ -190,7 +192,7 @@ const resolveLinkTarget = Effect.fn("LinkWorkspace.resolve")(function* resolveLi
   | TeamCreateError
   | TeamNotFoundError
   | TeamUpdateError,
-  Terminal.Terminal
+  FileSystem.FileSystem | Path.Path | Terminal.Terminal
 > {
   const envKey = yield* deps.auth.envKey
 
