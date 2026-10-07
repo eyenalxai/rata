@@ -82,13 +82,17 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
       const list = Effect.fn("ProjectService.list")(function* listProjects(
         options: ProjectListOptions,
       ) {
+        const variables: Record<string, unknown> = {
+          first: options.limit,
+          after: options.after,
+          includeArchived: options.includeArchived ?? false,
+        }
+        if (options.team !== undefined) {
+          variables.filter = { accessibleTeams: { some: { id: { eq: options.team } } } }
+        }
         const data = yield* client.execute(
           listProjectsQuery,
-          {
-            first: options.limit,
-            after: options.after,
-            includeArchived: options.includeArchived ?? false,
-          },
+          variables,
           Schema.Struct({ projects: ProjectConnection }),
         )
         return data.projects

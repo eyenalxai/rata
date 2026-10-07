@@ -7,8 +7,8 @@ const projectFields = `
       }
       trashed`
 
-const listProjectsQuery = `query Projects($first: Int!, $after: String, $includeArchived: Boolean) {
-  projects(first: $first, after: $after, orderBy: createdAt, includeArchived: $includeArchived) {
+const listProjectsQuery = `query Projects($first: Int!, $after: String, $includeArchived: Boolean, $filter: ProjectFilter) {
+  projects(first: $first, after: $after, orderBy: createdAt, includeArchived: $includeArchived, filter: $filter) {
     nodes {${projectFields}
     }
     pageInfo { hasNextPage endCursor }

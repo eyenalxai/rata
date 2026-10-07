@@ -4,6 +4,7 @@ import { EOL } from "node:os"
 
 import { maxPageSize } from "@/api/pagination"
 import { ProjectService } from "@/api/project"
+import { RepoTeam } from "@/api/repo-team"
 import { confirm } from "@/cli/confirm"
 import { nextPageHint, reportFailure, validatePageSize, writeJson, writeLine } from "@/cli/output"
 
@@ -34,7 +35,13 @@ const formatProgress = (progress: number): string => `${Math.round(progress * 10
 
 const listCommand = Command.make(
   "list",
-  { json: jsonFlag, limit: limitFlag, after: afterFlag, includeArchived: includeArchivedFlag },
+  {
+    json: jsonFlag,
+    team: optionalText("team", "Filter by team key or id. Defaults to the team from `rata link`"),
+    limit: limitFlag,
+    after: afterFlag,
+    includeArchived: includeArchivedFlag,
+  },
   (config) =>
     Effect.gen(function* listProjects() {
       const valid = yield* validatePageSize(config.limit)
@@ -42,10 +49,13 @@ const listCommand = Command.make(
         return
       }
       const projects = yield* ProjectService
+      const repoTeam = yield* RepoTeam
+      const teamId = yield* repoTeam.resolve(Option.getOrUndefined(config.team))
       const page = yield* projects.list({
         after: Option.getOrNull(config.after),
         limit: config.limit,
         includeArchived: config.includeArchived,
+        team: teamId,
       })
       if (config.json) {
         yield* writeJson({ projects: page.nodes, pageInfo: page.pageInfo })

@@ -1,3 +1,4 @@
+import type { ApiLayerOptions } from "@test/fake-linear"
 import type { Handler } from "@test/fake-linear/model"
 
 import { cliLayer, lastJson } from "@test/cli-harness"
@@ -8,10 +9,15 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { Effect } from "effect"
 import { Command } from "effect/cli"
 
-import { issueCommand, searchCommand } from "@/cli/issue"
+import { issueCommand } from "@/cli/issue"
 import { labelCommand } from "@/cli/label"
 import { projectCommand } from "@/cli/project"
 import { teamCommand } from "@/cli/team"
+
+type Repositories = ApiLayerOptions["repositories"]
+
+const teamId = "0f8fad5b-d9cb-469f-a165-70867728950e"
+const projectSeed: Repositories = [{ key: process.cwd(), team: teamId }]
 
 const team = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
 const otherTeam = { id: "team-2", key: "OPS", name: "Operations", timezone: "America/New_York" }
@@ -22,27 +28,31 @@ const runTeam = (handler: Handler, args: readonly string[], lines: string[]) =>
     Effect.runPromise,
   )
 
-const runProject = (handler: Handler, args: readonly string[], lines: string[]) =>
+const runProject = (
+  handler: Handler,
+  args: readonly string[],
+  lines: string[],
+  repositories: Repositories = projectSeed,
+) =>
   Command.run(projectCommand, { version: "test" }).pipe(
-    Effect.provide(cliLayer(handler, args, lines)),
+    Effect.provide(cliLayer(handler, args, lines, repositories)),
     Effect.runPromise,
   )
 
-const runLabel = (handler: Handler, args: readonly string[], lines: string[]) =>
+const runLabel = (
+  handler: Handler,
+  args: readonly string[],
+  lines: string[],
+  repositories?: Repositories,
+) =>
   Command.run(labelCommand, { version: "test" }).pipe(
-    Effect.provide(cliLayer(handler, args, lines)),
+    Effect.provide(cliLayer(handler, args, lines, repositories)),
     Effect.runPromise,
   )
 
 const runIssue = (handler: Handler, args: readonly string[], lines: string[]) =>
   Command.run(issueCommand, { version: "test" }).pipe(
     Effect.provide(cliLayer(handler, args, lines, [{ key: process.cwd(), team: "RAT" }])),
-    Effect.runPromise,
-  )
-
-const runSearch = (handler: Handler, args: readonly string[], lines: string[]) =>
-  Command.run(searchCommand, { version: "test" }).pipe(
-    Effect.provide(cliLayer(handler, args, lines)),
     Effect.runPromise,
   )
 
@@ -126,7 +136,12 @@ describe("project list pages", () => {
       projects: [projects[0]],
       pageInfo: { hasNextPage: true, endCursor: "project-1" },
     })
-    expect(fake.requests[0]?.variables).toEqual({ first: 1, after: null, includeArchived: false })
+    expect(fake.requests[0]?.variables).toEqual({
+      first: 1,
+      after: null,
+      includeArchived: false,
+      filter: { accessibleTeams: { some: { id: { eq: teamId } } } },
+    })
     expect(fake.requests[0]?.query).toContain("orderBy: createdAt")
   })
 
@@ -144,7 +159,12 @@ describe("project list pages", () => {
     const fake = makeFakeLinear({ teams: [], labels: [], projects })
     const lines: string[] = []
     await runProject(fake.handler, ["list", "--include-archived"], lines)
-    expect(fake.requests[0]?.variables).toEqual({ first: 50, after: null, includeArchived: true })
+    expect(fake.requests[0]?.variables).toEqual({
+      first: 50,
+      after: null,
+      includeArchived: true,
+      filter: { accessibleTeams: { some: { id: { eq: teamId } } } },
+    })
     expect(lines.flatMap((line) => line.split("\n"))).toEqual([
       "Tracker\tStarted\t50%\tproject-1",
       "Login (deleted)\tBacklog\t0%\tproject-2",
@@ -185,7 +205,12 @@ describe("project list pages", () => {
     const fake = makeFakeLinear({ teams: [], labels: [], projects })
     const lines: string[] = []
     await runProject(fake.handler, ["list"], lines)
-    expect(fake.requests[0]?.variables).toEqual({ first: 50, after: null, includeArchived: false })
+    expect(fake.requests[0]?.variables).toEqual({
+      first: 50,
+      after: null,
+      includeArchived: false,
+      filter: { accessibleTeams: { some: { id: { eq: teamId } } } },
+    })
     expect(lines.flatMap((line) => line.split("\n"))).toEqual(["Tracker\tStarted\t50%\tproject-1"])
   })
 })
@@ -231,39 +256,5 @@ describe("issue list pages", () => {
       issues: [expect.objectContaining({ identifier: "RAT-1" })],
       pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
     })
-  })
-})
-
-describe("issue search pages", () => {
-  test("prints pure JSON and continues from --after", async () => {
-    const variables: Record<string, unknown>[] = []
-    const handler: Handler = (request) => {
-      variables.push(readRequest(request).variables)
-      return jsonResponse({
-        data: {
-          searchIssues: {
-            nodes: [summaryNode("RAT-1")],
-            pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
-          },
-        },
-      })
-    }
-
-    const first: string[] = []
-    await runSearch(handler, ["login", "--limit", "1", "--json"], first)
-    expect(first).toHaveLength(1)
-    expect(lastJson(first)).toEqual({
-      issues: [expect.objectContaining({ identifier: "RAT-1" })],
-      pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
-    })
-    expect(variables[0]).toEqual({ term: "login", first: 1, after: null })
-
-    const second: string[] = []
-    await runSearch(handler, ["login", "--limit", "1", "--after", "cursor-1", "--json"], second)
-    expect(lastJson(second)).toEqual({
-      issues: [expect.objectContaining({ identifier: "RAT-1" })],
-      pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
-    })
-    expect(variables[1]).toEqual({ term: "login", first: 1, after: "cursor-1" })
   })
 })

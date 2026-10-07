@@ -20,8 +20,8 @@ const listQuery = `query IssueList($filter: IssueFilter, $first: Int!, $after: S
   }
 }`
 
-const searchQuery = `query IssueSearch($term: String!, $first: Int!, $after: String) {
-  searchIssues(term: $term, first: $first, after: $after) {
+const searchQuery = `query IssueSearch($term: String!, $filter: IssueFilter, $first: Int!, $after: String) {
+  searchIssues(term: $term, filter: $filter, first: $first, after: $after) {
     nodes {${summaryFields}
     }
     pageInfo { hasNextPage endCursor }

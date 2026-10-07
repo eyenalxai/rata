@@ -50,7 +50,13 @@ type IssueApiShape = {
     IssuePage,
     LinearApiError | InvalidIssueRef | RepoConfigError | TeamNotFoundError | TeamResolutionError
   >
-  readonly search: (term: string, options: PageOptions) => Effect.Effect<IssuePage, LinearApiError>
+  readonly search: (
+    term: string,
+    options: IssueSearchOptions,
+  ) => Effect.Effect<
+    IssuePage,
+    LinearApiError | RepoConfigError | TeamNotFoundError | TeamResolutionError
+  >
   readonly show: (
     ref: string,
     options: IssueShowOptions,
@@ -59,6 +65,10 @@ type IssueApiShape = {
 
 const parseRefOrFail = (input: string): Effect.Effect<IssueRef, InvalidIssueRef> =>
   Effect.fromResult(parseIssueRef(input))
+
+type IssueSearchOptions = PageOptions & {
+  readonly team?: string | undefined
+}
 
 const projectRefFilter = (value: string): Record<string, unknown> =>
   isUuid(value) ? { project: { id: { eq: value } } } : projectFilter(value)
@@ -150,11 +160,17 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
 
       const search = Effect.fn("IssueApi.search")(function* search(
         term: string,
-        options: PageOptions,
+        options: IssueSearchOptions,
       ) {
+        const teamId = yield* repoTeam.resolve(options.team)
         const data = yield* client.execute(
           searchQuery,
-          { term, first: options.limit, after: options.after },
+          {
+            term,
+            filter: { team: { id: { eq: teamId } } },
+            first: options.limit,
+            after: options.after,
+          },
           SearchResponse,
         )
         return {

@@ -13,6 +13,52 @@ const listWithoutTeam = Effect.gen(function* listIssues() {
   return yield* api.list({ after: null, limit: 50 })
 })
 
+const emptySearch = (): Response =>
+  jsonResponse({ data: { searchIssues: { nodes: [], pageInfo } } })
+
+describe("IssueApi search team default", () => {
+  test("scopes the search to the linked team when no team is passed", async () => {
+    const captured: Record<string, unknown>[] = []
+    const handler = (request: HttpClientRequest.HttpClientRequest): Response => {
+      captured.push(readBody(request).variables)
+      return emptySearch()
+    }
+
+    await run(
+      handler,
+      Effect.gen(function* searchIssues() {
+        const api = yield* IssueApi
+        return yield* api.search("login", { after: null, limit: 10 })
+      }),
+    )
+
+    expect(captured[0]).toEqual({
+      term: "login",
+      filter: { team: { id: { eq: "team-1" } } },
+      first: 10,
+      after: null,
+    })
+  })
+
+  test("lets --team override the linked team", async () => {
+    const captured: Record<string, unknown>[] = []
+    const handler = (request: HttpClientRequest.HttpClientRequest): Response => {
+      captured.push(readBody(request).variables)
+      return emptySearch()
+    }
+
+    await run(
+      handler,
+      Effect.gen(function* searchIssues() {
+        const api = yield* IssueApi
+        return yield* api.search("login", { team: "OPS", after: null, limit: 10 })
+      }),
+    )
+
+    expect(captured[0]?.filter).toEqual({ team: { id: { eq: "team-2" } } })
+  })
+})
+
 describe("IssueApi team default", () => {
   test("filters by the linked team when no team is passed", async () => {
     const captured: Record<string, unknown>[] = []

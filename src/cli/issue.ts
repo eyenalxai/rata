@@ -236,6 +236,7 @@ const searchCommand = Command.make(
   "search",
   {
     text: Argument.String("text").pipe(Argument.withDescription("Text to search for")),
+    team: optionalText("team", "Filter by team key or id. Defaults to the team from `rata link`"),
     limit: limitFlag,
     after: afterFlag,
     json: jsonFlag,
@@ -248,6 +249,7 @@ const searchCommand = Command.make(
       }
       const api = yield* IssueApi
       const page = yield* api.search(config.text, {
+        team: Option.getOrUndefined(config.team),
         after: Option.getOrNull(config.after),
         limit: config.limit,
       })

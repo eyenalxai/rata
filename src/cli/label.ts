@@ -4,7 +4,7 @@ import { EOL } from "node:os"
 
 import { LabelService } from "@/api/label"
 import { maxPageSize } from "@/api/pagination"
-import { TeamService } from "@/api/team"
+import { RepoTeam } from "@/api/repo-team"
 import { resolveColor } from "@/cli/color"
 import {
   errorLine,
@@ -20,7 +20,10 @@ const jsonFlag = Flag.Boolean("json").pipe(
   Flag.withDefault(false),
 )
 
-const teamFlag = Flag.String("team").pipe(Flag.withDescription("Team key, for example RAT"))
+const teamFlag = Flag.String("team").pipe(
+  Flag.withDescription("Team key or id. Defaults to the team from `rata link`"),
+  Flag.optional,
+)
 
 const limitFlag = Flag.Int("limit").pipe(
   Flag.withDescription(`Page size, at most ${maxPageSize}`),
@@ -41,10 +44,10 @@ const listCommand = Command.make(
       if (!valid) {
         return
       }
-      const teams = yield* TeamService
       const labels = yield* LabelService
-      const team = yield* teams.byKey(config.team)
-      const page = yield* labels.list(team.id, {
+      const repoTeam = yield* RepoTeam
+      const teamId = yield* repoTeam.resolve(Option.getOrUndefined(config.team))
+      const page = yield* labels.list(teamId, {
         after: Option.getOrNull(config.after),
         limit: config.limit,
       })

@@ -46,6 +46,7 @@ type ProjectCreateOptions = {
 
 type ProjectListOptions = PageOptions & {
   readonly includeArchived?: boolean
+  readonly team?: string | undefined
 }
 
 type ProjectIdentity = {

@@ -256,7 +256,14 @@ describe("IssueApi search", () => {
 
     expect(page.issues.map((issue) => issue.identifier)).toEqual(["RAT-1"])
     expect(page.pageInfo).toEqual({ hasNextPage: true, endCursor: "cursor-1" })
-    expect(captured).toEqual([{ term: "login", first: 10, after: "cursor-0" }])
+    expect(captured).toEqual([
+      {
+        term: "login",
+        filter: { team: { id: { eq: "team-1" } } },
+        first: 10,
+        after: "cursor-0",
+      },
+    ])
     expect(queries[0] ?? "").not.toContain("orderBy")
   })
 })

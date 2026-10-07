@@ -273,11 +273,13 @@ rata project create --name "Login revamp" --team RAT --team OPS --description "T
 }
 ```
 
-`rata project list` prints the name, state, progress and id of one page of
-projects:
+`rata project list` prints the name, state, progress and id of one page of the
+projects that include the linked team. Pass `--team <key>` to look at another
+team; run `rata link` once to set the link.
 
 ```bash
 rata project list
+rata project list --team RAT
 ```
 
 `rata project list --include-archived` also shows trashed and archived
@@ -366,8 +368,9 @@ UUID. A wayfinding map stays an issue with child issues.
 
 ## Labels
 
-`rata label list --team RAT` prints the labels of a team: name, id, color. It
-returns one page per call: see **Paging lists**. `--json` prints
+`rata label list` prints the labels of the linked team: name, id, color. Pass
+`--team <key>` for another team. It returns one page per call: see
+**Paging lists**. `--json` prints
 `{ "labels": [...], "pageInfo": { "hasNextPage": ..., "endCursor": ... } }`.
 
 `rata label create --name <name> [--color <hex>] [--team <key>]` creates a
@@ -541,9 +544,10 @@ list and search commands print one page:
 `{ "issues": [...], "pageInfo": { "hasNextPage": ..., "endCursor": ... } }`.
 The show command prints `{ "issue": {...} }`.
 
-`rata search "<text>"` searches by text. It keeps Linear's relevance ranking,
-so the best match stays first and its paging is best effort. It accepts
-`--limit`, `--after` and `--json`.
+`rata search "<text>"` searches by text. Without `--team`, the search stays
+inside the linked team; pass `--team <key>` for another team. It keeps Linear's
+relevance ranking, so the best match stays first and its paging is best effort.
+It accepts `--team`, `--limit`, `--after` and `--json`.
 
 ```json
 {
