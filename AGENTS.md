@@ -10,10 +10,8 @@ vocabulary.
 - **Use subagents as much as possible.** Split independent tasks across
   subagents and run them in parallel. Do not serialize work that can run at the
   same time.
-- **Change code in a rift.** `rift create --name <change>` makes the worktree
-  and the `rift/<change>` branch. One rift per change. Commit the work there.
-  When it is ready, rebase the rift onto `main`, bring the rift back into `main`
-  with a fast-forward, then push. Never make a merge commit.
+- **Keep `main` linear.** Rebase work onto `main` and fast-forward it back.
+  Never make a merge commit.
 - **No backwards compatibility.** Refactor when the long-term design needs it.
   Optimize for long-term maintenance and follow best practice.
 - **Use Bun** for every command and script.
@@ -28,7 +26,6 @@ vocabulary.
 | Linear SDK and GraphQL schema | `~/Projects/other/linear`          |
 | oxlint and oxfmt source       | `~/Projects/other/oxc`             |
 | Bun source                    | `~/Projects/other/bun`             |
-| Rift worktree tool            | `~/Projects/other/rift`            |
 | Agent skills CLI              | `~/Projects/other/vercel-skills`   |
 | Railway CLI (link prior art)  | `~/Projects/other/railway-cli`     |
 | yadm (dotfiles manager)       | `~/Projects/other/yadm`            |
