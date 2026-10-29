@@ -66,7 +66,7 @@ describe("issue update --append", () => {
 
     expect(lines).toContain("error: The --append flag needs --body or --body-file.")
     expect(recorder.requests).toHaveLength(0)
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(2)
   })
 
   test("rejects an empty body", async () => {

@@ -38,11 +38,14 @@ const loginCommand = Command.make(
     Effect.gen(function* login() {
       yield* rejectFields(yield* OutputFields)
       if (!config.token) {
-        return yield* errorLine(1, "Pass --with-token and pipe the API key on standard input.")
+        return yield* errorLine(
+          "validation",
+          "Pass --with-token and pipe the API key on standard input.",
+        )
       }
       const apiKey = yield* readStandardInput()
       if (apiKey.length === 0) {
-        return yield* errorLine(1, "No API key on standard input.")
+        return yield* errorLine("validation", "No API key on standard input.")
       }
       const auth = yield* Auth
       const workspace = Option.getOrElse(config.workspace, () => "default")
@@ -77,7 +80,7 @@ const statusCommand = Command.make("status", { workspace: workspaceFlag }, (conf
       const profile = profiles.find((entry) => entry.name === name)
       if (profile === undefined) {
         return yield* errorLine(
-          1,
+          "validation",
           `No workspace named "${name}". Run \`rata auth login --workspace ${name} --with-token\` to add it.`,
         )
       }
@@ -98,7 +101,7 @@ const statusCommand = Command.make("status", { workspace: workspaceFlag }, (conf
     const resolved = yield* auth.resolve
     if (Option.isNone(resolved)) {
       return yield* errorLine(
-        1,
+        "auth",
         "Not authenticated. Run `rata auth login --with-token`, or set LINEAR_API_KEY.",
       )
     }

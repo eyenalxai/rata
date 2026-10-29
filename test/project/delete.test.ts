@@ -45,7 +45,7 @@ describe("project delete", () => {
     expect(lines).toEqual([
       "error: No project named Nope. Run `rata project list` to see the projects.",
     ])
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(3)
     expect(deleteMutation(fake.requests)).toBeUndefined()
   })
 
@@ -57,7 +57,7 @@ describe("project delete", () => {
     expect(lines).toEqual([
       "error: The project Tracker (project-1) is in the trash. Run `rata project restore` to bring it back.",
     ])
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(4)
     expect(deleteMutation(fake.requests)).toBeUndefined()
   })
 
@@ -69,7 +69,7 @@ describe("project delete", () => {
     expect(lines).toEqual([
       "error: More than one live project is named Tracker. Pass the project UUID instead.",
     ])
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(2)
     expect(deleteMutation(fake.requests)).toBeUndefined()
   })
 })

@@ -86,9 +86,8 @@ rata issue list --json
 ```
 
 With `--json`, every command prints one stable JSON document. With `--json`, a
-failure writes one JSON object to stderr, leaves stdout empty, and exits 1. A
-bulk write is the exception: it reports one result per issue on stdout and exits
-1 when any result failed.
+failure writes one JSON object to stderr and leaves stdout empty. A bulk write
+is the exception: it reports one result per issue on stdout.
 
 ```json
 {
@@ -105,6 +104,24 @@ bulk write is the exception: it reports one result per issue on stdout and exits
 `conflict`, `rate_limited`, `network` and `internal`. In human mode the error
 prints `error: <message>` and, when present, `hint: <hint>` on stderr.
 Argument-parse errors keep the built-in help text.
+
+### Exit codes
+
+Every failure exits with the code of its class. The code is stable, so a script
+branches on the number, not the message.
+
+| Code | Meaning                                                              |
+| ---- | -------------------------------------------------------------------- |
+| `0`  | Success, including a skipped idempotent write                        |
+| `1`  | Internal error                                                       |
+| `2`  | Validation: bad input, missing flag, missing link, ambiguous heading |
+| `3`  | Not found: issue, comment, label, project, team, section             |
+| `4`  | Conflict: stale `updatedAt`, or an object in the wrong state         |
+| `5`  | Auth: missing or invalid key, or forbidden                           |
+| `6`  | Retryable: rate limit or network                                     |
+
+A bulk write exits with the code of its first failed result, or `0` when every
+result succeeds.
 
 `--fields` selects dotted paths from the JSON output of a read command. It
 requires `--json`:
@@ -1071,9 +1088,9 @@ JSON on success prints the issue and the comment:
 
 Without `--comment` or `--comment-file`, the output stays `{ "issue": ... }`. A
 comment failure prints the issue update, `"comment": null` and the `error`
-object, and exits 1. This is the one command that writes a partial result to
-stdout on failure, because the issue update already landed. Human mode prints
-the issue result and the error on stderr.
+object, and exits with the code of that error. This is the one command that
+writes a partial result to stdout on failure, because the issue update already
+landed. Human mode prints the issue result and the error on stderr.
 
 `--dry-run` prints `{ "dryRun": true, "actions": [...] }` with the issue update
 action and the comment action, and writes nothing.
@@ -1096,7 +1113,7 @@ the first positional is the issue reference.
 Rata validates every target and every label before the first write. A bad
 reference or a missing label aborts the whole batch with zero changes. The
 writes then run best-effort: a failure mid-batch does not roll back the earlier
-writes. The command exits 1 when any result failed.
+writes. The command exits with the code of the first failed result.
 
 `--json` prints one result per issue:
 

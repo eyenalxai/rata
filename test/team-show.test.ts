@@ -136,6 +136,6 @@ describe("team show", () => {
 
     const error = Option.getOrThrow(Schema.decodeUnknownOption(ErrorEnvelope)(lastJson(lines)))
     expect(error.error.code).toBe("not_linked")
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(2)
   })
 })

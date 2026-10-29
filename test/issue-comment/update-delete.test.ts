@@ -29,7 +29,7 @@ describe("issue comment update", () => {
     await runIssue(recorder.handler, ["comment", "update", "c9", "--body", "New.", "--json"], lines)
     expect(decodeError(lastJson(lines)).code).toBe("not_found")
     expect(state.updates).toBe(0)
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(3)
   })
 
   test("a dry run prints a diff and writes nothing", async () => {
@@ -69,7 +69,7 @@ describe("issue comment delete", () => {
       hint: "Pass --yes to delete a comment in JSON mode.",
     })
     expect(state.deletes).toBe(0)
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(2)
   })
 
   test("a dry run writes nothing", async () => {

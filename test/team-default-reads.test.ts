@@ -107,7 +107,7 @@ describe("project list team default", () => {
     await runProjectUnlinked(fake.handler, ["list"], lines)
 
     expect(lines).toContain("error: No team. Pass --team, or run `rata link`.")
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(2)
   })
 })
 
@@ -145,7 +145,7 @@ describe("label list team default", () => {
     await runLabelUnlinked(fake.handler, ["list"], lines)
 
     expect(lines).toContain("error: No team. Pass --team, or run `rata link`.")
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(2)
   })
 })
 
@@ -204,6 +204,6 @@ describe("issue search pages", () => {
     await runSearchUnlinked(fake.handler, ["login"], lines)
 
     expect(lines).toContain("error: No team. Pass --team, or run `rata link`.")
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(2)
   })
 })

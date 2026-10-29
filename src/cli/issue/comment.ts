@@ -32,7 +32,7 @@ const dedupeKeyFlag = optionalText(
 
 const requireCommentFlag = (body: Option.Option<string>, bodyFile: Option.Option<string>) =>
   Option.isNone(body) && Option.isNone(bodyFile)
-    ? errorLine(1, "A comment needs --body or --body-file.")
+    ? errorLine("validation", "A comment needs --body or --body-file.")
     : Effect.void
 
 const createCommand = Command.make(
@@ -188,7 +188,7 @@ const deleteCommand = Command.make(
       yield* rejectFields(yield* OutputFields)
       if (json && !config.yes) {
         return yield* errorLine(
-          1,
+          "validation",
           "Deleting a comment in JSON mode needs --yes.",
           "Pass --yes to delete a comment in JSON mode.",
         )

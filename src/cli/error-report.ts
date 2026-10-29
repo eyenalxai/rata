@@ -64,6 +64,21 @@ const errorRules: Record<string, ErrorRule> = {
   AuthStoreError: { code: "auth", hint: "Run `rata auth login --with-token`." },
 }
 
+const exitCodes: Record<ErrorCode, number> = {
+  validation: 2,
+  not_linked: 2,
+  ambiguous: 2,
+  not_found: 3,
+  conflict: 4,
+  auth: 5,
+  forbidden: 5,
+  rate_limited: 6,
+  network: 6,
+  internal: 1,
+}
+
+const exitCodeOf = (code: ErrorCode): number => exitCodes[code]
+
 const classifyError = (error: ReportedError): ErrorReport => {
   const message = error.message
   const tag = tagOf(error)
@@ -106,6 +121,9 @@ const classifyError = (error: ReportedError): ErrorReport => {
       hint: `Labels resolve case-insensitively; use \`${name}\`, or pass \`--if-not-exists\`.`,
     }
   }
+  if (tag === "LinearAuthError" && Reflect.get(error, "status") === 403) {
+    return { code: "forbidden", message, hint: "Ask a workspace admin for access." }
+  }
   const rule = tag === undefined ? undefined : errorRules[tag]
   if (rule !== undefined) {
     return { ...rule, message }
@@ -129,4 +147,4 @@ const classifyError = (error: ReportedError): ErrorReport => {
   return { code: "internal", message, hint: "Run with RATA_DEBUG=1 for details." }
 }
 
-export { classifyError, type ErrorCode, type ErrorReport, type ReportedError }
+export { classifyError, exitCodeOf, type ErrorCode, type ErrorReport, type ReportedError }

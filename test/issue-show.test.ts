@@ -224,6 +224,6 @@ describe("issue show", () => {
       Option.getOrThrow(Schema.decodeUnknownOption(ErrorEnvelope)(lastJson(lines))).error.code,
     ).toBe("validation")
     expect(requests).toEqual([])
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(2)
   })
 })

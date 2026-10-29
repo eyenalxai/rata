@@ -84,7 +84,7 @@ describe("unlink", () => {
     const lines: string[] = []
     await runUnlink([], lines)
     expect(lines).toEqual(["error: No repository link. Run `rata link` to link this repository."])
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(2)
   })
 
   test("prints the removed link as JSON", async () => {

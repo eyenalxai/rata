@@ -78,7 +78,7 @@ describe("rata label create", () => {
       "hint: Labels resolve case-insensitively; use `Bug`, or pass `--if-not-exists`.",
     )
     expect(requestOf(recorder, "mutation CreateLabel")).toBeUndefined()
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(4)
   })
 
   test("returns the existing label with --if-not-exists", async () => {
@@ -112,7 +112,7 @@ describe("rata label create", () => {
     await runLabel(recorder.handler, ["create", "--name", "bug", "--color", "red"], lines)
     expect(lines).toContain("error: Expected a 6-digit hex color like #EB5757, got red.")
     expect(recorder.requests).toHaveLength(0)
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(2)
   })
 
   test("fails without a team when the repository has no team", async () => {
@@ -121,7 +121,7 @@ describe("rata label create", () => {
     await runLabel(recorder.handler, ["create", "--name", "bug"], lines, [])
     expect(lines).toContain("error: No team. Pass --team, or run `rata link`.")
     expect(recorder.requests).toHaveLength(0)
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(2)
   })
 })
 
@@ -189,7 +189,7 @@ describe("rata label edit", () => {
     await runLabel(recorder.handler, ["edit", ref, "--color", "#ffffff", "--team", "NOPE"], lines)
     expect(lines.join("\n")).toContain("No team with key NOPE")
     expect(requestOf(recorder, "mutation UpdateLabel")).toBeUndefined()
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(3)
   })
 
   test("fails when the name does not resolve", async () => {
@@ -198,7 +198,7 @@ describe("rata label edit", () => {
     await runLabel(recorder.handler, ["edit", "nope", "--color", "#00ff00"], lines)
     expect(lines.join("\n")).toContain("No label named nope")
     expect(requestOf(recorder, "mutation UpdateLabel")).toBeUndefined()
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(3)
   })
 
   test("requires --name or --color", async () => {
@@ -207,6 +207,6 @@ describe("rata label edit", () => {
     await runLabel(recorder.handler, ["edit", "bug"], lines)
     expect(lines).toContain("error: Pass at least one of --name or --color.")
     expect(recorder.requests).toHaveLength(0)
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(2)
   })
 })
