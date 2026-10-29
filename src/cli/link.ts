@@ -1,14 +1,10 @@
 import { Effect, Option } from "effect"
 import { Command, Flag } from "effect/cli"
 
-import { reportFailure, writeJson, writeLine } from "@/cli/output"
+import { OutputFields, rejectFields } from "@/cli/fields"
+import { JsonOutput, reportFailure, writeJson, writeLine } from "@/cli/output"
 import { LinkService } from "@/config/link"
 import { machineTimezone } from "@/domain/timezone"
-
-const jsonFlag = Flag.Boolean("json").pipe(
-  Flag.withDescription("Print machine-readable JSON"),
-  Flag.withDefault(false),
-)
 
 const teamFlag = Flag.String("team").pipe(
   Flag.withDescription("Team key or id. Without --workspace, link searches every stored workspace"),
@@ -43,10 +39,11 @@ const linkCommand = Command.make(
     workspace: workspaceFlag,
     create: createFlag,
     name: nameFlag,
-    json: jsonFlag,
   },
   (config) =>
     Effect.gen(function* link() {
+      const json = yield* JsonOutput
+      yield* rejectFields(yield* OutputFields)
       const service = yield* LinkService
       const result = yield* service.link({
         team: config.team,
@@ -56,7 +53,7 @@ const linkCommand = Command.make(
         name: config.name,
         timezone: machineTimezone(),
       })
-      if (config.json) {
+      if (json) {
         return yield* writeJson({
           team: result.team,
           project: Option.getOrNull(result.project),
@@ -95,6 +92,7 @@ const linkCommand = Command.make(
       description: "Link to a team in the work workspace",
     },
   ]),
+  Command.withGlobalFlags([JsonOutput, OutputFields]),
 )
 
 export { linkCommand }

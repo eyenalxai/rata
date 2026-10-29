@@ -1,23 +1,20 @@
 import { Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 
-import type { IssueDetail, IssuePage, IssueRelations, IssueSummary } from "@/api/issue-model"
+import type { IssueDetail, IssueRelations } from "@/api/issue-model"
 import type { IssueChild } from "@/api/issue-schema"
 
 import { IssueApi } from "@/api/issue"
 import { sortFields, stateTypes } from "@/api/issue-model"
 import { maxPageSize } from "@/api/pagination"
+import { OutputFields, readFields, selectObject } from "@/cli/fields"
 import { issueLabelCommand } from "@/cli/issue-label"
 import { linkCommand, unlinkCommand } from "@/cli/issue-link"
+import { writeIssuePage } from "@/cli/issue-page"
 import { assignCommand, closeCommand, reopenCommand, unassignCommand } from "@/cli/issue-transition"
 import { commentCommand, createCommand, updateCommand } from "@/cli/issue-write"
-import { nextPageHint, reportFailure, validatePageSize, writeJson, writeLine } from "@/cli/output"
+import { JsonOutput, reportFailure, validatePageSize, writeJson, writeLine } from "@/cli/output"
 import { resolvePriority } from "@/cli/priority"
-
-const jsonFlag = Flag.Boolean("json").pipe(
-  Flag.withDescription("Print machine-readable JSON"),
-  Flag.withDefault(false),
-)
 
 const limitFlag = Flag.Int("limit").pipe(
   Flag.withDescription(`Page size, at most ${maxPageSize}`),
@@ -35,20 +32,6 @@ const optionalText = (name: string, description: string) =>
 const refArgument = Argument.String("ref").pipe(
   Argument.withDescription("Issue reference: an identifier, a UUID, or a linear.app URL"),
 )
-
-const formatIssueLine = (issue: IssueSummary): string => {
-  const assignee = issue.assignee?.name ?? "unassigned"
-  const labels = issue.labels.map((label) => label.name).join(",") || "-"
-  const priorityColumns = issue.priority === "none" ? [] : [issue.priority]
-  return [
-    issue.identifier,
-    `[${issue.state.name}]`,
-    ...priorityColumns,
-    assignee,
-    labels,
-    issue.title,
-  ].join("  ")
-}
 
 const formatRelations = (relations: IssueRelations): string[] => {
   const lines: string[] = []
@@ -111,23 +94,6 @@ const formatIssueDetail = (issue: IssueDetail): string => {
   return lines.join("\n")
 }
 
-const writeHumanPage = (page: IssuePage): Effect.Effect<void> =>
-  page.issues.length === 0
-    ? writeLine("No issues found.")
-    : Effect.forEach(page.issues, (issue) => writeLine(formatIssueLine(issue)), { discard: true })
-
-const writeIssuePage = (config: { readonly json: boolean }, page: IssuePage) =>
-  Effect.gen(function* writePage() {
-    if (config.json) {
-      yield* writeJson(page)
-      return
-    }
-    yield* writeHumanPage(page)
-    if (page.pageInfo.hasNextPage && page.pageInfo.endCursor !== null) {
-      yield* writeLine(nextPageHint("issues", page.pageInfo.endCursor))
-    }
-  })
-
 const listCommand = Command.make(
   "list",
   {
@@ -157,10 +123,11 @@ const listCommand = Command.make(
     ),
     limit: limitFlag,
     after: afterFlag,
-    json: jsonFlag,
   },
   (config) =>
     Effect.gen(function* list() {
+      const json = yield* JsonOutput
+      const fields = yield* readFields(json, yield* OutputFields)
       const valid = yield* validatePageSize(config.limit)
       if (!valid) {
         return
@@ -183,7 +150,7 @@ const listCommand = Command.make(
         sort: Option.getOrUndefined(config.sort),
         limit: config.limit,
       })
-      yield* writeIssuePage(config, page)
+      yield* writeIssuePage(json, fields, page)
     }).pipe(Effect.catch(reportFailure)),
 ).pipe(
   Command.withDescription("List issues"),
@@ -211,14 +178,15 @@ const showCommand = Command.make(
       Flag.withDescription("Include the issue comments"),
       Flag.withDefault(false),
     ),
-    json: jsonFlag,
   },
   (config) =>
     Effect.gen(function* show() {
+      const json = yield* JsonOutput
+      const fields = yield* readFields(json, yield* OutputFields)
       const api = yield* IssueApi
       const issue = yield* api.show(config.ref, { comments: config.comments })
-      if (config.json) {
-        return yield* writeJson({ issue })
+      if (json) {
+        return yield* writeJson({ issue: yield* selectObject(fields, issue) })
       }
       return yield* writeLine(formatIssueDetail(issue))
     }).pipe(Effect.catch(reportFailure)),
@@ -239,10 +207,11 @@ const searchCommand = Command.make(
     team: optionalText("team", "Filter by team key or id. Defaults to the team from `rata link`"),
     limit: limitFlag,
     after: afterFlag,
-    json: jsonFlag,
   },
   (config) =>
     Effect.gen(function* search() {
+      const json = yield* JsonOutput
+      const fields = yield* readFields(json, yield* OutputFields)
       const valid = yield* validatePageSize(config.limit)
       if (!valid) {
         return
@@ -253,7 +222,7 @@ const searchCommand = Command.make(
         after: Option.getOrNull(config.after),
         limit: config.limit,
       })
-      yield* writeIssuePage(config, page)
+      yield* writeIssuePage(json, fields, page)
     }).pipe(Effect.catch(reportFailure)),
 ).pipe(
   Command.withDescription("Search issues by text"),
@@ -267,6 +236,7 @@ const searchCommand = Command.make(
       description: "Read the next page of results",
     },
   ]),
+  Command.withGlobalFlags([JsonOutput, OutputFields]),
 )
 
 const issueCommand = Command.make("issue").pipe(
@@ -285,6 +255,7 @@ const issueCommand = Command.make("issue").pipe(
     linkCommand,
     unlinkCommand,
   ]),
+  Command.withGlobalFlags([JsonOutput, OutputFields]),
 )
 
 export { issueCommand, searchCommand }

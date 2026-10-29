@@ -1,18 +1,16 @@
 import { Effect, Option } from "effect"
-import { Command, Flag } from "effect/cli"
+import { Command } from "effect/cli"
 
-import { errorLine, reportFailure, writeJson, writeLine } from "@/cli/output"
+import { OutputFields, rejectFields } from "@/cli/fields"
+import { JsonOutput, errorLine, reportFailure, writeJson, writeLine } from "@/cli/output"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
-
-const jsonFlag = Flag.Boolean("json").pipe(
-  Flag.withDescription("Print machine-readable JSON"),
-  Flag.withDefault(false),
-)
 
 const reportNotLinked = errorLine(1, "No repository link. Run `rata link` to link this repository.")
 
-const unlinkCommand = Command.make("unlink", { json: jsonFlag }, (config) =>
+const unlinkCommand = Command.make("unlink", {}, () =>
   Effect.gen(function* unlink() {
+    const json = yield* JsonOutput
+    yield* rejectFields(yield* OutputFields)
     const repoConfig = yield* RepoConfigService
     const directory = yield* currentDirectory
     const existing = yield* repoConfig.read(directory)
@@ -24,7 +22,7 @@ const unlinkCommand = Command.make("unlink", { json: jsonFlag }, (config) =>
       return yield* reportNotLinked
     }
     const link = existing.value
-    if (config.json) {
+    if (json) {
       return yield* writeJson({
         team: link.team ?? null,
         project: link.project ?? null,
@@ -49,6 +47,7 @@ const unlinkCommand = Command.make("unlink", { json: jsonFlag }, (config) =>
       description: "Print the removed link as JSON",
     },
   ]),
+  Command.withGlobalFlags([JsonOutput, OutputFields]),
 )
 
 export { unlinkCommand }

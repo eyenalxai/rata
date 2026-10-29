@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { ConfigProvider, Console, Effect } from "effect"
 
-import { LinearNetworkError } from "@/api/errors"
-import { reportFailure } from "@/cli/output"
+import { LinearNetworkError, LinearRateLimitError } from "@/api/errors"
+import { LabelCreateError } from "@/api/label"
+import { TeamResolutionError } from "@/api/team"
+import { JsonOutput, reportFailure } from "@/cli/output"
 
 const ignore = (): void => undefined
 
@@ -33,10 +35,16 @@ const recordingConsole = (lines: string[]): Console.Console => {
   }
 }
 
-const runReport = (error: LinearNetworkError, env: Record<string, string>, lines: string[]) =>
+const runReport = (
+  error: LinearNetworkError | LinearRateLimitError | LabelCreateError | TeamResolutionError,
+  env: Record<string, string>,
+  lines: string[],
+  json = false,
+) =>
   reportFailure(error).pipe(
     Effect.provideService(Console.Console, recordingConsole(lines)),
     Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnvRecord(env)),
+    Effect.provideService(JsonOutput, json),
     Effect.runPromise,
   )
 
@@ -61,6 +69,60 @@ describe("reportFailure", () => {
   test("does not print the cause without RATA_DEBUG", async () => {
     const lines: string[] = []
     await runReport(networkError(), {}, lines)
-    expect(lines.length).toBe(1)
+    expect(lines).toEqual([
+      "error: Linear returned HTTP 500.",
+      "hint: Check the connection and retry.",
+    ])
+  })
+
+  test("prints the code and hint in JSON mode", async () => {
+    const lines: string[] = []
+    await runReport(networkError(), {}, lines, true)
+    expect(JSON.parse(lines[0] ?? "")).toEqual({
+      error: {
+        code: "network",
+        message: "Linear returned HTTP 500.",
+        hint: "Check the connection and retry.",
+      },
+    })
+  })
+
+  test("maps a rate limit to the retry hint", async () => {
+    const lines: string[] = []
+    await runReport(
+      new LinearRateLimitError({ message: "Too many requests.", retryAfterSeconds: 3 }),
+      {},
+      lines,
+      true,
+    )
+    expect(JSON.parse(lines[0] ?? "")).toMatchObject({
+      error: { code: "rate_limited", hint: "Retry later." },
+    })
+  })
+
+  test("maps a duplicate label to conflict", async () => {
+    const lines: string[] = []
+    await runReport(
+      new LabelCreateError({ name: "bug", message: "The label already exists." }),
+      {},
+      lines,
+      true,
+    )
+    expect(JSON.parse(lines[0] ?? "")).toMatchObject({
+      error: { code: "conflict" },
+    })
+  })
+
+  test("maps a missing team link to not_linked", async () => {
+    const lines: string[] = []
+    await runReport(
+      new TeamResolutionError({ message: "No team. Pass --team, or run `rata link`." }),
+      {},
+      lines,
+      true,
+    )
+    expect(JSON.parse(lines[0] ?? "")).toMatchObject({
+      error: { code: "not_linked" },
+    })
   })
 })

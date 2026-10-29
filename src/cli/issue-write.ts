@@ -3,13 +3,9 @@ import { Argument, Command, Flag } from "effect/cli"
 
 import { IssueWriteApi } from "@/api/issue-write"
 import { resolveBody } from "@/cli/body"
-import { errorLine, reportFailure, writeJson, writeLine } from "@/cli/output"
+import { OutputFields, rejectFields } from "@/cli/fields"
+import { JsonOutput, errorLine, reportFailure, writeJson, writeLine } from "@/cli/output"
 import { resolvePriority } from "@/cli/priority"
-
-const jsonFlag = Flag.Boolean("json").pipe(
-  Flag.withDescription("Print machine-readable JSON"),
-  Flag.withDefault(false),
-)
 
 const optionalText = (name: string, description: string) =>
   Flag.String(name).pipe(Flag.withDescription(description), Flag.optional)
@@ -39,10 +35,11 @@ const createCommand = Command.make(
     state: optionalText("state", "Workflow state name"),
     assignee: optionalText("assignee", "Assignee: `me` or a user id"),
     priority: optionalText("priority", "Priority: none, urgent, high, medium, low, or 0-4"),
-    json: jsonFlag,
   },
   (config) =>
     Effect.gen(function* createIssue() {
+      const json = yield* JsonOutput
+      yield* rejectFields(yield* OutputFields)
       const body = yield* resolveBody(
         { body: "body", file: "body-file" },
         config.body,
@@ -61,7 +58,7 @@ const createCommand = Command.make(
         assignee: Option.getOrUndefined(config.assignee),
         priority,
       })
-      if (config.json) {
+      if (json) {
         return yield* writeJson({ issue })
       }
       return yield* writeLine(`Created ${issue.identifier}: ${issue.title}`)
@@ -86,10 +83,11 @@ const commentCommand = Command.make(
     ref: refArgument,
     body: bodyFlag,
     bodyFile: bodyFileFlag,
-    json: jsonFlag,
   },
   (config) =>
     Effect.gen(function* commentOnIssue() {
+      const json = yield* JsonOutput
+      yield* rejectFields(yield* OutputFields)
       const body = yield* resolveBody(
         { body: "body", file: "body-file" },
         config.body,
@@ -103,7 +101,7 @@ const commentCommand = Command.make(
       }
       const api = yield* IssueWriteApi
       const comment = yield* api.comment(config.ref, body.value)
-      if (config.json) {
+      if (json) {
         return yield* writeJson({ comment })
       }
       return yield* writeLine(`Commented on ${config.ref}.`)
@@ -130,10 +128,11 @@ const updateCommand = Command.make(
     project: optionalText("project", "Project id or name"),
     parent: optionalText("parent", "Parent issue reference"),
     priority: optionalText("priority", "Priority: none, urgent, high, medium, low, or 0-4"),
-    json: jsonFlag,
   },
   (config) =>
     Effect.gen(function* updateIssue() {
+      const json = yield* JsonOutput
+      yield* rejectFields(yield* OutputFields)
       const body = yield* resolveBody(
         { body: "body", file: "body-file" },
         config.body,
@@ -157,7 +156,7 @@ const updateCommand = Command.make(
       }
       const api = yield* IssueWriteApi
       const issue = yield* api.update(config.ref, options)
-      if (config.json) {
+      if (json) {
         return yield* writeJson({ issue })
       }
       return yield* writeLine(`Updated ${issue.identifier}.`)

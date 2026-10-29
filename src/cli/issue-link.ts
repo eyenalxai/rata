@@ -9,12 +9,8 @@ import type {
 
 import { IssueWriteApi } from "@/api/issue-write"
 import { relationKindInfo } from "@/api/issue-write-model"
-import { errorLine, reportFailure, writeJson, writeLine } from "@/cli/output"
-
-const jsonFlag = Flag.Boolean("json").pipe(
-  Flag.withDescription("Print machine-readable JSON"),
-  Flag.withDefault(false),
-)
+import { OutputFields, rejectFields } from "@/cli/fields"
+import { JsonOutput, errorLine, reportFailure, writeJson, writeLine } from "@/cli/output"
 
 const refArgument = Argument.String("ref").pipe(
   Argument.withDescription("Issue reference: an identifier, a UUID, or a linear.app URL"),
@@ -47,25 +43,24 @@ const formatChanges = (
   return `${verb} ${ref}: ${parts.join(", ")}.`
 }
 
-const linkCommand = Command.make(
-  "link",
-  { ref: refArgument, ...relationFlags, json: jsonFlag },
-  (config) =>
-    Effect.gen(function* linkIssue() {
-      const changes: IssueRelationChanges = config
-      if (countChanges(changes) === 0) {
-        return yield* errorLine(
-          1,
-          "Pass at least one of --blocks, --blocked-by, --related or --duplicate.",
-        )
-      }
-      const api = yield* IssueWriteApi
-      const applied = yield* api.link(config.ref, changes)
-      if (config.json) {
-        return yield* writeJson({ relations: applied })
-      }
-      return yield* writeLine(formatChanges("Linked", config.ref, applied))
-    }).pipe(Effect.catch(reportFailure)),
+const linkCommand = Command.make("link", { ref: refArgument, ...relationFlags }, (config) =>
+  Effect.gen(function* linkIssue() {
+    const json = yield* JsonOutput
+    yield* rejectFields(yield* OutputFields)
+    const changes: IssueRelationChanges = config
+    if (countChanges(changes) === 0) {
+      return yield* errorLine(
+        1,
+        "Pass at least one of --blocks, --blocked-by, --related or --duplicate.",
+      )
+    }
+    const api = yield* IssueWriteApi
+    const applied = yield* api.link(config.ref, changes)
+    if (json) {
+      return yield* writeJson({ relations: applied })
+    }
+    return yield* writeLine(formatChanges("Linked", config.ref, applied))
+  }).pipe(Effect.catch(reportFailure)),
 ).pipe(
   Command.withDescription("Create relations between issues"),
   Command.withExamples([
@@ -80,25 +75,24 @@ const linkCommand = Command.make(
   ]),
 )
 
-const unlinkCommand = Command.make(
-  "unlink",
-  { ref: refArgument, ...relationFlags, json: jsonFlag },
-  (config) =>
-    Effect.gen(function* unlinkIssue() {
-      const changes: IssueRelationChanges = config
-      if (countChanges(changes) === 0) {
-        return yield* errorLine(
-          1,
-          "Pass at least one of --blocks, --blocked-by, --related or --duplicate.",
-        )
-      }
-      const api = yield* IssueWriteApi
-      const applied = yield* api.unlink(config.ref, changes)
-      if (config.json) {
-        return yield* writeJson({ relations: applied })
-      }
-      return yield* writeLine(formatChanges("Unlinked", config.ref, applied))
-    }).pipe(Effect.catch(reportFailure)),
+const unlinkCommand = Command.make("unlink", { ref: refArgument, ...relationFlags }, (config) =>
+  Effect.gen(function* unlinkIssue() {
+    const json = yield* JsonOutput
+    yield* rejectFields(yield* OutputFields)
+    const changes: IssueRelationChanges = config
+    if (countChanges(changes) === 0) {
+      return yield* errorLine(
+        1,
+        "Pass at least one of --blocks, --blocked-by, --related or --duplicate.",
+      )
+    }
+    const api = yield* IssueWriteApi
+    const applied = yield* api.unlink(config.ref, changes)
+    if (json) {
+      return yield* writeJson({ relations: applied })
+    }
+    return yield* writeLine(formatChanges("Unlinked", config.ref, applied))
+  }).pipe(Effect.catch(reportFailure)),
 ).pipe(
   Command.withDescription("Remove relations between issues"),
   Command.withExamples([
