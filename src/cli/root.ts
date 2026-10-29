@@ -7,6 +7,7 @@ import { labelCommand } from "@/cli/label"
 import { linkCommand } from "@/cli/link"
 import { JsonOutput } from "@/cli/output"
 import { projectCommand } from "@/cli/project"
+import { statusCommand } from "@/cli/status"
 import { teamCommand } from "@/cli/team"
 import { unlinkCommand } from "@/cli/unlink"
 import { workspaceCommand } from "@/cli/workspace"
@@ -16,6 +17,7 @@ const root = Command.make("rata").pipe(
   Command.withSubcommands([
     authCommand,
     whoamiCommand,
+    statusCommand,
     linkCommand,
     unlinkCommand,
     workspaceCommand,

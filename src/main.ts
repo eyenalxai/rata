@@ -60,6 +60,7 @@ const appLayer = Layer.mergeAll(
   labelLayer,
   projectLayer,
   repoConfigLayer,
+  repoIdentityLayer,
   repoTeamLayer,
   linkLayer,
   issueWriteLayer,

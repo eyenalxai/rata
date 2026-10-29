@@ -11,11 +11,33 @@ type GraphQLRequest = typeof GraphQLRequest.Type & { readonly authorization?: st
 
 type Handler = (request: HttpClientRequest.HttpClientRequest) => Response
 
+type FakeTeamState = {
+  readonly id: string
+  readonly name: string
+  readonly type: string
+  readonly position: number
+}
+
+type FakeTeamMember = {
+  readonly id: string
+  readonly name: string
+  readonly displayName: string
+  readonly email: string
+  readonly active: boolean
+}
+
 type FakeTeam = {
   readonly id: string
   readonly key: string
   readonly name: string
   readonly timezone: string
+  readonly states?: readonly FakeTeamState[]
+  readonly members?: readonly FakeTeamMember[]
+}
+
+type FakePriority = {
+  readonly priority: number
+  readonly label: string
 }
 
 type FakeLabel = {
@@ -51,6 +73,7 @@ type FakeWorkspace = {
   readonly viewer: FakeViewer
   readonly teams: readonly FakeTeam[]
   readonly labels?: readonly FakeLabel[]
+  readonly priorities?: readonly FakePriority[]
 }
 
 const defaultEnv = { HOME: "/home/test", LINEAR_API_KEY: "test-key" }
@@ -121,8 +144,11 @@ export {
   defaultEnv,
   defaultViewer,
   type FakeLabel,
+  type FakePriority,
   type FakeProject,
   type FakeTeam,
+  type FakeTeamMember,
+  type FakeTeamState,
   type FakeViewer,
   type FakeWorkspace,
   type GraphQLRequest,

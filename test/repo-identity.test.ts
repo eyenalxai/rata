@@ -32,7 +32,11 @@ describe("RepositoryIdentity.locate", () => {
       files: new Map([["/repo/.git/HEAD", "ref: refs/heads/main\n"]]),
     }
 
-    expect(await locate(tree, "/repo")).toEqual({ key: "/repo/.git", lookup: ["/repo/.git"] })
+    expect(await locate(tree, "/repo")).toEqual({
+      key: "/repo/.git",
+      lookup: ["/repo/.git"],
+      root: "/repo",
+    })
   })
 
   test("walks up from a subdirectory to the Git directory", async () => {
@@ -44,6 +48,7 @@ describe("RepositoryIdentity.locate", () => {
     expect(await locate(tree, "/repo/src/deep")).toEqual({
       key: "/repo/.git",
       lookup: ["/repo/.git"],
+      root: "/repo",
     })
   })
 
@@ -66,6 +71,7 @@ describe("RepositoryIdentity.locate", () => {
     expect(await locate(tree, "/tmp/topic/src")).toEqual({
       key: "/repo/.git",
       lookup: ["/repo/.git"],
+      root: "/tmp/topic",
     })
   })
 
@@ -87,6 +93,7 @@ describe("RepositoryIdentity.locate", () => {
     expect(await locate(tree, "/tmp/topic")).toEqual({
       key: "/repo/.git",
       lookup: ["/repo/.git"],
+      root: "/tmp/topic",
     })
   })
 
@@ -99,6 +106,7 @@ describe("RepositoryIdentity.locate", () => {
     expect(await locate(tree, "/tmp/solo")).toEqual({
       key: "/repo/.git/worktrees/solo",
       lookup: ["/repo/.git/worktrees/solo"],
+      root: "/tmp/solo",
     })
   })
 
@@ -111,6 +119,7 @@ describe("RepositoryIdentity.locate", () => {
     expect(await locate(tree, "/outer/inner")).toEqual({
       key: "/outer/inner/.git",
       lookup: ["/outer/inner/.git"],
+      root: "/outer/inner",
     })
   })
 
@@ -134,6 +143,7 @@ describe("RepositoryIdentity.locate", () => {
     expect(await locate(tree, "/data/project/src")).toEqual({
       key: "/data/project/src",
       lookup: ["/data/project/src", "/data/project", "/data", "/"],
+      root: "/data/project/src",
     })
   })
 

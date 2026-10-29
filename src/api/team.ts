@@ -4,9 +4,11 @@ import { Context, Effect, Layer, Schema } from "effect"
 
 import type { LinearApiError } from "@/api/errors"
 import type { Connection, PageOptions } from "@/api/pagination"
+import type { TeamDetail } from "@/api/team/details"
 
 import { LinearClient } from "@/api/client"
 import { collectConnection, PageInfo, pageSize } from "@/api/pagination"
+import { fetchTeamDetail } from "@/api/team/details"
 import { isUuid } from "@/domain/ref"
 
 const Team = Schema.Struct({
@@ -23,12 +25,7 @@ const TeamConnection = Schema.Struct({
   pageInfo: PageInfo,
 })
 
-const TeamCreatePayload = Schema.Struct({
-  success: Schema.Boolean,
-  team: Schema.NullOr(Team),
-})
-
-const TeamUpdatePayload = Schema.Struct({
+const TeamWritePayload = Schema.Struct({
   success: Schema.Boolean,
   team: Schema.NullOr(Team),
 })
@@ -133,6 +130,7 @@ type TeamOperations = {
   readonly list: (options: PageOptions) => Effect.Effect<Connection<Team>, LinearApiError>
   readonly byKey: (ref: string) => Effect.Effect<Team, LinearApiError | TeamNotFoundError>
   readonly byId: (id: string) => Effect.Effect<Team, LinearApiError | TeamNotFoundError>
+  readonly details: (ref: string) => Effect.Effect<TeamDetail, LinearApiError | TeamNotFoundError>
   readonly create: (
     options: TeamCreateOptions,
   ) => Effect.Effect<Team, LinearApiError | TeamCreateError | TeamNotFoundError>
@@ -199,6 +197,11 @@ const makeTeamOperations = (execute: LinearClient["Service"]["execute"]): TeamOp
     return team
   })
 
+  const details = Effect.fn("TeamService.details")(function* teamDetails(ref: string) {
+    const team = yield* byKey(ref)
+    return yield* fetchTeamDetail(execute, team)
+  })
+
   const create = Effect.fn("TeamService.create")(function* createTeam(options: TeamCreateOptions) {
     const input: Record<string, unknown> = { name: options.name }
     if (options.key !== undefined) {
@@ -219,7 +222,7 @@ const makeTeamOperations = (execute: LinearClient["Service"]["execute"]): TeamOp
     const data = yield* execute(
       teamCreateMutation,
       variables,
-      Schema.Struct({ teamCreate: TeamCreatePayload }),
+      Schema.Struct({ teamCreate: TeamWritePayload }),
     )
     if (!data.teamCreate.success || data.teamCreate.team === null) {
       return yield* new TeamCreateError({
@@ -237,7 +240,7 @@ const makeTeamOperations = (execute: LinearClient["Service"]["execute"]): TeamOp
     const data = yield* execute(
       teamUpdateMutation,
       { id: team.id, input: { timezone } },
-      Schema.Struct({ teamUpdate: TeamUpdatePayload }),
+      Schema.Struct({ teamUpdate: TeamWritePayload }),
     )
     if (!data.teamUpdate.success || data.teamUpdate.team === null) {
       return yield* new TeamUpdateError({
@@ -263,7 +266,7 @@ const makeTeamOperations = (execute: LinearClient["Service"]["execute"]): TeamOp
     return { id: data.teamDelete.entityId, key: team.key, name: team.name }
   })
 
-  return { byId, byKey, create, delete: deleteTeam, list, updateTimezone }
+  return { byId, byKey, create, delete: deleteTeam, details, list, updateTimezone }
 }
 
 class TeamService extends Context.Service<TeamService, TeamServiceShape>()(

@@ -1,6 +1,7 @@
 import type { ProfileSeed, RepositorySeed } from "@test/database-harness"
 import type {
   FakeLabel,
+  FakePriority,
   FakeProject,
   FakeTeam,
   FakeViewer,
@@ -39,7 +40,16 @@ type FakeState = {
   readonly teams: FakeTeam[]
   readonly labels: FakeLabel[]
   readonly projects: FakeProject[]
+  readonly priorities: readonly FakePriority[]
 }
+
+const defaultPriorities: readonly FakePriority[] = [
+  { priority: 0, label: "No priority" },
+  { priority: 1, label: "Urgent" },
+  { priority: 2, label: "High" },
+  { priority: 3, label: "Medium" },
+  { priority: 4, label: "Low" },
+]
 
 const handleMutation = (graphql: GraphQLRequest, state: FakeState): Response | undefined => {
   const query = graphql.query
@@ -132,6 +142,33 @@ const handleQuery = (
   if (query.includes("query Teams")) {
     return jsonResponse({ data: { teams: paginate(state.teams, graphql.variables) } })
   }
+  if (query.includes("query TeamStates")) {
+    const team = state.teams.find((item) => item.id === graphql.variables.teamId)
+    return jsonResponse({
+      data: { team: { states: paginate(team?.states ?? [], graphql.variables) } },
+    })
+  }
+  if (query.includes("query TeamMembers")) {
+    const team = state.teams.find((item) => item.id === graphql.variables.teamId)
+    return jsonResponse({
+      data: { team: { members: paginate(team?.members ?? [], graphql.variables) } },
+    })
+  }
+  if (query.includes("query TeamLabels")) {
+    const teamId = graphql.variables.teamId
+    const labels = state.labels
+      .filter((label) => label.teamId === teamId || label.teamId === null)
+      .map((label) => ({
+        id: label.id,
+        name: label.name,
+        color: label.color,
+        team: label.teamId === null ? null : { id: label.teamId },
+      }))
+    return jsonResponse({ data: { issueLabels: paginate(labels, graphql.variables) } })
+  }
+  if (query.includes("query IssuePriorityValues")) {
+    return jsonResponse({ data: { issuePriorityValues: state.priorities } })
+  }
   if (query.includes("query AvailableLabels")) {
     const teamId = graphql.variables.teamId
     const available = state.labels
@@ -153,12 +190,14 @@ const makeFakeLinear = (seed: {
   readonly teams: readonly FakeTeam[]
   readonly labels: readonly FakeLabel[]
   readonly projects?: readonly FakeProject[]
+  readonly priorities?: readonly FakePriority[]
   readonly workspaces?: Readonly<Record<string, FakeWorkspace>>
   readonly rejectedKeys?: readonly string[]
 }) => {
   const labels = [...seed.labels]
   const teams = [...seed.teams]
   const projects = [...(seed.projects ?? [])]
+  const priorities = [...(seed.priorities ?? defaultPriorities)]
   const workspaces = new Map(
     Object.entries(seed.workspaces ?? {}).map(([apiKey, workspace]) => [
       apiKey,
@@ -166,6 +205,7 @@ const makeFakeLinear = (seed: {
         viewer: workspace.viewer,
         teams: [...workspace.teams],
         labels: [...(workspace.labels ?? [])],
+        priorities: [...(workspace.priorities ?? priorities)],
       },
     ]),
   )
@@ -183,6 +223,7 @@ const makeFakeLinear = (seed: {
       teams: scoped?.teams ?? teams,
       labels: scoped?.labels ?? labels,
       projects,
+      priorities: scoped?.priorities ?? priorities,
     }
     return (
       handleMutation(graphql, state) ??
@@ -249,6 +290,7 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
     projects,
     issue,
     repoConfig,
+    identity,
     issueWrite,
     link,
   )

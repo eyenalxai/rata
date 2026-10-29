@@ -25,9 +25,12 @@ class AuthStoreError extends Schema.TaggedError<AuthStoreError>()("AuthStoreErro
   cause: Schema.optional(Schema.Defect()),
 }) {}
 
+type KeySource = "env" | "repo" | "default"
+
 type ResolvedAuth = {
   readonly key: Redacted.Redacted
   readonly source: "env" | "profile"
+  readonly keySource: KeySource
   readonly profile: Option.Option<string>
 }
 
@@ -159,6 +162,7 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
           return Option.some({
             key: env.value,
             source: "env" as const,
+            keySource: "env" as const,
             profile: Option.none<string>(),
           })
         }
@@ -179,6 +183,7 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
           return Option.some({
             key: Redacted.make(profile.apiKey),
             source: "profile" as const,
+            keySource: "repo" as const,
             profile: Option.some(name),
           })
         }
@@ -194,6 +199,7 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
         return Option.some({
           key: Redacted.make(defaultProfile.apiKey),
           source: "profile" as const,
+          keySource: "default" as const,
           profile: Option.some(defaultProfile.name),
         })
       })
@@ -289,4 +295,4 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
   )
 }
 
-export { Auth, AuthStoreError, type StoredProfile }
+export { Auth, AuthStoreError, type KeySource, type StoredProfile }

@@ -29,11 +29,16 @@ than one stored workspace, pass `--workspace <name>` to choose one.
 ## Read before you write
 
 ```bash
+rata status --json                        # repo, workspace, team, viewer and org
+rata team show --json                     # states, labels, members and priorities
 rata issue list --json                    # list issues; returns one page
 rata issue list --after <cursor> --json   # read the next page
 rata issue show ABC-42 --comments --json  # one issue with its comments
 rata search "flaky test" --json
 ```
+
+`team show` without a reference uses the linked team. Pass a key or id for
+another team. Do not guess a workflow state name: read it from `team show`.
 
 An issue reference is an identifier (`ABC-42`), a UUID, or a `linear.app` URL.
 Every command supports `--json`; parse that, not the human output. List
