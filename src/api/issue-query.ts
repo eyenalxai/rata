@@ -118,6 +118,22 @@ const commentsQuery = `query IssueComments($id: String!, $first: Int!, $after: S
   }
 }`
 
+const childTailQuery = `query IssueChildTail($id: String!, $last: Int!) {
+  issue(id: $id) {
+    children(last: $last) {
+      nodes { id }
+    }
+  }
+}`
+
+const commentTailQuery = `query IssueCommentTail($id: String!, $last: Int!) {
+  issue(id: $id) {
+    comments(last: $last) {
+      nodes { id }
+    }
+  }
+}`
+
 const attachmentsQuery = `query IssueAttachments($id: String!, $first: Int!, $after: String) {
   issue(id: $id) {
     attachments(first: $first, after: $after) {
@@ -211,7 +227,9 @@ export {
   addLabelMutation,
   attachmentsQuery,
   bulkTargetsQuery,
+  childTailQuery,
   childrenQuery,
+  commentTailQuery,
   commentsQuery,
   createCommentMutation,
   createIssueMutation,

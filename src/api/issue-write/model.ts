@@ -3,6 +3,13 @@ import { Effect, Schema } from "effect"
 import type { LinearApiError } from "@/api/errors"
 import type { IssueSummary } from "@/api/issue-model"
 import type { IssueComment, IssueSummaryNode, WorkflowState } from "@/api/issue-schema"
+import type {
+  IssueCommentResult,
+  IssueCreateOptions,
+  IssueCreateResult,
+  IssueUpdateOptions,
+  VisibilityOptions,
+} from "@/api/issue-write/write-types"
 import type { LabelNotFoundError } from "@/api/label"
 import type { ProjectNotFoundError } from "@/api/project/errors"
 import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
@@ -84,37 +91,6 @@ type IssueWriteResult = {
 const combineStatus = (actions: readonly { readonly status: WriteStatus }[]): WriteStatus =>
   actions.some((action) => action.status === "updated") ? "updated" : "skipped"
 
-type IssueCreateOptions = {
-  readonly title: string
-  readonly body?: string | undefined
-  readonly team?: string | undefined
-  readonly labels?: readonly string[] | undefined
-  readonly parent?: string | undefined
-  readonly project?: string | undefined
-  readonly state?: string | undefined
-  readonly assignee?: string | undefined
-  readonly priority?: number | undefined
-  readonly useDefaultLabels?: boolean | undefined
-}
-
-type IssueCreatePlan = {
-  readonly team: string
-  readonly title: string
-  readonly labels: readonly string[]
-  readonly assignee: string | null
-  readonly priority: number | null
-}
-
-type IssueUpdateOptions = {
-  readonly title?: string | undefined
-  readonly body?: string | undefined
-  readonly state?: string | undefined
-  readonly assignee?: string | undefined
-  readonly project?: string | undefined
-  readonly parent?: string | undefined
-  readonly priority?: number | undefined
-}
-
 type IssueRelationChanges = {
   readonly blocks: readonly string[]
   readonly blockedBy: readonly string[]
@@ -166,12 +142,26 @@ type IssueWriteApiError =
   | TeamNotFoundError
   | TeamResolutionError
 
+type IssueCreatePlan = {
+  readonly team: string
+  readonly title: string
+  readonly labels: readonly string[]
+  readonly assignee: string | null
+  readonly priority: number | null
+}
+
 type IssueWriteApiShape = {
-  readonly create: (options: IssueCreateOptions) => Effect.Effect<IssueSummary, IssueWriteApiError>
+  readonly create: (
+    options: IssueCreateOptions,
+  ) => Effect.Effect<IssueCreateResult, IssueWriteApiError>
   readonly planCreate: (
     options: IssueCreateOptions,
   ) => Effect.Effect<IssueCreatePlan, IssueWriteApiError>
-  readonly comment: (ref: string, body: string) => Effect.Effect<IssueComment, IssueWriteApiError>
+  readonly comment: (
+    ref: string,
+    body: string,
+    options?: VisibilityOptions,
+  ) => Effect.Effect<IssueCommentResult, IssueWriteApiError>
   readonly update: (
     ref: string,
     options: IssueUpdateOptions,
@@ -268,11 +258,9 @@ export {
   combineStatus,
   IssueWriteError,
   isNoneValue,
-  type IssueCreateOptions,
   type IssueCreatePlan,
   type IssueRelationChange,
   type IssueRelationChanges,
-  type IssueUpdateOptions,
   type IssueWriteApiError,
   type IssueWriteApiShape,
   type IssueWriteResult,

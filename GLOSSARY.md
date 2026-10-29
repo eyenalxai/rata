@@ -88,6 +88,11 @@ they explore the codebase. Use these terms; do not drift to synonyms.
 - **Repository issue defaults** (short: **issue defaults**): the assignee,
   labels and priority that `rata config` stores for one repository.
   `issue create` applies them unless a flag overrides them. Avoid: preferences.
+- **Read-after-write check** (short: **visibility check**): the bounded re-read
+  that `issue comment` and `issue create --parent` run after a write. It reports
+  **visible**: `true` when the new object appears, `false` when the bound
+  expires, or `null` when the check is disabled or does not apply. The mutation
+  payload stays authoritative.
 - **Repository root**: the directory that identifies the repository config.
   Inside Git it is the Git common directory, so the main checkout and every
   worktree share one config. Outside Git it is the directory where `rata link`

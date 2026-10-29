@@ -64,7 +64,7 @@ recorded `workspace`.
 | `rata issue show <ref> [--comments] [--no-comments]` | Show one issue with comments, children, relations and attachments.            |
 | `rata issue create --title <title> [flags]`          | Create an issue.                                                              |
 | `rata issue update <ref> [flags]`                    | Update an issue.                                                              |
-| `rata issue comment <ref> --body <text>`             | Comment on an issue.                                                          |
+| `rata issue comment <ref> --body <text>`             | Comment on an issue. `--wait` bounds the visibility check.                    |
 | `rata issue label add [<ref>] <label...>`            | Add labels. `--parent` targets every child; then every positional is a label. |
 | `rata issue label remove [<ref>] <label...>`         | Remove labels. The same `--parent` rule.                                      |
 | `rata issue assign [<ref>] --assignee <value>`       | Assign an issue, or every child with `--parent`. `me`, a user id, or `none`.  |
@@ -127,19 +127,20 @@ The priority sort fetches every matching issue across all pages before
 
 ### `issue create` flags
 
-| Flag                       | Meaning                                                |
-| -------------------------- | ------------------------------------------------------ |
-| `--title`                  | Required.                                              |
-| `--body` / `--body-file -` | Description.                                           |
-| `--team`                   | Team key or id. Default: the repository config.        |
-| `--project`                | Project. Default: the repository config.               |
-| `--label`                  | Label name. Repeatable. Adds to the default labels.    |
-| `--no-default-labels`      | Drop the default labels for this call.                 |
-| `--parent`                 | Parent issue reference.                                |
-| `--state`                  | Workflow state name.                                   |
-| `--assignee`               | `me`, a user id, or `none` to skip the default.        |
-| `--priority`               | `none`, `urgent`, `high`, `medium`, `low`, or `0`-`4`. |
-| `--dry-run`                | Print the planned create without writing.              |
+| Flag                       | Meaning                                                                    |
+| -------------------------- | -------------------------------------------------------------------------- |
+| `--title`                  | Required.                                                                  |
+| `--body` / `--body-file -` | Description.                                                               |
+| `--team`                   | Team key or id. Default: the repository config.                            |
+| `--project`                | Project. Default: the repository config.                                   |
+| `--label`                  | Label name. Repeatable. Adds to the default labels.                        |
+| `--no-default-labels`      | Drop the default labels for this call.                                     |
+| `--parent`                 | Parent issue reference.                                                    |
+| `--state`                  | Workflow state name.                                                       |
+| `--assignee`               | `me`, a user id, or `none` to skip the default.                            |
+| `--priority`               | `none`, `urgent`, `high`, `medium`, `low`, or `0`-`4`.                     |
+| `--wait`                   | Seconds to wait for the new child under `--parent`. Default 5; 0 disables. |
+| `--dry-run`                | Print the planned create without writing.                                  |
 
 ### `issue update` flags
 
@@ -164,6 +165,18 @@ and `none` clears the priority.
 JSON is `{ "dryRun": true, "actions": [...] }` for the single-issue forms. The
 bulk forms return `{ "dryRun": true, "results": [...] }`; see **Bulk writes by
 parent**.
+
+### Read-after-write
+
+Linear documents no read-after-write guarantee. `issue comment` and
+`issue create --parent` check that the new comment or child appears on a bounded
+re-read. The default bound is 5 seconds. `--wait <seconds>` changes it and
+`--wait 0` disables the check.
+
+A timed-out check still exits 0: the mutation payload is the source of truth.
+JSON adds `visible` next to `comment` or `issue`. It is `false` on timeout and
+`null` when the check is disabled. `issue create` without `--parent` reports
+`null`. Human mode prints a warning to stderr on timeout.
 
 ### Bulk writes by parent
 

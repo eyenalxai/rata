@@ -2,6 +2,7 @@ import { Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 
 import type { IssueCreatePlan } from "@/api/issue-write/model"
+import type { WriteVisibility } from "@/api/issue-write/write-types"
 import type { PlanAction } from "@/cli/output"
 
 import { IssueWriteApi } from "@/api/issue-write"
@@ -12,6 +13,7 @@ import {
   dryRunFlag,
   errorLine,
   reportFailure,
+  warningLine,
   writeDryRun,
   writeJson,
   writeLine,
@@ -31,6 +33,25 @@ const bodyFileFlag = optionalText(
   "body-file",
   "Read the body from a file. Use - for standard input",
 )
+
+const waitFlag = Flag.Int("wait").pipe(
+  Flag.withDescription(
+    "Seconds to wait for the write to appear on a re-read. Default 5, 0 disables",
+  ),
+  Flag.optional,
+)
+
+const warnWhenInvisible = (visible: WriteVisibility, message: string): Effect.Effect<void> =>
+  visible === false ? warningLine(message) : Effect.void
+
+const validateWait = (wait: number | undefined) =>
+  Effect.gen(function* validateWaitEffect() {
+    if (wait !== undefined && wait < 0) {
+      yield* errorLine(1, "The --wait flag must be 0 or more.")
+      return false
+    }
+    return true
+  })
 
 const createAction = (plan: IssueCreatePlan): PlanAction => ({
   action: "create",
@@ -78,12 +99,17 @@ const createCommand = Command.make(
     state: optionalText("state", "Workflow state name"),
     assignee: optionalText("assignee", "Assignee: `me`, a user id, or `none`"),
     priority: optionalText("priority", "Priority: none, urgent, high, medium, low, or 0-4"),
+    wait: waitFlag,
     dryRun: dryRunFlag,
   },
   (config) =>
     Effect.gen(function* createIssue() {
       const json = yield* JsonOutput
       yield* rejectFields(yield* OutputFields)
+      const waitSeconds = Option.getOrUndefined(config.wait)
+      if (!(yield* validateWait(waitSeconds))) {
+        return yield* Effect.void
+      }
       const body = yield* resolveBody(
         { body: "body", file: "body-file" },
         config.body,
@@ -100,17 +126,22 @@ const createCommand = Command.make(
         assignee: Option.getOrUndefined(config.assignee),
         priority: Option.getOrUndefined(yield* resolvePriority(config.priority)),
         useDefaultLabels: !config.noDefaultLabels,
+        waitSeconds,
       }
       const api = yield* IssueWriteApi
       if (config.dryRun) {
         const plan = yield* api.planCreate(options)
         return yield* writeDryRun(json, [createAction(plan)], () => describeCreate(plan))
       }
-      const issue = yield* api.create(options)
+      const result = yield* api.create(options)
       if (json) {
-        return yield* writeJson({ issue })
+        return yield* writeJson({ issue: result.issue, visible: result.visible })
       }
-      return yield* writeLine(`Created ${issue.identifier}: ${issue.title}`)
+      yield* writeLine(`Created ${result.issue.identifier}: ${result.issue.title}`)
+      return yield* warnWhenInvisible(
+        result.visible,
+        `${result.issue.identifier} is not visible on the parent yet. Linear may catch up later.`,
+      )
     }).pipe(Effect.catch(reportFailure)),
 ).pipe(
   Command.withDescription("Create an issue"),
@@ -132,11 +163,16 @@ const commentCommand = Command.make(
     ref: refArgument,
     body: bodyFlag,
     bodyFile: bodyFileFlag,
+    wait: waitFlag,
   },
   (config) =>
     Effect.gen(function* commentOnIssue() {
       const json = yield* JsonOutput
       yield* rejectFields(yield* OutputFields)
+      const waitSeconds = Option.getOrUndefined(config.wait)
+      if (!(yield* validateWait(waitSeconds))) {
+        return yield* Effect.void
+      }
       const body = yield* resolveBody(
         { body: "body", file: "body-file" },
         config.body,
@@ -149,11 +185,15 @@ const commentCommand = Command.make(
         return yield* errorLine(1, "The comment body is empty.")
       }
       const api = yield* IssueWriteApi
-      const comment = yield* api.comment(config.ref, body.value)
+      const result = yield* api.comment(config.ref, body.value, { waitSeconds })
       if (json) {
-        return yield* writeJson({ comment })
+        return yield* writeJson({ comment: result.comment, visible: result.visible })
       }
-      return yield* writeLine(`Commented on ${config.ref}.`)
+      yield* writeLine(`Commented on ${config.ref}.`)
+      return yield* warnWhenInvisible(
+        result.visible,
+        `The comment is not visible on ${config.ref} yet. Linear may catch up later.`,
+      )
     }).pipe(Effect.catch(reportFailure)),
 ).pipe(
   Command.withDescription("Comment on an issue"),
@@ -161,6 +201,10 @@ const commentCommand = Command.make(
     {
       command: 'rata issue comment RAT-42 --body "Looks good."',
       description: "Comment on an issue",
+    },
+    {
+      command: 'rata issue comment RAT-42 --body "Looks good." --wait 0',
+      description: "Skip the read-after-write check",
     },
   ]),
 )

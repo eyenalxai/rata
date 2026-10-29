@@ -4,7 +4,10 @@ import type { Handler } from "@test/fake-linear/model"
 import { apiLayer } from "@test/fake-linear"
 import { recordingConsole } from "@test/recording-console"
 import { Console, Effect, FileSystem, Layer, Path, Stdio, Terminal } from "effect"
+import { Command } from "effect/cli"
 import { ChildProcessSpawner } from "effect/process"
+
+import { issueCommand } from "@/cli/issue"
 
 const terminal = Terminal.make({
   columns: Effect.succeed(80),
@@ -38,4 +41,17 @@ const cliLayer = (
 
 const lastJson = (lines: readonly string[]): unknown => JSON.parse(lines.at(-1) ?? "")
 
-export { cliLayer, lastJson }
+const defaultRepositories: ApiLayerOptions["repositories"] = [{ key: process.cwd(), team: "RAT" }]
+
+const runIssue = (
+  handler: Handler,
+  args: readonly string[],
+  lines: string[],
+  repositories: ApiLayerOptions["repositories"] = defaultRepositories,
+) =>
+  Command.run(issueCommand, { version: "test" }).pipe(
+    Effect.provide(cliLayer(handler, args, lines, repositories)),
+    Effect.runPromise,
+  )
+
+export { cliLayer, lastJson, runIssue }

@@ -13,7 +13,8 @@ operations.
 - **Create an issue**: `rata issue create --title "..." --body-file -`. Pipe the
   body with a heredoc. `create` applies the repository issue defaults. Pass
   `--label` to add labels to the defaults, or `--no-default-labels` to drop
-  them for one call.
+  them for one call. `create --parent` waits up to 5 seconds for the child to
+  appear under the parent; `--wait <seconds>` changes the bound.
 - **Set the priority**: every issue must carry a priority. Pass `--priority`
   when you create the issue; triage sets it for issues that arrive without one.
   Values: `urgent` (breaks production or blocks a release), `high` (blocks other
@@ -41,7 +42,10 @@ operations.
   `--assignee`, `--parent`, `--text`, `--unblocked`, `--unassigned`. Every list
   command returns one page: `--limit` is the page size (default 50, maximum
   250), and `--after <cursor>` continues a list. See **Paging lists**.
-- **Comment on an issue**: `rata issue comment <ref> --body-file -`
+- **Comment on an issue**: `rata issue comment <ref> --body-file -`. The command
+  waits up to 5 seconds for the comment to appear on a re-read. Use
+  `--wait <seconds>` to change the bound, or `--wait 0` to skip the check. A
+  timeout still exits 0; the write succeeded.
 - **Apply / remove labels**: `rata issue label add <ref> <label...>` and
   `rata issue label remove <ref> <label...>`
 - **Repair a parent's children**: `rata issue assign --parent <ref> --assignee me`

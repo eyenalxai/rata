@@ -1,24 +1,17 @@
 import type { Handler } from "@test/fake-linear/model"
 
-import { cliLayer, lastJson } from "@test/cli-harness"
+import { cliLayer, lastJson, runIssue } from "@test/cli-harness"
 import { makeFakeLinear } from "@test/fake-linear"
 import { afterEach, describe, expect, test } from "bun:test"
 import { Effect } from "effect"
 import { Command } from "effect/cli"
 
-import { issueCommand } from "@/cli/issue"
 import { teamCommand } from "@/cli/team"
 
 const team = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
 
 const runTeam = (handler: Handler, args: readonly string[], lines: string[]) =>
   Command.run(teamCommand, { version: "test" }).pipe(
-    Effect.provide(cliLayer(handler, args, lines, [{ key: process.cwd(), team: "RAT" }])),
-    Effect.runPromise,
-  )
-
-const runIssue = (handler: Handler, args: readonly string[], lines: string[]) =>
-  Command.run(issueCommand, { version: "test" }).pipe(
     Effect.provide(cliLayer(handler, args, lines, [{ key: process.cwd(), team: "RAT" }])),
     Effect.runPromise,
   )
