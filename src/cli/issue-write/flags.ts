@@ -46,7 +46,6 @@ const resolveCommentBody = Effect.fn("Cli.IssueWrite.resolveCommentBody")(
   ) {
     const resolved = yield* resolveBody(flags, body, bodyFile)
     if (Option.isNone(resolved)) {
-      yield* errorLine(1, `A comment needs --${flags.body} or --${flags.file}.`)
       return Option.none<string>()
     }
     if (resolved.value.trim().length === 0) {

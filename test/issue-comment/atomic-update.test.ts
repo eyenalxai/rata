@@ -113,6 +113,17 @@ describe("issue update --comment", () => {
     expect(lastJson(lines)).toMatchObject({ issue: { identifier: "RAT-1" }, comment: { id: "c1" } })
   })
 
+  test("an update without a comment does not ask for one", async () => {
+    const { recorder, state } = updateHandler()
+    const lines: string[] = []
+    await runIssue(recorder.handler, ["update", "RAT-1", "--state", "Done", "--json"], lines)
+    expect(state.updates).toBe(1)
+    expect(state.comments).toBe(0)
+    expect(lines.some((line) => line.includes("A comment needs"))).toBe(false)
+    expect(lastJson(lines)).toMatchObject({ issue: { identifier: "RAT-1" } })
+    expect(process.exitCode).toBe(0)
+  })
+
   test("a validation failure aborts with zero writes", async () => {
     const { recorder, state } = updateHandler()
     const lines: string[] = []

@@ -30,6 +30,11 @@ const dedupeKeyFlag = optionalText(
   "Stable key: the same key on the same issue returns the existing comment",
 )
 
+const requireCommentFlag = (body: Option.Option<string>, bodyFile: Option.Option<string>) =>
+  Option.isNone(body) && Option.isNone(bodyFile)
+    ? errorLine(1, "A comment needs --body or --body-file.")
+    : Effect.void
+
 const createCommand = Command.make(
   "create",
   {
@@ -54,7 +59,7 @@ const createCommand = Command.make(
         config.bodyFile,
       )
       if (Option.isNone(body)) {
-        return yield* Effect.void
+        return yield* requireCommentFlag(config.body, config.bodyFile)
       }
       const api = yield* IssueWriteApi
       if (config.dryRun) {
@@ -132,7 +137,7 @@ const updateCommand = Command.make(
         config.bodyFile,
       )
       if (Option.isNone(body)) {
-        return yield* Effect.void
+        return yield* requireCommentFlag(config.body, config.bodyFile)
       }
       const api = yield* IssueWriteApi
       const result = yield* api.commentUpdate(config.commentId, body.value, {
