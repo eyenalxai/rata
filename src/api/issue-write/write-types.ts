@@ -55,7 +55,11 @@ type CommentCreatePlan = {
   readonly status: "created" | "skipped"
   readonly action: "comment-create"
   readonly target: string
-  readonly changes: Readonly<Record<string, unknown>>
+  readonly changes: {
+    readonly body: string
+    readonly dedupeKey?: string | undefined
+    readonly commentId?: string | undefined
+  }
 }
 
 type CommentCreateResult = {
@@ -84,6 +88,7 @@ type CommentUpdateResult =
 type CommentDeletePlan = {
   readonly action: "comment-delete"
   readonly target: string
+  readonly comment: IssueComment
 }
 
 type CommentDeleteResult = {

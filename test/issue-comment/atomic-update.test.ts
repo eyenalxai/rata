@@ -181,4 +181,16 @@ describe("issue update --comment", () => {
     expect(requestOf(recorder, "mutation UpdateIssue")).toBeUndefined()
     expect(requestOf(recorder, "mutation CreateComment")).toBeUndefined()
   })
+
+  test("human output prints the update line and the comment line", async () => {
+    const { recorder } = updateHandler()
+    const lines: string[] = []
+    await runIssue(
+      recorder.handler,
+      ["update", "RAT-1", "--state", "Done", "--comment", "Shipped."],
+      lines,
+    )
+    expect(lines).toContain("Updated RAT-1.")
+    expect(lines).toContain("Commented on RAT-1.")
+  })
 })

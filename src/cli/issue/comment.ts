@@ -2,7 +2,6 @@ import { Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 
 import { IssueWriteApi } from "@/api/issue-write"
-import { resolveBody } from "@/cli/body"
 import { confirm } from "@/cli/confirm"
 import { OutputFields, rejectFields } from "@/cli/fields"
 import {
@@ -10,6 +9,7 @@ import {
   bodyFlag,
   optionalText,
   refArgument,
+  resolveCommentBody,
   validateWait,
   waitFlag,
   warnWhenInvisible,
@@ -30,20 +30,6 @@ const dedupeKeyFlag = optionalText(
   "Stable key: the same key on the same issue returns the existing comment",
 )
 
-const requireBody = (body: Option.Option<string>, bodyFile: Option.Option<string>) =>
-  Effect.gen(function* requireCommentBody() {
-    const resolved = yield* resolveBody({ body: "body", file: "body-file" }, body, bodyFile)
-    if (Option.isNone(resolved)) {
-      yield* errorLine(1, "A comment needs --body or --body-file.")
-      return Option.none<string>()
-    }
-    if (resolved.value.trim().length === 0) {
-      yield* errorLine(1, "The comment body is empty.")
-      return Option.none<string>()
-    }
-    return resolved
-  })
-
 const createCommand = Command.make(
   "create",
   {
@@ -62,7 +48,11 @@ const createCommand = Command.make(
       if (!(yield* validateWait(waitSeconds))) {
         return yield* Effect.void
       }
-      const body = yield* requireBody(config.body, config.bodyFile)
+      const body = yield* resolveCommentBody(
+        { body: "body", file: "body-file" },
+        config.body,
+        config.bodyFile,
+      )
       if (Option.isNone(body)) {
         return yield* Effect.void
       }
@@ -82,8 +72,8 @@ const createCommand = Command.make(
         }
         return yield* writeLine(
           plan.status === "skipped"
-            ? `A comment with that dedupe key already exists on ${config.ref}.`
-            : `Would comment on ${config.ref}.`,
+            ? `Comment already exists on ${config.ref}.`
+            : plan.changes.body,
         )
       }
       const result = yield* api.commentCreate(config.ref, body.value, {
@@ -98,7 +88,7 @@ const createCommand = Command.make(
         })
       }
       if (result.status === "skipped") {
-        return yield* writeLine(`${config.ref} already has that comment.`)
+        return yield* writeLine(`Comment already exists on ${config.ref}.`)
       }
       yield* writeLine(`Commented on ${config.ref}.`)
       return yield* warnWhenInvisible(
@@ -136,7 +126,11 @@ const updateCommand = Command.make(
     Effect.gen(function* updateComment() {
       const json = yield* JsonOutput
       yield* rejectFields(yield* OutputFields)
-      const body = yield* requireBody(config.body, config.bodyFile)
+      const body = yield* resolveCommentBody(
+        { body: "body", file: "body-file" },
+        config.body,
+        config.bodyFile,
+      )
       if (Option.isNone(body)) {
         return yield* Effect.void
       }
@@ -155,7 +149,7 @@ const updateCommand = Command.make(
           : writeLine(result.diff.length === 0 ? "No changes." : result.diff)
       }
       if (json) {
-        return yield* writeJson({ status: result.status, comment: result.comment })
+        return yield* writeJson({ comment: result.comment })
       }
       return yield* writeLine(`Updated comment ${config.commentId}.`)
     }).pipe(Effect.catch(reportFailure)),
@@ -187,19 +181,24 @@ const deleteCommand = Command.make(
     Effect.gen(function* deleteComment() {
       const json = yield* JsonOutput
       yield* rejectFields(yield* OutputFields)
-      if (json && !config.yes && !config.dryRun) {
+      if (json && !config.yes) {
         return yield* errorLine(
           1,
-          "Pass --yes to delete a comment with --json.",
-          `rata issue comment delete ${config.commentId} --yes`,
+          "Deleting a comment in JSON mode needs --yes.",
+          "Pass --yes to delete a comment in JSON mode.",
         )
       }
       const api = yield* IssueWriteApi
       const plan = yield* api.planCommentDelete(config.commentId)
       if (config.dryRun) {
         return yield* json
-          ? writeJson({ dryRun: true, action: plan.action, target: plan.target })
-          : writeLine(`Would delete comment ${config.commentId}.`)
+          ? writeJson({
+              dryRun: true,
+              action: plan.action,
+              target: plan.target,
+              comment: plan.comment,
+            })
+          : writeLine(plan.comment.body)
       }
       if (!config.yes) {
         const confirmed = yield* confirm(`Delete comment ${config.commentId}?`, false)
@@ -209,7 +208,7 @@ const deleteCommand = Command.make(
       }
       const result = yield* api.commentDelete(config.commentId)
       if (json) {
-        return yield* writeJson({ status: result.status, commentId: result.commentId })
+        return yield* writeJson({ deleted: true, id: result.commentId })
       }
       return yield* writeLine(`Deleted comment ${config.commentId}.`)
     }).pipe(Effect.catch(reportFailure)),

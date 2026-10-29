@@ -13,7 +13,13 @@ import { IssueWriteApi } from "@/api/issue-write"
 import { resolveBody } from "@/cli/body"
 import { classifyError } from "@/cli/error-report"
 import { OutputFields, rejectFields } from "@/cli/fields"
-import { bodyFileFlag, bodyFlag, optionalText, refArgument } from "@/cli/issue-write/flags"
+import {
+  bodyFileFlag,
+  bodyFlag,
+  optionalText,
+  refArgument,
+  resolveCommentBody,
+} from "@/cli/issue-write/flags"
 import {
   JsonOutput,
   dryRunFlag,
@@ -30,69 +36,68 @@ const describeUpdatePlan = (plan: IssueUpdatePlan): string => {
   return `Would update ${plan.identifier}: ${details.join(", ")}.`
 }
 
-const previewUpdate = (
+const previewUpdate = Effect.fn("Cli.IssueWrite.previewUpdate")(function* previewUpdate(
   api: IssueWriteApi["Service"],
   json: boolean,
   ref: string,
   options: IssueUpdateOptions,
   writeOptions: IssueUpdateWriteOptions,
   comment: Option.Option<string>,
-) =>
-  Effect.gen(function* previewUpdateEffect() {
-    const plan = yield* api.planUpdate(ref, options, writeOptions)
-    const updates = Object.keys(plan.changes).length > 0
-    const actions: PlanAction[] = []
-    if (updates) {
-      actions.push({
-        action: "update",
-        target: plan.identifier,
-        changes: plan.changes,
-        ...(plan.diff === null ? {} : { diff: plan.diff }),
-      })
-    }
-    if (Option.isSome(comment)) {
-      actions.push({
-        action: "comment-create",
-        target: plan.identifier,
-        changes: { body: comment.value },
-      })
-    }
-    yield* writeDryRun(json, actions, (action) =>
-      action.action === "comment-create"
-        ? `Would comment on ${plan.identifier}.`
-        : describeUpdatePlan(plan),
-    )
-    if (!json && updates && plan.diff !== null) {
-      yield* writeLine(plan.diff.length === 0 ? "No changes." : plan.diff)
-    }
-  })
+) {
+  const plan = yield* api.planUpdate(ref, options, writeOptions)
+  const updates = Object.keys(plan.changes).length > 0
+  const actions: PlanAction[] = []
+  if (updates) {
+    actions.push({
+      action: "update",
+      target: plan.identifier,
+      changes: plan.changes,
+      ...(plan.diff === null ? {} : { diff: plan.diff }),
+    })
+  }
+  if (Option.isSome(comment)) {
+    actions.push({
+      action: "comment-create",
+      target: plan.identifier,
+      changes: { body: comment.value },
+    })
+  }
+  yield* writeDryRun(json, actions, (action) =>
+    action.action === "comment-create"
+      ? `Would comment on ${plan.identifier}.`
+      : describeUpdatePlan(plan),
+  )
+  if (!json && updates && plan.diff !== null) {
+    yield* writeLine(plan.diff.length === 0 ? "No changes." : plan.diff)
+  }
+})
 
-const postUpdateComment = (
+const postUpdateComment = Effect.fn("Cli.IssueWrite.postUpdateComment")(function* postUpdateComment(
   api: IssueWriteApi["Service"],
   json: boolean,
   ref: string,
   issue: IssueSummary,
   body: string,
-) =>
-  Effect.gen(function* postUpdateCommentEffect() {
-    const created = yield* Effect.result(api.commentCreate(ref, body, { waitSeconds: 0 }))
-    if (Result.isFailure(created)) {
-      const report = classifyError(created.failure)
-      if (!json) {
-        yield* writeLine(`Updated ${issue.identifier}.`)
-        return yield* errorLine(1, report.message, report.hint ?? undefined)
-      }
-      yield* writeJson({ issue, comment: null, error: report })
-      yield* Effect.sync(() => {
-        process.exitCode = 1
-      })
-      return yield* Effect.void
+) {
+  const created = yield* Effect.result(api.commentCreate(ref, body, { waitSeconds: 0 }))
+  if (Result.isFailure(created)) {
+    const report = classifyError(created.failure)
+    if (!json) {
+      yield* writeLine(`Updated ${issue.identifier}.`)
+      return yield* errorLine(1, report.message, report.hint ?? undefined)
     }
-    if (json) {
-      return yield* writeJson({ issue, comment: created.success.comment })
-    }
-    return yield* writeLine(`Updated ${issue.identifier} and commented.`)
-  })
+    yield* writeJson({ issue, comment: null, error: report })
+    yield* Effect.sync(() => {
+      process.exitCode = 1
+    })
+    return yield* Effect.void
+  }
+  if (json) {
+    return yield* writeJson({ issue, comment: created.success.comment })
+  }
+  yield* writeLine(`Updated ${issue.identifier}.`)
+  return yield* writeLine(`Commented on ${issue.identifier}.`)
+})
 
 const updateCommand = Command.make(
   "update",
@@ -130,19 +135,22 @@ const updateCommand = Command.make(
         config.body,
         config.bodyFile,
       )
-      const comment = yield* resolveBody(
+      const comment = yield* resolveCommentBody(
         { body: "comment", file: "comment-file" },
         config.comment,
         config.commentFile,
       )
+      if (
+        Option.isNone(comment) &&
+        (Option.isSome(config.comment) || Option.isSome(config.commentFile))
+      ) {
+        return yield* Effect.void
+      }
       if (config.append && Option.isNone(body)) {
         return yield* errorLine(1, "The --append flag needs --body or --body-file.")
       }
       if (config.append && Option.isSome(body) && body.value.trim().length === 0) {
         return yield* errorLine(1, "The body to append is empty.")
-      }
-      if (Option.isSome(comment) && comment.value.trim().length === 0) {
-        return yield* errorLine(1, "The comment body is empty.")
       }
       const priority = Option.getOrUndefined(yield* resolvePriority(config.priority))
       const options = {

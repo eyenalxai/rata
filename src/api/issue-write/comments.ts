@@ -47,7 +47,7 @@ const createChanges = (
   body: string,
   options: CommentCreateOptions,
   id: string | undefined,
-): Readonly<Record<string, unknown>> => ({
+): CommentCreatePlan["changes"] => ({
   body,
   ...(options.dedupeKey === undefined ? {} : { dedupeKey: options.dedupeKey }),
   ...(id === undefined ? {} : { commentId: id }),
@@ -132,7 +132,7 @@ const makeCommentWrites = ({ client, resolvers, visibility }: CommentDependencie
 
   const existingComment = Effect.fn("IssueWriteApi.existingComment")(function* existingComment(
     commentId: string,
-  ) {
+  ): Effect.fn.Return<IssueComment, IssueWriteApiError> {
     const current = yield* findComment(commentId)
     return yield* Effect.fromOption(current, () => missingComment(commentId))
   })
@@ -164,8 +164,8 @@ const makeCommentWrites = ({ client, resolvers, visibility }: CommentDependencie
     function* planCommentDelete(
       commentId: string,
     ): Effect.fn.Return<CommentDeletePlan, IssueWriteApiError> {
-      yield* existingComment(commentId)
-      return { action: "comment-delete", target: commentId }
+      const comment = yield* existingComment(commentId)
+      return { action: "comment-delete", target: commentId, comment }
     },
   )
 

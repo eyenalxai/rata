@@ -4,7 +4,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { Option, Schema } from "effect"
 
 const ErrorEnvelope = Schema.Struct({
-  error: Schema.Struct({ code: Schema.String }),
+  error: Schema.Struct({ code: Schema.String, hint: Schema.NullOr(Schema.String) }),
 })
 
 const decodeError = (value: unknown) =>
@@ -20,7 +20,7 @@ describe("issue comment update", () => {
     const lines: string[] = []
     await runIssue(recorder.handler, ["comment", "update", "c1", "--body", "New.", "--json"], lines)
     expect(state.updates).toBe(1)
-    expect(lastJson(lines)).toMatchObject({ status: "updated", comment: { body: "New." } })
+    expect(lastJson(lines)).toMatchObject({ comment: { body: "New." } })
   })
 
   test("a missing id is not_found and writes nothing", async () => {
@@ -57,14 +57,17 @@ describe("issue comment delete", () => {
     await runIssue(recorder.handler, ["comment", "delete", "c1", "--yes", "--json"], lines)
     expect(state.deletes).toBe(1)
     expect(state.comments.has("c1")).toBe(false)
-    expect(lastJson(lines)).toEqual({ status: "deleted", commentId: "c1" })
+    expect(lastJson(lines)).toEqual({ deleted: true, id: "c1" })
   })
 
   test("JSON without --yes is a validation error and writes nothing", async () => {
     const { recorder, state } = commentHandler({ seeds: [commentNode("c1", "Old.")] })
     const lines: string[] = []
     await runIssue(recorder.handler, ["comment", "delete", "c1", "--json"], lines)
-    expect(decodeError(lastJson(lines)).code).toBe("validation")
+    expect(decodeError(lastJson(lines))).toMatchObject({
+      code: "validation",
+      hint: "Pass --yes to delete a comment in JSON mode.",
+    })
     expect(state.deletes).toBe(0)
     expect(process.exitCode).toBe(1)
   })
@@ -72,11 +75,16 @@ describe("issue comment delete", () => {
   test("a dry run writes nothing", async () => {
     const { recorder, state } = commentHandler({ seeds: [commentNode("c1", "Old.")] })
     const lines: string[] = []
-    await runIssue(recorder.handler, ["comment", "delete", "c1", "--dry-run", "--json"], lines)
-    expect(lastJson(lines)).toEqual({
+    await runIssue(
+      recorder.handler,
+      ["comment", "delete", "c1", "--dry-run", "--yes", "--json"],
+      lines,
+    )
+    expect(lastJson(lines)).toMatchObject({
       dryRun: true,
       action: "comment-delete",
       target: "c1",
+      comment: { id: "c1", body: "Old." },
     })
     expect(state.deletes).toBe(0)
   })

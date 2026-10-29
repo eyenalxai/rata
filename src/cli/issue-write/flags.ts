@@ -1,8 +1,9 @@
-import { Effect } from "effect"
+import { Effect, Option } from "effect"
 import { Argument, Flag } from "effect/cli"
 
 import type { WriteVisibility } from "@/api/issue-write/write-types"
 
+import { resolveBody } from "@/cli/body"
 import { errorLine, warningLine } from "@/cli/output"
 
 const optionalText = (name: string, description: string) =>
@@ -37,11 +38,31 @@ const validateWait = (wait: number | undefined) =>
     return true
   })
 
+const resolveCommentBody = Effect.fn("Cli.IssueWrite.resolveCommentBody")(
+  function* resolveCommentBody(
+    flags: { readonly body: string; readonly file: string },
+    body: Option.Option<string>,
+    bodyFile: Option.Option<string>,
+  ) {
+    const resolved = yield* resolveBody(flags, body, bodyFile)
+    if (Option.isNone(resolved)) {
+      yield* errorLine(1, `A comment needs --${flags.body} or --${flags.file}.`)
+      return Option.none<string>()
+    }
+    if (resolved.value.trim().length === 0) {
+      yield* errorLine(1, "The comment body is empty.")
+      return Option.none<string>()
+    }
+    return resolved
+  },
+)
+
 export {
   bodyFileFlag,
   bodyFlag,
   optionalText,
   refArgument,
+  resolveCommentBody,
   validateWait,
   waitFlag,
   warnWhenInvisible,
