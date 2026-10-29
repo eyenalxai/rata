@@ -25,7 +25,10 @@ operations.
 - **Preview a write**: add `--dry-run` to `rata issue link`, `unlink`, `assign`,
   `unassign`, `label add` or `label remove`. A repeated idempotent write exits 0
   and reports `skipped`.
-- **Read an issue**: `rata issue show <ref> --comments --json`
+- **Read an issue**: `rata issue show <ref> --json`. One call returns the issue,
+  its comments, children, relations and attachments. Add `--no-comments` to
+  skip the comment fetch; `--comments` and `--no-comments` are mutually
+  exclusive.
 - **List issues**: `rata issue list` with the filters you need. Useful filters:
   `--team`, `--project`, `--state`, `--state-type`, `--priority`, `--label`,
   `--assignee`, `--parent`, `--text`, `--unblocked`, `--unassigned`. Every list
@@ -69,7 +72,7 @@ Create a Linear issue with `rata issue create`. A spec is an issue too: see
 
 ## When a skill says "fetch the relevant ticket"
 
-Run `rata issue show <ref> --comments`.
+Run `rata issue show <ref> --json`.
 
 ## Specs and tickets
 

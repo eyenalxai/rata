@@ -58,6 +58,15 @@ const child = {
   state: { name: "Todo", type: "unstarted" },
 }
 
+const attachment = {
+  id: "a1",
+  title: "Design doc",
+  subtitle: "Notion",
+  url: "https://example.com/doc",
+  sourceType: "link",
+  createdAt: "2026-01-01T10:00:00.000Z",
+}
+
 const baseDetail = {
   id: "i1",
   identifier: "RAT-1",
@@ -74,6 +83,7 @@ const baseDetail = {
   children: { nodes: [child], pageInfo },
   relations: { nodes: [], pageInfo },
   inverseRelations: { nodes: [], pageInfo },
+  attachments: { nodes: [], pageInfo },
 }
 
 const RequestBody = Schema.Struct({
@@ -153,4 +163,15 @@ const run = <A, E>(
     Effect.runPromise,
   )
 
-export { baseDetail, jsonResponse, pageInfo, readBody, run, summaryNode, user, uuid, viewer }
+export {
+  attachment,
+  baseDetail,
+  jsonResponse,
+  pageInfo,
+  readBody,
+  run,
+  summaryNode,
+  user,
+  uuid,
+  viewer,
+}

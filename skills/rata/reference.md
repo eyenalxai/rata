@@ -54,22 +54,22 @@ recorded `workspace`.
 
 ## Issues
 
-| Command                                      | Description                                                       |
-| -------------------------------------------- | ----------------------------------------------------------------- |
-| `rata issue list [flags]`                    | List issues. One page per call.                                   |
-| `rata search <text> [flags]`                 | Full-text search. Keeps relevance ranking; paging is best effort. |
-| `rata issue show <ref> [--comments]`         | Show one issue.                                                   |
-| `rata issue create --title <title> [flags]`  | Create an issue.                                                  |
-| `rata issue update <ref> [flags]`            | Update an issue.                                                  |
-| `rata issue comment <ref> --body <text>`     | Comment on an issue.                                              |
-| `rata issue label add <ref> <label...>`      | Add labels.                                                       |
-| `rata issue label remove <ref> <label...>`   | Remove labels.                                                    |
-| `rata issue assign <ref> --assignee <value>` | Assign an issue. `me`, a user id, or `none` to clear it.          |
-| `rata issue unassign <ref>`                  | Clear the assignee.                                               |
-| `rata issue close <ref> [--comment <text>]`  | Close with an optional comment. `--comment-file -` reads stdin.   |
-| `rata issue reopen <ref>`                    | Reopen.                                                           |
-| `rata issue link <ref> [flags]`              | Create relations.                                                 |
-| `rata issue unlink <ref> [flags]`            | Remove relations.                                                 |
+| Command                                              | Description                                                        |
+| ---------------------------------------------------- | ------------------------------------------------------------------ |
+| `rata issue list [flags]`                            | List issues. One page per call.                                    |
+| `rata search <text> [flags]`                         | Full-text search. Keeps relevance ranking; paging is best effort.  |
+| `rata issue show <ref> [--comments] [--no-comments]` | Show one issue with comments, children, relations and attachments. |
+| `rata issue create --title <title> [flags]`          | Create an issue.                                                   |
+| `rata issue update <ref> [flags]`                    | Update an issue.                                                   |
+| `rata issue comment <ref> --body <text>`             | Comment on an issue.                                               |
+| `rata issue label add <ref> <label...>`              | Add labels.                                                        |
+| `rata issue label remove <ref> <label...>`           | Remove labels.                                                     |
+| `rata issue assign <ref> --assignee <value>`         | Assign an issue. `me`, a user id, or `none` to clear it.           |
+| `rata issue unassign <ref>`                          | Clear the assignee.                                                |
+| `rata issue close <ref> [--comment <text>]`          | Close with an optional comment. `--comment-file -` reads stdin.    |
+| `rata issue reopen <ref>`                            | Reopen.                                                            |
+| `rata issue link <ref> [flags]`                      | Create relations.                                                  |
+| `rata issue unlink <ref> [flags]`                    | Remove relations.                                                  |
 
 ### `issue list` flags
 
