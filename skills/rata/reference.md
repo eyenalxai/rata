@@ -178,8 +178,8 @@ best-effort and the command exits 1 when any result failed. JSON is:
 {
   "dryRun": false,
   "results": [
-    { "identifier": "ABC-3", "status": "updated", "issue": {} },
-    { "identifier": "ABC-4", "status": "skipped", "issue": {} },
+    { "identifier": "ABC-3", "status": "updated", "issue": { "identifier": "ABC-3" } },
+    { "identifier": "ABC-4", "status": "skipped", "issue": { "identifier": "ABC-4" } },
     {
       "identifier": "ABC-5",
       "status": "failed",

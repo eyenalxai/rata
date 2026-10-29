@@ -255,7 +255,6 @@ const DeleteRelationResponse = Schema.Struct({ issueRelationDelete: RelationPayl
 export {
   AddLabelResponse,
   AttachmentsResponse,
-  type BulkTargetNode,
   BulkTargetsResponse,
   ChildrenResponse,
   CommentsResponse,

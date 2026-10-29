@@ -1,6 +1,7 @@
 import { lastJson } from "@test/cli-harness"
 import { labels, mutations, recorderFor, runIssue, seed } from "@test/issue-write/bulk/fixtures"
 import { afterEach, describe, expect, test } from "bun:test"
+import { Result } from "effect"
 
 import { parseLabelTarget } from "@/cli/issue-label"
 
@@ -10,26 +11,28 @@ afterEach(() => {
 
 describe("parseLabelTarget", () => {
   test("reads the first positional as the ref without --parent", () => {
-    expect(parseLabelTarget("add", undefined, ["RAT-1", "bug", "enhancement"])).toEqual({
-      ok: true,
-      target: { kind: "single", ref: "RAT-1", labels: ["bug", "enhancement"] },
+    expect(Result.getOrThrow(parseLabelTarget("add", undefined, ["RAT-1", "bug"]))).toEqual({
+      kind: "single",
+      ref: "RAT-1",
+      labels: ["bug"],
     })
   })
 
   test("reads every positional as a label with --parent", () => {
-    expect(parseLabelTarget("add", "RAT-1", ["bug", "enhancement"])).toEqual({
-      ok: true,
-      target: { kind: "bulk", parent: "RAT-1", labels: ["bug", "enhancement"] },
+    expect(Result.getOrThrow(parseLabelTarget("add", "RAT-1", ["bug", "enhancement"]))).toEqual({
+      kind: "bulk",
+      parent: "RAT-1",
+      labels: ["bug", "enhancement"],
     })
   })
 
   test("requires a label with --parent", () => {
-    expect(parseLabelTarget("remove", "RAT-1", []).ok).toBe(false)
+    expect(Result.isFailure(parseLabelTarget("remove", "RAT-1", []))).toBe(true)
   })
 
   test("requires a ref and a label without --parent", () => {
-    expect(parseLabelTarget("add", undefined, []).ok).toBe(false)
-    expect(parseLabelTarget("add", undefined, ["RAT-1"]).ok).toBe(false)
+    expect(Result.isFailure(parseLabelTarget("add", undefined, []))).toBe(true)
+    expect(Result.isFailure(parseLabelTarget("add", undefined, ["RAT-1"]))).toBe(true)
   })
 })
 
@@ -83,11 +86,17 @@ describe("bulk labels by parent", () => {
     expect(process.exitCode).toBe(1)
   })
 
-  test("prints one human line per child", async () => {
-    const recorder = recorderFor([seed("RAT-3", { labels: [labels.bug] }), seed("RAT-4")])
+  test("reports a mid-batch failure and exits 1", async () => {
+    const recorder = recorderFor([seed("RAT-3"), seed("RAT-4")], { failOn: "id-RAT-4" })
     const lines: string[] = []
-    await runIssue(recorder.handler, ["label", "add", "--parent", "RAT-1", "bug"], lines)
-    expect(lines).toEqual(["RAT-3 already has bug.", "Added bug to RAT-4."])
+    await runIssue(recorder.handler, ["label", "add", "--parent", "RAT-1", "bug", "--json"], lines)
+    expect(lastJson(lines)).toMatchObject({
+      results: [
+        { identifier: "RAT-3", status: "updated" },
+        { identifier: "RAT-4", status: "failed" },
+      ],
+    })
+    expect(process.exitCode).toBe(1)
   })
 
   test("removes a label from every child", async () => {

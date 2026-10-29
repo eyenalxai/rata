@@ -1,7 +1,12 @@
 import { Config, Console, Effect, Option, Result, Schema } from "effect"
 import { Flag, GlobalFlag } from "effect/cli"
 
+import type { IssueSummary } from "@/api/issue-model"
+import type { BulkWriteResult, BulkWriteSuccess } from "@/api/issue-write/model"
+import type { ErrorReport, ReportedError } from "@/cli/error-report"
+
 import { maxPageSize } from "@/api/pagination"
+import { classifyError } from "@/cli/error-report"
 
 const jsonOutput = Schema.fromJsonString(Schema.Unknown, { space: 2 })
 const defectJson = Schema.Defect()
@@ -17,29 +22,6 @@ const dryRunFlag = Flag.Boolean("dry-run").pipe(
   Flag.withDescription("Resolve the targets and print the actions without writing"),
   Flag.withDefault(false),
 )
-
-type ErrorCode =
-  | "validation"
-  | "not_linked"
-  | "not_found"
-  | "ambiguous"
-  | "auth"
-  | "forbidden"
-  | "conflict"
-  | "rate_limited"
-  | "network"
-  | "internal"
-
-type ReportedError = {
-  readonly message: string
-  readonly cause?: unknown
-}
-
-type ErrorReport = {
-  readonly code: ErrorCode
-  readonly message: string
-  readonly hint: string | null
-}
 
 const encodeCause = (cause: unknown): unknown => {
   const encoded = Schema.encodeResult(defectJson)(cause)
@@ -61,80 +43,6 @@ const debugValue = (error: ReportedError): object => {
 const debugText = (error: ReportedError): string => {
   const encoded = Schema.encodeResult(jsonOutput)(debugValue(error))
   return Result.isSuccess(encoded) ? encoded.success : error.message
-}
-
-const tagOf = (error: ReportedError): string | undefined => {
-  const tag: unknown = Reflect.get(error, "_tag")
-  return typeof tag === "string" ? tag : undefined
-}
-
-type ErrorRule = {
-  readonly code: ErrorCode
-  readonly hint: string | null
-}
-
-const errorRules: Record<string, ErrorRule> = {
-  LinearAuthError: { code: "auth", hint: "Run `rata auth login --with-token`." },
-  LinearNetworkError: { code: "network", hint: "Check the connection and retry." },
-  TeamResolutionError: { code: "not_linked", hint: null },
-  TeamNotFoundError: { code: "not_found", hint: null },
-  LabelNotFoundError: { code: "not_found", hint: null },
-  LabelCreateError: {
-    code: "conflict",
-    hint: "Check the label name, or pass `--if-not-exists`.",
-  },
-  LabelUpdateError: {
-    code: "conflict",
-    hint: "Check the label name, or pass `--if-not-exists`.",
-  },
-  ProjectNotFoundError: { code: "not_found", hint: null },
-  ProjectNameAmbiguousError: { code: "ambiguous", hint: null },
-  ProjectAlreadyDeletedError: { code: "conflict", hint: null },
-  ProjectNotDeletedError: { code: "conflict", hint: null },
-  StateNotFoundError: { code: "not_found", hint: null },
-  InvalidIssueRef: { code: "validation", hint: null },
-  InputError: { code: "validation", hint: null },
-  BodyInputError: { code: "validation", hint: null },
-  ColorInputError: { code: "validation", hint: null },
-  PriorityInputError: { code: "validation", hint: null },
-  FieldSelectionError: { code: "validation", hint: null },
-  LinkError: { code: "validation", hint: null },
-  AuthStoreError: { code: "auth", hint: "Run `rata auth login --with-token`." },
-}
-
-const classifyError = (error: ReportedError): ErrorReport => {
-  const message = error.message
-  const tag = tagOf(error)
-  if (tag === "LabelExistsError") {
-    const existing: unknown = Reflect.get(error, "existingName")
-    const name = typeof existing === "string" ? existing : message
-    return {
-      code: "conflict",
-      message,
-      hint: `Labels resolve case-insensitively; use \`${name}\`, or pass \`--if-not-exists\`.`,
-    }
-  }
-  const rule = tag === undefined ? undefined : errorRules[tag]
-  if (rule !== undefined) {
-    return { ...rule, message }
-  }
-  if (tag === "LinearRateLimitError") {
-    return { code: "rate_limited", message, hint: "Retry later." }
-  }
-  if (tag === "LinearGraphQLError") {
-    const text = message.toLowerCase()
-    if (text.includes("duplicate") || text.includes("already exists")) {
-      return {
-        code: "conflict",
-        message,
-        hint: "Use the existing object, or pass `--if-not-exists`.",
-      }
-    }
-    if (text.includes("not found")) {
-      return { code: "not_found", message, hint: "Check the reference and retry." }
-    }
-  }
-  return { code: "internal", message, hint: "Run with RATA_DEBUG=1 for details." }
 }
 
 const fallbackErrorJson =
@@ -174,6 +82,56 @@ const writeDryRun = <A extends PlanAction>(
   json
     ? writeJson({ dryRun: true, actions })
     : Effect.forEach(actions, (action) => writeLine(format(action)), { discard: true })
+
+const noChange = (result: { readonly status: string }): string =>
+  result.status === "skipped" ? " (no change)" : ""
+
+type BulkJsonResult = {
+  readonly identifier: string
+  readonly status: "updated" | "skipped" | "failed"
+  readonly issue?: IssueSummary | undefined
+  readonly error?: ErrorReport | undefined
+}
+
+const bulkJsonResult = (result: BulkWriteResult): BulkJsonResult =>
+  result.status === "failed"
+    ? {
+        identifier: result.identifier,
+        status: result.status,
+        error: classifyError(result.error),
+      }
+    : {
+        identifier: result.identifier,
+        status: result.status,
+        issue: result.issue,
+      }
+
+const writeBulkResults = (
+  json: boolean,
+  dryRun: boolean,
+  results: readonly BulkWriteResult[],
+  format: (result: BulkWriteSuccess) => string,
+): Effect.Effect<void> =>
+  Effect.gen(function* writeBulk() {
+    const failed = results.some((result) => result.status === "failed")
+    yield* json
+      ? writeJson({ dryRun, results: results.map(bulkJsonResult) })
+      : Effect.forEach(
+          results,
+          (result) =>
+            writeLine(
+              result.status === "failed"
+                ? `${result.identifier} failed: ${classifyError(result.error).message}`
+                : format(result),
+            ),
+          { discard: true },
+        )
+    if (failed) {
+      yield* Effect.sync(() => {
+        process.exitCode = 1
+      })
+    }
+  })
 
 const isEnabledFlag = (value: string): boolean => value !== "" && value !== "0" && value !== "false"
 
@@ -244,16 +202,15 @@ const reportFailure = (error: ReportedError) =>
   })
 
 export {
-  type ErrorCode,
-  type ErrorReport,
   JsonOutput,
-  classifyError,
   dryRunFlag,
   errorLine,
   nextPageHint,
+  noChange,
   type PlanAction,
   reportFailure,
   validatePageSize,
+  writeBulkResults,
   writeDryRun,
   writeJson,
   writeLine,

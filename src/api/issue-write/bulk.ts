@@ -5,20 +5,16 @@ import type {
   BulkTarget,
   BulkWriteResult,
   IssueWriteApiError,
+  ResolvedLabel,
   WriteOptions,
 } from "@/api/issue-write/model"
 import type { makeIssueWriteResolvers } from "@/api/issue-write/resolvers"
+import type { LabelMode } from "@/domain/labels"
 
 import { isNoneValue } from "@/api/issue-write/model"
+import { labelChanges } from "@/domain/labels"
 
 type WriteResolvers = ReturnType<typeof makeIssueWriteResolvers>
-
-type LabelMode = "add" | "remove"
-
-type ResolvedLabel = {
-  readonly id: string
-  readonly name: string
-}
 
 const failedResult = (target: BulkTarget, error: IssueWriteApiError): BulkWriteResult => ({
   identifier: target.summary.identifier,
@@ -26,41 +22,11 @@ const failedResult = (target: BulkTarget, error: IssueWriteApiError): BulkWriteR
   error,
 })
 
-const capture = (
-  target: BulkTarget,
-  write: Effect.Effect<IssueSummary, IssueWriteApiError>,
-): Effect.Effect<BulkWriteResult> =>
-  write.pipe(
-    Effect.map((issue) => ({
-      identifier: target.summary.identifier,
-      status: "updated" as const,
-      issue,
-    })),
-    Effect.catch((error) => Effect.succeed(failedResult(target, error))),
-  )
-
-const desiredLabels = (
-  wanted: readonly ResolvedLabel[],
-  present: ReadonlySet<string>,
-  mode: LabelMode,
-): readonly ResolvedLabel[] => {
-  const seen = new Set<string>()
-  const changes: ResolvedLabel[] = []
-  for (const label of wanted) {
-    if (seen.has(label.id)) {
-      continue
-    }
-    seen.add(label.id)
-    const has = present.has(label.id)
-    if (mode === "add" && !has) {
-      changes.push(label)
-    }
-    if (mode === "remove" && has) {
-      changes.push(label)
-    }
-  }
-  return changes
-}
+const updatedResult = (target: BulkTarget, issue: IssueSummary): BulkWriteResult => ({
+  identifier: target.summary.identifier,
+  status: "updated",
+  issue,
+})
 
 const makeBulkWrites = (resolvers: WriteResolvers) => {
   const assignChildren = Effect.fn("IssueWriteApi.assignChildren")(function* assignChildren(
@@ -82,19 +48,21 @@ const makeBulkWrites = (resolvers: WriteResolvers) => {
         continue
       }
       if (options.dryRun === true) {
-        results.push({
-          identifier: target.summary.identifier,
-          status: "updated",
-          issue: target.summary,
-        })
+        results.push(updatedResult(target, target.summary))
         continue
       }
-      results.push(yield* capture(target, resolvers.setAssignee(target.summary.id, targetId)))
+      const write = resolvers.setAssignee(target.summary.id, targetId)
+      results.push(
+        yield* write.pipe(
+          Effect.map((issue) => updatedResult(target, issue)),
+          Effect.catch((error) => Effect.succeed(failedResult(target, error))),
+        ),
+      )
     }
     return results
   })
 
-  const labelsPerTeam = Effect.fn("IssueWriteApi.bulkLabelsPerTeam")(function* labelsPerTeam(
+  const labelsPerTeam = Effect.fn("IssueWriteApi.labelsPerTeam")(function* labelsPerTeam(
     targets: readonly BulkTarget[],
     names: readonly string[],
   ) {
@@ -108,68 +76,66 @@ const makeBulkWrites = (resolvers: WriteResolvers) => {
     return resolved
   })
 
-  const applyLabels = (
+  const applyLabels = Effect.fn("IssueWriteApi.applyLabels")(function* applyLabels(
     target: BulkTarget,
     labels: readonly ResolvedLabel[],
     mode: LabelMode,
-  ): Effect.Effect<BulkWriteResult> =>
-    Effect.gen(function* applyLabelWrites() {
-      let issue = target.summary
-      for (const label of labels) {
-        const write =
-          mode === "add"
-            ? resolvers.addLabel(issue.id, label.id)
-            : resolvers.removeLabel(issue.id, label.id)
-        const outcome = yield* write.pipe(Effect.result)
-        if (Result.isFailure(outcome)) {
-          return failedResult(target, outcome.failure)
-        }
-        issue = outcome.success
+  ) {
+    let issue = target.summary
+    for (const label of labels) {
+      const write =
+        mode === "add"
+          ? resolvers.addLabel(issue.id, label.id)
+          : resolvers.removeLabel(issue.id, label.id)
+      const outcome = yield* write.pipe(Effect.result)
+      if (Result.isFailure(outcome)) {
+        return failedResult(target, outcome.failure)
       }
-      return {
-        identifier: target.summary.identifier,
-        status: "updated" as const,
-        issue,
-        labels: labels.map((label) => label.name),
-      }
-    })
+      issue = outcome.success
+    }
+    return {
+      identifier: target.summary.identifier,
+      status: "updated" as const,
+      issue,
+      labels: labels.map((label) => label.name),
+    }
+  })
 
-  const writeLabels = (
+  const writeLabels = Effect.fn("IssueWriteApi.writeChildLabels")(function* writeLabels(
     mode: LabelMode,
     parentRef: string,
     names: readonly string[],
     options: WriteOptions,
-  ): Effect.Effect<readonly BulkWriteResult[], IssueWriteApiError> =>
-    Effect.gen(function* writeChildLabels() {
-      const targets = yield* resolvers.collectChildTargets(parentRef)
-      const perTeam = yield* labelsPerTeam(targets, names)
-      const results: BulkWriteResult[] = []
-      for (const target of targets) {
-        const wanted = perTeam.get(target.teamId) ?? []
-        const present = new Set(target.summary.labels.map((label) => label.id))
-        const changes = desiredLabels(wanted, present, mode)
-        if (changes.length === 0) {
-          results.push({
-            identifier: target.summary.identifier,
-            status: "skipped",
-            issue: target.summary,
-            labels: wanted.map((label) => label.name),
-          })
-          continue
-        }
-        if (options.dryRun === true) {
-          results.push({
-            identifier: target.summary.identifier,
-            status: "updated",
-            issue: target.summary,
-            labels: changes.map((label) => label.name),
-          })
-          continue
-        }
-        results.push(yield* applyLabels(target, changes, mode))
+  ) {
+    const targets = yield* resolvers.collectChildTargets(parentRef)
+    const perTeam = yield* labelsPerTeam(targets, names)
+    const results: BulkWriteResult[] = []
+    for (const target of targets) {
+      const wanted = perTeam.get(target.teamId) ?? []
+      const present = new Set(target.summary.labels.map((label) => label.id))
+      const changes = labelChanges(wanted, present, mode)
+      if (changes.length === 0) {
+        results.push({
+          identifier: target.summary.identifier,
+          status: "skipped",
+          issue: target.summary,
+          labels: wanted.map((label) => label.name),
+        })
+        continue
       }
-      return results
-    })
+      if (options.dryRun === true) {
+        results.push({
+          identifier: target.summary.identifier,
+          status: "updated",
+          issue: target.summary,
+          labels: changes.map((label) => label.name),
+        })
+        continue
+      }
+      results.push(yield* applyLabels(target, changes, mode))
+    }
+    return results
+  })
 
   const addLabelsToChildren = Effect.fn("IssueWriteApi.addLabelsToChildren")(
     function* addLabelsToChildren(

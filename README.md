@@ -816,8 +816,7 @@ less typing. `--assignee me` resolves the viewer.
 
 `issue assign`, `issue label add` and `issue label remove` accept `--parent`.
 The command then targets every child of the parent issue, open and closed, in
-creation order. Pass exactly one of the positional issue reference and
-`--parent`.
+creation order. Pass an issue reference or `--parent`, not both.
 
 ```bash
 rata issue assign --parent RAT-1 --assignee me
@@ -825,8 +824,8 @@ rata issue label add --parent RAT-1 enhancement bug
 rata issue label remove --parent RAT-1 needs-triage
 ```
 
-With `--parent`, every positional of a label command is a label. Without it, the
-first positional is the issue reference.
+For the label commands, `--parent` makes every positional a label. Without it,
+the first positional is the issue reference.
 
 Rata validates every target and every label before the first write. A bad
 reference or a missing label aborts the whole batch with zero changes. The

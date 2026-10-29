@@ -2,7 +2,7 @@ import { Effect } from "effect"
 
 import type { LinearClient } from "@/api/client"
 import type { WorkflowState } from "@/api/issue-schema"
-import type { BulkTarget } from "@/api/issue-write/model"
+import type { BulkTarget, ResolvedLabel } from "@/api/issue-write/model"
 import type { LabelService } from "@/api/label"
 import type { ProjectService } from "@/api/project"
 
@@ -240,13 +240,14 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
     const available = yield* collectConnection((after) =>
       labels.listAvailable(teamId, { after, limit: pageSize }),
     )
-    return yield* Effect.forEach(names, (name) => {
+    const resolved: readonly ResolvedLabel[] = yield* Effect.forEach(names, (name) => {
       const match = findLabelByName(available, name)
       if (match === undefined) {
         return Effect.fail(labelNotFoundError(teamId, name))
       }
       return Effect.succeed({ id: match.id, name: match.name })
     })
+    return resolved
   })
 
   const postComment = Effect.fn("IssueWriteApi.postComment")(function* postComment(

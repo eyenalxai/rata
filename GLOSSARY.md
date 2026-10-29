@@ -47,6 +47,9 @@ they explore the codebase. Use these terms; do not drift to synonyms.
 - **Relation**: a directional link between two issues. Linear types: `blocks`,
   `duplicate`, `related`, `similar`. "Blocked by" is the inverse of `blocks`; it
   is not a separate relation type.
+- **Bulk write**: one command that writes to every child of a **parent**. It
+  reports one result per child: `updated`, `skipped` or `failed`. Only
+  `issue assign`, `issue label add` and `issue label remove` accept `--parent`.
 - **Parent** / **child**: the sub-issue link. A map holds its tickets as child
   issues.
 

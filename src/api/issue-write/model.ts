@@ -50,21 +50,30 @@ type WriteOptions = {
   readonly dryRun?: boolean | undefined
 }
 
-const bulkStatuses = ["updated", "skipped", "failed"] as const
-type BulkStatus = (typeof bulkStatuses)[number]
-
 type BulkTarget = {
   readonly summary: IssueSummary
   readonly teamId: string
 }
 
-type BulkWriteResult = {
+type ResolvedLabel = {
+  readonly id: string
+  readonly name: string
+}
+
+type BulkWriteSuccess = {
   readonly identifier: string
-  readonly status: BulkStatus
-  readonly issue?: IssueSummary | undefined
-  readonly error?: IssueWriteApiError | undefined
+  readonly status: "updated" | "skipped"
+  readonly issue: IssueSummary
   readonly labels?: readonly string[] | undefined
 }
+
+type BulkWriteFailure = {
+  readonly identifier: string
+  readonly status: "failed"
+  readonly error: IssueWriteApiError
+}
+
+type BulkWriteResult = BulkWriteSuccess | BulkWriteFailure
 
 type IssueWriteResult = {
   readonly status: WriteStatus
@@ -253,10 +262,9 @@ const unwrapComment = (payload: {
     : Effect.fail(new IssueWriteError({ message: "Linear did not create the comment." }))
 
 export {
-  type BulkStatus,
   type BulkTarget,
   type BulkWriteResult,
-  bulkStatuses,
+  type BulkWriteSuccess,
   combineStatus,
   IssueWriteError,
   isNoneValue,
@@ -273,6 +281,7 @@ export {
   relationKindInfo,
   type RelationType,
   type RelationWriteResult,
+  type ResolvedLabel,
   type ResolvedRelationTarget,
   StateNotFoundError,
   stateByName,

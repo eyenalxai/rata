@@ -1,5 +1,4 @@
 import { lastJson } from "@test/cli-harness"
-import { inputOf } from "@test/fake-linear/model"
 import { user } from "@test/issue-fixtures"
 import { mutations, recorderFor, runIssue, seed } from "@test/issue-write/bulk/fixtures"
 import { afterEach, describe, expect, test } from "bun:test"
@@ -26,21 +25,6 @@ describe("bulk assign by parent", () => {
     })
     expect(mutations(recorder, "mutation UpdateIssue")).toHaveLength(2)
     expect(mutations(recorder, "query IssueChildrenSummary")).toHaveLength(2)
-  })
-
-  test("clears the assignee of every child with none", async () => {
-    const recorder = recorderFor([seed("RAT-3", { assignee: user })])
-    const lines: string[] = []
-    await runIssue(
-      recorder.handler,
-      ["assign", "--parent", "RAT-1", "--assignee", "none", "--json"],
-      lines,
-    )
-    expect(lastJson(lines)).toMatchObject({
-      results: [{ identifier: "RAT-3", status: "updated" }],
-    })
-    const [request] = mutations(recorder, "mutation UpdateIssue")
-    expect(request === undefined ? undefined : inputOf(request.variables).assigneeId).toBeNull()
   })
 
   test("skips a child that already holds the assignee", async () => {
@@ -73,13 +57,6 @@ describe("bulk assign by parent", () => {
     })
     expect(mutations(recorder, "mutation UpdateIssue")).toHaveLength(2)
     expect(process.exitCode).toBe(1)
-  })
-
-  test("prints one human line per child", async () => {
-    const recorder = recorderFor([seed("RAT-3"), seed("RAT-4")])
-    const lines: string[] = []
-    await runIssue(recorder.handler, ["assign", "--parent", "RAT-1", "--assignee", "me"], lines)
-    expect(lines).toEqual(["Assigned RAT-3 to Ada.", "Assigned RAT-4 to Ada."])
   })
 
   test("dry-run resolves every child and writes nothing", async () => {

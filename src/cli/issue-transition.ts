@@ -1,17 +1,19 @@
 import { Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 
-import type { BulkWriteResult, WriteAction } from "@/api/issue-write/model"
+import type { BulkWriteSuccess, WriteAction } from "@/api/issue-write/model"
 
 import { IssueWriteApi } from "@/api/issue-write"
+import { isNoneValue } from "@/api/issue-write/model"
 import { resolveBody } from "@/cli/body"
-import { writeBulkResults } from "@/cli/bulk"
 import { OutputFields, rejectFields } from "@/cli/fields"
 import {
   JsonOutput,
   dryRunFlag,
   errorLine,
+  noChange,
   reportFailure,
+  writeBulkResults,
   writeDryRun,
   writeJson,
   writeLine,
@@ -23,9 +25,6 @@ const optionalText = (name: string, description: string) =>
 const refArgument = Argument.String("ref").pipe(
   Argument.withDescription("Issue reference: an identifier, a UUID, or a linear.app URL"),
 )
-
-const noChange = (result: { readonly status: string }): string =>
-  result.status === "skipped" ? " (no change)" : ""
 
 const assigneeLabel = (action: WriteAction): string => {
   const assignee = action.changes.assignee
@@ -39,8 +38,8 @@ const parentFlag = Flag.String("parent").pipe(
 
 const assignLine =
   (assignee: string, dryRun: boolean) =>
-  (result: BulkWriteResult): string => {
-    const clears = assignee.toLowerCase() === "none"
+  (result: BulkWriteSuccess): string => {
+    const clears = isNoneValue(assignee)
     const name = dryRun ? assignee : (result.issue?.assignee?.name ?? assignee)
     if (dryRun) {
       return clears
@@ -203,7 +202,7 @@ const assignCommand = Command.make(
       if (json) {
         return yield* writeJson({ dryRun: false, status: result.status, issue: result.issue })
       }
-      if (assignee.toLowerCase() === "none") {
+      if (isNoneValue(assignee)) {
         return yield* writeLine(
           result.status === "skipped"
             ? `${result.issue.identifier} is already unassigned.`

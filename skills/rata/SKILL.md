@@ -76,16 +76,17 @@ rata issue label remove ABC-42 needs-triage
 States: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`,
 `wontfix`. Categories: `bug`, `enhancement`.
 
-Repair every child of a spec or map in one call. `--parent` targets all children,
-open and closed, and makes every positional of a label command a label:
+Repair every child of a spec in one call. `--parent` targets all children, open
+and closed, and makes every positional of a label command a label:
 
 ```bash
 rata issue label add --parent ABC-50 ready-for-agent
 rata issue assign --parent ABC-50 --assignee me
 ```
 
-A bad reference or a missing label aborts the batch before any write. Add
-`--dry-run` to preview.
+Maps stay unassigned until the claim step, so label a map's children in bulk but
+claim them one by one. A bad reference or a missing label aborts the batch before
+any write. Add `--dry-run` to preview.
 
 Set a priority on every actionable issue (`ready-for-agent` or
 `ready-for-human`):

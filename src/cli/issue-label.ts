@@ -1,22 +1,23 @@
-import { Effect, Option } from "effect"
+import { Effect, Option, Result } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 
-import type { BulkWriteResult, WriteAction } from "@/api/issue-write/model"
+import type { BulkWriteSuccess, WriteAction } from "@/api/issue-write/model"
 
 import { IssueWriteApi } from "@/api/issue-write"
-import { writeBulkResults } from "@/cli/bulk"
 import { OutputFields, rejectFields } from "@/cli/fields"
 import {
   JsonOutput,
   dryRunFlag,
   errorLine,
+  noChange,
   reportFailure,
+  writeBulkResults,
   writeDryRun,
   writeJson,
   writeLine,
 } from "@/cli/output"
 
-const valueArgument = Argument.String("value").pipe(
+const refOrLabelArgument = Argument.String("ref-or-label").pipe(
   Argument.withDescription(
     "Without --parent: the issue reference, then the label names. With --parent: the label names",
   ),
@@ -40,41 +41,39 @@ type LabelTarget =
       readonly labels: readonly string[]
     }
 
-type LabelTargetParse =
-  | { readonly ok: true; readonly target: LabelTarget }
-  | { readonly ok: false; readonly message: string; readonly hint: string }
+type LabelTargetError = {
+  readonly message: string
+  readonly hint: string
+}
 
 const parseLabelTarget = (
   command: "add" | "remove",
   parent: string | undefined,
   values: readonly string[],
-): LabelTargetParse => {
+): Result.Result<LabelTarget, LabelTargetError> => {
   if (parent !== undefined) {
     if (values.length === 0) {
-      return {
-        ok: false,
+      return Result.fail({
         message: "At least one label is required.",
         hint: `rata issue label ${command} --parent <ref> <label...>`,
-      }
+      })
     }
-    return { ok: true, target: { kind: "bulk", parent, labels: values } }
+    return Result.succeed({ kind: "bulk", parent, labels: values })
   }
   const [ref, ...labels] = values
   if (ref === undefined) {
-    return {
-      ok: false,
+    return Result.fail({
       message: "The issue reference is required.",
       hint: `rata issue label ${command} <ref> <label...>`,
-    }
+    })
   }
   if (labels.length === 0) {
-    return {
-      ok: false,
+    return Result.fail({
       message: "At least one label is required.",
       hint: `rata issue label ${command} ${ref} <label...>`,
-    }
+    })
   }
-  return { ok: true, target: { kind: "single", ref, labels } }
+  return Result.succeed({ kind: "single", ref, labels })
 }
 
 const labelOf = (action: WriteAction): string =>
@@ -83,12 +82,9 @@ const labelOf = (action: WriteAction): string =>
 const changedLabels = (actions: readonly WriteAction[], status: WriteAction["status"]): string[] =>
   actions.filter((action) => action.status === status).map(labelOf)
 
-const noChange = (result: { readonly status: string }): string =>
-  result.status === "skipped" ? " (no change)" : ""
-
 const bulkLine =
   (command: "add" | "remove", dryRun: boolean) =>
-  (result: BulkWriteResult): string => {
+  (result: BulkWriteSuccess): string => {
     const labels = (result.labels ?? []).join(", ")
     if (dryRun) {
       return command === "add"
@@ -107,16 +103,20 @@ const bulkLine =
 
 const addCommand = Command.make(
   "add",
-  { value: valueArgument, parent: parentFlag, dryRun: dryRunFlag },
+  { refOrLabel: refOrLabelArgument, parent: parentFlag, dryRun: dryRunFlag },
   (config) =>
     Effect.gen(function* addLabels() {
       const json = yield* JsonOutput
       yield* rejectFields(yield* OutputFields)
-      const parsed = parseLabelTarget("add", Option.getOrUndefined(config.parent), config.value)
-      if (!parsed.ok) {
-        return yield* errorLine(1, parsed.message, parsed.hint)
+      const parsed = parseLabelTarget(
+        "add",
+        Option.getOrUndefined(config.parent),
+        config.refOrLabel,
+      )
+      if (Result.isFailure(parsed)) {
+        return yield* errorLine(1, parsed.failure.message, parsed.failure.hint)
       }
-      const target = parsed.target
+      const target = parsed.success
       const api = yield* IssueWriteApi
       if (target.kind === "bulk") {
         const results = yield* api.addLabelsToChildren(target.parent, target.labels, {
@@ -165,16 +165,20 @@ const addCommand = Command.make(
 
 const removeCommand = Command.make(
   "remove",
-  { value: valueArgument, parent: parentFlag, dryRun: dryRunFlag },
+  { refOrLabel: refOrLabelArgument, parent: parentFlag, dryRun: dryRunFlag },
   (config) =>
     Effect.gen(function* removeLabels() {
       const json = yield* JsonOutput
       yield* rejectFields(yield* OutputFields)
-      const parsed = parseLabelTarget("remove", Option.getOrUndefined(config.parent), config.value)
-      if (!parsed.ok) {
-        return yield* errorLine(1, parsed.message, parsed.hint)
+      const parsed = parseLabelTarget(
+        "remove",
+        Option.getOrUndefined(config.parent),
+        config.refOrLabel,
+      )
+      if (Result.isFailure(parsed)) {
+        return yield* errorLine(1, parsed.failure.message, parsed.failure.hint)
       }
-      const target = parsed.target
+      const target = parsed.success
       const api = yield* IssueWriteApi
       if (target.kind === "bulk") {
         const results = yield* api.removeLabelsFromChildren(target.parent, target.labels, {
