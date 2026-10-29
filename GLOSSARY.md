@@ -42,6 +42,8 @@ they explore the codebase. Use these terms; do not drift to synonyms.
   forms: the label name or the UUID. A name resolves case-insensitively against
   the team labels and the workspace-scoped labels.
 - **Comment**: a markdown comment on an issue.
+- **Attachment**: an external link on an issue, for example a Notion page or a
+  pull request. It has a title, an optional subtitle, a url and a source type.
 - **Relation**: a directional link between two issues. Linear types: `blocks`,
   `duplicate`, `related`, `similar`. "Blocked by" is the inverse of `blocks`; it
   is not a separate relation type.

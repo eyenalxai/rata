@@ -149,7 +149,8 @@ Linear's relevance ranking, so its paging is best effort.
 
 Internal reads always drain every page. Only these list commands return one
 page. In particular, `issue show` is complete: it reads every page of an
-issue's labels, children, relations and comments.
+issue's labels, children, relations, attachments and comments. `--no-comments`
+skips the comment pages.
 
 ## Authentication
 
@@ -625,14 +626,17 @@ the open, unblocked, unclaimed children. With `--sort priority`, the first
 result is the most urgent; ties keep their incoming order.
 
 `rata issue show` accepts an identifier (`RAT-42`), a UUID, or a linear.app
-URL. `--comments` adds the comments in chronological order. A detail view is
-complete: `show` reads every page of the issue's labels, children, relations
-and comments.
+URL. `--comments` adds the comments to the human output. `--json` returns the
+complete read model in one call: the issue, its comments, children, relations
+and attachments. `--no-comments` skips the comment fetch and omits the key.
+`--comments` and `--no-comments` are mutually exclusive. Every collection
+drains every page.
 
 Every read command accepts `--json` and prints one stable JSON document. The
 list and search commands print one page:
 `{ "issues": [...], "pageInfo": { "hasNextPage": ..., "endCursor": ... } }`.
-The show command prints `{ "issue": {...} }`.
+The show command prints `{ "issue": {...} }`, with the comments, children,
+relations and attachments.
 
 `rata search "<text>"` searches by text. Without `--team`, the search stays
 inside the linked team; pass `--team <key>` for another team. It keeps Linear's
@@ -694,14 +698,25 @@ is set.
       "related": [],
       "similar": []
     },
+    "attachments": [
+      {
+        "id": "a1",
+        "title": "Design doc",
+        "subtitle": "Notion",
+        "url": "https://example.com/doc",
+        "sourceType": "link",
+        "createdAt": "2026-01-01T10:00:00.000Z"
+      }
+    ],
     "comments": []
   }
 }
 ```
 
 `relations.blocks` lists the issues this issue blocks. `relations.blockedBy`
-lists the issues that block it. The `comments` key is present only with
-`--comments`.
+lists the issues that block it. `--json` includes `comments` by default.
+`--no-comments` skips the fetch and omits the key. `--comments` and
+`--no-comments` are mutually exclusive.
 
 ## Writing issues
 

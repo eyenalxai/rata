@@ -13,7 +13,14 @@ import { linkCommand, unlinkCommand } from "@/cli/issue-link"
 import { writeIssuePage } from "@/cli/issue-page"
 import { assignCommand, closeCommand, reopenCommand, unassignCommand } from "@/cli/issue-transition"
 import { commentCommand, createCommand, updateCommand } from "@/cli/issue-write"
-import { JsonOutput, reportFailure, validatePageSize, writeJson, writeLine } from "@/cli/output"
+import {
+  JsonOutput,
+  errorLine,
+  reportFailure,
+  validatePageSize,
+  writeJson,
+  writeLine,
+} from "@/cli/output"
 import { resolvePriority } from "@/cli/priority"
 
 const limitFlag = Flag.Int("limit").pipe(
@@ -31,6 +38,16 @@ const optionalText = (name: string, description: string) =>
 
 const refArgument = Argument.String("ref").pipe(
   Argument.withDescription("Issue reference: an identifier, a UUID, or a linear.app URL"),
+)
+
+const commentsFlag = Flag.Boolean("comments").pipe(
+  Flag.withDescription("Include the issue comments"),
+  Flag.optional,
+)
+
+const noCommentsFlag = Flag.Boolean("no-comments").pipe(
+  Flag.withDescription("Skip the comment fetch and omit the comments key"),
+  Flag.optional,
 )
 
 const formatRelations = (relations: IssueRelations): string[] => {
@@ -80,6 +97,14 @@ const formatIssueDetail = (issue: IssueDetail): string => {
   const relationLines = formatRelations(issue.relations)
   if (relationLines.length > 0) {
     lines.push("relations:", ...relationLines)
+  }
+  if (issue.attachments.length > 0) {
+    lines.push("attachments:")
+    for (const attachment of issue.attachments) {
+      const source = attachment.subtitle ?? attachment.sourceType
+      const prefix = source === null ? attachment.title : `${attachment.title} (${source})`
+      lines.push(`  ${prefix}  ${attachment.url}`)
+    }
   }
   if (issue.comments !== undefined && issue.comments.length > 0) {
     lines.push("comments:")
@@ -174,17 +199,25 @@ const showCommand = Command.make(
   "show",
   {
     ref: refArgument,
-    comments: Flag.Boolean("comments").pipe(
-      Flag.withDescription("Include the issue comments"),
-      Flag.withDefault(false),
-    ),
+    comments: commentsFlag,
+    noComments: noCommentsFlag,
   },
   (config) =>
     Effect.gen(function* show() {
       const json = yield* JsonOutput
       const fields = yield* readFields(json, yield* OutputFields)
+      const includesComments = Option.exists(config.comments, (value) => value)
+      const skipsComments = Option.exists(config.noComments, (value) => value)
+      if (includesComments && skipsComments) {
+        return yield* errorLine(
+          1,
+          "--comments and --no-comments are mutually exclusive.",
+          "Pass one of the two flags.",
+        )
+      }
+      const comments = skipsComments ? false : includesComments || json
       const api = yield* IssueApi
-      const issue = yield* api.show(config.ref, { comments: config.comments })
+      const issue = yield* api.show(config.ref, { comments })
       if (json) {
         return yield* writeJson({ issue: yield* selectObject(fields, issue) })
       }
@@ -196,6 +229,10 @@ const showCommand = Command.make(
     {
       command: "rata issue show RAT-42 --comments",
       description: "Show one issue with its comments",
+    },
+    {
+      command: "rata issue show RAT-42 --json --no-comments",
+      description: "Read the complete issue document without the comments",
     },
   ]),
 )

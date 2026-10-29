@@ -28,6 +28,8 @@ const searchQuery = `query IssueSearch($term: String!, $filter: IssueFilter, $fi
   }
 }`
 
+const attachmentFields = "id title subtitle url sourceType createdAt"
+
 const showQuery = `query IssueShow($id: String!) {
   issue(id: $id) {
     id
@@ -45,6 +47,7 @@ const showQuery = `query IssueShow($id: String!) {
     children(first: ${pageSize}) { nodes { id identifier title state { name type } } pageInfo { hasNextPage endCursor } }
     relations(first: ${pageSize}) { nodes { id type relatedIssue { id identifier title state { name type } } } pageInfo { hasNextPage endCursor } }
     inverseRelations(first: ${pageSize}) { nodes { id type issue { id identifier title state { name type } } } pageInfo { hasNextPage endCursor } }
+    attachments(first: ${pageSize}) { nodes { ${attachmentFields} } pageInfo { hasNextPage endCursor } }
   }
 }`
 
@@ -99,6 +102,15 @@ const commentsQuery = `query IssueComments($id: String!, $first: Int!, $after: S
   issue(id: $id) {
     comments(first: $first, after: $after, orderBy: createdAt) {
       nodes { id body createdAt user { id name displayName } }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+}`
+
+const attachmentsQuery = `query IssueAttachments($id: String!, $first: Int!, $after: String) {
+  issue(id: $id) {
+    attachments(first: $first, after: $after) {
+      nodes { ${attachmentFields} }
       pageInfo { hasNextPage endCursor }
     }
   }
@@ -186,6 +198,7 @@ const issueTeamQuery = `query IssueTeam($id: String!) {
 
 export {
   addLabelMutation,
+  attachmentsQuery,
   childrenQuery,
   commentsQuery,
   createCommentMutation,

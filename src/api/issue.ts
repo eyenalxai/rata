@@ -22,6 +22,7 @@ import {
   toSummary,
 } from "@/api/issue-model"
 import {
+  attachmentsQuery,
   childrenQuery,
   commentsQuery,
   inverseRelationsQuery,
@@ -33,6 +34,7 @@ import {
   showQuery,
 } from "@/api/issue-query"
 import {
+  AttachmentsResponse,
   ChildrenResponse,
   CommentsResponse,
   InverseRelationsResponse,
@@ -212,6 +214,11 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
             )
             .pipe(Effect.map((page) => page.issue.inverseRelations)),
         )
+        const attachments = yield* collectPages(issue.attachments, (after) =>
+          client
+            .execute(attachmentsQuery, { id: ref, first: pageSize, after }, AttachmentsResponse)
+            .pipe(Effect.map((page) => page.issue.attachments)),
+        )
 
         const detail: IssueDetail = {
           id: issue.id,
@@ -228,6 +235,7 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
           labels,
           children,
           relations: relationTargets(relations, inverseRelations),
+          attachments,
         }
 
         if (options.comments) {

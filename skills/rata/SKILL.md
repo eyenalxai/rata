@@ -33,7 +33,7 @@ rata status --json                        # repo, workspace, team, viewer and or
 rata team show --json                     # states, labels, members and priorities
 rata issue list --json                    # list issues; returns one page
 rata issue list --after <cursor> --json   # read the next page
-rata issue show ABC-42 --comments --json  # one issue with its comments
+rata issue show ABC-42 --json             # comments, children, relations, attachments
 rata search "flaky test" --json
 ```
 

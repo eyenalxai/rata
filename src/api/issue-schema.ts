@@ -85,6 +85,21 @@ const IssueInverseRelationConnection = Schema.Struct({
   pageInfo: PageInfo,
 })
 
+const IssueAttachment = Schema.Struct({
+  id: Schema.String,
+  title: Schema.String,
+  subtitle: Schema.NullOr(Schema.String),
+  url: Schema.String,
+  sourceType: Schema.NullOr(Schema.String),
+  createdAt: Schema.String,
+})
+type IssueAttachment = typeof IssueAttachment.Type
+
+const IssueAttachmentConnection = Schema.Struct({
+  nodes: Schema.Array(IssueAttachment),
+  pageInfo: PageInfo,
+})
+
 const IssueComment = Schema.Struct({
   id: Schema.String,
   body: Schema.String,
@@ -128,6 +143,7 @@ const IssueDetailNode = Schema.Struct({
   children: IssueChildConnection,
   relations: IssueRelationConnection,
   inverseRelations: IssueInverseRelationConnection,
+  attachments: IssueAttachmentConnection,
 })
 type IssueDetailNode = typeof IssueDetailNode.Type
 
@@ -163,6 +179,10 @@ const InverseRelationsResponse = Schema.Struct({
 
 const CommentsResponse = Schema.Struct({
   issue: Schema.Struct({ comments: IssueCommentConnection }),
+})
+
+const AttachmentsResponse = Schema.Struct({
+  issue: Schema.Struct({ attachments: IssueAttachmentConnection }),
 })
 
 const WorkflowState = Schema.Struct({
@@ -219,6 +239,7 @@ const DeleteRelationResponse = Schema.Struct({ issueRelationDelete: RelationPayl
 
 export {
   AddLabelResponse,
+  AttachmentsResponse,
   ChildrenResponse,
   CommentsResponse,
   CreateCommentResponse,
@@ -226,6 +247,7 @@ export {
   CreateRelationResponse,
   DeleteRelationResponse,
   InverseRelationsResponse,
+  type IssueAttachment,
   type IssueChild,
   type IssueComment,
   IssueIdResponse,

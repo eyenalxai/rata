@@ -1,4 +1,5 @@
 import type {
+  IssueAttachment,
   IssueChild,
   IssueComment,
   IssueInverseRelation,
@@ -59,6 +60,7 @@ type IssueDetail = {
   readonly labels: readonly IssueLabel[]
   readonly children: readonly IssueChild[]
   readonly relations: IssueRelations
+  readonly attachments: readonly IssueAttachment[]
   readonly comments?: readonly IssueComment[]
 }
 
