@@ -5,6 +5,7 @@ import { Context, Effect, FileSystem, Layer, Option, Path, Schema } from "effect
 type RepositoryLocation = {
   readonly key: string
   readonly lookup: readonly string[]
+  readonly root: string
 }
 
 class RepositoryIdentityError extends Schema.TaggedError<RepositoryIdentityError>()(
@@ -78,11 +79,11 @@ class RepositoryIdentity extends Context.Service<RepositoryIdentity, RepositoryI
           const exists = yield* fs.exists(entry).pipe(Effect.mapError(describeReadFailure(entry)))
           if (exists) {
             const key = yield* gitDirAt(entry)
-            return { key, lookup: [key] }
+            return { key, lookup: [key], root: current }
           }
           const parent = path.dirname(current)
           if (parent === current) {
-            return { key: start, lookup }
+            return { key: start, lookup, root: start }
           }
           current = parent
         }

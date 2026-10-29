@@ -2,10 +2,12 @@ import { Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 import { EOL } from "node:os"
 
+import type { TeamDetail } from "@/api/team/details"
+
 import { maxPageSize } from "@/api/pagination"
-import { TeamService } from "@/api/team"
+import { TeamResolutionError, TeamService } from "@/api/team"
 import { confirm } from "@/cli/confirm"
-import { OutputFields, readFields, rejectFields, selectItems } from "@/cli/fields"
+import { OutputFields, readFields, rejectFields, selectItems, selectObject } from "@/cli/fields"
 import {
   JsonOutput,
   nextPageHint,
@@ -14,6 +16,7 @@ import {
   writeJson,
   writeLine,
 } from "@/cli/output"
+import { currentDirectory, RepoConfigService } from "@/config/repo"
 import { machineTimezone } from "@/domain/timezone"
 
 const optionalText = (name: string, description: string) =>
@@ -140,9 +143,75 @@ const deleteCommand = Command.make(
   ]),
 )
 
+const block = (title: string, rows: readonly string[]): string =>
+  [title, ...rows.map((row) => `  ${row}`)].join(EOL)
+
+const showTeamText = (team: TeamDetail): string =>
+  [
+    `${team.key}  ${team.name} (${team.id})`,
+    `timezone: ${team.timezone}`,
+    block(
+      "states:",
+      team.states.map((state) => `${state.name}\t${state.type}\t${state.position}`),
+    ),
+    block(
+      "labels:",
+      team.labels.map((label) => `${label.name}\t${label.color}\t${label.scope}`),
+    ),
+    block(
+      "members:",
+      team.members.map((member) => `${member.name}\t${member.displayName}\t${member.email}`),
+    ),
+    block(
+      "priorities:",
+      team.priorities.map((priority) => `${priority.priority}\t${priority.label}`),
+    ),
+  ].join(`${EOL}${EOL}`)
+
+const showCommand = Command.make(
+  "show",
+  {
+    ref: Argument.String("ref").pipe(
+      Argument.withDescription("Team key or id. Default: the linked team"),
+      Argument.optional,
+    ),
+  },
+  (config) =>
+    Effect.gen(function* showTeam() {
+      const json = yield* JsonOutput
+      const fields = yield* readFields(json, yield* OutputFields)
+      const repoConfig = yield* RepoConfigService
+      const linked = Option.getOrUndefined(yield* repoConfig.read(yield* currentDirectory))
+      const ref = Option.isSome(config.ref) ? config.ref.value : linked?.team
+      if (ref === undefined) {
+        return yield* new TeamResolutionError({
+          message: "No team. Pass a team key or id, or run `rata link`.",
+        })
+      }
+      const teams = yield* TeamService
+      const detail = yield* teams.details(ref)
+      if (json) {
+        return yield* writeJson({ team: yield* selectObject(fields, detail) })
+      }
+      return yield* writeLine(showTeamText(detail))
+    }).pipe(Effect.catch(reportFailure)),
+).pipe(
+  Command.withDescription("Show the states, labels, members and priorities of a team"),
+  Command.withExamples([
+    {
+      command: "rata team show RAT",
+      description: "Show the team named by its key",
+    },
+    {
+      command: "rata team show --json",
+      description: "Show the linked team for an agent",
+    },
+  ]),
+)
+
 const teamCommand = Command.make("team").pipe(
   Command.withDescription("Inspect, create and delete the teams in the workspace"),
-  Command.withSubcommands([listCommand, createCommand, deleteCommand]),
+  Command.withSubcommands([listCommand, showCommand, createCommand, deleteCommand]),
   Command.withGlobalFlags([JsonOutput, OutputFields]),
 )
 

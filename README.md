@@ -38,7 +38,9 @@ pbpaste | rata auth login --with-token   # store a Linear API key
 pbpaste | rata auth login --with-token --workspace work  # store a key as a profile
 rata workspace list                      # list profiles: viewer and organization
 rata workspace use work                  # select the default profile
+rata status                              # show the repo, workspace, team and viewer in one call
 rata team list                           # list teams: key, name, id
+rata team show RAT                       # show a team's states, labels, members and priorities
 rata team create --name "Scratch" --key SCR   # create a team
 rata team delete SCR --yes               # delete a team
 rata project list                        # list projects: name, state, progress, id
@@ -63,6 +65,55 @@ Every command selects the API key in this order: `LINEAR_API_KEY`, the
 repository `workspace` of the repository config, the `default` profile.
 
 `rata --help` lists every command.
+
+## Status
+
+`rata status` shows the context in one call: the repository root, the selected
+workspace profile and where its API key came from, the linked team, the default
+project, the issue defaults, the viewer and the organization. It works without a
+link: the team line then reads `not linked (run rata link)` and the command
+exits 0. Without an API key it fails with an `auth` error.
+
+```bash
+rata status
+rata status --json
+```
+
+Human output:
+
+```text
+repo:      /home/ada/Projects/jyoti
+workspace: personal
+api key:   profile personal (default)
+team:      JYO (Jyoti)
+project:   none
+defaults:  none
+viewer:    Ada <ada@example.com>
+org:       Acme (acme)
+```
+
+`--json` prints one document:
+
+```json
+{
+  "repository": { "root": "/home/ada/Projects/jyoti", "linked": true },
+  "workspace": { "name": "personal", "keySource": "default" },
+  "team": { "id": "t1", "key": "JYO", "name": "Jyoti" },
+  "project": null,
+  "defaults": null,
+  "viewer": {
+    "id": "u1",
+    "name": "Ada",
+    "displayName": "ada",
+    "email": "ada@example.com",
+    "organization": { "id": "o1", "name": "Acme", "urlKey": "acme" }
+  }
+}
+```
+
+`keySource` is `env` for `LINEAR_API_KEY`, `repo` for the `workspace` in the
+repository config, and `default` for the default profile. `team`, `project` and
+`defaults` are `null` or empty when unset.
 
 ## Paging lists
 
@@ -186,6 +237,41 @@ fail with ``No default workspace. Run `rata workspace use <name>`.`` Run
 `rata team list` prints the teams in the workspace: key, name, id. It returns
 one page per call: see **Paging lists**. `--json` prints
 `{ "teams": [...], "pageInfo": { "hasNextPage": ..., "endCursor": ... } }`.
+
+`rata team show [<team-ref>]` prints the full read model of a team: the id, key,
+name, timezone, every workflow state with its type and position, every label
+with its color and scope, the active members and the workspace priorities.
+Without a reference it uses the linked team. Without a reference and without a
+link it fails with `not_linked`. The command drains every page of states,
+labels and members.
+
+```bash
+rata team show JYO
+rata team show --json
+```
+
+`--json` prints one document:
+
+```json
+{
+  "team": {
+    "id": "t1",
+    "key": "JYO",
+    "name": "Jyoti",
+    "timezone": "Europe/Amsterdam",
+    "states": [{ "id": "s1", "name": "Todo", "type": "unstarted", "position": 1 }],
+    "labels": [{ "id": "l1", "name": "bug", "color": "#EB5757", "scope": "team" }],
+    "members": [{ "id": "u1", "name": "Ada", "displayName": "ada", "email": "ada@example.com" }],
+    "priorities": [
+      { "priority": 0, "label": "No priority" },
+      { "priority": 1, "label": "Urgent" }
+    ]
+  }
+}
+```
+
+`scope` is `team` for a team label and `workspace` for a workspace label.
+Priorities are workspace-wide, not team-specific.
 
 `rata team create` creates a team. The viewer becomes the team owner. Linear
 creates the default workflow states and labels with the team. `create` sets the

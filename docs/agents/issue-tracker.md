@@ -5,6 +5,11 @@ operations.
 
 ## Conventions
 
+- **Read the context**: `rata status --json` shows the repository, workspace,
+  team, project, issue defaults and viewer in one call. It works without a link.
+- **Discover the workflow states**: `rata team show --json` lists every state
+  with its name and type, plus the labels, members and priorities. Do not guess
+  a state name.
 - **Create an issue**: `rata issue create --title "..." --body-file -`. Pipe the
   body with a heredoc.
 - **Set the priority**: every issue must carry a priority. Pass `--priority`

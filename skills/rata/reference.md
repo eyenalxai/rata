@@ -23,6 +23,7 @@
 | `rata workspace list`                               | List the stored profiles with their viewer and organization.                           |
 | `rata workspace use <name>`                         | Set the default profile.                                                               |
 | `rata whoami`                                       | Show the authenticated viewer.                                                         |
+| `rata status [--json]`                              | Show the repo, workspace, key source, team, project, defaults, viewer and org.         |
 | `rata link`                                         | Link this repository; asks for the workspace, then the team.                           |
 | `rata link --team <key>`                            | Link to a team. Searches every stored workspace. `--create --name <name>` creates it.  |
 | `rata link --project <name>`                        | Record the default project for this repository.                                        |
@@ -40,6 +41,7 @@ recorded `workspace`.
 | Command                                                                                  | Description                                                                                                         |
 | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | `rata team list [--limit <n>] [--after <cursor>]`                                        | List teams, one page per call.                                                                                      |
+| `rata team show [<team-ref>] [--json]`                                                   | Show the states, labels, members and priorities of a team. Defaults to the linked team.                             |
 | `rata team create --name <name> [--key <key>]`                                           | Create a team.                                                                                                      |
 | `rata team delete <key> [--yes]`                                                         | Delete a team (Linear keeps it recoverable). `--yes` skips the confirmation.                                        |
 | `rata project list [--team <key>] [--include-archived] [--limit <n>] [--after <cursor>]` | List the projects of the linked team: name, state, progress, id. One page per call. Trashed rows show ` (deleted)`. |
