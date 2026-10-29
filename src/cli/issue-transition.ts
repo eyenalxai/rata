@@ -40,7 +40,7 @@ const assignLine =
   (assignee: string, dryRun: boolean) =>
   (result: BulkWriteSuccess): string => {
     const clears = isNoneValue(assignee)
-    const name = dryRun ? assignee : (result.issue?.assignee?.name ?? assignee)
+    const name = dryRun ? assignee : (result.issue.assignee?.name ?? assignee)
     if (dryRun) {
       return clears
         ? `Would clear the assignee of ${result.identifier}.${noChange(result)}`

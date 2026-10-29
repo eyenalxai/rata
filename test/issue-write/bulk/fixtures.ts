@@ -108,4 +108,4 @@ const runIssue = (handler: Handler, args: readonly string[], lines: string[]) =>
 const mutations = (recorder: ReturnType<typeof recorderFor>, fragment: string) =>
   recorder.requests.filter((request) => request.query.includes(fragment))
 
-export { type ChildSeed, childNode, labels, mutations, recorderFor, runIssue, seed }
+export { labels, mutations, recorderFor, runIssue, seed }

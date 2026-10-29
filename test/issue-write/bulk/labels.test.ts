@@ -44,10 +44,9 @@ describe("bulk labels by parent", () => {
     expect(lastJson(lines)).toMatchObject({
       results: [{ identifier: "RAT-3", status: "updated" }],
     })
-    expect(mutations(recorder, "mutation AddLabel")).toHaveLength(1)
-    expect(
-      recorder.requests.filter((request) => request.query.includes("query IssueId")),
-    ).toHaveLength(1)
+    const [request] = mutations(recorder, "mutation AddLabel")
+    expect(request?.variables.labelId).toBe("l-bug")
+    expect(request?.variables.id).toBe("id-RAT-3")
   })
 
   test("adds several labels to every child", async () => {

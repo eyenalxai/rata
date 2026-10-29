@@ -52,11 +52,11 @@ const makeBulkWrites = (resolvers: WriteResolvers) => {
         continue
       }
       const write = resolvers.setAssignee(target.summary.id, targetId)
+      const outcome = yield* write.pipe(Effect.result)
       results.push(
-        yield* write.pipe(
-          Effect.map((issue) => updatedResult(target, issue)),
-          Effect.catch((error) => Effect.succeed(failedResult(target, error))),
-        ),
+        Result.isFailure(outcome)
+          ? failedResult(target, outcome.failure)
+          : updatedResult(target, outcome.success),
       )
     }
     return results
@@ -101,7 +101,7 @@ const makeBulkWrites = (resolvers: WriteResolvers) => {
     }
   })
 
-  const writeLabels = Effect.fn("IssueWriteApi.writeChildLabels")(function* writeLabels(
+  const writeChildLabels = Effect.fn("IssueWriteApi.writeChildLabels")(function* writeChildLabels(
     mode: LabelMode,
     parentRef: string,
     names: readonly string[],
@@ -143,7 +143,7 @@ const makeBulkWrites = (resolvers: WriteResolvers) => {
       names: readonly string[],
       options: WriteOptions = {},
     ) {
-      return yield* writeLabels("add", parentRef, names, options)
+      return yield* writeChildLabels("add", parentRef, names, options)
     },
   )
 
@@ -153,7 +153,7 @@ const makeBulkWrites = (resolvers: WriteResolvers) => {
       names: readonly string[],
       options: WriteOptions = {},
     ) {
-      return yield* writeLabels("remove", parentRef, names, options)
+      return yield* writeChildLabels("remove", parentRef, names, options)
     },
   )
 

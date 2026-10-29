@@ -106,6 +106,12 @@ const bulkJsonResult = (result: BulkWriteResult): BulkJsonResult =>
         issue: result.issue,
       }
 
+const failureLine = (result: BulkWriteResult & { readonly status: "failed" }): string => {
+  const report = classifyError(result.error)
+  const hint = report.hint === null ? "" : ` (hint: ${report.hint})`
+  return `${result.identifier} failed: ${report.message}${hint}`
+}
+
 const writeBulkResults = (
   json: boolean,
   dryRun: boolean,
@@ -118,12 +124,7 @@ const writeBulkResults = (
       ? writeJson({ dryRun, results: results.map(bulkJsonResult) })
       : Effect.forEach(
           results,
-          (result) =>
-            writeLine(
-              result.status === "failed"
-                ? `${result.identifier} failed: ${classifyError(result.error).message}`
-                : format(result),
-            ),
+          (result) => writeLine(result.status === "failed" ? failureLine(result) : format(result)),
           { discard: true },
         )
     if (failed) {
