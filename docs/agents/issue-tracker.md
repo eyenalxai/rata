@@ -39,7 +39,8 @@ operations.
   `rata config show --json` reads them. `rata config unset --label` clears one
   field.
 - **Preview a write**: add `--dry-run` to `issue create`, `issue update`,
-  `issue section append`, `issue section replace`, `issue link`, `unlink`,
+  `issue section append`, `issue section replace`, `issue comment create`,
+  `issue comment update`, `issue comment delete`, `issue link`, `unlink`,
   `assign`, `unassign`, `label add`, `label remove`, `config set` or
   `config unset`. A repeated idempotent write exits 0 and reports `skipped`.
 - **Read an issue**: `rata issue show <ref> --json`. One call returns the issue,
@@ -60,10 +61,14 @@ operations.
   `--assignee`, `--parent`, `--text`, `--unblocked`, `--unassigned`. Every list
   command returns one page: `--limit` is the page size (default 50, maximum
   250), and `--after <cursor>` continues a list. See **Paging lists**.
-- **Comment on an issue**: `rata issue comment <ref> --body-file -`. The command
-  waits up to 5 seconds for the comment to appear on a re-read. Use
+- **Comment on an issue**: `rata issue comment create <ref> --body-file -`. The
+  command waits up to 5 seconds for the comment to appear on a re-read. Use
   `--wait <seconds>` to change the bound, or `--wait 0` to skip the check. A
-  timeout still exits 0; the write succeeded.
+  timeout still exits 0; the write succeeded. Add `--dedupe-key <key>` to make a
+  retried comment idempotent: the same key on the same issue returns `skipped`
+  with the existing comment. Use `issue comment update <comment-id>` and
+  `issue comment delete <comment-id> --yes` to change or remove one. Combine an
+  issue update and a comment with `issue update <ref> --comment "..."`.
 - **Apply / remove labels**: `rata issue label add <ref> <label...>` and
   `rata issue label remove <ref> <label...>`
 - **Repair a parent's children**: `rata issue assign --parent <ref> --assignee me`
@@ -148,6 +153,6 @@ with **child** issues as tickets.
   ticket.
 - **Claim**: `rata issue assign <ref> --assignee me`, the session's first write. The
   assignee is the claim; this is what assigns a wayfinder child.
-- **Resolve**: `rata issue comment <ref> --body-file -`, then
+- **Resolve**: `rata issue comment create <ref> --body-file -`, then
   `rata issue close <ref>`, then append a context pointer (gist plus link) to
   the map's Decisions-so-far with `rata issue update <map-ref> --body-file -`.

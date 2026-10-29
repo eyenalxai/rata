@@ -24,6 +24,14 @@ class StateNotFoundError extends Schema.TaggedError<StateNotFoundError>()("State
   message: Schema.String,
 }) {}
 
+class CommentNotFoundError extends Schema.TaggedError<CommentNotFoundError>()(
+  "CommentNotFoundError",
+  {
+    id: Schema.String,
+    message: Schema.String,
+  },
+) {}
+
 const relationKinds = ["blocks", "blockedBy", "related", "duplicate"] as const
 type RelationKind = (typeof relationKinds)[number]
 
@@ -127,6 +135,7 @@ type RelationWriteResult = {
 }
 
 type IssueWriteApiError =
+  | CommentNotFoundError
   | InvalidIssueRef
   | IssueWriteError
   | ConflictError
@@ -173,19 +182,31 @@ const unwrapIssue = (payload: {
     ? Effect.succeed(toSummary(payload.issue))
     : Effect.fail(new IssueWriteError({ message: "Linear did not apply the change." }))
 
-const unwrapComment = (payload: {
-  readonly success: boolean
-  readonly comment: IssueComment | null
-}): Effect.Effect<IssueComment, IssueWriteError> =>
+const unwrapComment = (
+  payload: {
+    readonly success: boolean
+    readonly comment: IssueComment | null
+  },
+  message = "Linear did not create the comment.",
+): Effect.Effect<IssueComment, IssueWriteError> =>
   payload.success && payload.comment !== null
     ? Effect.succeed(payload.comment)
-    : Effect.fail(new IssueWriteError({ message: "Linear did not create the comment." }))
+    : Effect.fail(new IssueWriteError({ message }))
+
+const unwrapDelete = (
+  payload: {
+    readonly success: boolean
+  },
+  message: string,
+): Effect.Effect<void, IssueWriteError> =>
+  payload.success ? Effect.void : Effect.fail(new IssueWriteError({ message }))
 
 export {
   type BulkTarget,
   type BulkWriteResult,
   type BulkWriteSuccess,
   combineStatus,
+  CommentNotFoundError,
   IssueWriteError,
   isNoneValue,
   type IssueCreatePlan,
@@ -204,6 +225,7 @@ export {
   stateByName,
   stateByType,
   unwrapComment,
+  unwrapDelete,
   unwrapIssue,
   unwrapRelation,
   type WriteAction,
