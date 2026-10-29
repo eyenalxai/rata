@@ -1,0 +1,2492 @@
+version: 1
+workspace: utbetdix
+team:
+  key: RATA
+  id: 984576ed-9eb0-4cc5-b9bb-7dd50cb7146b
+
+labels:
+  - name: enhancement
+    scope: team
+    color: "#4EA7FC"
+  - name: needs-info
+    scope: team
+    color: "#4EA7FC"
+  - name: needs-triage
+    scope: team
+    color: "#4EA7FC"
+  - name: ready-for-agent
+    scope: team
+    color: "#4EA7FC"
+  - name: ready-for-human
+    scope: team
+    color: "#4EA7FC"
+  - name: "wayfinder:grilling"
+    scope: team
+    color: "#4EA7FC"
+  - name: "wayfinder:map"
+    scope: team
+    color: "#4EA7FC"
+  - name: "wayfinder:prototype"
+    scope: team
+    color: "#4EA7FC"
+  - name: "wayfinder:research"
+    scope: team
+    color: "#4EA7FC"
+  - name: "wayfinder:task"
+    scope: team
+    color: "#4EA7FC"
+  - name: wontfix
+    scope: team
+    color: "#4EA7FC"
+  - name: Bug
+    scope: workspace
+    color: "#EB5757"
+  - name: Feature
+    scope: workspace
+    color: "#BB87FC"
+  - name: Improvement
+    scope: workspace
+    color: "#4EA7FC"
+
+states:
+  - name: Backlog
+    type: backlog
+  - name: Todo
+    type: unstarted
+  - name: "In Progress"
+    type: started
+  - name: Done
+    type: completed
+  - name: Canceled
+    type: canceled
+  - name: Duplicate
+    type: duplicate
+  - name: "In Review"
+    type: started
+
+members:
+  - email: "mail@iyxeyl.me"
+    id: d04a8850-48dc-40bf-b75f-02b581d0112e
+    name: "Linsid Bueutnip"
+
+issues:
+  - key: RATA-83
+    id: 90b3d128-34a9-4ee9-abc1-aad766e95176
+    title: "Agent-native tracker follow-ups for rata 0.10.0"
+    description: |-
+      ## Destination
+
+      A 0.10.0 contract and spec that close the remaining jyoti and harbagsa feedback:
+      bulk import and export, issue delete, restore and trash, idempotent upserts,
+      declarative apply, graph-aware reads, machine-first scripting, PR awareness, and
+      a cache and audit log.
+
+      The map is done when every decision below is resolved, so `/to-spec` can write the
+      0.10.0 spec without a guess.
+
+      ## Notes
+
+      Sources: the jyoti mission feedback behind RATA-77, and the harbagsa migration
+      feedback: 304 creates, 194 comments, 80 links, 578 subprocesses and 25 minutes.
+      Import/export and delete/restore are the two biggest wins. `--key` plus upsert,
+      `--dry-run` everywhere with a label resolution report, and graph-aware
+      `issue list --include` with `--id-only` are the next three.
+
+      0.8.0 shipped at `3d24065`: PR #22, tag `v0.8.0`, Arch package `0.8.0-1`. This
+      map is charted from that commit. There is no backwards compatibility with 0.7.0
+      or 0.8.0.
+
+      ### Facts from charting
+
+      Read from `~/Projects/other/linear/packages/sdk/src/schema.graphql`. The research
+      tickets confirm them and close the gaps.
+
+      * `IssueCreateInput.id: String` lets the client choose an issue id. A deterministic
+        id makes a create retry-safe and lets one batch wire parents, children and
+        blockers without a read.
+      * `issueBatchCreate` "creates a list of issues atomically". `issueBatchUpdate`
+        takes "no more than 50" ids.
+      * `IssueCreateInput.createdAt`, `IssueCreateInput.completedAt` and
+        `CommentCreateInput.createdAt` accept a past time. `createAsUser` and
+        `displayIconUrl` need an OAuth application in `actor=app` mode, so an API key
+        cannot keep a comment author.
+      * `issueDelete`, `issueArchive(trash)`, `issueUnarchive` and `Issue.trashed`
+        exist. `permanentlyDelete` is admin only and skips the 30-day grace period.
+      * `rateLimitStatus { limits { type allowedAmount remainingAmount period reset } }`
+        exists. RATA-77 records that `rate_limited` drops the parsed retry time today.
+      * Linear runs its own import jobs: `issueImportCreateCSVJira` takes a `csvUrl`,
+        with `issueImportCheckCSV`, `issueImportUpdate` and `issueImportDelete`.
+
+      ### Standing rules
+
+      * Use `rata` for every tracker operation.
+      * Keep the map and its children unassigned until the claim step. The assignee is
+        the claim.
+      * One decision ticket per session. Research tickets may run in parallel, and only
+        after the owner approves this map.
+      * Read `GLOSSARY.md`, `docs/adr/`, `docs/agents/issue-tracker.md` and `AGENTS.md`
+        before a ticket. Read `node_modules/effect/AGENTS.md` before any Effect-shaped
+        design.
+      * Measure cost where the ticket asks for it. A decision that changes the API call
+        count needs the number.
+
+      ## Decisions so far
+
+      <!-- one line per closed ticket: the gist, then the link for the detail -->
+
+      * PR awareness: Linear's `Attachment.metadata` already holds PR state, draft, review state and timestamps; rata selects only six attachment fields today, so `--with-prs` costs zero extra requests and needs no GitHub auth. See [research/pr-awareness.md](<https://github.com/eyenalxai/rata/blob/research/pr-awareness/research/pr-awareness.md>).
+      * Batch writes: `issueBatchCreate` is capped at 50 and atomic; batching turns 304 creates into 7 requests, but comments and links have no batch mutation. Budgets are 2,500 requests and 3,000,000 complexity points per hour, and a 429 carries both `Retry-After` and a `RATELIMITED` extension. See [research/batch-writes.md](<https://github.com/eyenalxai/rata/blob/research/batch-writes/research/batch-writes.md>).
+      * Migration provenance: `createdAt`/`completedAt` work on a plain API key but only on create; a comment author cannot be kept without an OAuth `actor=app` app, so use a bold prefix line. The CSV import job is Jira-only, cannot be finished headless, and needs a fresh team to keep identifiers. Manifest + batch writes stays the main path. See [research/migration-provenance.md](<https://github.com/eyenalxai/rata/blob/research/migration-provenance/research/migration-provenance.md>).
+      * Trash and restore: trash is a flag on an archived issue; `issueDelete` trashes with a documented 30-day grace, and `permanentlyDelete` is admin only. `issueUnarchive` restores, and `issueUpdate` with `trashed: null` is the documented fallback. `IssueFilter` has no trashed field, so `issue list --trashed` is `includeArchived: true` plus a client-side filter. See [research/issue-trash.md](<https://github.com/eyenalxai/rata/blob/research/issue-trash/research/issue-trash.md>).
+      * Command surface: the verbs stay, and `import`, `export` and `apply` join as top-level peers. `issue delete`, `issue restore`, `issue list --trashed`, `issue create --key`, `--id-only` on list-shaped reads, and `--with-prs` on `issue show` and `next`. No `--format`, no `get`/`patch`, no `upsert` command. See [the command table](<https://linear.app/utbetdix/issue/RATA-91/decide-the-090-command-surface-and-vocabulary#comment-d8b0e863-ebf3-4f77-b50b-83c83e5b138a>).
+      * Identity: `issue create --key` derives a UUIDv4-shaped issue id from the team UUID and the key; there is no SQLite map and no footer. A hit returns `skipped`, a team mismatch returns `conflict`, and `--key` never updates. Manifest entries carry `key` to create and `id` to address. See [RATA-96](https://linear.app/utbetdix/issue/RATA-96/decide-the-identity-and-idempotency-contract#comment-06133e35-84df-41e7-9cd5-385ef3683289).
+      * Batch execution: one process, sequential, 50 per `issueBatchCreate`, level order, `Retry-After` up to 60 s then a clean stop with a resumable rerun, one result per item, and `--state` is a write-only JSONL audit. See [RATA-97](https://linear.app/utbetdix/issue/RATA-97/decide-the-batch-execution-and-progress-contract#comment-a4ea1566-f0e1-4b0f-b606-e67b101ec6d0).
+      * Mission front door: RATA-109 takes 0.9.0; this map retargets to 0.10.0. RATA-91's `--id-only` name is superseded by `--ids-only` in RATA-109. The front door owns the core exit codes and the Linear-only PR projection; RATA-104 and RATA-105 own the batch and graph extensions.
+      * Delete, restore and trash: `issue delete` trashes and cascades to sub-issues, refuses an open-child tree unless `--cascade`, and `--permanently` is admin-only behind a `Viewer.admin` pre-check. `issue restore` restores one issue and reports the children that stay trashed. `issue list --trashed` is the only trash view, `trashed` rides on every read, and a wrong-state write is `skipped`. See [RATA-98](https://linear.app/utbetdix/issue/RATA-98/decide-the-delete-restore-and-trash-surface#comment-4c4f88a1-b691-41ad-a61a-a5a8f578dfe3).
+      * Label scope: Linear refuses a team label and a workspace label with the same name, so inside team ∪ workspace a name matches one label and a reference never carries a scope; `label list --scope team|workspace|all` defaults to the usable set, every label object reports `scope`, `label create --scope workspace` is admin-gated, and a miss costs one cross-team hint lookup. See [RATA-99](https://linear.app/utbetdix/issue/RATA-99/decide-how-rata-resolves-and-addresses-label-scope#comment-344c3a8a-a501-4d97-9d4e-99c9b37b8eb5).
+
+      ## Not yet specified
+
+      * The 0.10.0 release shape: one release or 0.10.x patches, and what the release
+        checklist gains for a migration tool. Waits on the whole map.
+      * The documentation and skill surface. An import and apply workflow may replace
+        the create-and-link loop that `docs/agents/issue-tracker.md` and `skills/rata`
+        teach. Which documents change depends on the commands.
+      * Whether a manifest becomes the authored source of truth for a spec, with Linear
+        as its output. That changes the tracker workflow, not only the CLI.
+      * Whether rata's own tracker is the first real manifest, or a scratch team stays
+        the test bed.
+      * The error taxonomy beyond `retryable`: whether a partial batch needs its own
+        code, and how a bulk command reports it.
+      * Windows and cross-platform path handling for an export file and a state file,
+        if the release claims it.
+
+      ## Out of scope
+
+      * The 0.8.0 surface in RATA-77.
+      * A `--format` template language. Use `--json --fields` and `jq`.
+      * Backwards compatibility with 0.7.0 or 0.8.0.
+      * A resident daemon, server mode, an MCP server, or scheduled sync. A batch run
+        is one process per invocation.
+      * Linear projects as the container for specs. This repository does not use
+        projects.
+      * Comment reactions, resolve and unresolve, and attachments as a surface.
+      * Import from GitHub, Asana, Clubhouse or Jira's API. The Jira CSV job is a
+        research question only.
+      * Multi-workspace bulk writes, and an import that writes to another workspace
+        profile.
+      * A UI or TUI.
+
+      ## Mission: rata 0.10.0 agent-native tracker
+
+      Status: active
+      Scope: fog
+      Phase: resolve
+      Gate: Decision, pending. Method: the ticket's `wayfinder:<type>`.
+      Goal: a 0.10.0 contract and spec, decided from this map.
+      Exit: every decision ticket resolved, `/to-spec` writes the 0.10.0 spec, and the
+      spec's tickets build it.
+
+      ### Flow
+
+      - [X] classify: fog. Sixteen fog areas from the placeholder, one command-surface
+            fork, and one rehearsal.
+      - [X] chart: this map and its decision tickets (2026-10-29)
+      - [X] map gate: approved by the owner (2026-10-29)
+      - [ ] resolve the frontier, one ticket per session
+      - [ ] spec
+      - [ ] tickets
+      - [ ] implement, one PR per ticket
+      - [ ] release 0.10.0
+
+      ### Gates
+
+      | Gate | Method | Artifact | Status |
+      | -- | -- | -- | -- |
+      | Map | owner review | this issue | approved by the owner, 2026-10-29 |
+      | Decision | the ticket's `wayfinder:<type>` | each child issue | pending |
+      | Spec | owner review | the 0.10.0 spec issue | pending |
+      | Tickets | owner review | the spec's children | pending |
+      | PR | `code-review` | one PR per ticket | pending |
+
+      ### Session plan
+
+      | Session | Work | Exit |
+      | -- | -- | -- |
+      | 1 | classify, chart the map | map gate approval |
+      | 2 to n | one decision ticket per session, in frontier order | one closed ticket, one map line |
+      | n+1 | write the 0.10.0 spec from the decisions | spec gate approval |
+      | n+2 | cut the spec into tickets | ticket gate approval |
+      | then | one ticket per session, review, PR | one merged PR per ticket |
+
+      ### References
+
+      | Reference | Why | Path or URL |
+      | -- | -- | -- |
+      | RATA-77 | The 0.8.0 contract and the mission pattern | [RATA-77](https://linear.app/utbetdix/issue/RATA-77) |
+      | RATA-72 | Bulk writes by parent; the `{ dryRun, results }` shape | [RATA-72](https://linear.app/utbetdix/issue/RATA-72) |
+      | RATA-73 | Read-after-write visibility | [RATA-73](https://linear.app/utbetdix/issue/RATA-73) |
+      | `AGENTS.md` | Repo rules | `AGENTS.md` |
+      | `GLOSSARY.md` | Domain vocabulary | `GLOSSARY.md` |
+      | `docs/adr/` | Earlier decisions, especially 0003, 0004 and 0006 | `docs/adr/` |
+      | `docs/agents/issue-tracker.md` | Tracker workflow and wayfinding operations | `docs/agents/issue-tracker.md` |
+      | Linear schema | Every API fact a ticket needs | `~/Projects/other/linear/packages/sdk/src/schema.graphql` |
+      | Linear SDK | Client behaviour, batching and retries | `~/Projects/other/linear/packages/sdk/src/` |
+      | `node_modules/effect/AGENTS.md` | Effect v4 reference | `node_modules/effect/AGENTS.md` |
+      | `README.md` | The 0.8.0 command surface | `README.md` |
+      | `skills/rata/reference.md` | The command reference the release keeps in step | `skills/rata/reference.md` |
+
+      ### Next step
+
+      * Skill: `wayfinder:prototype` for RATA-100, then the owner's review of the file
+      * Gate: Decision, pending. Method: `wayfinder:prototype`. The owner reviews the
+        manifest file, not a description of it.
+      * Command: claim RATA-100, write the manifest by hand from the API on the
+        `research/manifest-shape` branch, link it from the ticket, open no PR.
+      * Produce: a reviewable manifest for one team that fixes the file shape RATA-101
+        and RATA-102 consume. D9 of RATA-99 holds: plain names in entries, scope in the
+        top-level `labels` declarations.
+      * Frontier: RATA-100 (next), then RATA-103 and RATA-108.
+
+      ### Handoff log
+
+      * 2026-10-29: map charted. Eighteen decision tickets created, blocking edges
+        wired, the destination and the fog recorded. Phase map, gate Map pending,
+        method owner review. No ticket resolved before the gate.
+      * 2026-10-29: map gate approved by the owner. Session 1 complete: classify and
+        chart. Phase resolve, gate Decision pending, method the ticket's
+        `wayfinder:<type>`. The four research tickets start in parallel, then RATA-91.
+        Prompt delivered in chat for session 2.
+      * 2026-10-29: the four research tickets closed and RATA-91 resolved with the
+        0.9.0 command table. Phase resolve, gate Decision pending, method the ticket's
+        `wayfinder:<type>`. The next ticket is RATA-96. Prompt delivered in chat.
+      * 2026-10-29: RATA-96 resolved. The write key derives a UUIDv4-shaped issue id; `key` creates, `id` addresses, and a hit returns `skipped`. Phase resolve, gate Decision pending, method the ticket's `wayfinder:<type>`. The next ticket is RATA-97. Prompt delivered in chat.
+      * 2026-10-29: RATA-97 resolved. The batch run is one sequential process, 50 per create chunk, level order, `Retry-After` up to 60 s then a clean stop, and one result per item; `--state` is a write-only JSONL audit. Phase resolve, gate Decision pending, method the ticket's `wayfinder:<type>`. The next ticket is RATA-98. Prompt delivered in chat.
+      * 2026-10-29: RATA-98 resolved. The delete, restore and trash contract: `issue delete` trashes and cascades, refuses an open-child tree unless `--cascade`, and `--permanently` is admin-only; `issue restore` reports the children that stay trashed; `issue list --trashed` is the only trash view; a wrong-state write is `skipped`. Phase resolve, gate Decision pending, method the ticket's `wayfinder:<type>`. The next ticket is RATA-99. Prompt delivered in chat.
+      * 2026-10-29: RATA-99 resolved. Linear refuses a team label and a workspace
+        label with the same name, so inside team ∪ workspace a name matches one label
+        and a reference never carries a scope; `label list --scope team|workspace|all`
+        defaults to the usable set, every label object reports `scope`, and
+        `label create --scope workspace` is admin-gated. Phase resolve, gate Decision
+        pending, method the ticket's `wayfinder:<type>`. The next ticket is RATA-100.
+        Prompt delivered in chat.
+    state: Backlog
+    priority: medium
+    labels: ["wayfinder:map"]
+    assignee: null
+    parent: null
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T10:54:07.027Z"
+    comments:
+      - key: mission-front-door
+        id: e315c99b-624f-4909-a1a7-1fae8bf0b412
+        author: "mail@iyxeyl.me"
+        createdAt: "2026-10-29T17:13:45.591Z"
+        body: |-
+          The mission front door moved out to RATA-109 (related, not blocking). RATA-109 owns mission state and commands, guarded body writes, `section append --stamp`, `issue status`, `doctor`, bare-number refs and `--ids-only`.
+
+          This map keeps bulk import/export, declarative apply, graph-aware reads, machine-first output and the exit-code contract, PR awareness, cache and audit log. RATA-91's `--id-only` name is superseded by `--ids-only` in RATA-109 unless the owner reverses it.
+    blocks: []
+
+  - key: RATA-91
+    id: e3bc825e-7a3a-4186-b6ac-5466023aa49e
+    title: "Decide the 0.9.0 command surface and vocabulary"
+    description: |-
+      ## Question
+
+      What command surface does 0.9.0 expose, and what vocabulary names it?
+
+      The 0.8.0 surface is verb-oriented: `issue create`, `issue update`,
+      `issue section append`, `issue comment create`, `next`, `why`. The harbagsa
+      feedback asks for resource-oriented commands (`issue get`, `issue patch`,
+      `issue apply`, `issue graph`) next to bulk commands (`import`, `export`,
+      `apply`, `upsert`). Both cannot be the primary surface.
+
+      The `GLOSSARY.md` verbs are fixed: delete means trash, a bulk write reports
+      `updated`, `skipped` or `failed` per child, and a ticket carries blocking edges.
+
+      Decide:
+
+      * Does 0.9.0 keep the verb surface and add bulk commands as peers (`rata import`,
+        `rata export`, `rata apply`), or move issues to `get` and `patch`?
+      * Is `issue apply <ref> -f` (one issue from a file) the same command as
+        `rata apply -f` (a manifest), or two commands?
+      * Do `issue delete`, `issue restore` and `issue trash list` keep the `issue`
+        noun, as `project delete` and `project restore` do?
+      * Where does `--id-only` live: a global output flag, a read command flag, or a
+        `--fields` shorthand?
+      * Does 0.9.0 add `--format json|jsonl`, or keep `--json --fields` as the only
+        machine surface?
+      * Does a new bulk command read the repository config for its team, as the read
+        commands do?
+
+      Deliverable in the resolution comment: one command table for 0.9.0, plus one
+      line per renamed or new command, with the flag that decides it. Every other
+      ticket uses these names, so this one lands first.
+    state: Done
+    priority: urgent
+    labels: ["wayfinder:grilling"]
+    assignee: "mail@iyxeyl.me"
+    parent: RATA-83
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T15:15:02.696Z"
+    comments:
+      - key: resolution
+        id: d8b0e863-ebf3-4f77-b50b-83c83e5b138a
+        author: "mail@iyxeyl.me"
+        createdAt: "2026-10-29T16:10:10.409Z"
+        body: |-
+          ## Resolution
+
+          The owner approved all seven recommendations on 2026-10-29. This comment is the
+          0.9.0 command surface. Every other ticket uses these names.
+
+          ### Surface rule
+
+          0.9.0 keeps the verb surface. `issue create`, `issue update` and `issue show`
+          stay. Bulk operations are top-level peers: `rata import`, `rata export` and
+          `rata apply`. There is no move to `get` and `patch`, and no new alias: one
+          operation has one name. `issue view` stays the only alias, as shipped in 0.8.0.
+
+          `--json --fields` stays the only structured read format. `--id-only` is plain
+          text, not a format switch. 0.9.0 adds no `--format json|jsonl`.
+
+          ### Command table
+
+          | Command | Status | Deciding flag or behaviour |
+          | -- | -- | -- |
+          | `status`, `link`, `unlink`, `whoami` | kept | — |
+          | `config show\|set\|unset` | kept | — |
+          | `workspace list\|use` | kept | — |
+          | `auth login\|status\|logout` | kept | — |
+          | `search <text>` | kept | gains `--id-only` |
+          | `next --parent <ref>` | kept | gains `--id-only`, `--with-prs` |
+          | `why <ref>` | kept | — |
+          | `issue show <ref>` (`view`) | kept | gains `--with-prs` |
+          | `issue list` | kept | gains `--trashed`, `--id-only`; `--include` reserved for RATA-103 |
+          | `issue create` | kept | gains `--key` |
+          | `issue update <ref>` | kept | — |
+          | `issue delete <ref>` | new | trashes by default; `--permanently` skips the grace period and needs an admin |
+          | `issue restore <ref>` | new | restores from the trash by identifier or UUID |
+          | `issue comment create\|update\|delete` | kept | — |
+          | `issue section get\|append\|replace` | kept | — |
+          | `issue label add\|remove` | kept | — |
+          | `issue assign\|unassign` | kept | — |
+          | `issue link\|unlink` | kept | — |
+          | `issue close\|reopen` | kept | — |
+          | `team list\|show\|create\|delete` | kept | — |
+          | `project list\|create\|delete\|restore` | kept | — |
+          | `label list\|create\|edit` | kept | — |
+          | `rata import -f <file>` | new | `-f/--file` names the source; `--team` beats the file's team, which beats the repository config |
+          | `rata export` | new | `-o/--output` names the destination; `--parent`, `--project` and `--team` scope the set |
+          | `rata apply -f <manifest>` | new | `-f/--file` names the manifest; `--dry-run` prints the plan |
+          | `pr status <ref>` | reserved | the PR projection; RATA-105 decides the final shape |
+
+          `--dry-run` stays available on every write, including the three bulk commands.
+          Every new bulk command resolves its team and project like a read: an explicit
+          flag, then the file, then the repository config.
+
+          ### New and renamed commands
+
+          - **New `rata import -f <file>`**: reads an external file and creates issues.
+            One direction, no convergence. `--team` overrides the file.
+          - **New `rata export -o <file>`**: writes Linear issues in the manifest shape.
+            Scoped by `--parent`, `--project` or `--team`; the repository config supplies
+            the default scope.
+          - **New `rata apply -f <manifest>`**: converges Linear to a manifest. One
+            declarative entry; a one-issue file is a one-entry manifest. There is no
+            `issue apply`. `issue update` stays the imperative one-issue write.
+          - **New `issue delete <ref>`**: moves an issue to the trash. This matches
+            `project delete` and `team delete` (ADR-0004). `--permanently` is admin only.
+          - **New `issue restore <ref>`**: brings a trashed issue back. It uses
+            `issueUnarchive`, with `issueUpdate(trashed: null)` as the documented fallback.
+          - **New `issue list --trashed`**: lists the trash. There is no `issue trash`
+            group. `IssueFilter` has no `trashed` field, so the command sends
+            `includeArchived: true` and filters `trashed` on the client.
+          - **New `--id-only` on `issue list`, `search` and `next`**: one identifier per
+            line, valid without `--json`. `next` prints nothing and exits 0 at an empty
+            frontier.
+          - **New `issue create --key`**: a stable key derives the issue UUID, so a retry
+            returns the existing issue with `skipped`. There is no `upsert` command.
+          - **New `--with-prs` on `issue show` and `next`**: projects
+            `Attachment.metadata` for `sourceType: "github"`. Zero extra requests.
+          - **Reserved `--include` on `issue show` and `issue list`**: the graph-aware
+            read. RATA-103 decides its paths and depth.
+          - **Renamed**: none.
+
+          ### Vocabulary
+
+          These terms enter `GLOSSARY.md` with the 0.9.0 spec.
+
+          - **Manifest**: the authored file that declares issues, their relations and
+            their comments. It is the source of truth for `apply`.
+          - **Apply**: converge Linear to a manifest. It reports `created`, `updated`,
+            `skipped` or `failed` per entry.
+          - **Import**: read an external file and create issues. It does not converge.
+          - **Export**: write Linear issues to a file in the manifest shape.
+          - **Write key**: the client-chosen stable string that identifies one issue
+            across retries. `--key` on `issue create` and `key` on a manifest entry use
+            it. The same key on the same team returns the existing issue as `skipped`.
+
+          `upsert` is not a term and not a command. A create with a write key is the
+          upsert.
+
+          ### What each ticket inherits
+
+          - RATA-96 owns the key derivation, the id format and the `skipped` result.
+          - RATA-97 owns the batch size (at most 50), progress and partial failure.
+          - RATA-98 owns `--permanently` and the `--trashed` filter.
+          - RATA-99, RATA-101, RATA-102, RATA-103, RATA-104, RATA-105, RATA-106 and
+            RATA-107 use these names and add no competing ones.
+    blocks: [RATA-96, RATA-97, RATA-98, RATA-99, RATA-103, RATA-104, RATA-106]
+
+  - key: RATA-92
+    id: 292c95e8-9b8a-4e3a-b68a-199b29388089
+    title: "Establish Linear's batch-write and rate-limit facts"
+    description: |-
+      ## Question
+
+      What are Linear's real batch-write and rate-limit facts for a 300+ issue
+      migration?
+
+      Rata spends one process per issue today. The harbagsa migration made 304
+      creates, 194 comments and 80 links in 578 subprocesses over 25 minutes. Charting
+      found these facts in the schema. Confirm them against the backend and close the
+      gaps.
+
+      Facts to confirm or correct:
+
+      * `issueBatchCreate(input: { issues: [IssueCreateInput!]! })` "creates a list of
+        issues atomically".
+      * `issueBatchUpdate(ids: [UUID!]!, input: IssueUpdateInput!)` says "Can't be
+        more than 50 at a time".
+      * `IssueCreateInput.id: String` lets the client choose the issue id.
+      * `rateLimitStatus: RateLimitPayload` returns `limits[]` with `type`,
+        `allowedAmount`, `remainingAmount`, `requestedAmount`, `period` and `reset`.
+
+      Answer:
+
+      * What is the real maximum list size for `issueBatchCreate`? Is it a documented
+        bound, a payload size bound, or none?
+      * Can a child in one batch name a parent created in the same batch
+        (`parentId`), or must the parent exist first?
+      * What happens on a duplicate `IssueCreateInput.id`: an error, a silent no-op,
+        or the existing issue?
+      * Is `issueBatchCreate` all-or-nothing, or does it return partial success? What
+        does a failure report?
+      * Is 50 a hard bound for `issueBatchUpdate`?
+      * Which rate-limit types apply to mutations? What is the request budget per
+        hour and the complexity budget per hour?
+      * What does a 429 carry: `Retry-After`, a GraphQL error extension, or both?
+        RATA-77 records that `rate_limited` drops the parsed retry time.
+      * Does one big batch cost less than many small ones on the complexity budget, or
+        the same?
+
+      Read the schema and SDK in `~/Projects/other/linear`. Leave the findings on a
+      `research/batch-writes` branch with a context pointer comment here. Open no PR.
+    state: Done
+    priority: urgent
+    labels: ["wayfinder:research"]
+    assignee: "mail@iyxeyl.me"
+    parent: RATA-83
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T15:15:14.251Z"
+    comments:
+      - key: finding
+        id: d6b9cf9c-dcdc-4c0d-b775-66a36ec9ee70
+        author: "mail@iyxeyl.me"
+        createdAt: "2026-10-29T15:43:17.942Z"
+        body: |-
+          ## Finding
+
+          `issueBatchCreate` is capped at **50** issues per call (`schema.graphql:18644`), same as `issueBatchUpdate`. The batch is documented atomic, so a failure is a top-level GraphQL error and nothing is created. `rateLimitStatus` has the six claimed fields, but `type` is `String!` — there is no `RateLimitType` enum.
+
+          - Budgets per API key: 2,500 requests/hour, 3,000,000 complexity points/hour, 10,000 points per query.
+          - A 429 carries both `Retry-After` and `extensions.code: "RATELIMITED"`. rata drops the retry time at `src/cli/error-report.ts:114` and reads no `X-RateLimit-*` header.
+          - Cost: batching takes 304 creates to 7 requests, but comments (194) and links (80) have no batch mutation, so 274 requests stay. The 25-minute run was bound by request count and subprocess start-up, not complexity.
+          - Unverified, with a cheap test each: a child naming a parent created in the same batch, a duplicate client id, the failure wire shape, and whether input pays complexity.
+
+          Full finding: [research/batch-writes.md](https://github.com/eyenalxai/rata/blob/research/batch-writes/research/batch-writes.md) on the `research/batch-writes` branch. No PR.
+    blocks: [RATA-96, RATA-97]
+
+  - key: RATA-93
+    id: 9fb669b9-2a68-480a-94a2-4fb7aec3161a
+    title: "Establish Linear's migration provenance and import-job facts"
+    description: |-
+      ## Question
+
+      Which provenance can rata keep in a migration, and does Linear's own import job
+      beat rata's writes?
+
+      The destination names import, export and provenance. The harbagsa migration lost
+      issue dates and comment authors. Charting found that the API accepts some
+      provenance fields. Confirm which ones a normal API key accepts.
+
+      Answer from the schema and the SDK:
+
+      * `IssueCreateInput.createdAt` and `completedAt` accept a past time "if
+        importing from another system". Does a plain API key accept them, or only an
+        import job?
+      * `CommentCreateInput.createdAt` accepts a past time. Same question.
+      * `createAsUser` and `displayIconUrl` say "only available to OAuth applications
+        creating issues in `actor=app` mode". Can rata with an API key keep a comment
+        author? If not, what is the best substitute: a footer marker, a prefix, or
+        nothing?
+      * `issueImportCreateCSVJira(csvUrl, jiraEmail, jiraHostname, jiraToken, teamId)`
+        exists, with `issueImportCheckCSV`, `issueImportUpdate`, `issueImportDelete`,
+        `issueImportCreateGithub`, `issueImportCreateJira` and
+        `issueImportCreateClubhouse`. What column set does the CSV import accept: Jira
+        columns only, or a generic mapping? Which fields does the mapping cover:
+        state, labels, assignee, parent, relations, comments, `createdAt`?
+      * Does an import job keep the issue identifiers? Does it report progress? Can it
+        target an existing team by id?
+      * Can rata drive an import end to end, or does it need a `csvUrl` that Linear
+        can reach over the network?
+
+      Close with a recommendation: rata manifest plus batch writes, Linear's import
+      job, or both. Give the reason in two lines. Leave the findings on a
+      `research/migration-provenance` branch with a context pointer comment here. Open
+      no PR.
+    state: Done
+    priority: high
+    labels: ["wayfinder:research"]
+    assignee: "mail@iyxeyl.me"
+    parent: RATA-83
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T15:15:15.817Z"
+    comments:
+      - key: finding
+        id: 7c722ace-cc14-46fe-b85c-cd6c179091ab
+        author: "mail@iyxeyl.me"
+        createdAt: "2026-10-29T15:48:07.670Z"
+        body: |-
+          ## Finding
+
+          Dates are plain input fields, not an import-job privilege. `IssueCreateInput.createdAt` and `completedAt` accept a past time and name no auth mode; Linear's own `@linear/import` CLI passes them on a personal API key (`packages/import/src/importIssues.ts:54`, `:364-365`). `IssueUpdateInput` has neither field, so backdating is **create-only**; a wrong date needs delete and recreate. Comment `createdAt` is worded identically and is unproven at runtime.
+
+          - A comment author cannot be kept with an API key: `createAsUser` is OAuth `actor=app` only. Best substitute is a bold prefix line inside a real comment (`**Ada Lovelace** · 2019-04-03`), which keeps threading, counts and per-comment dates. Folding into the description, as Linear's CLI does, loses all three.
+          - `issueImportCreateCSVJira` is Jira-columns-only. There is no generic mapping and no `IssueImportMappingInput`. It is the one importer without `instantProcess`, so it stops before processing and needs `issueImportProcess` with an undocumented `mapping` JSON. rata could host the CSV via `importFileUpload` → signed PUT → `assetUrl`, but identifiers survive only into a new or empty team, and no query returns `IssueImport` to poll progress.
+          - Cost: an import job is ~5 calls; API writes are one request per entity against 2,500/hour. The import job also allows bulk deletion within 7 days.
+          - Recommendation: **rata manifest plus batched writes** as the main path; keep Linear's import job for an identifier-preserving load into a fresh team.
+
+          Full finding: [research/migration-provenance.md](https://github.com/eyenalxai/rata/blob/research/migration-provenance/research/migration-provenance.md) on the `research/migration-provenance` branch. No PR.
+    blocks: [RATA-100]
+
+  - key: RATA-94
+    id: 47f3a842-0e5d-4513-a194-fa9bf179e5bc
+    title: "Establish Linear's issue trash and restore semantics"
+    description: |-
+      ## Question
+
+      What does Linear expose for issue trash and restore?
+
+      The destination names `issue delete`, `issue restore`, `issue trash list` and a
+      `trashed` field on reads. Charting found `issueDelete`, `issueArchive(trash)`,
+      `issueUnarchive` and `Issue.trashed`. Confirm the semantics.
+
+      Answer from the schema and the SDK:
+
+      * `issueDelete` trashes an issue. Is the 30-day grace period documented? Is
+        `permanentlyDelete` admin only?
+      * Is `issueUnarchive` the inverse of `issueDelete` for an issue, the way
+        `projectUnarchive` is for a project? Or does an issue need a different call?
+      * What does `issueArchive(trash: true)` do that `issueDelete` does not? Are
+        archived and trashed the same state?
+      * Is `trashed` selected on the normal `issue` and `issues` queries? Is it null
+        on a live issue?
+      * Can the `issues` filter select trashed issues? Does `includeArchived` return
+        both archived and trashed, and can a caller tell them apart?
+      * Does `issueUnarchive` restore an archived issue that was never trashed?
+        Does that matter for the CLI surface?
+      * Do trashed issues keep children, relations, comments and attachments? What
+        happens to a child when its parent is trashed?
+      * Can a caller restore an issue by identifier, or only by id?
+
+      Leave the findings on a `research/issue-trash` branch with a context pointer
+      comment here. Open no PR.
+    state: Done
+    priority: high
+    labels: ["wayfinder:research"]
+    assignee: "mail@iyxeyl.me"
+    parent: RATA-83
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T15:15:17.266Z"
+    comments:
+      - key: finding
+        id: dc53319b-6d2c-4c73-b410-060a8e0cb7fa
+        author: "mail@iyxeyl.me"
+        createdAt: "2026-10-29T15:50:11.554Z"
+        body: |-
+          ## Finding
+
+          Trash is a flag on an archived issue, not a separate state. `issueDelete` trashes and takes `permanentlyDelete`, which skips the documented 30-day grace and is "Available only to admins!" (`schema.graphql:26590-26602`). `issueArchive(trash: true)` reaches the same state by the other entry point and returns the same `IssueArchivePayload`. `issueUnarchive` is the only issue restore mutation; `issueUpdate` with `trashed: null` is the documented fallback.
+
+          - `Issue.trashed` is a nullable `Boolean` on the normal `issue` and `issues` queries. A read-only probe of 250 live issues returned `null` 249 times and `false` never.
+          - `IssueFilter` has no `trashed` field. `includeArchived: true` is the only switch, and it returns archived **and** trashed issues together; the `trashed` field separates them.
+          - `issue(id:)` resolves a trashed issue by identifier and by UUID, with no `includeArchived` argument.
+          - A trashed parent hides its children from the default read; they return only with `children(includeArchived: true)`.
+          - Comments, attachments, and subtree restore are unverified.
+
+          CLI consequence: `issue list --trashed` needs `includeArchived: true` plus a client-side `trashed` filter, not a server filter. The `--include-archived` fallback is therefore not equivalent, and `--trashed` is the honest name.
+
+          Full finding: [research/issue-trash.md](https://github.com/eyenalxai/rata/blob/research/issue-trash/research/issue-trash.md) on the `research/issue-trash` branch. No PR.
+    blocks: [RATA-98]
+
+  - key: RATA-95
+    id: 350059c5-92b9-4f15-90f4-6aa03084210b
+    title: "Establish how rata finds the pull request for an issue"
+    description: |-
+      ## Question
+
+      How does a rata read find the pull request for an issue, and what auth does that
+      need?
+
+      The feedback asks for `--with-prs` on `issue show`, `rata pr status`, and PR
+      state in `next`. Today rata reads the Linear API only.
+
+      Answer:
+
+      * Does Linear hold PR state on the issue, or only as an `Attachment`? List the
+        attachment source types.
+      * Does an attachment carry a state (open, merged, draft) and a review state, or
+        only a title, a subtitle and a url?
+      * Does the GitHub integration fill those attachments, and must the user install
+        the integration for them to appear?
+      * If rata reads GitHub directly: which auth is available (`gh` CLI, a token in
+        the repository config, a token in the local database, none), which host
+        (GitHub only, or also GitLab and others), and how many requests does one issue
+        cost?
+      * What maps an issue to its PR: the Linear attachment, `Fixes RATA-42` in the PR
+        body, the branch name, or the identifier in the title? Which of those is
+        reliable across the rata workflow?
+      * Does Linear's GitHub integration already report the PR for a branch that
+        references the identifier? Check the attachment behaviour in the SDK docs.
+
+      Leave the findings on a `research/pr-awareness` branch with a context pointer
+      comment here. Open no PR.
+    state: Done
+    priority: low
+    labels: ["wayfinder:research"]
+    assignee: "mail@iyxeyl.me"
+    parent: RATA-83
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T15:15:19.061Z"
+    comments:
+      - key: finding
+        id: c95eaf85-1664-4ba5-b8f7-26a0a0ecce8e
+        author: "mail@iyxeyl.me"
+        createdAt: "2026-10-29T15:40:42.060Z"
+        body: |-
+          ## Finding
+
+          Linear already carries the pull request, its state and its review state on the issue as an `Attachment`. `Attachment.metadata: JSONObject!` holds `status` (`open`/`merged`), `draft`, `linkKind`, `reviews`, `reviewerDetails`, `number`, `repoLogin`, `repoName`, `hasConflicts`, `mergedAt` and `closedAt`. rata fetches attachments today and selects only six fields (`src/api/issue-query.ts:33`), so `--with-prs` is a zero-request projection, not a new integration.
+
+          - `Issue` has no PR field. The `PullRequest` type is internal and unreachable from an issue.
+          - The GitHub app fills the attachment; without the integration an issue has none.
+          - rata stores no GitHub credential; only the `gh` CLI is available, and it is GitHub-only. Reading GitHub directly is also less reliable: PR #22 says RATA-90 only in the Linear attachment, while the PR body still names RATA-82, and `gh pr list --search RATA-90` returns nothing.
+          - Recommendation: project `metadata` filtered to `sourceType: "github"`. Add `--with-prs` to `issue show` and `next`, and add `rata pr status <ref>`. Do not add a GitHub client.
+
+          Full finding: [research/pr-awareness.md](https://github.com/eyenalxai/rata/blob/research/pr-awareness/research/pr-awareness.md) on the `research/pr-awareness` branch. No PR.
+    blocks: [RATA-105]
+
+  - key: RATA-96
+    id: 03e8b900-97af-4143-a112-a70548d18bc2
+    title: "Decide the identity and idempotency contract"
+    description: |-
+      ## Question
+
+      What is the identity and idempotency contract for 0.9.0?
+
+      A retried import must not duplicate a write. `IssueCreateInput.id` lets the
+      client choose the issue id. That would make create idempotent, and it would let
+      one batch wire parents, children and blockers without a read.
+
+      Decide:
+
+      * Does rata derive the issue id from a caller key (a UUIDv5 of the team and the
+        key), does it store the key-to-id mapping in the local SQLite database, or
+        does it write a footer marker in the body?
+      * Is the surface `issue create --key <key>`, a new `issue upsert --key <key>`, or
+        both?
+      * What does a retry return: the existing issue with `skipped`, the existing
+        issue with `updated`, or an error?
+      * Does `--key` update an existing issue when the incoming body differs, or only
+        create and skip?
+      * What happens when the key exists on another team, or when the derived id
+        collides with an issue rata did not create?
+      * Does the manifest carry the key, so a re-import reconciles instead of
+        duplicating?
+      * Does a failed write leave a half-written object, and does the key make the
+        retry safe?
+
+      Keep the answer to one paragraph plus the flag table. This decides the flags in
+      the import and apply tickets.
+    state: Done
+    priority: high
+    labels: ["wayfinder:grilling"]
+    assignee: "mail@iyxeyl.me"
+    parent: RATA-83
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T15:15:27.138Z"
+    comments:
+      - key: resolution
+        id: 06133e35-84df-41e7-9cd5-385ef3683289
+        author: "mail@iyxeyl.me"
+        createdAt: "2026-10-29T17:01:44.548Z"
+        body: |-
+          ## Resolution
+
+          The owner approved all seven recommendations on 2026-10-29. This comment is the
+          identity and idempotency contract for 0.9.0.
+
+          `issue create --key` derives the issue id from the team and the key, and the id
+          is the identity. The id is `sha256("issue\0" + teamId + "\0" + key)` with the
+          version and variant nibbles forced to UUIDv4, because `IssueCreateInput.id`
+          accepts only UUIDv4 and a UUIDv5 fails that rule. The key is a non-empty UTF-8
+          string of 1–255 bytes, hashed as exact bytes with no trim or case fold. There is
+          no key-to-id map in SQLite and no footer marker: a map dies with the local
+          database, and a footer cannot be the identity. The team UUID is in the preimage,
+          so the key is team-scoped; the same key on another team is another issue. The
+          command reads `issue(id)` before it writes. A hit in the target team returns the
+          existing issue as `skipped`, including a trashed one; a hit in another team
+          returns `conflict` and never adopts the issue; a failed create re-reads the id,
+          and a hit returns `skipped`, a miss the original failure. `--key` is create-only:
+          it never updates a title, body, label, parent or state, and a changed manifest is
+          `rata apply`'s work (RATA-102). A manifest entry carries `key` to create and `id`
+          to address an existing issue; `apply` prefers `id`, `export` writes `id`, and
+          `import` requires `key`. The key covers the issue only. Comments keep
+          `--dedupe-key`, `issue link` keeps its read-then-skip check, and `apply` reports
+          per-entry failure. Every create result gains `status: "created" | "skipped"` and
+          echoes `key`; a skipped result has `visible: null`, and `--dry-run` reports the
+          same status without a write.
+
+          ### Flag table
+
+          | Flag | Command or file | Contract |
+          | -- | -- | -- |
+          | `--key <key>` | `issue create` | Derives the UUIDv4-shaped id. A hit returns `skipped`; a miss creates. Create-only, never updates. |
+          | `key` | manifest entry (`rata apply`, `rata import`) | The creation identity. Required by `import`; `apply` derives the id when `id` is absent. |
+          | `id` | manifest entry (`rata apply`) | The Linear UUID of an existing issue. `apply` prefers it over `key`; `rata export` writes it. |
+          | `--dedupe-key <key>` | `issue comment create` | Unchanged. Comments keep their own issue-scoped key (ADR-0007). |
+          | no new flag | `issue link` | Unchanged. It reads the relations first and reports `skipped`. |
+
+          ### Inherited by
+
+          - RATA-97 owns the batch report and the partial-failure shape. The issue key does
+            not cover comments or relations.
+          - RATA-98 owns whether `issue(id)` returns a trashed issue. The contract treats a
+            visible trashed hit as `skipped`.
+          - RATA-101 owns the import file fields; RATA-102 owns `apply` convergence and the
+            `updated` result.
+          - An ADR is warranted for the derived id and the rejected local map. It lands with
+            the 0.9.0 spec, not as a separate PR.
+    blocks: [RATA-100]
+
+  - key: RATA-97
+    id: e06c6979-b939-462c-9fe3-d33da5d7360d
+    title: "Decide the batch execution and progress contract"
+    description: |-
+      ## Question
+
+      What is the batch execution and progress contract?
+
+      One `rata import` run must replace 578 subprocesses with one process and a few
+      API calls. A 25-minute migration must become a bounded, resumable run.
+
+      Decide:
+
+      * One process, one connection, sequential batches, or bounded concurrency? What
+        is the default, and is there a `--concurrency` flag at all?
+      * Which chunk size: the backend maximum, 50 like `issueBatchUpdate`, a fixed
+        number, or a flag?
+      * How does rata back off on a 429: sleep to `reset`, exponential with jitter, or
+        both? Does the run resume, or fail?
+      * What is the progress output: one line per batch on stderr, a JSONL stream on
+        stdout, nothing without `--verbose`, or a progress line that redraws?
+      * Does a failed batch stop the run, continue and report per item, or retry once?
+      * Does the run write resumable state, and who owns the file: rata, or the caller
+        with `--state <file>`?
+      * How does a batch run report one result per item, as the bulk write contract in
+        `GLOSSARY.md` requires (`updated`, `skipped`, `failed`)?
+    state: Done
+    priority: high
+    labels: ["wayfinder:grilling"]
+    assignee: "mail@iyxeyl.me"
+    parent: RATA-83
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T15:15:28.621Z"
+    comments:
+      - key: resolution
+        id: a4ea1566-f0e1-4b0f-b606-e67b101ec6d0
+        author: "mail@iyxeyl.me"
+        createdAt: "2026-10-29T17:13:25.915Z"
+        body: |-
+          ## Resolution
+
+          The owner approved all nine recommendations on 2026-10-29. This comment is the
+          batch execution and progress contract for 0.9.0.
+
+          ### The shape of the run
+
+          One `import` or `apply` invocation is one process, one HTTP client, and
+          sequential requests. 0.9.0 adds no `--concurrency` flag. Results are collected
+          by input index, so a bounded window later is an internal change, not a surface
+          change. RATA-108 may reopen this default with measured numbers.
+
+          The 578-item migration is 281 write requests plus reads:
+
+          - 304 creates become 7 `issueBatchCreate` calls at 50 per call.
+          - 194 comments and 80 links stay one request each. Linear has no batch mutation
+            for either.
+          - Complexity is about 600 to 900 points of the 3,000,000 hourly budget. The
+            constraint is request count and latency, not complexity.
+
+          The 25 minutes came from spawning a process per write. Sequential in-process
+          requests at 0.3 to 1 second each run the same work in about 1.5 to 4 minutes.
+
+          ### Chunk size
+
+          The chunk is 50, fixed, from one constant that names the documented cap of
+          `issueBatchCreate` and `issueBatchUpdate`. There is no `--batch-size` flag. A
+          smaller value costs requests and buys nothing; a larger value is rejected.
+
+          `issueBatchUpdate` is not used in 0.9.0. It applies one input to every id, and
+          `apply` changes fields per entry. Per-issue updates stay the general path until
+          a uniform-change case is measured.
+
+          ### Order
+
+          Creates are ordered level by level: parents before children, one batch per
+          level. A child never names a parent created in the same batch, because that rule
+          is unverified. RATA-108 settles it with evidence. If it holds, a later version
+          can fold a tree into one batch without changing the report.
+
+          ### Rate limits
+
+          A 429 honours `Retry-After` when it is at most 60 seconds. Otherwise the client
+          uses exponential backoff with jitter, from a 200 ms base. Each request gets 3
+          attempts.
+
+          A 429 that survives the attempts means every later request fails too. The run
+          stops, reports `rate_limited` with `retryAfterSeconds`, exits 1, and leaves the
+          rest unattempted. A rerun resumes through the identity contract. Retries are
+          safe because every create carries a write key and every comment a dedupe key.
+
+          ### A failed batch
+
+          `issueBatchCreate` is atomic, so a failed chunk writes nothing. On failure rata
+          reads the chunk's ids once:
+
+          - A hit is `skipped`. A timeout may have committed the chunk.
+          - A miss is retried once.
+          - A second failure marks every miss `failed` with the batch error and stops the
+            run, because later chunks depend on them.
+
+          Comments, links and other one-per-request writes record `failed` per item and
+          continue, as the existing bulk write does. The run exits 1 at the end.
+
+          A batch response is matched by id, never by index.
+
+          ### Resumable state
+
+          `--state <file>` is optional and caller-owned. Rata writes it and never reads
+          it. It is a JSONL audit: one line per attempted item with `key`, `id`,
+          `identifier` when known, `status`, and `error` when failed. Each line is flushed
+          as it is written, so a killed run leaves a valid prefix.
+
+          Resume is a rerun of the same command. The manifest and Linear are the state,
+          because creates, comments and links are idempotent. A local skip list would be
+          the map RATA-96 rejected, and it could skip an issue Linear lost. Without
+          `--state`, the run writes nothing locally. `--dry-run` writes no state file.
+
+          ### Progress
+
+          Progress goes to stderr, never stdout:
+
+          - One line per completed 50-item chunk, with the phase name. For example
+            `created 50 of 304 issues`.
+          - One summary line at the end with the counts, or the stop reason.
+          - No redraw and no carriage returns. A log stays readable.
+          - No new flag. The 0.9.0 surface is frozen by RATA-91.
+          - `--json` keeps one parseable document on stdout; progress stays on stderr.
+
+          ### Result contract
+
+          One result per attempted item, in manifest order, on stdout. Fields:
+
+          - `key` when the item carries a write key.
+          - `id`, the Linear UUID. A failed create has no identifier, so this is the
+            only handle.
+          - `identifier` when Linear has assigned one.
+          - `status`: `created`, `updated`, `skipped` or `failed`. Import and create use
+            `created`; apply may use `updated`.
+          - `error`: the classified object `{ code, message, hint }` when failed.
+
+          The run adds one `summary`: `{ created, updated, skipped, failed, attempted,
+          total }`. `attempted` is the number of results; `remaining` is `total` minus
+          `attempted`.
+
+          `--json` prints one document:
+
+          ```json
+          {
+            "dryRun": false,
+            "results": [
+              { "key": "map", "id": "00000000-0000-4000-8000-000000000001", "identifier": "RAT-10", "status": "created" },
+              { "key": "ticket-a", "id": "00000000-0000-4000-8000-000000000002", "identifier": "RAT-11", "status": "skipped" },
+              { "key": "ticket-b", "id": "00000000-0000-4000-8000-000000000003", "status": "failed", "error": { "code": "validation", "message": "The state does not exist.", "hint": null } }
+            ],
+            "summary": { "created": 1, "updated": 0, "skipped": 1, "failed": 1, "attempted": 3, "total": 3 }
+          }
+          ```
+
+          `--dry-run` returns the same document with `dryRun: true`, the planned statuses,
+          and no write. Exit 0 when no item failed. Exit 1 when any item failed or the run
+          stopped early. The human output prints one line per item in the existing bulk
+          style, then the summary.
+
+          ### Vocabulary
+
+          These terms enter `GLOSSARY.md` with the 0.9.0 spec:
+
+          - **Batch run**: one `import` or `apply` invocation. One process, sequential
+            requests.
+          - **Chunk**: at most 50 items. The unit of a batch mutation and of one progress
+            line. It is not the unit of the result: the result is per item.
+          - **State file**: the caller-owned JSONL audit of a batch run. Rata writes it
+            and never reads it.
+
+          An ADR is warranted for the sequential run and the write-only state file. It
+          lands with the 0.9.0 spec, not as a separate PR.
+
+          ### Inherited by
+
+          - RATA-101 owns the phase order, the import and export fields, and the work
+            count. It uses this report and this state file.
+          - RATA-102 owns per-entry convergence. It does not batch updates in 0.9.0.
+          - RATA-104 owns JSONL, `--format` and the error fields. This contract adds
+            `retryAfterSeconds` and `summary`; the per-item fields stay.
+          - RATA-108 measures the path and may reopen the concurrency default and the
+            same-batch parent rule with numbers.
+          - RATA-99, RATA-103, RATA-105, RATA-106 and RATA-107 are unaffected.
+    blocks: [RATA-101, RATA-108]
+
+  - key: RATA-98
+    id: b10cfcd5-a54f-46d5-85b0-4c83b4d9eaf4
+    title: "Decide the delete, restore and trash surface"
+    description: |-
+      ## Question
+
+      What is the delete, restore and trash surface?
+
+      The destination names `issue delete`, `issue restore`, `issue trash list` and a
+      `trashed` field on reads. `GLOSSARY.md` says delete means moving an object to the
+      trash, and `project delete` plus `project restore` already follow that.
+
+      Decide:
+
+      * Is it `issue delete` plus `issue restore`, or `issue trash` plus
+        `issue untrash`?
+      * Is `issue trash list` a list command of its own, or `issue list --trashed`?
+        Exactly one is canonical; the other may not exist.
+      * Does `issue show` and `issue list` always carry `trashed`, or only with
+        `--include-trashed`? Does `trashed` follow `project list`'s ` (deleted)`
+        marker?
+      * What guard does `issue delete` carry: `--yes` in JSON mode as
+        `issue comment delete` does, a confirmation in human mode, both?
+      * What happens to open children when a parent is deleted: refuse, delete the
+        tree, or delete the parent only? Is there a `--children` policy?
+      * Is `--permanent` in scope, given it is admin only and skips the grace period?
+      * Does `issue restore` take an identifier, a URL, or only the id from a trash
+        list?
+      * Does `project delete` and `issue delete` share flags and output shape, or stay
+        different?
+    state: Done
+    priority: medium
+    labels: ["wayfinder:grilling"]
+    assignee: "mail@iyxeyl.me"
+    parent: RATA-83
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T15:15:30.149Z"
+    comments:
+      - key: resolution
+        id: 4c4f88a1-b691-41ad-a61a-a5a8f578dfe3
+        author: "mail@iyxeyl.me"
+        createdAt: "2026-10-29T17:22:00.337Z"
+        body: |-
+          ## Resolution
+
+          The owner approved all eight recommendations on 2026-10-29. This comment is the
+          delete, restore and trash contract for 0.10.0. RATA-91 fixed the names; this
+          ticket fixes the behaviour. The map retargeted to 0.10.0 on 2026-10-29, because
+          RATA-109 takes 0.9.0; the contract content does not change.
+
+          ### Inherited from RATA-91
+
+          - `issue delete <ref>` trashes an issue. `--permanently` skips the 30-day grace
+            period and is admin only.
+          - `issue restore <ref>` brings a trashed issue back through `issueUnarchive`,
+            with `issueUpdate(trashed: null)` as the documented fallback.
+          - `issue list --trashed` is the trash view. There is no `issue trash` group and
+            no `untrash` verb.
+          - The names match `project delete` and `project restore` (ADR-0004). No name
+            changes in this ticket.
+
+          ### Facts this contract rests on
+
+          - Trash is a flag on an archived issue. `Issue.trashed` is nullable; a live
+            issue returns `null`, not `false`.
+          - `issueDelete` trashes the issue and its sub-issues. There is no parent-only
+            delete.
+          - `issueUnarchive` restores one issue. Subtree restore is unverified.
+          - `IssueFilter` has no `trashed` field. `includeArchived: true` returns archived
+            and trashed issues together.
+          - `Issue.trashed` is selectable on `issue`, `issues` and `searchIssues`.
+          - `Viewer.admin` exists, so an admin check costs no extra request.
+
+          ### The trash view
+
+          `issue list --trashed` widens the query with `includeArchived: true` and keeps
+          only `trashed === true` on the client. Every existing filter still applies:
+          `--team`, `--parent`, `--text`, `--state`, `--assignee`, `--label`. The
+          repository team is the default scope, as for every list.
+
+          - A page can hold fewer rows than `--limit`, because the filter runs after the
+            page. `pageInfo.hasNextPage` and `pageInfo.endCursor` stay the paging
+            contract, and `--all` drains every page.
+          - 0.10.0 adds no `issue list --include-archived`. rata has no `issue archive`
+            command, so archived-without-trash issues stay out of every view.
+          - Cost: one request per 50-row page.
+
+          ### `trashed` on reads
+
+          `trashed` joins the issue summary and the issue detail. It is always selected
+          and decoded `null → false`, as `project.trashed` already is.
+
+          - `issue show`, `issue summary` and every `issue list` row carry the field.
+          - Human `issue show` prints `trashed: true` only when the issue is trashed.
+          - The trash view adds no `(deleted)` marker: every row in it is trash.
+          - `issue show` keeps reading a trashed issue by identifier, UUID or URL.
+
+          ### `issue delete`
+
+          ```
+          rata issue delete <ref> [--cascade] [--permanently] [--yes] [--dry-run]
+          ```
+
+          - Human mode prompts, default no. JSON mode requires `--yes` and fails with code
+            `validation` when it is missing, as `issue comment delete` does.
+          - `--dry-run` plans without writing.
+          - Before the mutation, rata reads the direct children with
+            `children(includeArchived: true)`. If any child is open, it refuses with code
+            `conflict`, names the open children, and points at `--cascade`. Trashed and
+            completed children do not block. `--cascade` proceeds, and Linear trashes the
+            tree.
+          - `--dry-run` prints the tree it would trash.
+          - `--permanently` requires `--yes` in both modes, states that the action cannot
+            be undone, and pre-checks `Viewer.admin`. A non-admin fails with code
+            `forbidden` before the mutation.
+          - Cost: one resolve, one paged children read, one mutation. `--dry-run` skips
+            the mutation.
+          - Human text: `Moved RATA-42 and 3 sub-issues to the trash. Linear keeps them
+            recoverable for 30 days.` A permanent delete says `Permanently deleted
+            RATA-42 and 3 sub-issues. This cannot be undone.`
+
+          ### `issue restore`
+
+          ```
+          rata issue restore <ref> [--dry-run]
+          ```
+
+          - Accepts an identifier, a UUID, or a linear.app URL, resolved to the UUID first
+            like every write.
+          - A live issue reports `skipped` and exits 0.
+          - Restore does not prompt, as `project restore` does not prompt today. It takes
+            `--dry-run` and shares the delete JSON shape.
+          - Restores the target issue only. After the write, one
+            `children(includeArchived: true)` read collects the children that stay in the
+            trash, and the JSON reports them.
+          - Cost: one resolve, one mutation, one paged children read. `--dry-run` skips
+            the mutation.
+          - Human text: `Restored RATA-42. 3 sub-issues stay in the trash; run \`rata
+            issue list --trashed --parent RATA-42\`.`
+
+          ### Wrong-state writes
+
+          - Delete of a trashed issue: `skipped`, exit 0.
+          - Restore of a live issue: `skipped`, exit 0.
+          - Every 0.8.0 write already reports `skipped` on a no-op, and a retried batch
+            must not stop. This reverses ADR-0004's conflict rule for projects, so the
+            same spec aligns `project delete` and `project restore` to `skipped` and
+            records ADR-0009.
+
+          ### JSON shapes
+
+          `issue delete`:
+
+          ```json
+          {
+            "dryRun": false,
+            "status": "updated",
+            "permanent": false,
+            "issue": { "id": "…", "identifier": "RATA-42", "trashed": true },
+            "children": { "total": 3, "open": 0, "trashed": 3 }
+          }
+          ```
+
+          `issue restore`:
+
+          ```json
+          {
+            "dryRun": false,
+            "status": "updated",
+            "issue": { "id": "…", "identifier": "RATA-42", "trashed": false },
+            "children": { "total": 3, "stillTrashed": 3 }
+          }
+          ```
+
+          - `status` is `updated` or `skipped` on both commands.
+          - `children` always carries `total`; the other two counters report the phase.
+            A dry run counts `open` and reports `trashed: 0` for delete; a restore reports
+            `stillTrashed` after the write.
+          - `project delete` and `project restore` converge to `{ dryRun, status, project }`
+            with the same `status` values. Project delete gains `--dry-run`; project JSON
+            stops using `{ deleted }` and `{ restored }`.
+          - Failure codes: `not_found` for an unknown ref, `validation` for a missing
+            `--yes` in JSON mode, `conflict` for an open-child tree without `--cascade`,
+            `forbidden` for `--permanently` without an admin.
+
+          ### What the 0.10.0 spec inherits
+
+          - One ticket adds the issue trash surface: `trashed` on reads,
+            `issue list --trashed`, `issue delete`, `issue restore`.
+          - One ticket aligns `project delete` and `project restore` to the shared guard
+            flags, the `skipped` rule and the JSON shape.
+          - `README.md` and `skills/rata/reference.md` document both commands.
+            `docs/agents/issue-tracker.md` lists the trash view next to the other list
+            commands.
+          - `GLOSSARY.md` gains **Permanent delete**: a delete that skips the 30-day grace
+            period and cannot be undone; admin only. Delete, Restore, Trash and Archive
+            keep their current text.
+          - ADR-0009 records the idempotent wrong-state rule and the cascade refusal.
+
+          ### Out of scope
+
+          - Bulk delete by parent.
+          - Subtree restore through `issueBatchUpdate(trashed: null)`; RATA-108 can
+            measure whether it is needed.
+          - `issue archive` without trash.
+          - Restoring the comments or attachments of a trashed issue.
+    blocks: []
+
+  - key: RATA-99
+    id: f0ad4db6-438a-4589-a6e2-6f537492c7a3
+    title: "Decide how rata resolves and addresses label scope"
+    description: |-
+      ## Question
+
+      How does rata resolve and address label scope?
+
+      A manifest carries labels. A label name is ambiguous when a team label and a
+      workspace label share it. `label list` shows team labels only, `label create`
+      makes a team label, and `issue label add` resolves a name against team labels and
+      workspace labels with no report of the match.
+
+      Decide:
+
+      * Is the surface `label list --scope team|workspace|all`, a separate
+        `label workspace list`, or both?
+      * Does `issue label add` accept `team:bug` and `workspace:Bug` prefixes, a
+        `--scope` flag, or neither?
+      * What is the default when a name matches both scopes, and what error does the
+        caller get when a name matches neither?
+      * Does `label create --scope workspace` exist? `IssueLabelCreateInput.teamId`
+        says "if not given, the label will be associated with the entire workspace",
+        so the API allows it; `label create` always sends the team today.
+      * What does `--if-not-exists` report: the label only, or the label and the scope
+        it matched?
+      * Does the manifest author labels by scope, or by name with a scope hint on the
+        side?
+      * Do the issue defaults (`config set --label`) accept a scoped label?
+    state: Done
+    priority: medium
+    labels: ["wayfinder:grilling"]
+    assignee: "mail@iyxeyl.me"
+    parent: RATA-83
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T15:15:31.563Z"
+    comments:
+      - key: resolution
+        id: 344c3a8a-a501-4d97-9d4e-99c9b37b8eb5
+        author: "mail@iyxeyl.me"
+        createdAt: "2026-10-29T17:33:43.603Z"
+        body: |-
+          ## Resolution
+
+          The owner approved all eleven recommendations on 2026-10-29. This comment is
+          the label-scope contract for 0.10.x. It uses RATA-91's names and adds none.
+
+          ### The invariant that decides the ticket
+
+          Linear enforces label-name uniqueness across the workspace's whole label space:
+
+          - A team label cannot share a name with a workspace label, in either direction.
+          - A workspace label cannot share a name with any team's label.
+          - Two teams may each own the same name.
+          - The check ignores case.
+          - A rename applies the same rule.
+          - A delete frees the name immediately.
+
+          Inside one team's scope (team ∪ workspace) a name therefore matches at most one
+          label. Ambiguity is a state Linear refuses to create, so a label reference never
+          needs a scope.
+
+          Evidence, probed on 2026-10-29 against the live workspace. Every probe label was
+          deleted afterwards, and none is left.
+
+          | Probe | Result |
+          | -- | -- |
+          | `issueLabelCreate { name: "Bug", teamId: <ACME> }` | rejected: `Label "Bug" already exists in the workspace.` |
+          | `issueLabelCreate { name: "wayfinder:prototype" }` while five teams own it | rejected |
+          | `issueLabelCreate { name: "wayfinder:prototype", teamId: <ACME> }` | created |
+          | `issueLabelUpdate` renaming a team label to `Bug` | rejected with the same error |
+          | `issueLabelDelete`, then a create with the same name | created |
+          | `issueLabels(filter: { team: { null: true } })` | the 3 workspace labels: `Bug`, `Improvement`, `Feature` |
+          | `issueLabels(filter: { name: { eqIgnoreCase: "bug" }, or: [{ team: { id: { eq: $team } } }, { team: { null: true } }] })` | one request, one hit |
+          | Label count | 65 in the workspace, 12 in RATA, 15 usable by RATA |
+          | List and lookup cost | one request per scoped list, one per single-name lookup |
+
+          ### The contract
+
+          **D1. No scope in a reference.** A label reference is a name or a UUID, as
+          `GLOSSARY.md` defines it. Scope appears only where rata lists a label or creates
+          one. There is no "matches both scopes" default and no ambiguity error, because
+          the state cannot exist.
+
+          **D2. `label list` gains `--scope team|workspace|all`.** Default `all`, which
+          means team ∪ workspace: every label the linked team can use, which is the
+          resolution scope. `all` never means every team's labels. There is no
+          `label workspace` group. Human output is name, id, color, scope. `--json` gains
+          `scope` per label. `--team` still chooses the team and does nothing under
+          `--scope workspace`.
+
+          **D3. Resolution never widens.** `issue label add|remove`, `label edit`,
+          `config set --label`, import and apply resolve against exactly one team plus the
+          workspace: the flag team, then the linked team. They never search another team's
+          labels. A UUID is used as-is with no scope check; Linear rejects a foreign label
+          on write and rata surfaces that error.
+
+          **D4. No scope syntax on `issue label add|remove`.** No `team:` or `workspace:`
+          prefix and no `--scope` flag. `:` already occurs in real label names
+          (`wayfinder:map`), so a prefix collides with the names it would address.
+
+          **D5. The miss error.** A name that matches nothing reports both scopes it
+          searched and hints `rata label list --scope all`. rata then runs one
+          `name: { eqIgnoreCase }` request with no team filter. When that single hit lives
+          in another team, the message names that team, says the label is not usable here,
+          and says to create it for this team first. Cost: one request, miss path only.
+
+          **D6. `label create --scope team|workspace`.** Default `team`. `--team` with
+          `--scope workspace` is a usage error. A workspace label needs an admin key; the
+          API accepted it for this admin viewer, and a non-admin key is expected to be
+          refused by Linear, which rata surfaces as-is. The non-admin path is unverified:
+          there is no non-admin key in this workspace.
+
+          **D7. `--if-not-exists` reports the scope it matched.** JSON is
+          `{ label: { id, name, color, scope }, created }`. A workspace label that holds
+          the name is still a hit and returns `created: false`: every team can use it, so
+          the caller converged. A name held by another team is never a hit.
+
+          **D8. One label shape.** `scope: "team" | "workspace"` joins the shared label
+          object in `label list`, `label create|edit --json`, `issue show`, `issue list`,
+          `next` and every write result, as `team show` already does. No team field rides
+          along: the scope value carries the fact. RATA-104 fixes the final serialization.
+
+          **D9. Manifest authoring.** Issue entries carry labels as plain names. A
+          top-level `labels: [{ name, scope, color? }]` list declares the labels that
+          import may create, and export writes that list from the labels it referenced.
+          Scope lives in the declaration, never in the entry. RATA-100 fixes the file
+          shape; RATA-101 fixes the create-on-miss rule.
+
+          **D10. Issue defaults.** `config set --label` takes a name or a UUID, with no
+          scope syntax. `issue create` resolves each default against the issue's team plus
+          the workspace and fails with the D5 error. `config show --json` keeps plain
+          names. A workspace label works from every linked repository.
+
+          **D11. `label edit` stays as shipped.** No `--scope` flag, because the name is
+          unique and a UUID is accepted. No scope move between team and workspace, even
+          though `IssueLabelUpdateInput.teamId` allows it: it is a destructive-feeling
+          write with no workflow behind it.
+
+          ### What each ticket inherits
+
+          - **RATA-100** owns the manifest file shape. It carries D9: plain names in
+            entries, scope in the top-level `labels` declarations.
+          - **RATA-101** owns create-on-miss. It decides whether import creates a missing
+            label, and in which scope, using D6 and D9.
+          - **RATA-104** owns the error taxonomy and the final serialization. It takes D5,
+            D7 and D8 as inputs.
+          - **RATA-103, RATA-105, RATA-106, RATA-107** are untouched.
+
+          ### Glossary delta
+
+          These sentences land with the 0.10.0 spec:
+
+          - **Label**: add "A label name is unique across the workspace: a team label and
+            a workspace label cannot share it, and two teams may. Inside one team's scope
+            a name therefore identifies one label."
+          - **Label reference**: add "The name resolves against the linked team and the
+            workspace, and a scope prefix is not part of the reference."
+
+          ### Code impact for the 0.10.0 spec
+
+          - `label list`: default the filter to team ∪ workspace, add `--scope`, add the
+            scope column and the `scope` field.
+          - `label create`: add `--scope`, keep `teamId` out of the input under
+            `--scope workspace`, report the matched scope from `--if-not-exists`, and
+            reject `--team` with `--scope workspace`.
+          - `label.ts`: one shared label schema with `scope`.
+          - Label resolution: keep the team ∪ workspace query; add the cross-team lookup
+            to the miss path.
+          - `label edit`, `config`, the manifest and the issue writes keep their current
+            flags. The only change is the scope field they report.
+
+          ### What this ticket did not decide
+
+          - The error code taxonomy: RATA-104.
+          - Whether import creates a missing label: RATA-101.
+          - The manifest file shape: RATA-100.
+          - A `label delete` or `label retire` command: out of scope for 0.10.0.
+    blocks: [RATA-100]
+
+  - key: RATA-100
+    id: 94138212-ce19-4e75-92a1-6702c58e9ccc
+    title: "Prototype the canonical rata manifest for one team"
+    description: |-
+      ## Question
+
+      What does a canonical rata manifest look like for one real team?
+
+      Build a throwaway prototype and hand it to the owner. Do not guess the shape in
+      prose; show a file.
+
+      * Take the RATA team, or a 30-issue slice of it, and write the candidate manifest
+        by hand from the API.
+      * Cover the containers: one JSON document, one YAML document, or a directory of
+        files.
+      * Cover an issue entry: key, title, description, state, priority, labels,
+        assignee, parent, project, `createdAt`.
+      * Cover comments: body, `createdAt`, key, order.
+      * Cover relations: `blocks` edges by key, written once and read in both
+        directions.
+      * Cover provenance: an author field, a `createdAt` field, and what rata writes
+        when Linear refuses the value.
+      * Cover resolution: labels by scope, states by name, assignees by email or id.
+      * Measure the size: what a 300-issue, 200-comment, 80-link manifest weighs.
+
+      Put the prototype on a `research/manifest-shape` branch, link it from this
+      ticket, and open no PR. The owner reviews the file, not a description of it.
+    state: Backlog
+    priority: high
+    labels: ["wayfinder:prototype"]
+    assignee: "mail@iyxeyl.me"
+    parent: RATA-83
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T15:15:33.034Z"
+    comments: []
+    blocks: [RATA-101]
+
+  - key: RATA-101
+    id: 4b4509e2-0809-4ca3-8fe9-579f6ad672d3
+    title: "Decide the import and export semantics"
+    description: |-
+      ## Question
+
+      What are the import and export semantics?
+
+      The biggest win the harbagsa run named. The manifest shape comes from the
+      prototype ticket; this ticket decides what the commands do with it.
+
+      Decide:
+
+      * Is `rata export --team <key>` the exact inverse of `rata import <file>`, so
+        export, edit and import round-trips with no loss?
+      * What order does import apply: parents, then children, then relations, then
+        comments? How does the run prove the order held?
+      * What does `--state <file>` hold: done keys, failed keys with their errors,
+        cursors, or all three? Is a half-written state file safe to resume?
+      * What is provenance when the API refuses `createdAt` or an author: skip the
+        field, write a footer block, or fail? The research ticket names which fields
+        are refused.
+      * Does import refuse a manifest whose team differs from the linked team, rewrite
+        the team, or accept `--team`?
+      * Does export include closed issues, trashed issues and comments by default, and
+        which flags turn them on?
+      * Which flags exist: `--dry-run`, `--apply`, `--state`, `--team`,
+        `--include-closed`, `--limit`?
+      * Does import report one result per item on stdout, as the bulk write contract
+        requires?
+      * Does the rehearsal task's evidence change any of the above?
+    state: Backlog
+    priority: high
+    labels: ["wayfinder:grilling"]
+    assignee: null
+    parent: RATA-83
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T15:15:41.153Z"
+    comments: []
+    blocks: [RATA-102]
+
+  - key: RATA-102
+    id: 54b55f4b-2818-4962-8fdb-d2b3906dc75c
+    title: "Decide the declarative apply semantics"
+    description: |-
+      ## Question
+
+      What does declarative apply mean for 0.9.0?
+
+      The feedback asks for a `mission.yaml` or `tickets.json` that reconciles parents,
+      blockers, labels, states and assignments in one idempotent `rata apply -f`.
+
+      Decide:
+
+      * Is `apply` the same contract as `import`, or a second one? Import creates and
+        skips; apply reconciles a declared state, so it can update and close.
+      * What is the reconciliation order, and what does apply do with a live object the
+        manifest does not name: leave it, close it, or fail?
+      * What is the conflict policy when the live issue changed after the manifest was
+        written: overwrite, skip, or fail with `conflict`?
+      * What does `--dry-run` print: a plan per object, a unified diff per changed
+        field, or both?
+      * Does `apply` cover a wayfinder map and its tickets, or specs and tickets only?
+        The tracker document says a map's children are claimed one at a time.
+      * Does every object in the manifest need a key, or does apply derive one?
+      * Does apply use the `--if-unchanged` snapshot in the manifest, or ignore it?
+    state: Backlog
+    priority: medium
+    labels: ["wayfinder:grilling"]
+    assignee: null
+    parent: RATA-83
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T15:15:42.495Z"
+    comments: []
+    blocks: []
+
+  - key: RATA-103
+    id: fd6bee15-2d3e-47bb-9125-ebc886670f6a
+    title: "Decide the graph-aware read"
+    description: |-
+      ## Question
+
+      What does a graph-aware read look like in 0.9.0?
+
+      Verification costs N+1 calls today. `issue show` reads one issue with its
+      children and relations, but a map review needs the tree and its blocking edges.
+
+      Decide:
+
+      * Is it `issue list --include relations,children,comments`, a `rata graph <ref>`
+        command, or both?
+      * What does `graph` return: a flat list of nodes with parent ids, a nested tree,
+        or nodes plus edges?
+      * Is `--id-only` a global output flag, a graph flag, or a `--fields` shorthand?
+      * Does `--count` exist, and does it read every page to answer?
+      * What depth does a graph read take: one level, every level, or `--depth <n>`?
+      * How many API calls and complexity points does one 40-ticket map cost, against
+        the N+1 calls it replaces? The batch-facts ticket names the budget.
+      * Does a graph read include trashed children, and does that wait on the trash
+        surface?
+    state: Backlog
+    priority: medium
+    labels: ["wayfinder:grilling"]
+    assignee: null
+    parent: RATA-83
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T15:15:44.071Z"
+    comments: []
+    blocks: [RATA-104, RATA-105, RATA-107]
+
+  - key: RATA-104
+    id: 76e0d2a1-ed9d-412c-8b32-96fc19751859
+    title: "Decide the machine-first output and error contract"
+    description: |-
+      ## Question
+
+      What is the machine-first output and error contract?
+
+      The feedback asks for `RATA_JSON`, `RATA_FIELDS`, `--format json|jsonl`,
+      `--id-only`, `--count`, no color when piped, a `rata states` command, stable exit
+      codes with `conflict` distinct from `validation`, and a JSON error object with
+      `retryable` and `details`. RATA-77 records three known gaps: 403 maps to `auth`
+      instead of `forbidden`, an unknown `--fields` path now lists the valid paths, and
+      `rate_limited` drops the parsed retry time.
+
+      Decide:
+
+      * Do `RATA_JSON` and `RATA_FIELDS` exist, or is a flag the only switch? An
+        environment default is easy to set and hard to turn off.
+      * Is `--format json|jsonl` in scope next to `--json`? A batch run produces one
+        result per item, which is the shape JSONL fits.
+      * Does JSON mode always drop color, and does human mode drop it when stdout is
+        not a TTY?
+      * What are the exit codes: `0`, `1`, and one code per error class, or only `0`
+        and `1` with the code in the JSON?
+      * Does every error gain `retryable` and `details`, and does `details` stay behind
+        `RATA_DEBUG`?
+      * Is workflow-state discovery `rata states`, `team show --states`, or
+        `team states`?
+      * Does `--id-only` print newline-separated identifiers, and does it compose with
+        `--count`?
+      * Does a bulk run's one-result-per-item output reuse the JSONL format, or its own
+        shape?
+    state: Backlog
+    priority: medium
+    labels: ["wayfinder:grilling"]
+    assignee: null
+    parent: RATA-83
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T15:15:45.570Z"
+    comments:
+      - key: front-door-note
+        id: 3ba80f78-d5ed-4e8d-8f03-aecff458966a
+        author: "mail@iyxeyl.me"
+        createdAt: "2026-10-29T17:20:34.952Z"
+        body: |-
+          RATA-109 (mission front door, 0.9.0) settles the core exit-code contract and the Linear-only PR projection. This ticket now owns the batch and graph extensions: partial-batch codes, JSONL and `--format`, environment defaults, `--count`, and the color policy.
+
+          RATA-103 still blocks the extension. The core is not blocked. Do not re-decide `conflict`, `validation`, `not_found`, `auth` or `rate_limited` without reading RATA-109.
+    blocks: [RATA-106, RATA-107]
+
+  - key: RATA-105
+    id: 3e42b5d7-c28a-4538-96ed-e88a11688376
+    title: "Decide the PR awareness surface"
+    description: |-
+      ## Question
+
+      What is the PR awareness surface?
+
+      The feedback asks for `--with-prs` on `issue show`, `rata pr status`, and PR
+      state in `next`. The research ticket names the facts; this ticket decides what
+      rata exposes.
+
+      Decide:
+
+      * Which host: GitHub only, or also GitLab? The rata repository uses both remotes
+        in its release flow.
+      * Which auth: the `gh` CLI, a token in the repository config, the Linear
+        attachment only, or none?
+      * Is it `issue show --with-prs`, `rata pr status <ref>`, PR state in `next`, or
+        some of those?
+      * What does `next` add: the PR url, the PR state, or only a flag that the ready
+        ticket already has an open PR?
+      * Is a PR a first-class object with its own command, or an attachment that rata
+        decorates?
+      * Does rata cache the answer, and for how long? This waits on the cache ticket.
+      * What does rata print when the read finds nothing, or when the auth is absent:
+        `null`, an empty list, or an error?
+    state: Backlog
+    priority: low
+    labels: ["wayfinder:grilling"]
+    assignee: null
+    parent: RATA-83
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T15:15:47.360Z"
+    comments:
+      - key: front-door-note
+        id: 9fe9acc4-39d0-45af-bfd1-81ca4fa977ee
+        author: "mail@iyxeyl.me"
+        createdAt: "2026-10-29T17:20:36.147Z"
+        body: |-
+          RATA-109 (mission front door, 0.9.0) owns the Linear-only attachment projection for `issue status`: status, draft, reviews, hasConflicts, mergedAt and closedAt. Checks and the merge SHA stay `null`.
+
+          This ticket now owns the host and auth policy and the `--with-prs` flags on `issue show` and `next`. RATA-103 still blocks the flags. The core projection is not blocked.
+    blocks: []
+
+  - key: RATA-106
+    id: 0659a5b0-dc1c-4edd-928a-8d8819c1db55
+    title: "Decide the API escape hatch and its guard rails"
+    description: |-
+      ## Question
+
+      Should rata ship an API escape hatch, and with what guard rails?
+
+      The feedback asks for a guarded `rata api '<graphql>'` or `rata auth token`, so a
+      missing command does not mean reading the SQLite database. The 0.8.0 feedback
+      run hit that gap.
+
+      Decide:
+
+      * Does the escape hatch exist in 0.9.0 at all?
+      * Is it `rata api` (a GraphQL call through rata), `rata auth token` (print the
+        profile key), or both?
+      * Is `rata api` read-only by default, with `--allow-mutation` to write?
+      * Does it print the raw Linear response, or rata's envelope with its error
+        contract?
+      * Does it take the query on stdin (`--file -`) as well as on the command line?
+      * Does a mutation through `rata api` skip the read-after-write check and the
+        audit log?
+      * Does the hatch make the resource-oriented command surface unnecessary, and
+        therefore change the command-surface decision? Answer that before the spec.
+    state: Backlog
+    priority: low
+    labels: ["wayfinder:grilling"]
+    assignee: null
+    parent: RATA-83
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T15:15:48.882Z"
+    comments: []
+    blocks: []
+
+  - key: RATA-107
+    id: b08a8074-519d-4be0-b7ac-3ba9ba3844d0
+    title: "Decide the place of a cache, sync and audit log"
+    description: |-
+      ## Question
+
+      What place do a cache, `rata sync` and an audit log have in 0.9.0?
+
+      The destination names them. They are also the largest subsystem in the fog, and
+      they depend on the read model.
+
+      Decide:
+
+      * Is a local cache in the contract, or does 0.9.0 stay stateless apart from the
+        config, the profiles and a run state file?
+      * If a cache exists: what is cached, when does it expire, and how does a write
+        invalidate it?
+      * Does `rata sync` pull a team into SQLite so reads work offline, and does
+        `issue list` then answer from the cache by default?
+      * Does the audit log record every mutation with a revision, and where does it
+        live: the local database, a file, or Linear itself?
+      * Does a cache change the per-call cost that the graph-read decision measures?
+      * Does the audit log replace or complement a `rata api` mutation path?
+      * Is the honest answer "decide the shape now, build it in 0.10.0"? If so, say
+        what moves the destination.
+      * Does a cache contradict ADR-0003 (one SQLite database) or ADR-0006
+        (read-after-write checks are advisory)? A cache would hide the write it just
+        made.
+    state: Backlog
+    priority: low
+    labels: ["wayfinder:grilling"]
+    assignee: null
+    parent: RATA-83
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T15:15:50.233Z"
+    comments: []
+    blocks: []
+
+  - key: RATA-108
+    id: f6c78e8e-e1bf-4cb9-9669-1931467ca29e
+    title: "Rehearse a 30-issue round trip on a scratch team"
+    description: |-
+      ## Question
+
+      Does the planned batch path survive a real 30-issue round trip?
+
+      The harbagsa run took 578 subprocesses and 25 minutes for 304 creates, 194
+      comments and 80 links. The batch decision predicts a handful of calls instead.
+      Prove it before the import contract is fixed.
+
+      Do this:
+
+      * Create a scratch team with `rata team create`, so the rehearsal cannot damage
+        RATA.
+      * Export or hand-write a 30-issue slice with parents, blockers, labels, comments
+        and `createdAt`.
+      * Run the candidate batch path with a throwaway script under `/tmp/opencode`: one
+        process, `issueBatchCreate`, the planned chunk size.
+      * Record: calls made, wall time, complexity points spent (`rateLimitStatus`), and
+        every failure.
+      * Repeat with one child whose parent is created in the same batch, to settle that
+        question with evidence.
+      * Import the same slice twice, to prove the identity contract makes the second
+        run a no-op.
+      * Trash the scratch team at the end, or leave it and say so.
+
+      Record the numbers and the failures in the resolution comment. Link the script.
+      Open no PR.
+    state: Backlog
+    priority: medium
+    labels: ["wayfinder:task"]
+    assignee: null
+    parent: RATA-83
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T15:15:51.608Z"
+    comments: []
+    blocks: [RATA-101]
+
+  - key: RATA-109
+    id: 81bb8258-cc00-42c0-8c48-908a4c4f912a
+    title: "Mission: mission-shaped front door for rata"
+    description: |-
+      # Mission: mission-shaped front door for rata
+
+      ## Destination
+
+      One command surface that treats a mission as structured state plus append-only
+      history: `mission init|status|gate|handoff|next`, a guarded body write, a
+      stamped handoff log, `issue status`, `doctor`, and bare-number references. A
+      session reads state with one `mission status` call and writes a gate with one
+      `mission gate` call.
+
+      ## Problem
+
+      The current loop hand-assembles the mission table and retypes dates; the skill
+      then trusts prose. A whole-body replace can drop a section. `issue show` returns
+      attachments but not PR state, checks or the merge commit. `mission` and `doctor`
+      do not exist. `--all` shipped in 0.8.0; bare numbers, `--ids-only` and a
+      documented exit-code contract did not.
+
+      ## Constraints
+
+      * Linear has no custom issue fields. The mission document is an issue.
+      * This repository does not use Linear projects as a container.
+      * Linear has no compare-and-swap; `--if-unchanged` stays best effort.
+      * A `github` attachment carries status, draft, reviews, conflicts, mergedAt and
+        closedAt. It carries no checks and no merge-commit SHA.
+      * Linear exposes integration service names, not magic-word mappings.
+      * No GitHub client, no token and no `gh` shell-out.
+      * No backwards compatibility with 0.8.0.
+
+      ## Approach
+
+      * Mission state is a fenced `json` block inside the `## Mission` section. Only
+        `mission` commands write it. Stable prose lives outside it.
+      * History is comments with `--dedupe-key`. Gate evidence is posted before the
+        state transition, so a retry is safe.
+      * `mission init` creates the block and the stable sections.
+      * `mission status` prints the one-line contract; `--json` prints the object.
+      * `mission gate` validates a legal transition.
+      * `mission handoff` appends the stamped comment.
+      * `mission next` prints the exact next command.
+      * `issue update --body-file` refuses a dropped or renamed heading unless
+        `--replace-body` is passed. `--require-sections` adds a required set.
+      * `issue status` merges Linear state, blockers, the next child and the `github`
+        attachment projection.
+      * `section append --stamp` writes date, session, phase, gate and method in the
+        link timezone.
+      * `doctor` is a read-only preflight.
+      * Bare `48` resolves through the linked team key. `--ids-only` prints
+        identifiers.
+
+      ## Mission
+
+      Status: active
+      Scope: feature
+      Phase: implement
+      Gate: PR, pending
+      Goal: a mission-shaped CLI front door that replaces the hand-assembled document.
+      Exit: the spec's tickets merged, `code-review` passed, 0.9.0 released.
+
+      ## Flow
+
+      - [X] classify: fog, then feature after the grill
+      - [X] grill: nine decisions settled
+      - [X] scope gate: approved by the owner (2026-10-29)
+      - [X] spec: approved by the owner (2026-10-29)
+      - [X] tickets: 12 children with edges (2026-10-29)
+      - [ ] implement, one PR per ticket
+      - [ ] code-review each PR
+      - [ ] release 0.9.0
+
+      ## Gates
+
+      | Gate | Method | Document | Status |
+      | -- | -- | -- | -- |
+      | Scope and understanding | grill | this issue | approved by the owner, 2026-10-29 |
+      | Spec | owner review | this issue, `## Spec` | approved by the owner, 2026-10-29 |
+      | Tickets | owner review | children of this issue | approved by the owner, 2026-10-29 |
+      | PR | `code-review` | one PR per ticket | pending |
+
+      ## Session plan
+
+      | Session | Work | Exit |
+      | -- | -- | -- |
+      | 1 | classify, grill, record the mission | scope gate approval |
+      | 2 | write the spec | spec gate approval |
+      | 3 | cut the tickets | ticket gate approval |
+      | 4..n | one ticket per session, review, PR | one merged PR per ticket |
+      | n+1 | release 0.9.0 | tag and Arch package |
+
+      ## References
+
+      | Reference | Why | Path or URL | Phase |
+      | -- | -- | -- | -- |
+      | RATA-83 | the 0.9.0 bulk and import map | [RATA-83](https://linear.app/utbetdix/issue/RATA-83) | classify |
+      | RATA-91 | command surface and `--id-only` | [RATA-91](https://linear.app/utbetdix/issue/RATA-91) | spec |
+      | RATA-95 | PR awareness finding | [RATA-95](https://linear.app/utbetdix/issue/RATA-95) | spec |
+      | RATA-104 | machine-first output and exit codes | [RATA-104](https://linear.app/utbetdix/issue/RATA-104) | spec |
+      | RATA-105 | PR awareness surface | [RATA-105](https://linear.app/utbetdix/issue/RATA-105) | spec |
+      | ADR-0008 | body edits are heading-based | docs/adr/0008-body-edits-are-heading-based-and-best-effort.md | spec |
+      | issue-tracker doc | tracker conventions | docs/agents/issue-tracker.md | implement |
+      | rata skill | the CLI skill | skills/rata | implement |
+      | mission skill | the global mission skill | \~/.agents/skills/mission | implement |
+
+      ## Decisions
+
+      * A new mission, related to RATA-83. RATA-83 keeps bulk import/export, apply, graph reads, machine output and PR awareness; it retargets to 0.10.0.
+      * Mission state is a fenced `json` block in `## Mission`; history is comments. Supersedes ADR-0008 with a new ADR.
+      * Command surface: `mission init|status|gate|handoff|next`.
+      * `issue status` reads Linear only; checks and merge SHA are null.
+      * The body write refuses section loss without `--replace-body`; no TTY dry-run.
+      * `doctor` is read-only; it does not discover magic words.
+      * Bare numbers resolve through the linked team. `--ids-only` supersedes `--id-only`.
+      * Stamp: `date, session, phase, gate, method` on one line. The date comes from the link timezone; phase, gate, method and session come from the mission block. `--session` overrides; `mission handoff` increments the session. On an issue with no mission state, all four flags are required.
+      * Scope moved from fog to feature after the grill: the mission-state representation was the only key fork.
+      * Release: 0.9.0 is the front door. The front door owns the core exit codes and the Linear-only PR projection. RATA-83 retargets to 0.10.0; RATA-104 and RATA-105 own the batch and graph extensions.
+
+      ## Outputs
+
+      * spec: this issue, `## Spec`
+      * tickets: RATA-110 to RATA-121 (12 children)
+      * graph:
+        * RATA-110 docs: no blockers
+        * RATA-111 exit codes: no blockers
+        * RATA-112 issue status: blocked by RATA-111
+        * RATA-113 mission init: blocked by RATA-111
+        * RATA-114 mission status/next: blocked by RATA-112, RATA-113
+        * RATA-115 mission gate: blocked by RATA-111, RATA-112, RATA-113
+        * RATA-116 mission handoff/stamp: blocked by RATA-111, RATA-113
+        * RATA-117 body guard: blocked by RATA-111
+        * RATA-118 doctor: blocked by RATA-111, RATA-112
+        * RATA-119 refs/ids: blocked by RATA-111
+        * RATA-120 docs: blocked by RATA-110, RATA-113 to RATA-119
+        * RATA-121 release: blocked by RATA-120
+      * PRs:
+        * RATA-110 docs: [https://github.com/eyenalxai/rata/pull/23](<https://github.com/eyenalxai/rata/pull/23>), open, awaiting review and merge
+      * release: 0.9.0
+
+      ## Next step
+
+      * Skill: `implement`
+      * Gate: PR
+      * Method: `code-review`
+      * Command: review and merge [https://github.com/eyenalxai/rata/pull/23](<https://github.com/eyenalxai/rata/pull/23>), then implement RATA-111
+      * Produce: one merged PR, then one PR for RATA-111
+
+      ## Handoff log
+
+      * 2026-10-29T21:31:04+04:00 — session 3, phase tickets, gate Tickets approved, method owner review, prompt delivered in chat.
+      * 2026-10-29T21:46:18+04:00 — session 4, phase implement, gate PR pending, method code-review, prompt delivered in chat.
+
+      ## Spec
+
+      ### Problem Statement
+
+      An agent that runs a mission hand-assembles the mission table, retypes dates, and trusts prose. The mission body has no typed state. A whole-body write can drop a section. A session needs several commands to learn the issue state, the PR state, the blockers, and the next child. There is no preflight for auth, link, team access, and the GitHub integration. All errors exit `1`, so a script cannot tell a conflict from a validation error. A bare issue number does not resolve.
+
+      ### Solution
+
+      A `mission` command group treats the mission document as typed state plus append-only history. `mission init` writes the state. `mission status` reads it and prints the contract. `mission gate` validates a transition and records evidence. `mission handoff` appends a stamped comment. `mission next` prints the next command. A guarded body write refuses to drop a section. `issue status` merges the issue, its PRs, its blockers, and its next child. `doctor` checks the setup. Bare numbers resolve through the linked team. `--ids-only` prints identifiers. The core exit codes become stable.
+
+      ### User Stories
+
+       1. As an agent starting a session, I want one `rata mission status <ref>` call, so that I know the phase, gate, method, next step, stale references, and linked PRs.
+       2. As an agent, I want `rata mission next <ref>` to print the exact next command, so that I do not infer it from prose.
+       3. As an agent, I want `rata mission gate <ref> Spec --approve --evidence <url>`, so that a gate is data with a legal transition, not a table cell.
+       4. As an agent, I want an illegal transition to fail with a distinct exit code, so that I branch on the code and not on the message.
+       5. As an agent, I want the PR gate to refuse approval without a merged PR or a review comment, so that prose cannot approve a gate.
+       6. As a mission owner, I want `mission handoff` to append one stamped line in the link timezone, so that I stop retyping dates.
+       7. As a mission owner, I want the handoff log to be comments, so that a body rewrite cannot drop a row.
+       8. As an agent, I want `issue update --body-file` to refuse a dropped or renamed section, so that I cannot delete a mission section by accident.
+       9. As an agent, I want `--replace-body` when a rewrite is intentional, so that the guard has a clear escape hatch.
+      10. As a mission owner, I want `--require-sections Phase,Gate,Next step`, so that a mission document keeps its shape.
+      11. As an agent, I want `--dry-run` to print a real unified diff for every body write, so that I review the change before the write.
+      12. As an agent, I want `rata issue status <ref>` to return the state, the PR, the blockers, and the next unblocked child, so that I do not call `gh` and `issue show` separately.
+      13. As an agent, I want the PR projection to come from the Linear attachment, so that I need no GitHub token.
+      14. As a mission owner, I want `mission status --verify` to check every ticket's PR, so that "done" is not an assumption.
+      15. As an operator, I want `rata doctor` to check auth, link, team access, the GitHub integration, and the timezone, so that I see a broken setup before a mission starts.
+      16. As an operator, I want `doctor` to name the closing words and the completed state, so that the merge automation is explicit.
+      17. As an agent, I want `48` to resolve to the linked team's issue, so that I type less and make fewer mistakes.
+      18. As an agent, I want `--ids-only` on list reads, so that I can pipe identifiers into the next command.
+      19. As an agent, I want stable exit codes, so that a script branches on the code.
+      20. As a maintainer, I want the docs, the CLI help, and the skill to teach the safe door, so that agents use `section replace` and `--dry-run`.
+
+      ### Implementation Decisions
+
+      #### Command surface
+
+      * `rata mission init <ref> [--scope] [--phase] [--gate] [--method] [--session] [--dry-run]` creates the `## Mission` state block and the missing stable sections. An existing block returns `skipped`; `--reset` rewrites it.
+      * `rata mission status <ref> [--json] [--fields] [--verify]` reads the block, the two tables, the issue, the PRs, the blockers, and the next child. The human output is the one-line contract. `--json` is the full object. `--verify` reads each child's `github` attachments.
+      * `rata mission gate <ref> <gate> --approve|--reject [--evidence <url>] [--reason <text>] [--dry-run]` validates the transition, posts the evidence comment first, then rewrites the state block. A repeated approval with the same evidence returns `skipped`; a different evidence returns `conflict`.
+      * `rata mission handoff <ref> [--session <n>] [--dry-run]` appends one stamped comment and increments the session in the state block. It prints the line. It does not print the prompt.
+      * `rata mission next <ref>` prints the `Next step:` line only. It is read-only.
+      * `rata issue status <ref> [--json] [--fields]` is the generic read. It returns the issue header, `blocked`, `blockedBy`, `nextChild`, and `prs`.
+      * `rata doctor [--json]` runs the checks and prints a table. It is read-only.
+      * `mission` is a top-level group. `issue status` is an `issue` subcommand. `mission next` does not collide with `rata next`.
+
+      #### Mission state
+
+      The `## Mission` section holds a short generated summary and one fenced `json` block. The block is the source of truth. The summary is rewritten with the block, so it cannot drift.
+
+      ```json
+      {
+        "schema": 1,
+        "status": "active",
+        "scope": "feature",
+        "phase": "spec",
+        "gate": {
+          "name": "Spec",
+          "status": "pending",
+          "method": "owner review"
+        },
+        "goal": "a mission-shaped CLI front door",
+        "exit": "the tickets merged, 0.9.0 released",
+        "session": 1,
+        "next": {
+          "skill": "to-spec",
+          "gate": "Spec",
+          "command": "approve the spec",
+          "produce": "the tickets"
+        },
+        "gates": [
+          {
+            "name": "Scope and understanding",
+            "status": "approved",
+            "method": "grill",
+            "evidence": "https://linear.app/...",
+            "approvedAt": "2026-10-29T17:21:45.954Z"
+          }
+        ]
+      }
+      ```
+
+      * `phase` is `classify`, `grill`, `spec`, `tickets`, `implement`, or `done`.
+      * `scope` is `fog`, `feature`, `change`, `bug`, or `trivial`.
+      * `gates` is the ordered list of the four gates.
+      * The block does not duplicate the session plan or the references. The `## Session plan` and `## References` tables stay canonical. `mission status` parses both tables and reports a malformed row as `validation`. `mission init` creates the tables with their headers when they are missing.
+      * A local path in the `## References` table is checked for existence; a URL is `unchecked`.
+      * A missing or malformed block is `not_found` or `validation`. A newer `schema` is `validation`.
+      * Legacy mission documents are not parsed. `mission init` adds the block and the tables; the prose stays.
+
+      #### Legal transitions
+
+      * Scope gate: phase `grill` -> approved -> phase `spec`.
+      * Spec gate: phase `spec` with the scope gate approved -> approved -> phase `tickets`.
+      * Tickets gate: phase `tickets` with the spec gate approved -> approved -> phase `implement`.
+      * PR gate: phase `implement` with the tickets gate approved -> approved -> phase `done`.
+      * A rejection sets the gate to `rejected` and keeps the phase. A later approval with new evidence is allowed.
+      * The PR gate needs `--evidence`. The URL must appear in a `github` attachment with `status: "merged"`, or in a comment on the issue or a child. Every child ticket with a PR must have a merged PR.
+      * Other gates accept evidence but do not require it.
+      * The state write uses `--if-unchanged` internally. If the issue changed, the command returns `conflict` and writes no state.
+
+      #### Exit codes
+
+      | Code | Meaning |
+      | -- | -- |
+      | `0` | Success, including a skipped idempotent write. |
+      | `1` | Internal error. |
+      | `2` | Validation: bad input, missing flag, malformed state, missing section, ambiguous heading, missing link. |
+      | `3` | Not found: issue, gate, section, or PR. |
+      | `4` | Conflict: stale `updatedAt`, illegal transition, an approved gate with different evidence. |
+      | `5` | Auth: missing or invalid key, forbidden. |
+      | `6` | Retryable: rate limit or network. |
+
+      The JSON error object keeps `code`, `message`, and `hint`; the exit code is the number. The README carries the table. A `--if-unchanged` conflict exits `4`.
+
+      #### Guarded body write
+
+      * `issue update --body-file` and `--body` compare the heading set (level plus text) of the old and new body. Additions are allowed. A missing heading or a level change is refused unless `--replace-body` is passed. The error is `validation` and lists the lost headings.
+      * `--append` is exempt. `--replace-body` bypasses the guard.
+      * `--require-sections A,B` checks the resulting body for the exact headings. A missing heading is `validation`.
+      * `--dry-run` prints a unified diff for every body change, including a whole-body replace. The plan computes the diff for the replace path as well as the append path.
+
+      #### Stamp
+
+      `section append <ref> <heading> --stamp` appends one line:
+
+      ```text
+      - 2026-10-29T21:14:00+03:00 — session 2, phase implement, gate PR, method code-review
+      ```
+
+      * The date uses the linked team's timezone. The phase, gate, method, and session come from the mission block. `--session` overrides.
+      * Without a mission block, all four flags are required.
+      * `mission handoff` uses the same formatter and writes a comment, not a body section.
+      * A missing link is `validation` with a hint to run `rata link`.
+
+      #### `issue status`
+
+      * One command, several reads. It reuses the issue read, the relation projection, and the child list.
+      * The PR projection reads `sourceType: "github"` attachments and `metadata`: `status`, `draft`, `reviews`, `hasConflicts`, `mergedAt`, `closedAt`, `number`, and `repo`. `checks` and `mergeCommit` are `null`. Each PR carries `source: "linear"`.
+      * `blockedBy` is one level. `blocked` is true when any blocker is open.
+      * `nextChild` is the first open, unblocked child ordered by priority and then `createdAt`. It does not filter on assignee. `rata next` keeps its unassigned filter for the wayfinder claim.
+      * A missing attachment is `prs: []`, not an error. A missing `metadata` gives `null` fields, not an error.
+
+      #### `doctor`
+
+      * Checks: `auth` (key and viewer), `link` (repository link and team key), `team` (team read with states, labels, and members), `github` (the organization's integrations include `github`), `pr-attachment` (one `github` attachment has the expected keys, when one exists), and `timezone` (the team timezone is set and valid).
+      * The closing words are fixed: `Fixes`, `Closes`, and `Resolves` plus the identifier. `doctor` prints them with the team's first completed state. It does not discover a mapping.
+      * Exit `0` for ok or warn. Exit `5` for an auth failure. Exit `2` for a link or team failure. A warning does not fail the command.
+
+      #### Refs and identifiers
+
+      * A bare number `48` expands to `<team key>-48` when the command has a team context: the repository link or a `--team` flag. Without a team, the command fails `validation` with a hint to run `rata link`.
+      * Full identifiers, UUIDs, and URLs do not change.
+      * `--ids-only` is a list flag on `issue list` and `search`. It prints one identifier per line and composes with `--all`. It is not valid with `--json` or `--fields`; use `--json --fields identifier` for JSON.
+      * The name is `--ids-only`, not `--id-only`. This supersedes RATA-91's name.
+
+      #### Docs and skills
+
+      * The README gains the command reference, the exit-code table, the mission section, the guard, and the stamp.
+      * The issue tracker doc gains the mission commands, the safe body write, the comment history, and the bare refs.
+      * The rata skill gains the same surface, with examples.
+      * The glossary gains the mission terms.
+      * A new ADR records that mission state is typed and history is append-only. ADR-0008's parser rules stay; its mission framing is superseded.
+      * The global mission skill changes in the owner's home directory: `mission handoff` writes the log, and the body keeps stable prose only. This change is not in the repository.
+
+      #### Release
+
+      Version `0.9.0` in `package.json` and the CLI. The Arch package, the tag, and the skill update follow the release checklist.
+
+      ### Testing Decisions
+
+      * Test external behavior, not implementation details. Use the existing CLI harness with a fake Linear handler. The highest seam is `runRoot` for the commands and pure functions for the state machine.
+      * Pure tests: the state codec (round trip, missing keys, unknown keys, schema version), the transition table (every legal and illegal pair, idempotency, rejection), the heading-set guard (drop, rename, level change, addition, `--replace-body`), the stamp formatter (a fixed zone, a DST date, a missing link), the bare-number expansion (linked, unlinked, full refs), the exit-code map, the PR projection (full metadata, missing metadata, no attachment), and the table parsers (a valid table, a malformed row, a missing table).
+      * CLI tests through `runRoot` and the fake handler: `mission status` human and JSON, `mission gate` approve, reject, conflict, illegal, `mission handoff` comment and session, `mission next`, `issue status` JSON, `doctor` ok, warn, fail, `--ids-only`, `--require-sections`, and `--replace-body`.
+      * Prior art: the frontier tests for read commands, the section and update-body tests for body writes, the comment dedupe tests for idempotency, the status test for a standalone command, and the section parser tests.
+      * Do not test wiring, pass-through, or the exact prose.
+
+      ### Out of Scope
+
+      * Live GitHub checks, the merge-commit SHA, a GitHub token, or a `gh` shell-out.
+      * Automatic migration of legacy mission documents.
+      * A Linear project or project document as the state store.
+      * Local SQLite as the mission source of truth.
+      * A TTY default for `--dry-run`.
+      * `mission done` as a command; `mission status --verify` is the check, and the skill closes the issue.
+      * Bulk import and export, declarative apply, graph reads, cache, and audit (RATA-83, 0.10.0).
+      * `--format`, a template language, and JSONL.
+      * Comment reactions, resolve, and attachments as a surface.
+      * A UI or TUI.
+
+      ### Further Notes
+
+      * The mission state block is a fenced `json` block inside `## Mission`. The section parser ignores fences, so the block does not split the section.
+      * The evidence comment is written before the state transition. A failed state write leaves a harmless comment and a safe retry.
+      * `mission status --verify` reads one attachment page per child. It is opt-in because it costs N reads.
+      * The PR gate is procedural. The command verifies that the evidence exists, not that a human reviewed the diff.
+      * The first dogfood is this mission: run `mission init` on RATA-109 after the first ticket lands, then use `mission status` and `mission gate` for the rest of the mission.
+      * The seam is one: `runRoot` with the fake Linear handler, plus the pure mission state module. No new seam is needed.
+    state: Backlog
+    priority: high
+    labels: [enhancement]
+    assignee: "mail@iyxeyl.me"
+    parent: null
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T17:13:35.933Z"
+    comments: []
+    blocks: []
+
+  - key: RATA-110
+    id: 664f9f2b-911a-4e8a-bfd2-b6ec6f5bdd2e
+    title: "Teach the safe body write"
+    description: |-
+      ## Parent
+
+      RATA-109 — Mission: mission-shaped front door for rata.
+
+      ## What to build
+
+      Teach the safe body write in the docs and the skills. A section edit uses `rata issue section replace` with `--dry-run` and, when the issue was read first, `--if-unchanged`. A whole-body rewrite is not the tool for a mission log or a gate. `append` is for new content only. The global mission skill at `~/.agents/skills/mission` gets the same rule; the PR notes that this file is outside the repository.
+
+      No new command lands in this ticket. It fixes the guidance that exists today.
+
+      ## Acceptance criteria
+
+      - [ ] The issue tracker doc names `section replace` with `--dry-run` and `--if-unchanged` as the safe door for a section edit.
+      - [ ] It forbids a whole-body rewrite for mission logs and gate evidence.
+      - [ ] The rata skill and its reference teach the same rule with one example each.
+      - [ ] The global mission skill uses the safe door; the PR says it does not ship with the repository.
+      - [ ] The docs do not claim a command that does not exist yet.
+      - [ ] `bun run check` passes.
+    state: "In Progress"
+    priority: medium
+    labels: [ready-for-agent]
+    assignee: "mail@iyxeyl.me"
+    parent: RATA-109
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T17:29:44.428Z"
+    comments:
+      - key: docs-landed
+        id: b3ef07bf-dd33-4703-8852-4f8580e4dc8e
+        author: "mail@iyxeyl.me"
+        createdAt: "2026-10-29T17:45:07.697Z"
+        body: |-
+          Docs landed in https://github.com/eyenalxai/rata/pull/24 (head 3ecbbf4). The tracker doc, the rata skill and its reference name `section replace` with `--dry-run` and `--if-unchanged` as the safe body write, and they name where it stops: a deeper heading belongs to its section, and a duplicate heading is refused as `ambiguous`. The global mission skill follows; it is outside this repository. `bun run check` passes with 427 tests.
+    blocks: [RATA-120]
+
+  - key: RATA-111
+    id: d4f18534-74cc-4017-8e2c-9d92bc8aea9f
+    title: "Stabilize the exit codes"
+    description: |-
+      ## Parent
+
+      RATA-109 — Mission: mission-shaped front door for rata.
+
+      ## What to build
+
+      One stable exit code per error class. The classifier owns the map; every error site uses it. The JSON error object stays `{ code, message, hint }`. The README carries the table. Agents branch on the number, not the message.
+
+      Mapping: 0 success, 1 internal, 2 validation, 3 not found, 4 conflict, 5 auth, 6 retryable.
+
+      ## Acceptance criteria
+
+      - [ ] A `--if-unchanged` conflict exits 4.
+      - [ ] A missing issue exits 3.
+      - [ ] A bad flag or malformed state exits 2.
+      - [ ] A missing or invalid key exits 5; `forbidden` also exits 5.
+      - [ ] A rate limit or network failure exits 6.
+      - [ ] An unexpected failure exits 1.
+      - [ ] The README table matches the code.
+      - [ ] Each class has a test; no test parses a message.
+    state: Backlog
+    priority: medium
+    labels: [ready-for-agent]
+    assignee: "mail@iyxeyl.me"
+    parent: RATA-109
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T17:29:45.934Z"
+    comments: []
+    blocks: [RATA-112, RATA-113, RATA-115, RATA-116, RATA-117, RATA-118, RATA-119]
+
+  - key: RATA-112
+    id: 5051f11b-9cd5-46b7-a859-8122bc228807
+    title: "Add issue status"
+    description: |-
+      ## Parent
+
+      RATA-109 — Mission: mission-shaped front door for rata.
+
+      ## What to build
+
+      `rata issue status <ref>` is one read for the issue, its GitHub PRs, its open blockers, and its next unblocked child. Human output is a compact summary. JSON is the full object.
+
+      The PR projection reads the `github` attachments. `checks` and `mergeCommit` are null because Linear does not carry them. Each PR says `source: "linear"`. The next child is the first open, unblocked child by priority then creation time; it does not filter on assignee.
+
+      ## Acceptance criteria
+
+      - [ ] Human output shows state, priority, assignee, open blockers, PR state, and the next child.
+      - [ ] JSON carries the issue header, `blocked`, `blockedBy`, `prs`, and `nextChild`.
+      - [ ] A merged PR, an open PR, a draft PR, and no PR all render.
+      - [ ] Missing metadata gives null fields, not an error.
+      - [ ] A missing issue exits 3.
+      - [ ] The next child ignores the assignee, unlike `rata next`.
+    state: Backlog
+    priority: medium
+    labels: [ready-for-agent]
+    assignee: "mail@iyxeyl.me"
+    parent: RATA-109
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T17:29:47.292Z"
+    comments: []
+    blocks: [RATA-114, RATA-115, RATA-118]
+
+  - key: RATA-113
+    id: 695fa7b1-c64b-4b99-b699-dbd5a616810c
+    title: "Mission state and mission init"
+    description: |-
+      ## Parent
+
+      RATA-109 — Mission: mission-shaped front door for rata.
+
+      ## What to build
+
+      The mission document gets typed state. The `## Mission` section holds a generated summary and one fenced JSON block, schema 1. The block holds status, scope, phase, gate, goal, exit, session, next, and the gate list. The `## Session plan` and `## References` tables stay canonical and are parsed.
+
+      `rata mission init <ref>` writes the block and the missing tables. An existing block is `skipped`; `--reset` rewrites it. `--dry-run` prints the diff. A malformed block or table row is `validation`.
+
+      ## Acceptance criteria
+
+      - [ ] `mission init` on RATA-109 writes the summary, the block, and the missing tables.
+      - [ ] A second `init` returns `skipped`; `--reset` rewrites.
+      - [ ] `--dry-run` prints a real diff.
+      - [ ] A malformed block and a malformed table row exit 2.
+      - [ ] A legacy `## Mission` prose section is replaced by the block; other sections are untouched.
+      - [ ] The state round-trips through encode and decode without loss.
+    state: Backlog
+    priority: medium
+    labels: [ready-for-agent]
+    assignee: "mail@iyxeyl.me"
+    parent: RATA-109
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T17:29:48.699Z"
+    comments: []
+    blocks: [RATA-114, RATA-115, RATA-116, RATA-120]
+
+  - key: RATA-114
+    id: d0e5e66f-9040-4882-959c-255c8373f809
+    title: "Add mission status and mission next"
+    description: |-
+      ## Parent
+
+      RATA-109 — Mission: mission-shaped front door for rata.
+
+      ## What to build
+
+      `rata mission status <ref>` is the one call a session makes. It reads the mission state, the two tables, the issue, the PRs, the blockers, and the next child. The human output is the contract line. `--json` is the full object. `--verify` reads each child's `github` attachments and reports every PR.
+
+      `rata mission next <ref>` prints only the next-step line.
+
+      ## Acceptance criteria
+
+      - [ ] The human contract prints mission, gate, method, next skill, read, produce, and next step.
+      - [ ] `--json` carries the state, tables, PRs, blockers, next child, and stale references.
+      - [ ] A local reference path that no longer exists is marked stale; a URL is `unchecked`.
+      - [ ] `--verify` reports each child PR and its state.
+      - [ ] `mission next` prints one line and writes nothing.
+      - [ ] A missing block exits 3; a malformed block exits 2.
+    state: Backlog
+    priority: medium
+    labels: [ready-for-agent]
+    assignee: "mail@iyxeyl.me"
+    parent: RATA-109
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T17:29:50.114Z"
+    comments: []
+    blocks: [RATA-120]
+
+  - key: RATA-115
+    id: 5b85d68b-730b-4030-ac6c-0b54b5640060
+    title: "Add mission gate"
+    description: |-
+      ## Parent
+
+      RATA-109 — Mission: mission-shaped front door for rata.
+
+      ## What to build
+
+      `rata mission gate <ref> <gate> --approve|--reject` turns a gate into data. It validates the transition, posts the evidence comment, then rewrites the state block. A repeated approval with the same evidence is `skipped`; different evidence is `conflict`. A rejection keeps the phase.
+
+      The PR gate needs evidence. The URL must appear in a merged `github` attachment or in a comment. Every child ticket with a PR must have a merged PR.
+
+      ## Acceptance criteria
+
+      - [ ] Scope, Spec, Tickets, and PR advance the phase in order.
+      - [ ] A skipped or out-of-order gate exits 4 and writes nothing.
+      - [ ] A rejection keeps the phase and records the reason.
+      - [ ] The PR gate refuses without evidence, without a merge, or with an open child PR.
+      - [ ] The comment is posted before the state write and a retry is safe.
+      - [ ] `--dry-run` prints the transition and the comment.
+      - [ ] The state write uses `--if-unchanged`.
+    state: Backlog
+    priority: medium
+    labels: [ready-for-agent]
+    assignee: "mail@iyxeyl.me"
+    parent: RATA-109
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T17:29:51.524Z"
+    comments: []
+    blocks: [RATA-120]
+
+  - key: RATA-116
+    id: 18a3253f-590a-478d-aa64-2cc7f6e09de2
+    title: "Add mission handoff and --stamp"
+    description: |-
+      ## Parent
+
+      RATA-109 — Mission: mission-shaped front door for rata.
+
+      ## What to build
+
+      One stamp line for the handoff log: ISO 8601 with the linked team's offset, then session, phase, gate, and method. `section append --stamp` appends it to a named section. `mission handoff` writes it as a comment and increments the session in the state block.
+
+      ## Acceptance criteria
+
+      - [ ] The line is `- <timestamp> — session N, phase P, gate G, method M`.
+      - [ ] The timestamp uses the linked team's timezone; a missing link exits 2.
+      - [ ] A mission block fills phase, gate, method, and session; flags override.
+      - [ ] Without a block, all four flags are required.
+      - [ ] `mission handoff` appends one comment, increments the session, and prints the line.
+      - [ ] A repeated handoff with the same session and gate is `skipped`.
+      - [ ] `--dry-run` writes nothing.
+    state: Backlog
+    priority: medium
+    labels: [ready-for-agent]
+    assignee: "mail@iyxeyl.me"
+    parent: RATA-109
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T17:29:52.926Z"
+    comments: []
+    blocks: [RATA-120]
+
+  - key: RATA-117
+    id: 09612b73-a233-4d37-bc5c-fc0441ad0c75
+    title: "Guard the body write"
+    description: |-
+      ## Parent
+
+      RATA-109 — Mission: mission-shaped front door for rata.
+
+      ## What to build
+
+      A whole-body write cannot delete a section by accident. The update compares the heading set (level plus text) before and after. Additions pass. A missing heading or a level change fails unless `--replace-body` is passed. `--require-sections` checks the result. `--dry-run` prints a real diff for a replace, not only for an append.
+
+      ## Acceptance criteria
+
+      - [ ] A dropped heading, a renamed heading, and a level change each exit 2 and list the lost headings.
+      - [ ] An added heading passes.
+      - [ ] `--append` is exempt; `--replace-body` bypasses the guard.
+      - [ ] `--require-sections` fails when a named heading is missing.
+      - [ ] `--dry-run` prints the unified diff for a replace.
+      - [ ] The existing section edits keep their behavior.
+    state: Backlog
+    priority: medium
+    labels: [ready-for-agent]
+    assignee: "mail@iyxeyl.me"
+    parent: RATA-109
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T17:29:54.342Z"
+    comments: []
+    blocks: [RATA-120]
+
+  - key: RATA-118
+    id: fe690d7d-5c97-44f0-92bc-c15417d674fd
+    title: "Add doctor"
+    description: |-
+      ## Parent
+
+      RATA-109 — Mission: mission-shaped front door for rata.
+
+      ## What to build
+
+      `rata doctor` is a read-only preflight. It checks auth and viewer, the repository link, the team read, the GitHub integration, a sample `github` attachment, and the team timezone. It prints the fixed closing words and the team's first completed state. It writes nothing.
+
+      ## Acceptance criteria
+
+      - [ ] A healthy setup exits 0 with every check `ok`.
+      - [ ] A missing GitHub integration is a warning, not a failure.
+      - [ ] A failed auth exits 5; a missing link or team exits 2.
+      - [ ] The PR attachment check reports the keys it found, or `warn` when no sample exists.
+      - [ ] The timezone check validates the stored zone.
+      - [ ] `--json` returns one check per row.
+    state: Backlog
+    priority: medium
+    labels: [ready-for-agent]
+    assignee: "mail@iyxeyl.me"
+    parent: RATA-109
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T17:29:55.913Z"
+    comments: []
+    blocks: [RATA-120]
+
+  - key: RATA-119
+    id: db967758-691a-4201-a4b2-8cceae240ea8
+    title: "Add refs and ids"
+    description: |-
+      ## Parent
+
+      RATA-109 — Mission: mission-shaped front door for rata.
+
+      ## What to build
+
+      Bare issue numbers resolve through the linked team: `48` becomes `RATA-48`. Full identifiers, UUIDs, and URLs do not change. `--ids-only` prints one identifier per line on `issue list` and `search`, and composes with `--all`.
+
+      ## Acceptance criteria
+
+      - [ ] `rata issue show 109` resolves to RATA-109 when the repo is linked.
+      - [ ] An unlinked repo exits 2 with a hint to run `rata link`.
+      - [ ] A full identifier, UUID, or URL is unchanged.
+      - [ ] `--ids-only` prints one identifier per line and works with `--all`.
+      - [ ] `--ids-only` with `--json` or `--fields` exits 2.
+      - [ ] `--id-only` is not accepted.
+    state: Backlog
+    priority: medium
+    labels: [ready-for-agent]
+    assignee: "mail@iyxeyl.me"
+    parent: RATA-109
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T17:29:57.444Z"
+    comments: []
+    blocks: [RATA-120]
+
+  - key: RATA-120
+    id: 6be8346b-b4fa-4c03-96f6-987af1cd34f6
+    title: "Document the 0.9.0 surface"
+    description: |-
+      ## Parent
+
+      RATA-109 — Mission: mission-shaped front door for rata.
+
+      ## What to build
+
+      The docs and the shipped skill describe the new surface. The README gains the command reference, the exit-code table, the mission section, the guard, and the stamp. The issue tracker doc gains the mission commands and the comment history. The rata skill gains examples. The glossary gains the mission terms. A new ADR records the typed state; ADR-0008's parser rules stay.
+
+      ## Acceptance criteria
+
+      - [ ] Every new command, flag, and exit code is documented with an example.
+      - [ ] The glossary defines mission document, mission state, phase, gate, method, session, handoff, evidence, reference, stale reference, stamp, and doctor.
+      - [ ] The ADR records the typed state and the comment history.
+      - [ ] The docs and the CLI help agree.
+      - [ ] No stale path or dead command reference remains.
+      - [ ] `bun run check` passes.
+    state: Backlog
+    priority: medium
+    labels: [ready-for-agent]
+    assignee: "mail@iyxeyl.me"
+    parent: RATA-109
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T17:29:58.775Z"
+    comments: []
+    blocks: [RATA-121]
+
+  - key: RATA-121
+    id: d75a51c8-231f-47fc-9ee0-b2321885de26
+    title: "Release 0.9.0"
+    description: |-
+      ## Parent
+
+      RATA-109 — Mission: mission-shaped front door for rata.
+
+      ## What to build
+
+      Ship 0.9.0. Bump the version, tag, publish the GitHub release, update the Arch package, and refresh the installed skill. The release checklist in the repository is the source.
+
+      ## Acceptance criteria
+
+      - [ ] `package.json` and the CLI report `0.9.0`.
+      - [ ] Tag `v0.9.0` is pushed and the GitHub release exists.
+      - [ ] The Arch package has `pkgver=0.9.0`, fresh checksums, regenerated `.SRCINFO`, and a successful build.
+      - [ ] The package is committed and pushed to both remotes.
+      - [ ] `bunx skills update rata -g -y` succeeds.
+      - [ ] `bun run check` passes on the release commit.
+    state: Backlog
+    priority: medium
+    labels: [ready-for-agent]
+    assignee: "mail@iyxeyl.me"
+    parent: RATA-109
+    project: null
+    author: "mail@iyxeyl.me"
+    createdAt: "2026-10-29T17:30:00.205Z"
+    comments: []
+    blocks: []
