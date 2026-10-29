@@ -32,7 +32,7 @@ const warnWhenInvisible = (visible: WriteVisibility, message: string): Effect.Ef
 const validateWait = (wait: number | undefined) =>
   Effect.gen(function* validateWaitEffect() {
     if (wait !== undefined && wait < 0) {
-      yield* errorLine(1, "The --wait flag must be 0 or more.")
+      yield* errorLine("validation", "The --wait flag must be 0 or more.")
       return false
     }
     return true
@@ -49,7 +49,7 @@ const resolveCommentBody = Effect.fn("Cli.IssueWrite.resolveCommentBody")(
       return Option.none<string>()
     }
     if (resolved.value.trim().length === 0) {
-      yield* errorLine(1, "The comment body is empty.")
+      yield* errorLine("validation", "The comment body is empty.")
       return Option.none<string>()
     }
     return resolved

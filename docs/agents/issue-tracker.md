@@ -13,8 +13,10 @@ operations.
   `--json` and is valid on `status`, `issue show`, `issue section get`,
   `issue list`, `search`, `team show`, `team list`, `label list`,
   `project list` and `config show`. A failed `--json` command writes one
-  `error` object to stderr and exits 1. Its fields are `code`, `message` and
-  `hint`. Parse that object instead of the prose.
+  `error` object to stderr and exits with the code of its error class: `1`
+  internal, `2` validation, `3` not found, `4` conflict, `5` auth and `6`
+  retryable. Its fields are `code`, `message` and `hint`. Parse that object and
+  the exit code instead of the prose.
 - **Discover the workflow states**: `rata team show --json` lists every state
   with its name and type, plus the labels, members and priorities. Do not guess
   a state name.

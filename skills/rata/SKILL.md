@@ -49,8 +49,9 @@ An issue reference is an identifier (`ABC-42`), a UUID, or a `linear.app` URL.
 human output. `--fields` trims a read to dotted paths, for example
 `rata issue list --json --fields identifier,title,state.name`. A failed `--json`
 command writes one `error` object (`code`, `message`, `hint`) to stderr and
-exits with code 1. List commands return one page with `pageInfo`: see **Paging
-lists**.
+exits with the code of its error class: `2` validation, `3` not found, `4`
+conflict, `5` auth, `6` retryable, and `1` internal. List commands return one
+page with `pageInfo`: see **Paging lists**.
 
 `issue show` has `--summary`, `--no-body`, `--no-relations`, `--no-children` and
 `--no-attachments`. `--summary` reads the header fields only and rejects

@@ -140,3 +140,13 @@ they explore the codebase. Use these terms; do not drift to synonyms.
   title, state, priority, labels, assignee, project, parent, url and
   `updatedAt`. It carries no description, children, relations, attachments or
   comments. Avoid: header, metadata.
+
+## Errors
+
+- **Error class**: the kind of a failure: `validation`, `not_linked`,
+  `not_found`, `ambiguous`, `auth`, `forbidden`, `conflict`, `rate_limited`,
+  `network` or `internal`. The classifier maps every failure to one class. The
+  JSON error object carries it as `code`.
+- **Exit code**: the process status that names the error class: `0` success,
+  `1` internal, `2` validation, `3` not found, `4` conflict, `5` auth, `6`
+  retryable. Avoid: status code.

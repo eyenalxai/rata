@@ -143,7 +143,7 @@ describe("rata issue assign grammar", () => {
     expect(lines).toContain("error: The issue reference comes before the assignee.")
     expect(lines).toContain("hint: rata issue assign RAT-1 --assignee me")
     expect(recorder.requests).toHaveLength(0)
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(2)
   })
 
   test("requires --assignee", async () => {
@@ -152,7 +152,7 @@ describe("rata issue assign grammar", () => {
     await runIssue(recorder.handler, ["assign", "RAT-1"], lines)
     expect(lines).toContain("error: The --assignee flag is required.")
     expect(lines).toContain("hint: rata issue assign <ref> --assignee <me|user-id|none>")
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(2)
   })
 })
 

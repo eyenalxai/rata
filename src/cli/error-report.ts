@@ -10,6 +10,33 @@ type ErrorCode =
   | "network"
   | "internal"
 
+const exitCodes = {
+  success: 0,
+  internal: 1,
+  validation: 2,
+  notFound: 3,
+  conflict: 4,
+  auth: 5,
+  retryable: 6,
+} as const
+
+type ExitCode = (typeof exitCodes)[keyof typeof exitCodes]
+
+const exitCodeByClass: Record<ErrorCode, ExitCode> = {
+  validation: exitCodes.validation,
+  not_linked: exitCodes.validation,
+  ambiguous: exitCodes.validation,
+  not_found: exitCodes.notFound,
+  conflict: exitCodes.conflict,
+  auth: exitCodes.auth,
+  forbidden: exitCodes.auth,
+  rate_limited: exitCodes.retryable,
+  network: exitCodes.retryable,
+  internal: exitCodes.internal,
+}
+
+const exitCodeOf = (code: ErrorCode): ExitCode => exitCodeByClass[code]
+
 type ReportedError = {
   readonly message: string
   readonly cause?: unknown
@@ -32,7 +59,6 @@ const tagOf = (error: ReportedError): string | undefined => {
 }
 
 const errorRules: Record<string, ErrorRule> = {
-  LinearAuthError: { code: "auth", hint: "Run `rata auth login --with-token`." },
   LinearNetworkError: { code: "network", hint: "Check the connection and retry." },
   TeamResolutionError: { code: "not_linked", hint: null },
   TeamNotFoundError: { code: "not_found", hint: null },
@@ -86,6 +112,12 @@ const classifyError = (error: ReportedError): ErrorReport => {
     const hint: unknown = Reflect.get(error, "hint")
     return { code: "validation", message, hint: typeof hint === "string" ? hint : null }
   }
+  if (tag === "LinearAuthError") {
+    const status: unknown = Reflect.get(error, "status")
+    return status === 403
+      ? { code: "forbidden", message, hint: "The key lacks access to this resource." }
+      : { code: "auth", message, hint: "Run `rata auth login --with-token`." }
+  }
   if (tag === "ConflictError") {
     const current: unknown = Reflect.get(error, "current")
     return {
@@ -129,4 +161,11 @@ const classifyError = (error: ReportedError): ErrorReport => {
   return { code: "internal", message, hint: "Run with RATA_DEBUG=1 for details." }
 }
 
-export { classifyError, type ErrorCode, type ErrorReport, type ReportedError }
+export {
+  classifyError,
+  type ErrorCode,
+  type ErrorReport,
+  type ExitCode,
+  exitCodeOf,
+  type ReportedError,
+}

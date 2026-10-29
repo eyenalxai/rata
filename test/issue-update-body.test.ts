@@ -66,7 +66,7 @@ describe("issue update --append", () => {
 
     expect(lines).toContain("error: The --append flag needs --body or --body-file.")
     expect(recorder.requests).toHaveLength(0)
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(2)
   })
 
   test("rejects an empty body", async () => {
@@ -168,6 +168,7 @@ describe("issue update --if-unchanged", () => {
 
     const error = decodeError(lastJson(lines))
     expect(error.code).toBe("conflict")
+    expect(process.exitCode).toBe(4)
     expect(error.hint).toBe(
       "The current updatedAt is 2026-01-01T09:00:00.000Z. Re-read the issue and retry.",
     )

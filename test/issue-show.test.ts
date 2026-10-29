@@ -78,6 +78,9 @@ const showHandler =
 
 const relatedHandler = (): Response => jsonResponse({ data: { issue: relatedDetail } })
 
+const missingIssueHandler: Handler = () =>
+  jsonResponse({ data: null, errors: [{ message: "Entity not found: Issue" }] })
+
 const ShowDocument = Schema.Struct({
   issue: Schema.Struct({
     comments: Schema.Array(Schema.Struct({ id: Schema.String })),
@@ -211,6 +214,16 @@ describe("issue show", () => {
     expect(requests.some((request) => request.query.includes("query IssueComments"))).toBe(false)
   })
 
+  test("a missing issue is not_found and exits 3", async () => {
+    const lines: string[] = []
+    await runShow(missingIssueHandler, ["show", "RAT-404", "--json"], lines)
+
+    expect(
+      Option.getOrThrow(Schema.decodeUnknownOption(ErrorEnvelope)(lastJson(lines))).error.code,
+    ).toBe("not_found")
+    expect(process.exitCode).toBe(3)
+  })
+
   test("rejects --comments with --no-comments", async () => {
     const requests: ReturnType<typeof readBody>[] = []
     const lines: string[] = []
@@ -224,6 +237,6 @@ describe("issue show", () => {
       Option.getOrThrow(Schema.decodeUnknownOption(ErrorEnvelope)(lastJson(lines))).error.code,
     ).toBe("validation")
     expect(requests).toEqual([])
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(2)
   })
 })

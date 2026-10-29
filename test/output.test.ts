@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { ConfigProvider, Console, Effect } from "effect"
 
-import { LinearNetworkError, LinearRateLimitError } from "@/api/errors"
+import { LinearAuthError, LinearNetworkError, LinearRateLimitError } from "@/api/errors"
 import { LabelCreateError } from "@/api/label"
 import { TeamResolutionError } from "@/api/team"
 import { JsonOutput, reportFailure } from "@/cli/output"
@@ -36,7 +36,12 @@ const recordingConsole = (lines: string[]): Console.Console => {
 }
 
 const runReport = (
-  error: LinearNetworkError | LinearRateLimitError | LabelCreateError | TeamResolutionError,
+  error:
+    | LinearAuthError
+    | LinearNetworkError
+    | LinearRateLimitError
+    | LabelCreateError
+    | TeamResolutionError,
   env: Record<string, string>,
   lines: string[],
   json = false,
@@ -73,6 +78,7 @@ describe("reportFailure", () => {
       "error: Linear returned HTTP 500.",
       "hint: Check the connection and retry.",
     ])
+    expect(process.exitCode).toBe(6)
   })
 
   test("prints the code and hint in JSON mode", async () => {
@@ -98,6 +104,16 @@ describe("reportFailure", () => {
     expect(JSON.parse(lines[0] ?? "")).toMatchObject({
       error: { code: "rate_limited", hint: "Retry later." },
     })
+    expect(process.exitCode).toBe(6)
+  })
+
+  test("maps a forbidden key to auth with exit code 5", async () => {
+    const lines: string[] = []
+    await runReport(new LinearAuthError({ message: "Forbidden.", status: 403 }), {}, lines, true)
+    expect(JSON.parse(lines[0] ?? "")).toMatchObject({
+      error: { code: "forbidden" },
+    })
+    expect(process.exitCode).toBe(5)
   })
 
   test("maps a duplicate label to conflict", async () => {

@@ -185,7 +185,7 @@ describe("rata next", () => {
     expect(error.code).toBe("validation")
     expect(error.hint).toBe("Pass --parent <ref>.")
     expect(captured).toEqual([])
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(2)
   })
 })
 

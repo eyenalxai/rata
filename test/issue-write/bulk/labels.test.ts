@@ -82,10 +82,10 @@ describe("bulk labels by parent", () => {
     await runIssue(recorder.handler, ["label", "add", "--parent", "RAT-1", "nope", "--json"], lines)
     expect(lines.join("\n")).toContain('"code": "not_found"')
     expect(mutations(recorder, "mutation AddLabel")).toHaveLength(0)
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(3)
   })
 
-  test("reports a mid-batch failure and exits 1", async () => {
+  test("reports a mid-batch failure and uses its exit code", async () => {
     const recorder = recorderFor([seed("RAT-3"), seed("RAT-4")], { failOn: "id-RAT-4" })
     const lines: string[] = []
     await runIssue(recorder.handler, ["label", "add", "--parent", "RAT-1", "bug", "--json"], lines)
@@ -95,7 +95,7 @@ describe("bulk labels by parent", () => {
         { identifier: "RAT-4", status: "failed" },
       ],
     })
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(3)
   })
 
   test("dry-run reports the labels without writing", async () => {
@@ -146,6 +146,6 @@ describe("bulk labels by parent", () => {
     await runIssue(recorder.handler, ["label", "add", "--parent", "RAT-1"], lines)
     expect(lines).toContain("error: At least one label is required.")
     expect(recorder.requests).toHaveLength(0)
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(2)
   })
 })

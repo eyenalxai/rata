@@ -5,7 +5,10 @@ import { OutputFields, rejectFields } from "@/cli/fields"
 import { JsonOutput, errorLine, reportFailure, writeJson, writeLine } from "@/cli/output"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
 
-const reportNotLinked = errorLine(1, "No repository link. Run `rata link` to link this repository.")
+const reportNotLinked = errorLine(
+  "not_linked",
+  "No repository link. Run `rata link` to link this repository.",
+)
 
 const unlinkCommand = Command.make("unlink", {}, () =>
   Effect.gen(function* unlink() {

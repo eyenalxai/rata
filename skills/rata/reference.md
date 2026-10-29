@@ -13,9 +13,10 @@
 - The default team and project come from the repository config, written by
   `rata link` and removed by `rata unlink`. List commands default to the linked
   team; without a link they fail and ask for `--team` or `rata link`.
-- Exit code 0 on success, 1 on failure. With `--json`, a failure writes one JSON
-  object to stderr. A bulk write reports its results on stdout and exits 1 when
-  any result failed.
+- Exit code 0 on success. A failure exits `2` validation, `3` not found, `4`
+  conflict, `5` auth, `6` retryable, or `1` internal. A bulk write reports its
+  results on stdout and exits with the code of the first failed result. With
+  `--json`, a failure writes one JSON object to stderr.
 
 ## Global flags and errors
 
@@ -24,9 +25,9 @@ rata --json issue list
 rata issue list --json --fields identifier,title,state.name
 ```
 
-With `--json`, a failure writes one object to stderr and exits 1. A bulk write
-is the exception: it reports one result per issue on stdout and exits 1 when any
-result failed.
+With `--json`, a failure writes one object to stderr and exits with the code of
+its error class. A bulk write is the exception: it reports one result per issue
+on stdout and exits with the code of the first failed result.
 
 ```json
 {
@@ -210,8 +211,9 @@ end of the description with a blank separator. `--if-unchanged <updatedAt>`
 fails with `conflict` when the issue changed since that read. `--comment`
 validates first, applies the issue update, then creates the comment; when the
 comment fails, the issue update stays, the JSON carries `"comment": null` and
-the `error` object, and the command exits 1. `--dry-run` prints the update
-action, the diff for `--append`, and the comment action.
+the `error` object, and the command exits with the code of the comment error.
+`--dry-run` prints the update action, the diff for `--append`, and the comment
+action.
 
 ### `issue comment` flags
 
@@ -295,7 +297,8 @@ targets every child of the parent, open and closed, in creation order.
 
 Rata validates every target and label before the first write: a bad reference or
 a missing label aborts the batch with zero changes. The writes then run
-best-effort and the command exits 1 when any result failed. JSON is:
+best-effort and the command exits with the code of the first failed result. JSON
+is:
 
 ```json
 {

@@ -91,7 +91,7 @@ const setCommand = Command.make(
         Option.isNone(config.priority)
       ) {
         return yield* errorLine(
-          1,
+          "validation",
           "Pass at least one of --assignee, --label or --priority.",
           "rata config set --assignee me --label enhancement --priority medium",
         )
@@ -154,7 +154,7 @@ const unsetCommand = Command.make(
       yield* rejectFields(yield* OutputFields)
       if (!config.assignee && !config.label && !config.priority) {
         return yield* errorLine(
-          1,
+          "validation",
           "Pass at least one of --assignee, --label or --priority.",
           "rata config unset --label",
         )

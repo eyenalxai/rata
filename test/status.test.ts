@@ -149,7 +149,7 @@ describe("status", () => {
 
     const error = Option.getOrThrow(Schema.decodeUnknownOption(ErrorEnvelope)(lastJson(lines)))
     expect(error.error.code).toBe("auth")
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(5)
   })
 
   test("selects fields on the whole document", async () => {

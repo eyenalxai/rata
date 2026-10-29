@@ -238,6 +238,7 @@ describe("issue section append", () => {
 
     const error = decodeError(lastJson(lines)).error
     expect(error.code).toBe("conflict")
+    expect(process.exitCode).toBe(4)
     expect(error.hint).toBe(
       "The current updatedAt is 2026-01-01T09:00:00.000Z. Re-read the issue and retry.",
     )

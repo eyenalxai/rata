@@ -83,7 +83,7 @@ const closeCommand = Command.make(
         config.commentFile,
       )
       if (Option.isSome(body) && body.value.trim().length === 0) {
-        return yield* errorLine(1, "The comment body is empty.")
+        return yield* errorLine("validation", "The comment body is empty.")
       }
       const comment = Option.getOrUndefined(body)
       const api = yield* IssueWriteApi
@@ -172,7 +172,7 @@ const assignCommand = Command.make(
       const parent = Option.getOrUndefined(config.parent)
       if (legacyAssignee !== undefined) {
         return yield* errorLine(
-          1,
+          "validation",
           "The issue reference comes before the assignee.",
           `rata issue assign ${legacyAssignee} --assignee ${ref}`,
         )
@@ -180,7 +180,7 @@ const assignCommand = Command.make(
       const assignee = Option.getOrUndefined(config.assignee)
       if (assignee === undefined || assignee.length === 0) {
         return yield* errorLine(
-          1,
+          "validation",
           "The --assignee flag is required.",
           "rata issue assign <ref> --assignee <me|user-id|none>",
         )
@@ -188,7 +188,7 @@ const assignCommand = Command.make(
       if (parent !== undefined) {
         if (ref !== undefined) {
           return yield* errorLine(
-            1,
+            "validation",
             "The issue reference and --parent are mutually exclusive.",
             "Pass one of them.",
           )
@@ -204,7 +204,7 @@ const assignCommand = Command.make(
       }
       if (ref === undefined) {
         return yield* errorLine(
-          1,
+          "validation",
           "An issue reference or --parent is required.",
           "rata issue assign <ref> --assignee me",
         )

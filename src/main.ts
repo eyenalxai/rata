@@ -12,6 +12,7 @@ import { ProjectService } from "@/api/project"
 import { RepoTeam } from "@/api/repo-team"
 import { TeamService } from "@/api/team"
 import { root } from "@/cli/root"
+import { withCliExitCode } from "@/cli/run"
 import { Auth } from "@/config/auth"
 import { IssueDefaultsService } from "@/config/defaults"
 import { LinkService } from "@/config/link"
@@ -73,7 +74,9 @@ const appLayer = Layer.mergeAll(
   platformLayer,
 )
 
-// oxlint-disable-next-line effecttsgo/strict-effect-provide -- This is the application entry point; it owns the layer graph.
-const program = Command.run(root, { version: "0.8.0" }).pipe(Effect.provide(appLayer))
+const program = withCliExitCode(Command.run(root, { version: "0.8.0" })).pipe(
+  // oxlint-disable-next-line effecttsgo/strict-effect-provide -- This is the application entry point; it owns the layer graph.
+  Effect.provide(appLayer),
+)
 
 BunRuntime.runMain(program)
