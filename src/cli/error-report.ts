@@ -50,6 +50,10 @@ const errorRules: Record<string, ErrorRule> = {
   ProjectAlreadyDeletedError: { code: "conflict", hint: null },
   ProjectNotDeletedError: { code: "conflict", hint: null },
   StateNotFoundError: { code: "not_found", hint: null },
+  SectionAmbiguousError: {
+    code: "ambiguous",
+    hint: "Rename one heading, or quote a heading that appears once.",
+  },
   InvalidIssueRef: { code: "validation", hint: null },
   InputError: { code: "validation", hint: null },
   BodyInputError: { code: "validation", hint: null },
@@ -63,6 +67,32 @@ const errorRules: Record<string, ErrorRule> = {
 const classifyError = (error: ReportedError): ErrorReport => {
   const message = error.message
   const tag = tagOf(error)
+  if (tag === "SectionNotFoundError") {
+    const available: unknown = Reflect.get(error, "available")
+    const headings =
+      Array.isArray(available) && available.every((item) => typeof item === "string")
+        ? available
+        : []
+    return {
+      code: "not_found",
+      message,
+      hint:
+        headings.length === 0
+          ? "The issue body has no headings."
+          : `Available headings: ${headings.map((heading) => `"${heading}"`).join(", ")}.`,
+    }
+  }
+  if (tag === "ConflictError") {
+    const current: unknown = Reflect.get(error, "current")
+    return {
+      code: "conflict",
+      message,
+      hint:
+        typeof current === "string"
+          ? `The current updatedAt is ${current}. Re-read the issue and retry.`
+          : null,
+    }
+  }
   if (tag === "LabelExistsError") {
     const existing: unknown = Reflect.get(error, "existingName")
     const name = typeof existing === "string" ? existing : message

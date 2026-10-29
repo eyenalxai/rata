@@ -12,7 +12,9 @@ import { issueLabelCommand } from "@/cli/issue-label"
 import { linkCommand, unlinkCommand } from "@/cli/issue-link"
 import { writeIssuePage } from "@/cli/issue-page"
 import { assignCommand, closeCommand, reopenCommand, unassignCommand } from "@/cli/issue-transition"
-import { commentCommand, createCommand, updateCommand } from "@/cli/issue-write"
+import { createCommand, updateCommand } from "@/cli/issue-write"
+import { commentCommand } from "@/cli/issue/comment"
+import { sectionCommand } from "@/cli/issue/section"
 import {
   JsonOutput,
   errorLine,
@@ -32,7 +34,6 @@ const afterFlag = Flag.String("after").pipe(
   Flag.withDescription("Continue after this cursor"),
   Flag.optional,
 )
-
 const optionalText = (name: string, description: string) =>
   Flag.String(name).pipe(Flag.withDescription(description), Flag.optional)
 
@@ -284,6 +285,7 @@ const issueCommand = Command.make("issue").pipe(
     createCommand,
     commentCommand,
     updateCommand,
+    sectionCommand,
     issueLabelCommand,
     closeCommand,
     reopenCommand,

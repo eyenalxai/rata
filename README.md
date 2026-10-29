@@ -728,6 +728,11 @@ and attachments. `--no-comments` skips the comment fetch and omits the key.
 `--comments` and `--no-comments` are mutually exclusive. Every collection
 drains every page.
 
+Each issue carries `updatedAt`, the Linear modification timestamp. It appears
+in `issue list`, `issue show`, `search` and every write result that returns an
+issue. Pass it to `--if-unchanged` to make a best-effort conditional write
+before a body change.
+
 Every read command accepts the global `--json` and prints one stable JSON
 document. The list and search commands print one page:
 `{ "issues": [...], "pageInfo": { "hasNextPage": ..., "endCursor": ... } }`.
@@ -814,6 +819,38 @@ lists the issues that block it. `--json` includes `comments` by default.
 `--no-comments` skips the fetch and omits the key. `--comments` and
 `--no-comments` are mutually exclusive.
 
+### Section editing
+
+`issue section` reads and edits one heading section of the description. A
+section is an ATX heading (`#` to `######`) and the content under it. It ends at
+the next heading of the same or higher level; deeper headings stay inside. A
+heading inside a fenced code block is not a section. The heading match is exact
+and case-sensitive.
+
+```bash
+rata issue section get RAT-42 "Handoff log"
+rata issue section get RAT-42 "Handoff log" --with-heading
+rata issue section append RAT-42 "Handoff log" --body "Started."
+printf 'New content' | rata issue section replace RAT-42 "Handoff log" --body-file -
+```
+
+`get` prints the content only. `--with-heading` prints the heading line first.
+JSON is `{ "section": { "heading", "level", "content" } }`, and `--fields`
+applies to `section`.
+
+`append` inserts the content at the end of the section, or creates the section
+at the end of the description when the heading is missing. `--level` sets the
+new heading level (default 2). `replace` replaces the content and keeps the
+heading; a missing heading is `not_found`. Both need `--body` or `--body-file`.
+
+`--dry-run` prints a unified diff and writes nothing. `--if-unchanged
+<updatedAt>` fails with `conflict` before the write when the issue changed since
+that read; the hint names the current value. Linear has no compare-and-swap, so
+the check is best effort.
+
+A duplicate heading is an `ambiguous` error that lists the line numbers. A
+missing heading read or replace is `not_found` and lists the available headings.
+
 ## Writing issues
 
 `rata issue create` needs a team: pass `--team`, or run `rata link` once. The
@@ -826,8 +863,11 @@ rata issue create --title "Fix login" --team RAT --label ready-for-agent --prior
 rata issue create --title "Add the client" --parent RAT-1 --wait 10
 rata issue comment RAT-42 --body "Looks good."
 printf 'From a pipe' | rata issue update RAT-42 --body-file -
+printf '\nUpdate.' | rata issue update RAT-42 --body-file - --append
 rata issue update RAT-42 --state "In Progress" --assignee me
-rata issue update RAT-42 --priority high
+rata issue update RAT-42 --priority high --if-unchanged 2026-01-01T10:00:00.000Z
+rata issue section append RAT-42 "Handoff log" --body "Started."
+rata issue section replace RAT-42 "Handoff log" --body-file -
 rata issue label add RAT-42 ready-for-agent bug
 rata issue label remove RAT-42 needs-triage
 rata issue close RAT-42 --comment "Done in PR #12"
@@ -847,7 +887,10 @@ rata issue unlink RAT-43 --blocked-by RAT-42
 | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `issue create`                          | `--title` (required), `--body`, `--body-file`, `--team`, `--label` (repeatable), `--no-default-labels`, `--parent`, `--project`, `--state`, `--assignee`, `--priority`, `--wait`, `--dry-run` |
 | `issue comment <ref>`                   | `--body`, `--body-file` (one is required), `--wait`                                                                                                                                           |
-| `issue update <ref>`                    | `--title`, `--body`, `--body-file`, `--state`, `--assignee`, `--project`, `--parent`, `--priority`                                                                                            |
+| `issue update <ref>`                    | `--title`, `--body`, `--body-file`, `--append`, `--state`, `--assignee`, `--project`, `--parent`, `--priority`, `--dry-run`, `--if-unchanged`                                                 |
+| `issue section get <ref> <heading>`     | `--with-heading`                                                                                                                                                                              |
+| `issue section append <ref> <heading>`  | `--body`, `--body-file` (one is required), `--level`, `--dry-run`, `--if-unchanged`                                                                                                           |
+| `issue section replace <ref> <heading>` | `--body`, `--body-file` (one is required), `--dry-run`, `--if-unchanged`                                                                                                                      |
 | `issue label add [<ref>] <label...>`    | label names, `--parent`, `--dry-run`                                                                                                                                                          |
 | `issue label remove [<ref>] <label...>` | label names, `--parent`, `--dry-run`                                                                                                                                                          |
 | `issue close <ref>`                     | `--comment`, `--comment-file`                                                                                                                                                                 |
@@ -943,11 +986,11 @@ rata issue create --title "Add the client" --parent RAT-1 --wait 0
 ### Dry runs
 
 `--dry-run` resolves the targets and prints the actions without calling a
-mutation. It is available on `issue create`, `issue link`, `issue unlink`,
+mutation. It is available on `issue create`, `issue update`,
+`issue section append`, `issue section replace`, `issue link`, `issue unlink`,
 `issue assign`, `issue unassign`, `issue label add`, `issue label remove`,
-`config set` and `config unset`. It is not available on `issue update`,
-`issue close`, `issue reopen`, `issue comment` or the team, project and label
-mutations.
+`config set` and `config unset`. It is not available on `issue close`,
+`issue reopen` or `issue comment`.
 
 ```bash
 rata issue create --title "Fix login" --dry-run

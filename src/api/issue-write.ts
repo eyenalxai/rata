@@ -1,15 +1,13 @@
 import { Context, Effect, Layer } from "effect"
 
-import type { IssueWriteApiShape } from "@/api/issue-write/model"
-import type { IssueUpdateOptions, VisibilityOptions } from "@/api/issue-write/write-types"
+import type { IssueWriteApiShape } from "@/api/issue-write/api-shape"
+import type { VisibilityOptions } from "@/api/issue-write/write-types"
 
 import { LinearClient } from "@/api/client"
-import { updateIssueMutation } from "@/api/issue-query"
-import { UpdateIssueResponse } from "@/api/issue-schema"
+import { makeBodyWrites } from "@/api/issue-write/body"
 import { makeBulkWrites } from "@/api/issue-write/bulk"
 import { makeCreateWrites } from "@/api/issue-write/create"
 import { makeIssueWrites } from "@/api/issue-write/issue-writes"
-import { unwrapIssue } from "@/api/issue-write/model"
 import { makeRelationWrites } from "@/api/issue-write/relation-writes"
 import { makeIssueWriteResolvers } from "@/api/issue-write/resolvers"
 import { makeVisibilityChecks } from "@/api/issue-write/visibility"
@@ -34,6 +32,7 @@ class IssueWriteApi extends Context.Service<IssueWriteApi, IssueWriteApiShape>()
       const issueWrites = makeIssueWrites(resolvers)
       const bulkWrites = makeBulkWrites(resolvers)
       const relationWrites = makeRelationWrites({ client, resolvers })
+      const bodyWrites = makeBodyWrites({ client, resolvers })
       const createWrites = makeCreateWrites({
         client,
         repoConfig,
@@ -53,48 +52,13 @@ class IssueWriteApi extends Context.Service<IssueWriteApi, IssueWriteApiShape>()
         return { comment: created, visible }
       })
 
-      const update = Effect.fn("IssueWriteApi.update")(function* update(
-        ref: string,
-        options: IssueUpdateOptions,
-      ) {
-        const issueId = yield* resolvers.resolveIssueId(ref)
-        const input: Record<string, unknown> = {}
-        if (options.title !== undefined) {
-          input.title = options.title
-        }
-        if (options.body !== undefined) {
-          input.description = options.body
-        }
-        if (options.state !== undefined) {
-          input.stateId = yield* resolvers.issueStateIdByName(issueId, options.state)
-        }
-        if (options.assignee !== undefined) {
-          input.assigneeId = yield* resolvers.resolveAssignee(options.assignee)
-        }
-        if (options.project !== undefined) {
-          input.projectId = yield* resolvers.resolveProjectId(options.project)
-        }
-        if (options.parent !== undefined) {
-          input.parentId = yield* resolvers.resolveIssueId(options.parent)
-        }
-        if (options.priority !== undefined) {
-          input.priority = options.priority
-        }
-        const data = yield* client.execute(
-          updateIssueMutation,
-          { id: issueId, input },
-          UpdateIssueResponse,
-        )
-        return yield* unwrapIssue(data.issueUpdate)
-      })
-
       return IssueWriteApi.of({
         ...issueWrites,
         ...bulkWrites,
         ...relationWrites,
         ...createWrites,
+        ...bodyWrites,
         comment,
-        update,
       })
     }),
   )

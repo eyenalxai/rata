@@ -228,6 +228,7 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
           url: issue.url,
           state: issue.state,
           priority: toPriority(issue.priority),
+          updatedAt: issue.updatedAt,
           assignee: issue.assignee,
           project: issue.project,
           parent: issue.parent,

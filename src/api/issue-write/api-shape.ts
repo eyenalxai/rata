@@ -1,0 +1,112 @@
+import type { Effect } from "effect"
+
+import type { IssueSummary } from "@/api/issue-model"
+import type {
+  BulkWriteResult,
+  IssueCreatePlan,
+  IssueWriteApiError,
+  IssueRelationChanges,
+  IssueWriteResult,
+  RelationWriteResult,
+  WriteOptions,
+} from "@/api/issue-write/model"
+import type {
+  IssueCommentResult,
+  IssueCreateOptions,
+  IssueCreateResult,
+  IssueUpdateOptions,
+  IssueUpdatePlan,
+  IssueUpdateWriteOptions,
+  SectionWriteOptions,
+  SectionWriteResult,
+  VisibilityOptions,
+} from "@/api/issue-write/write-types"
+import type { Section } from "@/domain/body/section/model"
+
+type IssueWriteApiShape = {
+  readonly create: (
+    options: IssueCreateOptions,
+  ) => Effect.Effect<IssueCreateResult, IssueWriteApiError>
+  readonly planCreate: (
+    options: IssueCreateOptions,
+  ) => Effect.Effect<IssueCreatePlan, IssueWriteApiError>
+  readonly comment: (
+    ref: string,
+    body: string,
+    options?: VisibilityOptions,
+  ) => Effect.Effect<IssueCommentResult, IssueWriteApiError>
+  readonly update: (
+    ref: string,
+    options: IssueUpdateOptions,
+    writeOptions?: IssueUpdateWriteOptions,
+  ) => Effect.Effect<IssueSummary, IssueWriteApiError>
+  readonly planUpdate: (
+    ref: string,
+    options: IssueUpdateOptions,
+    writeOptions?: IssueUpdateWriteOptions,
+  ) => Effect.Effect<IssueUpdatePlan, IssueWriteApiError>
+  readonly readSection: (ref: string, heading: string) => Effect.Effect<Section, IssueWriteApiError>
+  readonly appendSection: (
+    ref: string,
+    heading: string,
+    body: string,
+    options?: SectionWriteOptions,
+  ) => Effect.Effect<SectionWriteResult, IssueWriteApiError>
+  readonly replaceSection: (
+    ref: string,
+    heading: string,
+    body: string,
+    options?: SectionWriteOptions,
+  ) => Effect.Effect<SectionWriteResult, IssueWriteApiError>
+  readonly addLabels: (
+    ref: string,
+    names: readonly string[],
+    options?: WriteOptions,
+  ) => Effect.Effect<IssueWriteResult, IssueWriteApiError>
+  readonly removeLabels: (
+    ref: string,
+    names: readonly string[],
+    options?: WriteOptions,
+  ) => Effect.Effect<IssueWriteResult, IssueWriteApiError>
+  readonly assignChildren: (
+    parentRef: string,
+    assignee: string,
+    options?: WriteOptions,
+  ) => Effect.Effect<readonly BulkWriteResult[], IssueWriteApiError>
+  readonly addLabelsToChildren: (
+    parentRef: string,
+    names: readonly string[],
+    options?: WriteOptions,
+  ) => Effect.Effect<readonly BulkWriteResult[], IssueWriteApiError>
+  readonly removeLabelsFromChildren: (
+    parentRef: string,
+    names: readonly string[],
+    options?: WriteOptions,
+  ) => Effect.Effect<readonly BulkWriteResult[], IssueWriteApiError>
+  readonly close: (
+    ref: string,
+    body?: string,
+  ) => Effect.Effect<IssueWriteResult, IssueWriteApiError>
+  readonly reopen: (ref: string) => Effect.Effect<IssueSummary, IssueWriteApiError>
+  readonly assign: (
+    ref: string,
+    assignee: string,
+    options?: WriteOptions,
+  ) => Effect.Effect<IssueWriteResult, IssueWriteApiError>
+  readonly unassign: (
+    ref: string,
+    options?: WriteOptions,
+  ) => Effect.Effect<IssueWriteResult, IssueWriteApiError>
+  readonly link: (
+    ref: string,
+    changes: IssueRelationChanges,
+    options?: WriteOptions,
+  ) => Effect.Effect<RelationWriteResult, IssueWriteApiError>
+  readonly unlink: (
+    ref: string,
+    changes: IssueRelationChanges,
+    options?: WriteOptions,
+  ) => Effect.Effect<RelationWriteResult, IssueWriteApiError>
+}
+
+export { type IssueWriteApiShape }

@@ -42,6 +42,17 @@ they explore the codebase. Use these terms; do not drift to synonyms.
   forms: the label name or the UUID. A name resolves case-insensitively against
   the team labels and the workspace-scoped labels.
 - **Comment**: a markdown comment on an issue.
+- **Section**: one heading of an issue description and the content under it. The
+  heading is ATX (`#` to `######`), and the section ends at the next heading of
+  the same or higher level. Deeper headings stay inside it. A heading inside a
+  fenced code block is not a section.
+- **Body append**: adding content to the end of the description, or to the end
+  of one section, without replacing the rest.
+- **updatedAt**: the Linear modification timestamp of an issue. It is the
+  snapshot for a best-effort conditional write.
+- **Conditional write**: a write that fails with `conflict` when the issue
+  `updatedAt` differs from the value the caller read. Linear has no
+  compare-and-swap, so the check races with other writers.
 - **Attachment**: an external link on an issue, for example a Notion page or a
   pull request. It has a title, an optional subtitle, a url and a source type.
 - **Relation**: a directional link between two issues. Linear types: `blocks`,

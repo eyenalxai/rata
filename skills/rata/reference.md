@@ -44,11 +44,12 @@ result failed.
 prints `error: <message>` and, when present, `hint: <hint>` on stderr.
 
 `--fields` applies to the command's own object: the `issue` of `issue show`,
-each item of `issues`, `teams`, `labels` or `projects`, the `team` of
-`team show`, the `defaults` object of `config show`, or the whole `status`
-document. The wrapper key stays. It is valid on `status`, `issue show`,
-`issue list`, `search`, `team show`, `team list`, `label list`, `project list`
-and `config show`. Other commands reject it with `validation`.
+the `section` of `issue section get`, each item of `issues`, `teams`, `labels`
+or `projects`, the `team` of `team show`, the `defaults` object of
+`config show`, or the whole `status` document. The wrapper key stays. It is
+valid on `status`, `issue show`, `issue section get`, `issue list`, `search`,
+`team show`, `team list`, `label list`, `project list` and `config show`.
+Other commands reject it with `validation`.
 
 `NO_COLOR=1` drops color from help and errors. Rata's own output is plain text.
 
@@ -103,6 +104,9 @@ recorded `workspace`.
 | `rata issue show <ref> [--comments] [--no-comments]` | Show one issue with comments, children, relations and attachments.            |
 | `rata issue create --title <title> [flags]`          | Create an issue.                                                              |
 | `rata issue update <ref> [flags]`                    | Update an issue.                                                              |
+| `rata issue section get <ref> <heading>`             | Print one section of the body. `--with-heading` adds the heading line.        |
+| `rata issue section append <ref> <heading>`          | Append to a section, or create it at the end. `--level` sets a new heading.   |
+| `rata issue section replace <ref> <heading>`         | Replace a section and keep its heading.                                       |
 | `rata issue comment <ref> --body <text>`             | Comment on an issue. `--wait` bounds the visibility check.                    |
 | `rata issue label add [<ref>] <label...>`            | Add labels. `--parent` targets every child; then every positional is a label. |
 | `rata issue label remove [<ref>] <label...>`         | Remove labels. The same `--parent` rule.                                      |
@@ -184,8 +188,21 @@ The priority sort fetches every matching issue across all pages before
 ### `issue update` flags
 
 `--title`, `--body` / `--body-file -`, `--state`, `--assignee`, `--project`,
-`--parent`, `--priority`. The priority values are the same as `issue create`,
-and `none` clears the priority.
+`--parent`, `--priority`, `--append`, `--dry-run`, `--if-unchanged`. The
+priority values are the same as `issue create`, and `none` clears the priority.
+`--append` adds the body to the end of the description with a blank separator.
+`--if-unchanged <updatedAt>` fails with `conflict` when the issue changed since
+that read.
+
+### `issue section` flags
+
+`get` accepts `--with-heading`. `append` and `replace` take `--body` or
+`--body-file -`, `--dry-run` and `--if-unchanged`; `append` also takes
+`--level` (default 2). A missing heading read or replace is `not_found` and
+lists the available headings. A duplicate heading is `ambiguous` and lists the
+line numbers. `--dry-run` prints a unified diff. JSON dry runs are
+`{ "dryRun": true, "action": "section-append", "target", "heading", "diff" }`;
+a write returns `{ "issue": { "identifier", "updatedAt" }, "section": { "heading", "level" } }`.
 
 ### `issue link` and `issue unlink` flags
 
@@ -198,9 +215,11 @@ and `none` clears the priority.
 
 ### Writes
 
-`issue create`, `issue link`, `issue unlink`, `issue assign`, `issue unassign`,
-`issue label add`, `issue label remove`, `config set` and `config unset` accept
-`--dry-run`. It resolves the targets and prints the actions; no mutation runs.
+`issue create`, `issue update`, `issue section append`, `issue section replace`,
+`issue link`, `issue unlink`, `issue assign`, `issue unassign`, `issue label
+add`, `issue label remove`, `config set` and `config unset` accept `--dry-run`.
+It resolves the targets and prints the actions; no mutation runs. The body
+writes print a unified diff.
 JSON is `{ "dryRun": true, "actions": [...] }` for the single-issue forms. The
 bulk forms return `{ "dryRun": true, "results": [...] }`; see **Bulk writes by
 parent**.

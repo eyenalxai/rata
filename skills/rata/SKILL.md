@@ -35,6 +35,7 @@ rata team show --json                     # states, labels, members and prioriti
 rata issue list --json                    # list issues; returns one page
 rata issue list --after <cursor> --json   # read the next page
 rata issue show ABC-42 --json             # comments, children, relations, attachments
+rata issue section get ABC-42 "Handoff log"  # one heading section of the body
 rata search "flaky test" --json
 ```
 
@@ -48,6 +49,16 @@ human output. `--fields` trims a read to dotted paths, for example
 command writes one `error` object (`code`, `message`, `hint`) to stderr and
 exits with code 1. List commands return one page with `pageInfo`: see **Paging
 lists**.
+
+Every issue carries `updatedAt`. Pass it to `--if-unchanged <updatedAt>` on
+`issue update` or `issue section append|replace` to fail with `conflict` when
+the issue changed since that read. Linear has no compare-and-swap, so the check
+is best effort.
+
+Edit one section of the body with `issue section get|append|replace`. The
+heading match is exact and case-sensitive. `append` creates a missing heading
+at the end; `--level` sets its level. Add `--dry-run` to preview the unified
+diff. `issue update --body-file - --append` appends to the whole body.
 
 A comment or a child that a write just created can be missing from the next
 read. `issue comment` and `issue create --parent` check for up to 5 seconds.

@@ -54,6 +54,7 @@ describe("IssueApi list", () => {
     )
 
     expect(page.issues.map((issue) => issue.identifier)).toEqual(["RAT-1"])
+    expect(page.issues[0]?.updatedAt).toBe("2026-01-01T09:00:00.000Z")
     expect(captured).toHaveLength(1)
     expect(captured[0]?.filter).toEqual({
       and: [
