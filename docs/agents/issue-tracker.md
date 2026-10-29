@@ -51,12 +51,27 @@ operations.
   `--no-body`, `--no-relations`, `--no-children` and `--no-attachments` drop
   those parts and skip their fetches. `view` is an alias for `show`. The issue
   carries `updatedAt`; pass it to `--if-unchanged` before a body write.
-- **Edit one section**: `rata issue section get <ref> "<heading>"`,
-  `issue section append <ref> "<heading>" --body-file -`, and
-  `issue section replace <ref> "<heading>" --body-file -`. The heading match is
-  exact and case-sensitive. Add `--dry-run` to preview the unified diff, or
-  `--if-unchanged <updatedAt>` to fail with `conflict` when the issue changed.
-  `append` creates a missing heading at the end; `--level` sets its level.
+- **Edit one section**: `rata issue section replace <ref> "<heading>" --body-file -`
+  is the safe body write. It replaces the content under one heading and keeps
+  the rest of the body. The heading match is exact and case-sensitive. Read the
+  issue first, preview the diff, then write against that snapshot:
+  `rata issue show <ref> --summary --json`,
+  `rata issue section replace <ref> "<heading>" --body-file - --dry-run`, then
+  the same call with `--if-unchanged <updatedAt>`. `--dry-run` prints a unified
+  diff, and `--if-unchanged` fails with `conflict` when the issue changed since
+  the read. The body holds the content under the heading, without the heading
+  line. A deeper heading belongs to the section: write it too, or the write
+  drops it. `rata issue section get <ref> "<heading>"` prints that content, and
+  `--with-heading` adds the heading line.
+- **Add content**: `issue section append <ref> "<heading>" --body-file -` adds
+  to the end of one section, or creates a missing heading at the end of the
+  body; `--level` sets its level. `append` only adds. It never replaces text.
+- **Do not rewrite the whole body for one section**: `issue update --body-file`
+  replaces the whole body, so a heading that the new body leaves out is lost
+  without an error. A mission log and gate evidence are never a whole-body
+  rewrite. A duplicate heading is the one exception: `section replace` refuses
+  it as `ambiguous`. Rename one heading with `issue update --body-file`, then
+  edit by section.
 - **Append to the body**: `rata issue update <ref> --body-file - --append`. A
   blank line separates the old and the new content.
 - **List issues**: `rata issue list` with the filters you need. Useful filters:
