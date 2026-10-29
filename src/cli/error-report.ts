@@ -121,6 +121,9 @@ const classifyError = (error: ReportedError): ErrorReport => {
       hint: `Labels resolve case-insensitively; use \`${name}\`, or pass \`--if-not-exists\`.`,
     }
   }
+  if (tag === "LinearAuthError" && Reflect.get(error, "status") === 403) {
+    return { code: "forbidden", message, hint: "Ask a workspace admin for access." }
+  }
   const rule = tag === undefined ? undefined : errorRules[tag]
   if (rule !== undefined) {
     return { ...rule, message }

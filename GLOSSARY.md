@@ -140,3 +140,10 @@ they explore the codebase. Use these terms; do not drift to synonyms.
   title, state, priority, labels, assignee, project, parent, url and
   `updatedAt`. It carries no description, children, relations, attachments or
   comments. Avoid: header, metadata.
+- **Error code**: the class of a failure, carried by the `code` field of the JSON
+  error object: `validation`, `not_linked`, `not_found`, `ambiguous`, `auth`,
+  `forbidden`, `conflict`, `rate_limited`, `network` or `internal`.
+- **Exit code**: the process status of a command, one number per **error code**:
+  `0` success, `1` internal, `2` validation, `3` not found, `4` conflict, `5`
+  auth, `6` retryable. A bulk write exits with its first failed result's code.
+  Agents branch on this number. Avoid: status code, return code.

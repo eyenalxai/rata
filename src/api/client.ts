@@ -110,7 +110,8 @@ const makeClient = (
 
     if (response.status === 401 || response.status === 403) {
       return yield* new LinearAuthError({
-        message: "Linear rejected the API key.",
+        message:
+          response.status === 403 ? "Linear forbade this request." : "Linear rejected the API key.",
         status: response.status,
       })
     }

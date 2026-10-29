@@ -14,6 +14,8 @@ import {
   LinearNetworkError,
   LinearRateLimitError,
 } from "@/api/errors"
+import { ProjectNameAmbiguousError } from "@/api/project/errors"
+import { TeamResolutionError } from "@/api/team"
 import { classifyError, exitCodeOf } from "@/cli/error-report"
 import { exitCodeOfCliError } from "@/cli/exit"
 import { ConflictError } from "@/domain/conflict"
@@ -56,6 +58,8 @@ const rateLimited: Handler = () =>
     headers: { "content-type": "application/json", "retry-after": "0" },
   })
 
+const forbidden: Handler = () => jsonResponse({ errors: [{ message: "Forbidden" }] }, 403)
+
 const unusedHandler: Handler = () => {
   throw new Error("the command must fail before the first request")
 }
@@ -76,7 +80,12 @@ describe("the exit code map", () => {
 
   test("classifies a representative error of each class", () => {
     expect(classify(new InvalidIssueRef({ input: "x", message: "bad ref" }))).toBe("validation")
-    expect(classify(new LinearAuthError({ message: "rejected" }))).toBe("auth")
+    expect(classify(new TeamResolutionError({ message: "no team" }))).toBe("not_linked")
+    expect(
+      classify(new ProjectNameAmbiguousError({ name: "Tracker", message: "two projects" })),
+    ).toBe("ambiguous")
+    expect(classify(new LinearAuthError({ message: "rejected", status: 401 }))).toBe("auth")
+    expect(classify(new LinearAuthError({ message: "denied", status: 403 }))).toBe("forbidden")
     expect(classify(new LinearRateLimitError({ message: "slow down" }))).toBe("rate_limited")
     expect(classify(new LinearNetworkError({ message: "offline" }))).toBe("network")
     expect(
@@ -101,10 +110,15 @@ describe("the process exit code", () => {
     expect(exitCodeOfCliError(failure)).toBe(2)
   })
 
-  test("--help exits 0", async () => {
-    await runRoot(unusedHandler, ["--help"], [])
+  test("--help exits 0 and a parse error exits 2", () => {
+    const help = new CliError.ShowHelp({ commandPath: ["rata"], errors: [] })
+    const parseError = new CliError.ShowHelp({
+      commandPath: ["rata", "issue", "show"],
+      errors: [new CliError.UnrecognizedOption({ option: "--bogus", suggestions: [] })],
+    })
 
-    expect(process.exitCode).toBe(0)
+    expect(exitCodeOfCliError(help)).toBe(0)
+    expect(exitCodeOfCliError(parseError)).toBe(2)
   })
 
   test("a bad limit exits 2", async () => {
@@ -144,6 +158,12 @@ describe("the process exit code", () => {
       env: { HOME: "/home/test" },
       profiles: [],
     })
+
+    expect(process.exitCode).toBe(5)
+  })
+
+  test("a forbidden request exits 5", async () => {
+    await runRoot(forbidden, ["whoami", "--json"], [])
 
     expect(process.exitCode).toBe(5)
   })

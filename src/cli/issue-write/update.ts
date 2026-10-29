@@ -84,7 +84,7 @@ const postUpdateComment = Effect.fn("Cli.IssueWrite.postUpdateComment")(function
     const report = classifyError(created.failure)
     if (!json) {
       yield* writeLine(`Updated ${issue.identifier}.`)
-      return yield* errorLine("validation", report.message, report.hint ?? undefined)
+      return yield* errorLine(report.code, report.message, report.hint ?? undefined)
     }
     yield* writeJson({ issue, comment: null, error: report })
     yield* Effect.sync(() => {

@@ -121,7 +121,7 @@ const writeBulkResults = (
   format: (result: BulkWriteSuccess) => string,
 ): Effect.Effect<void> =>
   Effect.gen(function* writeBulk() {
-    const failed = results.find((result) => result.status === "failed")
+    const firstFailure = results.find((result) => result.status === "failed")
     yield* json
       ? writeJson({ dryRun, results: results.map(bulkJsonResult) })
       : Effect.forEach(
@@ -129,8 +129,8 @@ const writeBulkResults = (
           (result) => writeLine(result.status === "failed" ? failureLine(result) : format(result)),
           { discard: true },
         )
-    if (failed !== undefined && failed.status === "failed") {
-      const code = classifyError(failed.error).code
+    if (firstFailure !== undefined && firstFailure.status === "failed") {
+      const code = classifyError(firstFailure.error).code
       yield* Effect.sync(() => {
         process.exitCode = exitCodeOf(code)
       })
