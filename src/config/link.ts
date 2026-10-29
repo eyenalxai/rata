@@ -3,17 +3,21 @@ import type { FileSystem, Path, Terminal } from "effect"
 import { Context, Effect, Layer, Option, Stdio } from "effect"
 
 import type { LinearApiError } from "@/api/errors"
+import type { LabelOperations } from "@/api/label"
 import type { Team, TeamCreateError, TeamNotFoundError, TeamUpdateError } from "@/api/team"
 import type { AuthStoreError } from "@/config/auth"
-import type { LinkError, LinkTargetOptions, TimezoneChange } from "@/config/link/team"
+import type { LinkTargetOptions, TimezoneChange } from "@/config/link/team"
 import type { RepoConfig, RepoConfigError } from "@/config/repo"
 
 import { LinearClient } from "@/api/client"
+import { LabelService } from "@/api/label"
+import { collectConnection, pageSize } from "@/api/pagination"
 import { TeamService } from "@/api/team"
 import { Auth } from "@/config/auth"
-import { invalidLinkOptions } from "@/config/link/team"
+import { invalidLinkOptions, LinkError, updateTeamTimezone } from "@/config/link/team"
 import { resolveLinkTarget } from "@/config/link/workspace"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
+import { findLabelByName } from "@/domain/labels"
 
 type LinkOptions = LinkTargetOptions & {
   readonly project: Option.Option<string>
@@ -53,6 +57,7 @@ class LinkService extends Context.Service<LinkService, LinkServiceShape>()(
     Effect.gen(function* linkServiceLayer() {
       const repoConfig = yield* RepoConfigService
       const teams = yield* TeamService
+      const labels = yield* LabelService
       const auth = yield* Auth
       const client = yield* LinearClient
       const stdio = yield* Stdio.Stdio
@@ -69,6 +74,7 @@ class LinkService extends Context.Service<LinkService, LinkServiceShape>()(
           Option.flatMap(existing, (config) => Option.fromUndefinedOr(config.workspace)),
         )
         const config: RepoConfig = {
+          ...Option.getOrUndefined(existing),
           team,
           ...(Option.isSome(resolvedProject) ? { project: resolvedProject.value } : {}),
           ...(Option.isSome(resolvedWorkspace) ? { workspace: resolvedWorkspace.value } : {}),
@@ -77,18 +83,68 @@ class LinkService extends Context.Service<LinkService, LinkServiceShape>()(
         return { project: resolvedProject, workspace: resolvedWorkspace }
       })
 
+      const validateDefaultLabels = Effect.fn("LinkService.validateDefaultLabels")(
+        function* validateStoredLabels(
+          team: Team,
+          config: Option.Option<RepoConfig>,
+          workspace: Option.Option<string>,
+          operations: LabelOperations,
+        ) {
+          if (Option.isNone(config)) {
+            return yield* Effect.void
+          }
+          const stored = config.value
+          if (
+            stored.team === team.key &&
+            (stored.workspace ?? undefined) === Option.getOrUndefined(workspace)
+          ) {
+            return yield* Effect.void
+          }
+          const names = stored.defaultLabels ?? []
+          if (names.length === 0) {
+            return yield* Effect.void
+          }
+          const available = yield* collectConnection((after) =>
+            operations.listAvailable(team.id, { after, limit: pageSize }),
+          )
+          const missing = names.filter((name) => findLabelByName(available, name) === undefined)
+          if (missing.length === 0) {
+            return yield* Effect.void
+          }
+          return yield* new LinkError({
+            message: `Team ${team.key} does not have these default labels: ${missing.join(", ")}. Run \`rata config unset --label\`, then link again.`,
+          })
+        },
+      )
+
       const link = Effect.fn("LinkService.link")(function* linkRepository(options: LinkOptions) {
         const invalid = invalidLinkOptions(options)
         if (Option.isSome(invalid)) {
           return yield* invalid.value
         }
         const target = yield* resolveLinkTarget(options, { auth, client, stdio, teams })
-        const setup = yield* writeConfig(target.team.key, options.project, target.workspace)
+        const existing = yield* repoConfig.read(yield* currentDirectory)
+        const storedWorkspace = Option.flatMap(existing, (config) =>
+          Option.fromUndefinedOr(config.workspace),
+        )
+        const resolvedWorkspace = Option.orElse(target.workspace, () => storedWorkspace)
+        yield* validateDefaultLabels(
+          target.team,
+          existing,
+          resolvedWorkspace,
+          labels.withKey(target.apiKey),
+        )
+        const updated = yield* updateTeamTimezone(
+          target.team,
+          options.timezone,
+          teams.withKey(target.apiKey),
+        )
+        const setup = yield* writeConfig(updated.team.key, options.project, target.workspace)
         return {
-          team: target.team,
+          team: updated.team,
           project: setup.project,
           workspace: setup.workspace,
-          timezone: target.timezone,
+          timezone: updated.timezone,
         }
       })
 

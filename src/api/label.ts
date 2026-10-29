@@ -1,3 +1,5 @@
+import type { Redacted } from "effect"
+
 import { Context, Effect, Layer, Schema } from "effect"
 
 import type { LinearApiError } from "@/api/errors"
@@ -152,125 +154,132 @@ type LabelOperations = {
   ) => Effect.Effect<Label, LabelWriteError>
 }
 
-class LabelService extends Context.Service<LabelService, LabelOperations>()(
-  "rata-cli/api/label/LabelService",
-) {
+const makeLabelOperations = (
+  execute: LinearClient["Service"]["execute"],
+  repoTeam: RepoTeam["Service"],
+): LabelOperations => {
+  const list = Effect.fn("LabelService.list")(function* listLabels(
+    teamId: string,
+    options: PageOptions,
+  ) {
+    const data = yield* execute(
+      listLabelsQuery,
+      { teamId, first: options.limit, after: options.after },
+      Schema.Struct({ issueLabels: LabelConnection }),
+    )
+    return data.issueLabels
+  })
+
+  const listAvailable = Effect.fn("LabelService.listAvailable")(function* listAvailableLabels(
+    teamId: string,
+    options: PageOptions,
+  ) {
+    const data = yield* execute(
+      listAvailableLabelsQuery,
+      { teamId, first: options.limit, after: options.after },
+      Schema.Struct({ issueLabels: LabelConnection }),
+    )
+    return data.issueLabels
+  })
+
+  const byName = Effect.fn("LabelService.byName")(function* byName(teamId: string, name: string) {
+    const available = yield* collectConnection((after) =>
+      listAvailable(teamId, { after, limit: pageSize }),
+    )
+    const match = findLabelByName(available, name)
+    if (match === undefined) {
+      return yield* labelNotFoundError(teamId, name)
+    }
+    return match
+  })
+
+  const create = Effect.fn("LabelService.create")(function* createLabel(
+    options: LabelCreateOptions,
+  ) {
+    const teamId = yield* repoTeam.resolve(options.team)
+    const available = yield* collectConnection((after) =>
+      listAvailable(teamId, { after, limit: pageSize }),
+    )
+    const existing = findLabelByName(available, options.name)
+    if (existing !== undefined) {
+      if (options.ifNotExists === true) {
+        return { label: existing, created: false }
+      }
+      return yield* new LabelExistsError({
+        name: options.name,
+        existingName: existing.name,
+        message: `The label \`${existing.name}\` already exists.`,
+      })
+    }
+    const input: Record<string, unknown> = { name: options.name, teamId }
+    if (options.color !== undefined) {
+      input.color = options.color
+    }
+    const data = yield* execute(
+      createLabelMutation,
+      { input },
+      Schema.Struct({ issueLabelCreate: LabelPayload }),
+    )
+    if (!data.issueLabelCreate.success || data.issueLabelCreate.issueLabel === null) {
+      return yield* new LabelCreateError({
+        name: options.name,
+        message: `Linear did not create the label ${options.name}.`,
+      })
+    }
+    return { label: data.issueLabelCreate.issueLabel, created: true }
+  })
+
+  const update = Effect.fn("LabelService.update")(function* updateLabel(
+    ref: string,
+    options: LabelUpdateOptions,
+  ) {
+    let id = ref
+    if (isUuid(ref)) {
+      if (options.team !== undefined) {
+        yield* repoTeam.resolve(options.team)
+      }
+    } else {
+      const teamId = yield* repoTeam.resolve(options.team)
+      const match = yield* byName(teamId, ref)
+      id = match.id
+    }
+    const input: Record<string, unknown> = {}
+    if (options.name !== undefined) {
+      input.name = options.name
+    }
+    if (options.color !== undefined) {
+      input.color = options.color
+    }
+    const data = yield* execute(
+      updateLabelMutation,
+      { id, input },
+      Schema.Struct({ issueLabelUpdate: LabelPayload }),
+    )
+    if (!data.issueLabelUpdate.success || data.issueLabelUpdate.issueLabel === null) {
+      return yield* new LabelUpdateError({
+        ref,
+        message: `Linear did not update the label ${ref}.`,
+      })
+    }
+    return data.issueLabelUpdate.issueLabel
+  })
+
+  return { byName, create, list, listAvailable, update }
+}
+
+class LabelService extends Context.Service<
+  LabelService,
+  LabelOperations & { readonly withKey: (apiKey: Redacted.Redacted) => LabelOperations }
+>()("rata-cli/api/label/LabelService") {
   static readonly layer = Layer.effect(
     LabelService,
     Effect.gen(function* labelServiceLayer() {
       const client = yield* LinearClient
       const repoTeam = yield* RepoTeam
-
-      const list = Effect.fn("LabelService.list")(function* listLabels(
-        teamId: string,
-        options: PageOptions,
-      ) {
-        const data = yield* client.execute(
-          listLabelsQuery,
-          { teamId, first: options.limit, after: options.after },
-          Schema.Struct({ issueLabels: LabelConnection }),
-        )
-        return data.issueLabels
+      return LabelService.of({
+        ...makeLabelOperations(client.execute, repoTeam),
+        withKey: (apiKey) => makeLabelOperations(client.withKey(apiKey).execute, repoTeam),
       })
-
-      const listAvailable = Effect.fn("LabelService.listAvailable")(function* listAvailableLabels(
-        teamId: string,
-        options: PageOptions,
-      ) {
-        const data = yield* client.execute(
-          listAvailableLabelsQuery,
-          { teamId, first: options.limit, after: options.after },
-          Schema.Struct({ issueLabels: LabelConnection }),
-        )
-        return data.issueLabels
-      })
-
-      const byName = Effect.fn("LabelService.byName")(function* byName(
-        teamId: string,
-        name: string,
-      ) {
-        const available = yield* collectConnection((after) =>
-          listAvailable(teamId, { after, limit: pageSize }),
-        )
-        const match = findLabelByName(available, name)
-        if (match === undefined) {
-          return yield* labelNotFoundError(teamId, name)
-        }
-        return match
-      })
-
-      const create = Effect.fn("LabelService.create")(function* createLabel(
-        options: LabelCreateOptions,
-      ) {
-        const teamId = yield* repoTeam.resolve(options.team)
-        const available = yield* collectConnection((after) =>
-          listAvailable(teamId, { after, limit: pageSize }),
-        )
-        const existing = findLabelByName(available, options.name)
-        if (existing !== undefined) {
-          if (options.ifNotExists === true) {
-            return { label: existing, created: false }
-          }
-          return yield* new LabelExistsError({
-            name: options.name,
-            existingName: existing.name,
-            message: `The label \`${existing.name}\` already exists.`,
-          })
-        }
-        const input: Record<string, unknown> = { name: options.name, teamId }
-        if (options.color !== undefined) {
-          input.color = options.color
-        }
-        const data = yield* client.execute(
-          createLabelMutation,
-          { input },
-          Schema.Struct({ issueLabelCreate: LabelPayload }),
-        )
-        if (!data.issueLabelCreate.success || data.issueLabelCreate.issueLabel === null) {
-          return yield* new LabelCreateError({
-            name: options.name,
-            message: `Linear did not create the label ${options.name}.`,
-          })
-        }
-        return { label: data.issueLabelCreate.issueLabel, created: true }
-      })
-
-      const update = Effect.fn("LabelService.update")(function* updateLabel(
-        ref: string,
-        options: LabelUpdateOptions,
-      ) {
-        let id = ref
-        if (isUuid(ref)) {
-          if (options.team !== undefined) {
-            yield* repoTeam.resolve(options.team)
-          }
-        } else {
-          const teamId = yield* repoTeam.resolve(options.team)
-          const match = yield* byName(teamId, ref)
-          id = match.id
-        }
-        const input: Record<string, unknown> = {}
-        if (options.name !== undefined) {
-          input.name = options.name
-        }
-        if (options.color !== undefined) {
-          input.color = options.color
-        }
-        const data = yield* client.execute(
-          updateLabelMutation,
-          { id, input },
-          Schema.Struct({ issueLabelUpdate: LabelPayload }),
-        )
-        if (!data.issueLabelUpdate.success || data.issueLabelUpdate.issueLabel === null) {
-          return yield* new LabelUpdateError({
-            ref,
-            message: `Linear did not update the label ${ref}.`,
-          })
-        }
-        return data.issueLabelUpdate.issueLabel
-      })
-
-      return LabelService.of({ byName, create, list, listAvailable, update })
     }),
   )
 }

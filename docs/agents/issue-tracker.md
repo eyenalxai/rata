@@ -11,7 +11,9 @@ operations.
   with its name and type, plus the labels, members and priorities. Do not guess
   a state name.
 - **Create an issue**: `rata issue create --title "..." --body-file -`. Pipe the
-  body with a heredoc.
+  body with a heredoc. `create` applies the repository issue defaults. Pass
+  `--label` to add labels to the defaults, or `--no-default-labels` to drop
+  them for one call.
 - **Set the priority**: every issue must carry a priority. Pass `--priority`
   when you create the issue; triage sets it for issues that arrive without one.
   Values: `urgent` (breaks production or blocks a release), `high` (blocks other
@@ -20,11 +22,16 @@ operations.
 - **Assign the issue**: every issue must be assigned to the authenticated user.
   Pass `--assignee me` when you create the issue; triage assigns `me` to issues
   that arrive without an assignee. Change it with `rata issue assign <ref> --assignee me`,
-  or clear it with `rata issue unassign <ref>`. Wayfinder children are the
-  exception: they stay unassigned until the claim step.
-- **Preview a write**: add `--dry-run` to `rata issue link`, `unlink`, `assign`,
-  `unassign`, `label add` or `label remove`. A repeated idempotent write exits 0
-  and reports `skipped`.
+  or clear it with `rata issue unassign <ref>`. Wayfinder maps and children are
+  the exception: they stay unassigned until the claim step. Use
+  `--assignee none` to skip the repository default for one call.
+- **Set the repository defaults**: `rata config set --assignee me --label enhancement --priority medium`
+  makes them the defaults for every new issue in this repository.
+  `rata config show --json` reads them. `rata config unset --label` clears one
+  field.
+- **Preview a write**: add `--dry-run` to `issue create`, `issue link`,
+  `unlink`, `assign`, `unassign`, `label add`, `label remove`, `config set` or
+  `config unset`. A repeated idempotent write exits 0 and reports `skipped`.
 - **Read an issue**: `rata issue show <ref> --json`. One call returns the issue,
   its comments, children, relations and attachments. Add `--no-comments` to
   skip the comment fetch; `--comments` and `--no-comments` are mutually
@@ -97,11 +104,11 @@ together under the spec. This repository does not use Linear projects.
 Used by `/wayfinder`. The **map** is a single issue labelled `wayfinder:map`,
 with **child** issues as tickets.
 
-- **Map**: `rata issue create --title "..." --label wayfinder:map --assignee me --body-file -`.
-- **Child ticket**: `rata issue create --title "..." --parent <map-ref> --label wayfinder:<type> --body-file -`.
+- **Map**: `rata issue create --title "..." --label wayfinder:map --no-default-labels --assignee none --body-file -`.
+- **Child ticket**: `rata issue create --title "..." --parent <map-ref> --label wayfinder:<type> --no-default-labels --assignee none --body-file -`.
   The type labels are `wayfinder:research`, `wayfinder:prototype`,
-  `wayfinder:grilling` and `wayfinder:task`. Leave children unassigned: the
-  claim step assigns them.
+  `wayfinder:grilling` and `wayfinder:task`. Leave map and children
+  unassigned: the claim step assigns them. The priority default still applies.
 - **Blocking**: native Linear relations. Wire an edge with
   `rata issue link <child-ref> --blocked-by <blocker-ref>`, or the inverse with
   `rata issue link <blocker-ref> --blocks <child-ref>`. A ticket is unblocked

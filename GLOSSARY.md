@@ -81,6 +81,9 @@ they explore the codebase. Use these terms; do not drift to synonyms.
 - **Repository config**: the team, project and workspace profile that rata
   applies to one repository. `rata link` writes it to the local database, and
   commands read it from any subdirectory.
+- **Repository issue defaults** (short: **issue defaults**): the assignee,
+  labels and priority that `rata config` stores for one repository.
+  `issue create` applies them unless a flag overrides them. Avoid: preferences.
 - **Repository root**: the directory that identifies the repository config.
   Inside Git it is the Git common directory, so the main checkout and every
   worktree share one config. Outside Git it is the directory where `rata link`

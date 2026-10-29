@@ -1,14 +1,11 @@
-import { Context, Effect, Layer, Option } from "effect"
+import { Context, Effect, Layer } from "effect"
 
-import type {
-  IssueCreateOptions,
-  IssueUpdateOptions,
-  IssueWriteApiShape,
-} from "@/api/issue-write/model"
+import type { IssueUpdateOptions, IssueWriteApiShape } from "@/api/issue-write/model"
 
 import { LinearClient } from "@/api/client"
-import { createIssueMutation, updateIssueMutation } from "@/api/issue-query"
-import { CreateIssueResponse, UpdateIssueResponse } from "@/api/issue-schema"
+import { updateIssueMutation } from "@/api/issue-query"
+import { UpdateIssueResponse } from "@/api/issue-schema"
+import { makeCreateWrites } from "@/api/issue-write/create"
 import { makeIssueWrites } from "@/api/issue-write/issue-writes"
 import { unwrapIssue } from "@/api/issue-write/model"
 import { makeRelationWrites } from "@/api/issue-write/relation-writes"
@@ -16,7 +13,7 @@ import { makeIssueWriteResolvers } from "@/api/issue-write/resolvers"
 import { LabelService } from "@/api/label"
 import { ProjectService } from "@/api/project"
 import { RepoTeam } from "@/api/repo-team"
-import { currentDirectory, RepoConfigService } from "@/config/repo"
+import { RepoConfigService } from "@/config/repo"
 
 class IssueWriteApi extends Context.Service<IssueWriteApi, IssueWriteApiShape>()(
   "rata-cli/api/issue-write/IssueWriteApi",
@@ -32,38 +29,7 @@ class IssueWriteApi extends Context.Service<IssueWriteApi, IssueWriteApiShape>()
       const resolvers = makeIssueWriteResolvers({ client, labels, projects })
       const issueWrites = makeIssueWrites(resolvers)
       const relationWrites = makeRelationWrites({ client, resolvers })
-
-      const create = Effect.fn("IssueWriteApi.create")(function* create(
-        options: IssueCreateOptions,
-      ) {
-        const config = Option.getOrUndefined(yield* repoConfig.read(yield* currentDirectory))
-        const teamId = yield* repoTeam.resolve(options.team)
-        const input: Record<string, unknown> = { teamId, title: options.title }
-        if (options.body !== undefined && options.body.length > 0) {
-          input.description = options.body
-        }
-        if (options.labels !== undefined && options.labels.length > 0) {
-          input.labelIds = yield* resolvers.resolveLabelIds(teamId, options.labels)
-        }
-        if (options.state !== undefined) {
-          input.stateId = yield* resolvers.teamStateIdByName(teamId, options.state)
-        }
-        if (options.parent !== undefined) {
-          input.parentId = yield* resolvers.resolveIssueId(options.parent)
-        }
-        const project = options.project ?? config?.project
-        if (project !== undefined) {
-          input.projectId = yield* resolvers.resolveProjectId(project)
-        }
-        if (options.assignee !== undefined) {
-          input.assigneeId = yield* resolvers.resolveAssignee(options.assignee)
-        }
-        if (options.priority !== undefined) {
-          input.priority = options.priority
-        }
-        const data = yield* client.execute(createIssueMutation, { input }, CreateIssueResponse)
-        return yield* unwrapIssue(data.issueCreate)
-      })
+      const createWrites = makeCreateWrites({ client, repoConfig, repoTeam, resolvers })
 
       const comment = Effect.fn("IssueWriteApi.comment")(function* comment(
         ref: string,
@@ -111,8 +77,8 @@ class IssueWriteApi extends Context.Service<IssueWriteApi, IssueWriteApiShape>()
       return IssueWriteApi.of({
         ...issueWrites,
         ...relationWrites,
+        ...createWrites,
         comment,
-        create,
         update,
       })
     }),

@@ -21,7 +21,7 @@ const parsePriority = (value: string): Result.Result<PriorityValue, string> => {
     : Result.succeed(match.value)
 }
 
-const toPriority = (value: PriorityValue): Priority => {
+const toPriority = (value: number): Priority => {
   const match = priorityByRank.find((entry) => entry.value === value)
   if (match === undefined) {
     throw new Error(`Unknown priority value: ${String(value)}.`)
@@ -32,4 +32,14 @@ const toPriority = (value: PriorityValue): Priority => {
 const priorityRank = (priority: Priority): number =>
   priorityByRank.findIndex((entry) => entry.token === priority)
 
-export { parsePriority, type Priority, priorityRank, type PriorityValue, toPriority }
+const storedPriority = (value: number | null | undefined): number | null =>
+  value === null || value === undefined || value === 0 ? null : value
+
+export {
+  parsePriority,
+  type Priority,
+  priorityRank,
+  type PriorityValue,
+  storedPriority,
+  toPriority,
+}

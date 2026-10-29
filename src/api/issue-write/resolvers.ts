@@ -218,7 +218,7 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
     return yield* unwrapIssue(data.issueUpdate)
   })
 
-  const resolveLabelIds = Effect.fn("IssueWriteApi.resolveLabelIds")(function* resolveLabelIds(
+  const resolveLabels = Effect.fn("IssueWriteApi.resolveLabels")(function* resolveLabels(
     teamId: string,
     names: readonly string[],
   ) {
@@ -230,7 +230,7 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
       if (match === undefined) {
         return Effect.fail(labelNotFoundError(teamId, name))
       }
-      return Effect.succeed(match.id)
+      return Effect.succeed({ id: match.id, name: match.name })
     })
   })
 
@@ -266,7 +266,7 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
     resolveAssignee,
     resolveIssueId,
     resolveIssueTeamId,
-    resolveLabelIds,
+    resolveLabels,
     resolveProjectId,
     setAssignee,
     setStateByType,

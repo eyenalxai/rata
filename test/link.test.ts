@@ -1,4 +1,5 @@
 import { makeFakeLinear } from "@test/fake-linear"
+import { defaultViewer } from "@test/fake-linear/model"
 import { linkError, linkTeam, makeHarness, options, rat, ratId, scratch } from "@test/link-harness"
 import { describe, expect, test } from "bun:test"
 import { Option } from "effect"
@@ -153,5 +154,85 @@ describe("LinkService.link", () => {
     )
     expect(result.project).toEqual(Option.some("rata"))
     expect(stored).toEqual(Option.some({ team: "RAT", project: "rata" }))
+  })
+})
+
+describe("LinkService default labels", () => {
+  const enhancement = {
+    id: "l-enh",
+    name: "enhancement",
+    color: "#111111",
+    teamId: "team-1",
+  }
+
+  test("keeps the defaults when the new team has the labels", async () => {
+    const harness = makeHarness({ config: { team: "OLD", defaultLabels: ["enhancement"] } })
+    const fake = makeFakeLinear({ teams: [rat], labels: [enhancement] })
+    const { result, stored } = await linkTeam(fake.handler, harness, options({}))
+    expect(result.team.key).toBe("RAT")
+    expect(stored).toEqual(Option.some({ team: "RAT", defaultLabels: ["enhancement"] }))
+  })
+
+  test("fails and keeps the old link when a stored label is missing", async () => {
+    const harness = makeHarness({ config: { team: "OLD", defaultLabels: ["missing"] } })
+    const fake = makeFakeLinear({ teams: [rat], labels: [enhancement] })
+    const { error, stored } = await linkError(fake.handler, harness, options({}))
+    expect(error._tag).toBe("LinkError")
+    if (error._tag === "LinkError") {
+      expect(error.message).toContain("default labels")
+    }
+    expect(stored).toEqual(Option.some({ team: "OLD", defaultLabels: ["missing"] }))
+  })
+
+  test("skips the validation when the team does not change", async () => {
+    const harness = makeHarness({ config: { team: "RAT", defaultLabels: ["missing"] } })
+    const fake = makeFakeLinear({ teams: [rat], labels: [] })
+    const { result, stored } = await linkTeam(fake.handler, harness, options({}))
+    expect(result.team.key).toBe("RAT")
+    expect(stored).toEqual(Option.some({ team: "RAT", defaultLabels: ["missing"] }))
+  })
+
+  test("keeps the defaults across a link to the same team", async () => {
+    const harness = makeHarness({
+      config: { team: "RAT", defaultAssignee: "me", defaultPriority: 3 },
+    })
+    const fake = makeFakeLinear({ teams: [rat], labels: [] })
+    const { stored } = await linkTeam(fake.handler, harness, options({}))
+    expect(stored).toEqual(Option.some({ team: "RAT", defaultAssignee: "me", defaultPriority: 3 }))
+  })
+
+  test("validates the labels when the workspace changes with the same team key", async () => {
+    const harness = makeHarness({
+      config: { team: "RAT", workspace: "personal", defaultLabels: ["enhancement"] },
+      env: { HOME: "/home/test" },
+      profiles: [
+        { name: "personal", apiKey: "personal-key", isDefault: true },
+        { name: "work", apiKey: "work-key" },
+      ],
+    })
+    const fake = makeFakeLinear({
+      teams: [],
+      labels: [],
+      workspaces: {
+        "personal-key": { viewer: defaultViewer, teams: [rat], labels: [enhancement] },
+        "work-key": {
+          viewer: defaultViewer,
+          teams: [{ ...rat, id: "team-2" }],
+          labels: [{ ...enhancement, id: "l-bug", name: "bug", teamId: "team-2" }],
+        },
+      },
+    })
+    const { error, stored } = await linkError(
+      fake.handler,
+      harness,
+      options({ workspace: Option.some("work") }),
+    )
+    expect(error._tag).toBe("LinkError")
+    if (error._tag === "LinkError") {
+      expect(error.message).toContain("default labels")
+    }
+    expect(stored).toEqual(
+      Option.some({ team: "RAT", workspace: "personal", defaultLabels: ["enhancement"] }),
+    )
   })
 })

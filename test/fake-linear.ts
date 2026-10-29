@@ -13,6 +13,7 @@ import type {
 import { databaseLayer } from "@test/database-harness"
 import {
   defaultEnv,
+  defaultPriorities,
   defaultViewer,
   inputOf,
   jsonResponse,
@@ -32,6 +33,7 @@ import { ProjectService } from "@/api/project"
 import { RepoTeam } from "@/api/repo-team"
 import { TeamService } from "@/api/team"
 import { Auth } from "@/config/auth"
+import { IssueDefaultsService } from "@/config/defaults"
 import { LinkService } from "@/config/link"
 import { RepoConfigService } from "@/config/repo"
 import { RepositoryIdentity } from "@/config/repo-identity"
@@ -42,14 +44,6 @@ type FakeState = {
   readonly projects: FakeProject[]
   readonly priorities: readonly FakePriority[]
 }
-
-const defaultPriorities: readonly FakePriority[] = [
-  { priority: 0, label: "No priority" },
-  { priority: 1, label: "Urgent" },
-  { priority: 2, label: "High" },
-  { priority: 3, label: "Medium" },
-  { priority: 4, label: "Low" },
-]
 
 const handleMutation = (graphql: GraphQLRequest, state: FakeState): Response | undefined => {
   const query = graphql.query
@@ -277,8 +271,11 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
   const issueWrite = IssueWriteApi.layer.pipe(
     Layer.provide(Layer.mergeAll(client, labels, projects, repoConfig, repoTeam)),
   )
+  const defaults = IssueDefaultsService.layer.pipe(
+    Layer.provide(Layer.mergeAll(labels, repoConfig, repoTeam)),
+  )
   const link = LinkService.layer.pipe(
-    Layer.provide(Layer.mergeAll(teams, repoConfig, platform, auth, client)),
+    Layer.provide(Layer.mergeAll(teams, labels, repoConfig, platform, auth, client)),
   )
   return Layer.mergeAll(
     configLayer(options.env ?? defaultEnv),
@@ -291,6 +288,7 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
     issue,
     repoConfig,
     identity,
+    defaults,
     issueWrite,
     link,
   )

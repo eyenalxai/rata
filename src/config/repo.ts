@@ -8,16 +8,21 @@ import type { RepositoryLocation } from "@/config/repo-identity"
 import { firstStoredKey, RepositoryIdentity } from "@/config/repo-identity"
 import { Database } from "@/db/database"
 import { repositories } from "@/db/schema"
+import { storedPriority } from "@/domain/priority"
 
 const RepoConfig = Schema.Struct({
   team: Schema.optional(Schema.String),
   project: Schema.optional(Schema.String),
   workspace: Schema.optional(Schema.String),
+  defaultAssignee: Schema.optional(Schema.String),
+  defaultLabels: Schema.optional(Schema.Array(Schema.String)),
+  defaultPriority: Schema.optional(Schema.Int),
 })
 
 type RepoConfig = typeof RepoConfig.Type
 
 const RepoConfigJson = Schema.fromJsonString(RepoConfig, { space: 2 })
+const DefaultLabelsJson = Schema.fromJsonString(Schema.Array(Schema.String))
 
 class RepoConfigError extends Schema.TaggedError<RepoConfigError>()("RepoConfigError", {
   message: Schema.String,
@@ -37,11 +42,39 @@ const describeQueryFailure =
 
 type StoredRepository = typeof repositories.$inferSelect
 
-const toConfig = (row: StoredRepository): RepoConfig => ({
-  ...(row.team === null ? {} : { team: row.team }),
-  ...(row.project === null ? {} : { project: row.project }),
-  ...(row.workspace === null ? {} : { workspace: row.workspace }),
-})
+const storedLabels = (
+  value: string | null,
+): Result.Result<Option.Option<readonly string[]>, RepoConfigError> => {
+  if (value === null || value.trim().length === 0) {
+    return Result.succeed(Option.none())
+  }
+  const decoded = Schema.decodeResult(DefaultLabelsJson)(value)
+  if (Result.isFailure(decoded)) {
+    return Result.fail(
+      new RepoConfigError({
+        message: "The stored default labels of the repository config are not valid JSON.",
+        cause: decoded.failure,
+      }),
+    )
+  }
+  return Result.succeed(decoded.success.length === 0 ? Option.none() : Option.some(decoded.success))
+}
+
+const toConfig = (row: StoredRepository): Result.Result<RepoConfig, RepoConfigError> => {
+  const labels = storedLabels(row.defaultLabels)
+  if (Result.isFailure(labels)) {
+    return Result.fail(labels.failure)
+  }
+  const priority = storedPriority(row.defaultPriority)
+  return Result.succeed({
+    ...(row.team === null ? {} : { team: row.team }),
+    ...(row.project === null ? {} : { project: row.project }),
+    ...(row.workspace === null ? {} : { workspace: row.workspace }),
+    ...(row.defaultAssignee === null ? {} : { defaultAssignee: row.defaultAssignee }),
+    ...(Option.isNone(labels.success) ? {} : { defaultLabels: labels.success.value }),
+    ...(priority === null ? {} : { defaultPriority: priority }),
+  })
+}
 
 const currentDirectory: Effect.Effect<string> = Effect.sync(() => process.cwd())
 
@@ -91,10 +124,25 @@ class RepoConfigService extends Context.Service<RepoConfigService, RepoConfigSha
         key: string,
         config: RepoConfig,
       ) {
+        const defaultLabels =
+          config.defaultLabels === undefined || config.defaultLabels.length === 0
+            ? null
+            : yield* Schema.encodeEffect(DefaultLabelsJson)(config.defaultLabels).pipe(
+                Effect.mapError(
+                  (cause) =>
+                    new RepoConfigError({
+                      message: "Could not store the default labels of the repository config.",
+                      cause,
+                    }),
+                ),
+              )
         const columns = {
           team: config.team ?? null,
           project: config.project ?? null,
           workspace: config.workspace ?? null,
+          defaultAssignee: config.defaultAssignee ?? null,
+          defaultLabels,
+          defaultPriority: storedPriority(config.defaultPriority),
         }
         yield* database.drizzle
           .insert(repositories)
@@ -177,7 +225,11 @@ class RepoConfigService extends Context.Service<RepoConfigService, RepoConfigSha
         const location = yield* locate(directory)
         const row = yield* findRow(location)
         if (Option.isSome(row)) {
-          return Option.some(toConfig(row.value))
+          const config = toConfig(row.value)
+          if (Result.isFailure(config)) {
+            return yield* config.failure
+          }
+          return Option.some(config.success)
         }
         const file = yield* findLegacyFile(directory)
         if (Option.isNone(file)) {

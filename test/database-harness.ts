@@ -6,12 +6,16 @@ import path from "node:path"
 
 import { Database } from "@/db/database"
 import { profiles, repositories } from "@/db/schema"
+import { storedPriority } from "@/domain/priority"
 
 type RepositorySeed = {
   readonly key: string
   readonly team?: string | undefined
   readonly project?: string | undefined
   readonly workspace?: string | undefined
+  readonly defaultAssignee?: string | undefined
+  readonly defaultLabels?: readonly string[] | undefined
+  readonly defaultPriority?: number | undefined
 }
 
 type ProfileSeed = {
@@ -39,6 +43,12 @@ const databaseLayer = (
             team: row.team ?? null,
             project: row.project ?? null,
             workspace: row.workspace ?? null,
+            defaultAssignee: row.defaultAssignee ?? null,
+            defaultLabels:
+              row.defaultLabels === undefined || row.defaultLabels.length === 0
+                ? null
+                : JSON.stringify(row.defaultLabels),
+            defaultPriority: storedPriority(row.defaultPriority),
           })
           .run(),
       )
