@@ -87,13 +87,17 @@ class LinkService extends Context.Service<LinkService, LinkServiceShape>()(
         function* validateStoredLabels(
           team: Team,
           config: Option.Option<RepoConfig>,
+          workspace: Option.Option<string>,
           operations: LabelOperations,
         ) {
           if (Option.isNone(config)) {
             return yield* Effect.void
           }
           const stored = config.value
-          if (stored.team === team.key) {
+          if (
+            stored.team === team.key &&
+            (stored.workspace ?? undefined) === Option.getOrUndefined(workspace)
+          ) {
             return yield* Effect.void
           }
           const names = stored.defaultLabels ?? []
@@ -108,7 +112,7 @@ class LinkService extends Context.Service<LinkService, LinkServiceShape>()(
             return yield* Effect.void
           }
           return yield* new LinkError({
-            message: `Team ${team.key} does not have these default labels: ${missing.join(", ")}. Run \`rata config set --label <name>\` with a label of ${team.key}, or \`rata config unset --label\`.`,
+            message: `Team ${team.key} does not have these default labels: ${missing.join(", ")}. Run \`rata config unset --label\`, then link again.`,
           })
         },
       )
@@ -120,7 +124,16 @@ class LinkService extends Context.Service<LinkService, LinkServiceShape>()(
         }
         const target = yield* resolveLinkTarget(options, { auth, client, stdio, teams })
         const existing = yield* repoConfig.read(yield* currentDirectory)
-        yield* validateDefaultLabels(target.team, existing, labels.withKey(target.apiKey))
+        const storedWorkspace = Option.flatMap(existing, (config) =>
+          Option.fromUndefinedOr(config.workspace),
+        )
+        const resolvedWorkspace = Option.orElse(target.workspace, () => storedWorkspace)
+        yield* validateDefaultLabels(
+          target.team,
+          existing,
+          resolvedWorkspace,
+          labels.withKey(target.apiKey),
+        )
         const updated = yield* updateTeamTimezone(
           target.team,
           options.timezone,

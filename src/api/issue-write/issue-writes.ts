@@ -23,13 +23,13 @@ const makeIssueWrites = (resolvers: WriteResolvers) => {
     const actions: WriteAction[] = []
     const seen = new Set<string>()
     let issue = summary
-    for (const item of resolved) {
-      const labelId = item.id
+    for (const [index, resolvedLabel] of resolved.entries()) {
+      const labelId = resolvedLabel.id
       if (seen.has(labelId)) {
         continue
       }
       seen.add(labelId)
-      const label = item.name
+      const label = names[index] ?? labelId
       if (present.has(labelId)) {
         actions.push({
           action: "add-label",
@@ -65,13 +65,13 @@ const makeIssueWrites = (resolvers: WriteResolvers) => {
     const actions: WriteAction[] = []
     const seen = new Set<string>()
     let issue = summary
-    for (const item of resolved) {
-      const labelId = item.id
+    for (const [index, resolvedLabel] of resolved.entries()) {
+      const labelId = resolvedLabel.id
       if (seen.has(labelId)) {
         continue
       }
       seen.add(labelId)
-      const label = item.name
+      const label = names[index] ?? labelId
       if (!present.has(labelId)) {
         actions.push({
           action: "remove-label",

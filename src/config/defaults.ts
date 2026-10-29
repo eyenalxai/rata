@@ -9,7 +9,7 @@ import { LabelService } from "@/api/label"
 import { RepoTeam } from "@/api/repo-team"
 import { TeamResolutionError } from "@/api/team"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
-import { toPriority } from "@/domain/priority"
+import { storedPriority, toPriority } from "@/domain/priority"
 
 const IssueDefaults = Schema.Struct({
   assignee: Schema.NullOr(Schema.String),
@@ -82,14 +82,27 @@ type IssueDefaultsServiceShape = {
   ) => Effect.Effect<IssueDefaults, IssueDefaultsError>
 }
 
-const configWithDefaults = (config: RepoConfig, defaults: IssueDefaults): RepoConfig => ({
-  ...(config.team === undefined ? {} : { team: config.team }),
-  ...(config.project === undefined ? {} : { project: config.project }),
-  ...(config.workspace === undefined ? {} : { workspace: config.workspace }),
-  ...(defaults.assignee === null ? {} : { defaultAssignee: defaults.assignee }),
-  ...(defaults.labels.length === 0 ? {} : { defaultLabels: defaults.labels }),
-  ...(defaults.priority === null ? {} : { defaultPriority: defaults.priority }),
-})
+type DraftRepoConfig = { -readonly [Key in keyof RepoConfig]: RepoConfig[Key] }
+
+const configWithDefaults = (config: RepoConfig, defaults: IssueDefaults): RepoConfig => {
+  const next: DraftRepoConfig = { ...config }
+  if (defaults.assignee === null) {
+    delete next.defaultAssignee
+  } else {
+    next.defaultAssignee = defaults.assignee
+  }
+  if (defaults.labels.length === 0) {
+    delete next.defaultLabels
+  } else {
+    next.defaultLabels = defaults.labels
+  }
+  if (defaults.priority === null) {
+    delete next.defaultPriority
+  } else {
+    next.defaultPriority = defaults.priority
+  }
+  return next
+}
 
 const isNone = (value: string): boolean => value.toLowerCase() === "none"
 
@@ -162,11 +175,7 @@ class IssueDefaultsService extends Context.Service<
                 : options.assignee,
           labels: resolvedLabels,
           priority:
-            options.priority === undefined
-              ? current.priority
-              : options.priority === 0
-                ? null
-                : options.priority,
+            options.priority === undefined ? current.priority : storedPriority(options.priority),
         }
         if (options.dryRun !== true) {
           yield* write(config, next)
@@ -177,14 +186,14 @@ class IssueDefaultsService extends Context.Service<
       const unset = Effect.fn("IssueDefaults.unset")(function* unsetDefaults(
         options: UnsetDefaultsOptions,
       ) {
-        const { config } = yield* requireLinkedConfig()
+        const config = yield* readConfig()
         const current = issueDefaults(config)
         const next: IssueDefaults = {
           assignee: options.assignee ? null : current.assignee,
           labels: options.labels ? [] : current.labels,
           priority: options.priority ? null : current.priority,
         }
-        if (options.dryRun !== true) {
+        if (options.dryRun !== true && config !== undefined) {
           yield* write(config, next)
         }
         return next

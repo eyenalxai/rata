@@ -12,6 +12,7 @@ import { CreateIssueResponse } from "@/api/issue-schema"
 import { unwrapIssue } from "@/api/issue-write/model"
 import { issueDefaults } from "@/config/defaults"
 import { currentDirectory } from "@/config/repo"
+import { storedPriority } from "@/domain/priority"
 
 type CreateDependencies = {
   readonly client: LinearClient["Service"]
@@ -38,7 +39,7 @@ const priorityFor = (options: IssueCreateOptions, defaults: IssueDefaults): numb
   if (options.priority === undefined) {
     return defaults.priority
   }
-  return options.priority === 0 ? null : options.priority
+  return storedPriority(options.priority)
 }
 
 const makeCreateWrites = ({ client, repoConfig, repoTeam, resolvers }: CreateDependencies) => {
@@ -49,7 +50,15 @@ const makeCreateWrites = ({ client, repoConfig, repoTeam, resolvers }: CreateDep
     const defaults = issueDefaults(config)
     const teamId = yield* repoTeam.resolve(options.team)
     const names = labelsFor(options, defaults)
-    const resolvedLabels = names.length === 0 ? [] : yield* resolvers.resolveLabels(teamId, names)
+    const resolved = names.length === 0 ? [] : yield* resolvers.resolveLabels(teamId, names)
+    const resolvedLabels: typeof resolved = []
+    const seenLabels = new Set<string>()
+    for (const label of resolved) {
+      if (!seenLabels.has(label.id)) {
+        seenLabels.add(label.id)
+        resolvedLabels.push(label)
+      }
+    }
 
     const input: Record<string, unknown> = { teamId, title: options.title }
     if (options.body !== undefined && options.body.length > 0) {

@@ -1,4 +1,5 @@
 import { makeFakeLinear } from "@test/fake-linear"
+import { defaultViewer } from "@test/fake-linear/model"
 import { linkError, linkTeam, makeHarness, options, rat, ratId, scratch } from "@test/link-harness"
 import { describe, expect, test } from "bun:test"
 import { Option } from "effect"
@@ -177,6 +178,9 @@ describe("LinkService default labels", () => {
     const fake = makeFakeLinear({ teams: [rat], labels: [enhancement] })
     const { error, stored } = await linkError(fake.handler, harness, options({}))
     expect(error._tag).toBe("LinkError")
+    if (error._tag === "LinkError") {
+      expect(error.message).toContain("default labels")
+    }
     expect(stored).toEqual(Option.some({ team: "OLD", defaultLabels: ["missing"] }))
   })
 
@@ -195,5 +199,40 @@ describe("LinkService default labels", () => {
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
     const { stored } = await linkTeam(fake.handler, harness, options({}))
     expect(stored).toEqual(Option.some({ team: "RAT", defaultAssignee: "me", defaultPriority: 3 }))
+  })
+
+  test("validates the labels when the workspace changes with the same team key", async () => {
+    const harness = makeHarness({
+      config: { team: "RAT", workspace: "personal", defaultLabels: ["enhancement"] },
+      env: { HOME: "/home/test" },
+      profiles: [
+        { name: "personal", apiKey: "personal-key", isDefault: true },
+        { name: "work", apiKey: "work-key" },
+      ],
+    })
+    const fake = makeFakeLinear({
+      teams: [],
+      labels: [],
+      workspaces: {
+        "personal-key": { viewer: defaultViewer, teams: [rat], labels: [enhancement] },
+        "work-key": {
+          viewer: defaultViewer,
+          teams: [{ ...rat, id: "team-2" }],
+          labels: [{ ...enhancement, id: "l-bug", name: "bug", teamId: "team-2" }],
+        },
+      },
+    })
+    const { error, stored } = await linkError(
+      fake.handler,
+      harness,
+      options({ workspace: Option.some("work") }),
+    )
+    expect(error._tag).toBe("LinkError")
+    if (error._tag === "LinkError") {
+      expect(error.message).toContain("default labels")
+    }
+    expect(stored).toEqual(
+      Option.some({ team: "RAT", workspace: "personal", defaultLabels: ["enhancement"] }),
+    )
   })
 })

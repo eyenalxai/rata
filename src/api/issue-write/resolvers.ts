@@ -225,19 +225,13 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
     const available = yield* collectConnection((after) =>
       labels.listAvailable(teamId, { after, limit: pageSize }),
     )
-    const resolved: { id: string; name: string }[] = []
-    const seen = new Set<string>()
-    for (const name of names) {
+    return yield* Effect.forEach(names, (name) => {
       const match = findLabelByName(available, name)
       if (match === undefined) {
-        return yield* labelNotFoundError(teamId, name)
+        return Effect.fail(labelNotFoundError(teamId, name))
       }
-      if (!seen.has(match.id)) {
-        seen.add(match.id)
-        resolved.push({ id: match.id, name: match.name })
-      }
-    }
-    return resolved
+      return Effect.succeed({ id: match.id, name: match.name })
+    })
   })
 
   const postComment = Effect.fn("IssueWriteApi.postComment")(function* postComment(

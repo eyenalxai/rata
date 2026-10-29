@@ -156,8 +156,9 @@ surface.
 ### Issue tracker
 
 Issues live in Linear, driven with the `rata` CLI. Every issue must carry a
-priority and be assigned to the authenticated user. Wayfinder children are the
-exception: the claim step assigns them. See `docs/agents/issue-tracker.md`.
+priority and be assigned to the authenticated user. Wayfinder maps and children
+are the exception: they stay unassigned until the claim step. See
+`docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

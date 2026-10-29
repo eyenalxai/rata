@@ -22,9 +22,9 @@ operations.
 - **Assign the issue**: every issue must be assigned to the authenticated user.
   Pass `--assignee me` when you create the issue; triage assigns `me` to issues
   that arrive without an assignee. Change it with `rata issue assign <ref> --assignee me`,
-  or clear it with `rata issue unassign <ref>`. Wayfinder children are the
-  exception: they stay unassigned until the claim step. Use `--assignee none`
-  to skip the repository default for one call.
+  or clear it with `rata issue unassign <ref>`. Wayfinder maps and children are
+  the exception: they stay unassigned until the claim step. Use
+  `--assignee none` to skip the repository default for one call.
 - **Set the repository defaults**: `rata config set --assignee me --label enhancement --priority medium`
   makes them the defaults for every new issue in this repository.
   `rata config show --json` reads them. `rata config unset --label` clears one

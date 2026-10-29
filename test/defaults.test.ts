@@ -144,4 +144,39 @@ describe("IssueDefaultsService.unset", () => {
     expect(result.defaults).toEqual({ assignee: "me", labels: [], priority: 3 })
     expect(result.stored).toEqual({ assignee: "me", labels: [], priority: 3 })
   })
+
+  test("works without a link and returns empty defaults", async () => {
+    const defaults = await runDefaults(
+      [],
+      Effect.gen(function* unsetDefaults() {
+        const service = yield* IssueDefaultsService
+        return yield* service.unset({ assignee: true, labels: true, priority: true })
+      }),
+    )
+
+    expect(defaults).toEqual({ assignee: null, labels: [], priority: null })
+  })
+
+  test("does not write on a dry run", async () => {
+    const result = await runDefaults(
+      [{ key: process.cwd(), team: "RAT", defaultLabels: ["enhancement"], defaultPriority: 3 }],
+      Effect.gen(function* unsetDefaults() {
+        const service = yield* IssueDefaultsService
+        const repoConfig = yield* RepoConfigService
+        const plan = yield* service.unset({
+          assignee: false,
+          labels: true,
+          priority: false,
+          dryRun: true,
+        })
+        const stored = yield* repoConfig.read(process.cwd())
+        return { plan, stored }
+      }),
+    )
+
+    expect(result.plan).toEqual({ assignee: null, labels: [], priority: 3 })
+    expect(result.stored).toEqual(
+      Option.some({ team: "RAT", defaultLabels: ["enhancement"], defaultPriority: 3 }),
+    )
+  })
 })

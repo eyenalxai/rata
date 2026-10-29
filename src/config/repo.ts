@@ -8,6 +8,7 @@ import type { RepositoryLocation } from "@/config/repo-identity"
 import { firstStoredKey, RepositoryIdentity } from "@/config/repo-identity"
 import { Database } from "@/db/database"
 import { repositories } from "@/db/schema"
+import { storedPriority } from "@/domain/priority"
 
 const RepoConfig = Schema.Struct({
   team: Schema.optional(Schema.String),
@@ -64,15 +65,14 @@ const toConfig = (row: StoredRepository): Result.Result<RepoConfig, RepoConfigEr
   if (Result.isFailure(labels)) {
     return Result.fail(labels.failure)
   }
+  const priority = storedPriority(row.defaultPriority)
   return Result.succeed({
     ...(row.team === null ? {} : { team: row.team }),
     ...(row.project === null ? {} : { project: row.project }),
     ...(row.workspace === null ? {} : { workspace: row.workspace }),
     ...(row.defaultAssignee === null ? {} : { defaultAssignee: row.defaultAssignee }),
     ...(Option.isNone(labels.success) ? {} : { defaultLabels: labels.success.value }),
-    ...(row.defaultPriority === null || row.defaultPriority === 0
-      ? {}
-      : { defaultPriority: row.defaultPriority }),
+    ...(priority === null ? {} : { defaultPriority: priority }),
   })
 }
 
@@ -142,10 +142,7 @@ class RepoConfigService extends Context.Service<RepoConfigService, RepoConfigSha
           workspace: config.workspace ?? null,
           defaultAssignee: config.defaultAssignee ?? null,
           defaultLabels,
-          defaultPriority:
-            config.defaultPriority === undefined || config.defaultPriority === 0
-              ? null
-              : config.defaultPriority,
+          defaultPriority: storedPriority(config.defaultPriority),
         }
         yield* database.drizzle
           .insert(repositories)

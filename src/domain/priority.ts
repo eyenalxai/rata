@@ -32,4 +32,14 @@ const toPriority = (value: number): Priority => {
 const priorityRank = (priority: Priority): number =>
   priorityByRank.findIndex((entry) => entry.token === priority)
 
-export { parsePriority, type Priority, priorityRank, type PriorityValue, toPriority }
+const storedPriority = (value: number | null | undefined): number | null =>
+  value === null || value === undefined || value === 0 ? null : value
+
+export {
+  parsePriority,
+  type Priority,
+  priorityRank,
+  type PriorityValue,
+  storedPriority,
+  toPriority,
+}
