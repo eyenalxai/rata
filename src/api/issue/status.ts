@@ -1,32 +1,26 @@
 import type { IssueDetail, IssueStatus, IssueSummary } from "@/api/issue-model"
 
+import { isBlocked, toBlockers } from "@/api/issue-model"
 import { pullRequests } from "@/domain/pr"
-import { isClosedState } from "@/domain/state"
 
-const toSummary = (issue: IssueDetail): IssueSummary => ({
-  id: issue.id,
-  identifier: issue.identifier,
-  title: issue.title,
-  url: issue.url,
-  state: issue.state,
-  priority: issue.priority,
-  updatedAt: issue.updatedAt,
-  assignee: issue.assignee,
-  project: issue.project,
-  parent: issue.parent,
-  labels: issue.labels,
-})
+const summaryOf = (issue: IssueDetail): IssueSummary => {
+  const {
+    description: _description,
+    team: _team,
+    children: _children,
+    relations: _relations,
+    attachments: _attachments,
+    comments: _comments,
+    ...summary
+  } = issue
+  return summary
+}
 
 const toIssueStatus = (issue: IssueDetail, nextChild: IssueSummary | null): IssueStatus => {
-  const blockedBy = issue.relations.blockedBy.map((blocker) => ({
-    identifier: blocker.identifier,
-    title: blocker.title,
-    state: blocker.state,
-    closed: isClosedState(blocker.state.type),
-  }))
+  const blockedBy = toBlockers(issue.relations)
   return {
-    issue: toSummary(issue),
-    blocked: blockedBy.some((blocker) => !blocker.closed),
+    issue: summaryOf(issue),
+    blocked: isBlocked(blockedBy),
     blockedBy,
     prs: pullRequests(issue.attachments),
     nextChild,

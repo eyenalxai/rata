@@ -7,6 +7,7 @@ import {
   pageInfo,
   readBody,
   summaryNode,
+  uuid,
   withTeamLookup,
 } from "@test/issue-fixtures"
 import { afterEach, describe, expect, test } from "bun:test"
@@ -120,6 +121,7 @@ const closedBlocker = {
 
 const statusDetail = (attachments: readonly unknown[]) => ({
   ...baseDetail,
+  team: { id: uuid, key: "RAT", name: "Rata" },
   inverseRelations: {
     nodes: [openBlocker, closedBlocker].map((issue, index) => ({
       id: `relation-${index}`,
@@ -240,6 +242,20 @@ describe("rata issue status", () => {
     expect(captured).toHaveLength(1)
     expect(JSON.stringify(captured[0]?.filter)).not.toContain("assignee")
     expect(JSON.stringify(captured[0]?.filter)).toContain("hasBlockedByRelations")
+  })
+
+  test("reads the next child from the issue team without a repository link", async () => {
+    const captured: Captured = []
+    const lines: string[] = []
+    await runRoot(
+      statusHandler(statusDetail([]), summaryNode("RAT-114"), captured),
+      ["issue", "status", "RAT-1", "--json"],
+      lines,
+      [],
+    )
+
+    expect(statusDocument(lines).nextChild?.identifier).toBe("RAT-114")
+    expect(JSON.stringify(captured[0]?.filter)).toContain(`"team":{"id":{"eq":"${uuid}"}}`)
   })
 
   test("exits 3 when the issue is missing", async () => {

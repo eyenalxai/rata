@@ -770,15 +770,17 @@ rata why RAT-42 --json
 ```
 
 `rata issue status <ref>` reads one issue with everything a session needs in one
-call: the header, the open blockers, the GitHub pull requests and the next
+call: the summary, the open blockers, the GitHub pull requests and the next
 unblocked child. It reuses the issue read, the relation projection and the child
 list. JSON is `{ "issue", "blocked", "blockedBy", "prs", "nextChild" }`.
 
 The PR projection reads the Linear `github` attachments. Each PR carries its
 number, repo, url, status, draft flag, reviews, conflict flag, `mergedAt` and
-`closedAt`. `checks` and `mergeCommit` are `null`: Linear does not carry them.
-Each PR says `source: "linear"`. A missing attachment gives `prs: []`, and
-missing metadata gives `null` fields. The command needs no GitHub token.
+`closedAt`. The repo comes from `repo`, or from `repoLogin` and `repoName` when
+Linear omits `repo`. `checks` and `mergeCommit` are `null`: Linear does not
+carry them. Each PR says `source: "linear"`. A missing attachment gives
+`prs: []`, and missing metadata gives `null` fields. The command needs no GitHub
+token.
 
 `nextChild` is the first open, unblocked child ordered by priority, then
 creation time. It does not filter on the assignee, unlike `rata next`, which
@@ -939,7 +941,8 @@ is set.
         "subtitle": "Notion",
         "url": "https://example.com/doc",
         "sourceType": "link",
-        "createdAt": "2026-01-01T10:00:00.000Z"
+        "createdAt": "2026-01-01T10:00:00.000Z",
+        "metadata": {}
       }
     ],
     "comments": []
@@ -951,6 +954,10 @@ is set.
 lists the issues that block it. `--json` includes `comments` by default.
 `--no-comments` skips the fetch and omits the key. `--comments` and
 `--no-comments` are mutually exclusive.
+
+Each attachment carries `metadata`, the integration-specific object from Linear.
+A `github` attachment holds the pull request fields there, and
+`rata issue status` reads that projection.
 
 ### Field selection
 

@@ -54,7 +54,7 @@ operations.
   those parts and skip their fetches. `view` is an alias for `show`. The issue
   carries `updatedAt`; pass it to `--if-unchanged` before a body write.
 - **Read the issue status**: `rata issue status <ref> --json` returns the issue
-  header, `blocked`, `blockedBy`, `prs` and `nextChild` in one call. The PR
+  summary, `blocked`, `blockedBy`, `prs` and `nextChild` in one call. The PR
   projection reads the Linear `github` attachments; checks and the merge commit
   are `null`. The next child ignores the assignee, unlike `next`. A missing
   issue exits `3`.

@@ -104,7 +104,7 @@ recorded `workspace`.
 | `rata why <ref>`                                      | Show one level of the blocking graph: `blocked` and `blockedBy`.              |
 | `rata search <text> [flags]`                          | Full-text search. Keeps relevance ranking; paging is best effort.             |
 | `rata issue show <ref> [--comments] [--no-comments]`  | Show one issue. `view` aliases `show`. `--summary` reads headers only.        |
-| `rata issue status <ref> [--json] [--fields <paths>]` | Read the header, blockers, GitHub PRs and next unblocked child in one call.   |
+| `rata issue status <ref> [--json] [--fields <paths>]` | Read the summary, blockers, GitHub PRs and next unblocked child in one call.  |
 | `rata issue create --title <title> [flags]`           | Create an issue.                                                              |
 | `rata issue update <ref> [flags]`                     | Update an issue.                                                              |
 | `rata issue section get <ref> <heading>`              | Print one section of the body. `--with-heading` adds the heading line.        |

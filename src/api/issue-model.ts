@@ -17,6 +17,7 @@ import type { PullRequest } from "@/domain/pr"
 import type { Priority } from "@/domain/priority"
 
 import { priorityRank, toPriority } from "@/domain/priority"
+import { isClosedState } from "@/domain/state"
 
 const stateTypes = ["triage", "backlog", "unstarted", "started", "completed", "canceled"] as const
 type StateType = (typeof stateTypes)[number]
@@ -157,6 +158,17 @@ const relationTargets = (
   ],
 })
 
+const toBlockers = (relations: IssueRelations): readonly IssueBlocker[] =>
+  relations.blockedBy.map((blocker) => ({
+    identifier: blocker.identifier,
+    title: blocker.title,
+    state: blocker.state,
+    closed: isClosedState(blocker.state.type),
+  }))
+
+const isBlocked = (blockers: readonly IssueBlocker[]): boolean =>
+  blockers.some((blocker) => !blocker.closed)
+
 const byCreatedAt = (
   left: { readonly createdAt: string },
   right: { readonly createdAt: string },
@@ -204,11 +216,13 @@ export {
   type IssueShowOptions,
   type IssueStatus,
   type IssueSummary,
+  isBlocked,
   relationTargets,
   sortAndLimitNodes,
   type SortField,
   sortFields,
   type StateType,
   stateTypes,
+  toBlockers,
   toSummary,
 }

@@ -64,9 +64,9 @@ Every issue carries `updatedAt`. Pass it to `--if-unchanged <updatedAt>` on
 the issue changed since that read. Linear has no compare-and-swap, so the check
 is best effort.
 
-`issue status` is the one read for a session start. It returns the issue header,
-`blocked`, `blockedBy`, `prs` and `nextChild`. The PR projection reads the
-Linear `github` attachments: each PR carries its number, repo, url, status,
+`issue status` is the one read for a session start. It returns the issue
+summary, `blocked`, `blockedBy`, `prs` and `nextChild`. The PR projection reads
+the Linear `github` attachments: each PR carries its number, repo, url, status,
 draft flag, reviews, conflict flag, `mergedAt` and `closedAt`. `checks` and
 `mergeCommit` are `null`, and each PR says `source: "linear"`, so the command
 needs no GitHub token. `nextChild` is the first open, unblocked child ordered by

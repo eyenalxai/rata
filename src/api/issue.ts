@@ -171,6 +171,7 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
       const status = Effect.fn("IssueApi.status")(function* status(input: string) {
         const issue = yield* show(input, { comments: false, children: false })
         const children = yield* list({
+          team: issue.team.id,
           parent: input,
           unblocked: true,
           sort: "priority",

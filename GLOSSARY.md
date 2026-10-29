@@ -23,9 +23,9 @@ they explore the codebase. Use these terms; do not drift to synonyms.
   deleted object is also archived.
 - **Issue**: a Linear issue. Avoid: task, card, ticket, when the general Linear
   object is meant.
-- **Issue status**: the combined read of one issue: its header, `blocked` flag,
-  `blockedBy` blockers, `prs` pull requests and `nextChild`. `rata issue status`
-  prints it. It is not the workflow state.
+- **Issue status**: the combined read of one issue: its summary, its blockers,
+  its pull requests and its next child. `rata issue status` prints it. It is not
+  the workflow state.
 - **Issue reference** (short: **ref**): the string that names an issue in a
   command. Accepted forms: the identifier (`RAT-42`), the UUID, or a Linear URL.
 - **Identifier**: the human-readable issue key, `<team key>-<number>`.
