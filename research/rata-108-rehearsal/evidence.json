@@ -1,0 +1,979 @@
+{
+  "ticket": "RATA-108",
+  "team": {
+    "key": "RHR",
+    "id": "efe567f2-ff44-41d5-9acf-eba8e43c7604"
+  },
+  "startedAt": "2026-10-29T18:32:07.606Z",
+  "finishedAt": "2026-10-29T18:32:23.726Z",
+  "slice": {
+    "issues": 30,
+    "levels": [5, 15, 10],
+    "comments": 7,
+    "edges": 14,
+    "bytes": 20660
+  },
+  "totalCalls": 52,
+  "totalWallMs": 16109,
+  "limits": {
+    "before": {
+      "requests": {
+        "allowed": 2500,
+        "remaining": 2499,
+        "requested": 1,
+        "reset": 1793302328114
+      },
+      "complexity": {
+        "allowed": 3000000,
+        "remaining": 2999997,
+        "requested": 3,
+        "reset": 1793302328114
+      }
+    },
+    "after": {
+      "requests": {
+        "allowed": 2500,
+        "remaining": 2449,
+        "requested": 1,
+        "reset": 1793302343659
+      },
+      "complexity": {
+        "allowed": 3000000,
+        "remaining": 2999920,
+        "requested": 3,
+        "reset": 1793302343659
+      }
+    }
+  },
+  "phases": {
+    "import-1": {
+      "calls": 26,
+      "failedCalls": 0,
+      "wallMs": 10399,
+      "complexityPoints": 87,
+      "byOp": {
+        "issueProbe": 2,
+        "batchCreateLevel0": 1,
+        "batchCreateLevel1": 1,
+        "batchCreateLevel2": 1,
+        "commentCreate": 7,
+        "relationCreate": 14
+      }
+    },
+    "import-2": {
+      "calls": 17,
+      "failedCalls": 0,
+      "wallMs": 3253,
+      "complexityPoints": 1050,
+      "byOp": {
+        "issueProbe": 2,
+        "commentProbe": 1,
+        "relationRead": 14
+      }
+    },
+    "probe-dup": {
+      "calls": 3,
+      "failedCalls": 2,
+      "wallMs": 791,
+      "complexityPoints": 12,
+      "byOp": {
+        "createSeed": 1,
+        "createAgain": 1,
+        "createTwiceInBatch": 1
+      }
+    },
+    "probe-cap": {
+      "calls": 1,
+      "failedCalls": 1,
+      "wallMs": 180,
+      "complexityPoints": 3,
+      "byOp": {
+        "batchCreate51": 1
+      }
+    },
+    "probe-parent": {
+      "calls": 2,
+      "failedCalls": 0,
+      "wallMs": 568,
+      "complexityPoints": 6,
+      "byOp": {
+        "batchCreateParentAndChild": 1,
+        "readChildParent": 1
+      }
+    },
+    "verify": {
+      "calls": 1,
+      "failedCalls": 0,
+      "wallMs": 175,
+      "complexityPoints": 3,
+      "byOp": {
+        "duplicateTitles": 1
+      }
+    },
+    "limits-before": {
+      "calls": 1,
+      "failedCalls": 0,
+      "wallMs": 582,
+      "complexityPoints": 3,
+      "byOp": {
+        "rateLimitStatus": 1
+      }
+    },
+    "limits-after": {
+      "calls": 1,
+      "failedCalls": 0,
+      "wallMs": 161,
+      "complexityPoints": 3,
+      "byOp": {
+        "rateLimitStatus": 1
+      }
+    }
+  },
+  "probes": {
+    "duplicateSeed": {
+      "ok": true,
+      "result": {
+        "issueBatchCreate": {
+          "success": true,
+          "issues": [
+            {
+              "id": "5c223a46-03d2-4087-a9c4-ea8ba96f626c",
+              "identifier": "RHR-1",
+              "title": "Duplicate probe",
+              "createdAt": "2025-02-01T09:00:00.000Z",
+              "parent": null,
+              "state": {
+                "name": "Todo"
+              },
+              "labels": {
+                "nodes": []
+              }
+            }
+          ]
+        }
+      }
+    },
+    "duplicateSecondRequest": {
+      "ok": false,
+      "errors": [
+        {
+          "message": "Error creating issue 5c223a46-03d2-4087-a9c4-ea8ba96f626c: conflict on insert of Issue",
+          "code": "INPUT_ERROR",
+          "userMessage": "Entity Issue with id 5c223a46-03d2-4087-a9c4-ea8ba96f626c already exists."
+        }
+      ]
+    },
+    "duplicateSameBatch": {
+      "ok": false,
+      "errors": [
+        {
+          "message": "Error creating issue 49eb7af4-67d8-4d9e-a902-d3a5960142c8: conflict on insert of Issue",
+          "code": "INPUT_ERROR",
+          "userMessage": "Entity Issue with id 49eb7af4-67d8-4d9e-a902-d3a5960142c8 already exists."
+        }
+      ]
+    },
+    "capFiftyOne": {
+      "ok": false,
+      "errors": [
+        {
+          "message": "Argument Validation Error",
+          "code": "INVALID_INPUT",
+          "userMessage": "issues must contain no more than 50 elements.",
+          "validation": [
+            {
+              "constraints": {
+                "arrayMaxSize": "issues must contain no more than 50 elements"
+              },
+              "target": {
+                "issues": "51 entries"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    "sameBatchParent": {
+      "write": {
+        "ok": true,
+        "value": {
+          "issueBatchCreate": {
+            "success": true,
+            "issues": [
+              {
+                "id": "9f37b37b-6003-4b01-b356-73cc7da20224",
+                "identifier": "RHR-5",
+                "title": "Same-batch parent",
+                "parent": null
+              },
+              {
+                "id": "3c19c99c-6976-4b7e-8703-42fee96bca03",
+                "identifier": "RHR-6",
+                "title": "Same-batch child",
+                "parent": {
+                  "id": "9f37b37b-6003-4b01-b356-73cc7da20224"
+                }
+              }
+            ]
+          }
+        }
+      },
+      "read": {
+        "ok": true,
+        "value": {
+          "issue": {
+            "id": "3c19c99c-6976-4b7e-8703-42fee96bca03",
+            "identifier": "RHR-6",
+            "parent": {
+              "id": "9f37b37b-6003-4b01-b356-73cc7da20224",
+              "identifier": "RHR-5"
+            }
+          }
+        }
+      }
+    }
+  },
+  "roundA": {
+    "phase": "import-1",
+    "calls": 26,
+    "created": 30,
+    "skipped": 0,
+    "failed": 0,
+    "createBatches": [
+      {
+        "level": 0,
+        "items": 5,
+        "ok": true,
+        "created": 5,
+        "parentless": [],
+        "errors": null
+      },
+      {
+        "level": 1,
+        "items": 15,
+        "ok": true,
+        "created": 15,
+        "parentless": [],
+        "errors": null
+      },
+      {
+        "level": 2,
+        "items": 10,
+        "ok": true,
+        "created": 10,
+        "parentless": [],
+        "errors": null
+      }
+    ],
+    "commentResults": ["created", "created", "created", "created", "created", "created", "created"],
+    "relationResults": [
+      "created",
+      "created",
+      "created",
+      "created",
+      "created",
+      "created",
+      "created",
+      "created",
+      "created",
+      "created",
+      "created",
+      "created",
+      "created",
+      "created"
+    ],
+    "presentAfter": 30
+  },
+  "roundB": {
+    "phase": "import-2",
+    "calls": 17,
+    "created": 0,
+    "skipped": 51,
+    "failed": 0,
+    "createBatches": [],
+    "commentResults": ["skipped", "skipped", "skipped", "skipped", "skipped", "skipped", "skipped"],
+    "relationResults": [
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped",
+      "skipped"
+    ],
+    "presentAfter": 30
+  },
+  "verify": {
+    "teamIssues": 33,
+    "sliceIssuesPresent": 30,
+    "duplicateTitles": [],
+    "sampleTitles": [
+      "RHR-5 Same-batch parent",
+      "RHR-6 Same-batch child",
+      "RHR-36 Delta-1 grandchild 2",
+      "RHR-35 Delta-1 grandchild 1",
+      "RHR-34 Charlie-1 grandchild 2"
+    ]
+  },
+  "failures": [
+    {
+      "phase": "probe-dup",
+      "op": "createAgain",
+      "errors": [
+        {
+          "message": "Error creating issue 5c223a46-03d2-4087-a9c4-ea8ba96f626c: conflict on insert of Issue",
+          "code": "INPUT_ERROR",
+          "userMessage": "Entity Issue with id 5c223a46-03d2-4087-a9c4-ea8ba96f626c already exists."
+        }
+      ]
+    },
+    {
+      "phase": "probe-dup",
+      "op": "createTwiceInBatch",
+      "errors": [
+        {
+          "message": "Error creating issue 49eb7af4-67d8-4d9e-a902-d3a5960142c8: conflict on insert of Issue",
+          "code": "INPUT_ERROR",
+          "userMessage": "Entity Issue with id 49eb7af4-67d8-4d9e-a902-d3a5960142c8 already exists."
+        }
+      ]
+    },
+    {
+      "phase": "probe-cap",
+      "op": "batchCreate51",
+      "errors": [
+        {
+          "message": "Argument Validation Error",
+          "code": "INVALID_INPUT",
+          "userMessage": "issues must contain no more than 50 elements.",
+          "validation": [
+            {
+              "constraints": {
+                "arrayMaxSize": "issues must contain no more than 50 elements"
+              },
+              "target": {
+                "issues": "51 entries"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "calls": [
+    {
+      "phase": "limits-before",
+      "op": "rateLimitStatus",
+      "items": 0,
+      "ms": 582,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2499",
+      "complexityRemaining": "2999997"
+    },
+    {
+      "phase": "probe-dup",
+      "op": "createSeed",
+      "items": 1,
+      "ms": 281,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "6",
+      "requestsRemaining": "2498",
+      "complexityRemaining": "2999991"
+    },
+    {
+      "phase": "probe-dup",
+      "op": "createAgain",
+      "items": 1,
+      "ms": 221,
+      "httpStatus": 200,
+      "ok": false,
+      "complexity": "3",
+      "requestsRemaining": "2497",
+      "complexityRemaining": "2999988",
+      "errors": [
+        {
+          "message": "Error creating issue 5c223a46-03d2-4087-a9c4-ea8ba96f626c: conflict on insert of Issue",
+          "code": "INPUT_ERROR",
+          "userMessage": "Entity Issue with id 5c223a46-03d2-4087-a9c4-ea8ba96f626c already exists."
+        }
+      ]
+    },
+    {
+      "phase": "probe-dup",
+      "op": "createTwiceInBatch",
+      "items": 2,
+      "ms": 289,
+      "httpStatus": 200,
+      "ok": false,
+      "complexity": "3",
+      "requestsRemaining": "2496",
+      "complexityRemaining": "2999985",
+      "errors": [
+        {
+          "message": "Error creating issue 49eb7af4-67d8-4d9e-a902-d3a5960142c8: conflict on insert of Issue",
+          "code": "INPUT_ERROR",
+          "userMessage": "Entity Issue with id 49eb7af4-67d8-4d9e-a902-d3a5960142c8 already exists."
+        }
+      ]
+    },
+    {
+      "phase": "probe-cap",
+      "op": "batchCreate51",
+      "items": 51,
+      "ms": 180,
+      "httpStatus": 200,
+      "ok": false,
+      "complexity": "3",
+      "requestsRemaining": "2495",
+      "complexityRemaining": "2999997",
+      "errors": [
+        {
+          "message": "Argument Validation Error",
+          "code": "INVALID_INPUT",
+          "userMessage": "issues must contain no more than 50 elements.",
+          "validation": [
+            {
+              "constraints": {
+                "arrayMaxSize": "issues must contain no more than 50 elements"
+              },
+              "target": {
+                "issues": "51 entries"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "phase": "probe-parent",
+      "op": "batchCreateParentAndChild",
+      "items": 2,
+      "ms": 399,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2494",
+      "complexityRemaining": "2999994"
+    },
+    {
+      "phase": "probe-parent",
+      "op": "readChildParent",
+      "items": 0,
+      "ms": 169,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2493",
+      "complexityRemaining": "2999991"
+    },
+    {
+      "phase": "import-1",
+      "op": "issueProbe",
+      "items": 0,
+      "ms": 365,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2493",
+      "complexityRemaining": "2999997"
+    },
+    {
+      "phase": "import-1",
+      "op": "batchCreateLevel0",
+      "items": 5,
+      "ms": 612,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "6",
+      "requestsRemaining": "2492",
+      "complexityRemaining": "2999991"
+    },
+    {
+      "phase": "import-1",
+      "op": "batchCreateLevel1",
+      "items": 15,
+      "ms": 2535,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "6",
+      "requestsRemaining": "2491",
+      "complexityRemaining": "2999985"
+    },
+    {
+      "phase": "import-1",
+      "op": "batchCreateLevel2",
+      "items": 10,
+      "ms": 1354,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "6",
+      "requestsRemaining": "2492",
+      "complexityRemaining": "2999994"
+    },
+    {
+      "phase": "import-1",
+      "op": "commentCreate",
+      "items": 1,
+      "ms": 488,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2492",
+      "complexityRemaining": "2999997"
+    },
+    {
+      "phase": "import-1",
+      "op": "commentCreate",
+      "items": 1,
+      "ms": 243,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2490",
+      "complexityRemaining": "2999996"
+    },
+    {
+      "phase": "import-1",
+      "op": "commentCreate",
+      "items": 1,
+      "ms": 195,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2488",
+      "complexityRemaining": "2999989"
+    },
+    {
+      "phase": "import-1",
+      "op": "commentCreate",
+      "items": 1,
+      "ms": 190,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2486",
+      "complexityRemaining": "2999983"
+    },
+    {
+      "phase": "import-1",
+      "op": "commentCreate",
+      "items": 1,
+      "ms": 170,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2485",
+      "complexityRemaining": "2999980"
+    },
+    {
+      "phase": "import-1",
+      "op": "commentCreate",
+      "items": 1,
+      "ms": 208,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2484",
+      "complexityRemaining": "2999977"
+    },
+    {
+      "phase": "import-1",
+      "op": "commentCreate",
+      "items": 1,
+      "ms": 183,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2484",
+      "complexityRemaining": "2999997"
+    },
+    {
+      "phase": "import-1",
+      "op": "relationCreate",
+      "items": 1,
+      "ms": 262,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2482",
+      "complexityRemaining": "2999864"
+    },
+    {
+      "phase": "import-1",
+      "op": "relationCreate",
+      "items": 1,
+      "ms": 245,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2480",
+      "complexityRemaining": "2999736"
+    },
+    {
+      "phase": "import-1",
+      "op": "relationCreate",
+      "items": 1,
+      "ms": 235,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2477",
+      "complexityRemaining": "2999729"
+    },
+    {
+      "phase": "import-1",
+      "op": "relationCreate",
+      "items": 1,
+      "ms": 289,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2476",
+      "complexityRemaining": "2999987"
+    },
+    {
+      "phase": "import-1",
+      "op": "relationCreate",
+      "items": 1,
+      "ms": 362,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2474",
+      "complexityRemaining": "2999981"
+    },
+    {
+      "phase": "import-1",
+      "op": "relationCreate",
+      "items": 1,
+      "ms": 243,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2473",
+      "complexityRemaining": "2999978"
+    },
+    {
+      "phase": "import-1",
+      "op": "relationCreate",
+      "items": 1,
+      "ms": 235,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2472",
+      "complexityRemaining": "2999997"
+    },
+    {
+      "phase": "import-1",
+      "op": "relationCreate",
+      "items": 1,
+      "ms": 238,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2471",
+      "complexityRemaining": "2999994"
+    },
+    {
+      "phase": "import-1",
+      "op": "relationCreate",
+      "items": 1,
+      "ms": 260,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2470",
+      "complexityRemaining": "2999991"
+    },
+    {
+      "phase": "import-1",
+      "op": "relationCreate",
+      "items": 1,
+      "ms": 304,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2469",
+      "complexityRemaining": "2999988"
+    },
+    {
+      "phase": "import-1",
+      "op": "relationCreate",
+      "items": 1,
+      "ms": 223,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2469",
+      "complexityRemaining": "2999997"
+    },
+    {
+      "phase": "import-1",
+      "op": "relationCreate",
+      "items": 1,
+      "ms": 245,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2468",
+      "complexityRemaining": "2999994"
+    },
+    {
+      "phase": "import-1",
+      "op": "relationCreate",
+      "items": 1,
+      "ms": 225,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2467",
+      "complexityRemaining": "2999991"
+    },
+    {
+      "phase": "import-1",
+      "op": "relationCreate",
+      "items": 1,
+      "ms": 265,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2466",
+      "complexityRemaining": "2999988"
+    },
+    {
+      "phase": "import-1",
+      "op": "issueProbe",
+      "items": 0,
+      "ms": 225,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2466",
+      "complexityRemaining": "2999997"
+    },
+    {
+      "phase": "import-2",
+      "op": "issueProbe",
+      "items": 0,
+      "ms": 165,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2465",
+      "complexityRemaining": "2999994"
+    },
+    {
+      "phase": "import-2",
+      "op": "commentProbe",
+      "items": 0,
+      "ms": 162,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "50",
+      "requestsRemaining": "2464",
+      "complexityRemaining": "2999944"
+    },
+    {
+      "phase": "import-2",
+      "op": "relationRead",
+      "items": 0,
+      "ms": 170,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "71",
+      "requestsRemaining": "2463",
+      "complexityRemaining": "2999873"
+    },
+    {
+      "phase": "import-2",
+      "op": "relationRead",
+      "items": 0,
+      "ms": 168,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "71",
+      "requestsRemaining": "2462",
+      "complexityRemaining": "2999802"
+    },
+    {
+      "phase": "import-2",
+      "op": "relationRead",
+      "items": 0,
+      "ms": 209,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "71",
+      "requestsRemaining": "2461",
+      "complexityRemaining": "2999731"
+    },
+    {
+      "phase": "import-2",
+      "op": "relationRead",
+      "items": 0,
+      "ms": 277,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "71",
+      "requestsRemaining": "2461",
+      "complexityRemaining": "2999929"
+    },
+    {
+      "phase": "import-2",
+      "op": "relationRead",
+      "items": 0,
+      "ms": 171,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "71",
+      "requestsRemaining": "2460",
+      "complexityRemaining": "2999858"
+    },
+    {
+      "phase": "import-2",
+      "op": "relationRead",
+      "items": 0,
+      "ms": 174,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "71",
+      "requestsRemaining": "2459",
+      "complexityRemaining": "2999787"
+    },
+    {
+      "phase": "import-2",
+      "op": "relationRead",
+      "items": 0,
+      "ms": 167,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "71",
+      "requestsRemaining": "2458",
+      "complexityRemaining": "2999716"
+    },
+    {
+      "phase": "import-2",
+      "op": "relationRead",
+      "items": 0,
+      "ms": 167,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "71",
+      "requestsRemaining": "2457",
+      "complexityRemaining": "2999645"
+    },
+    {
+      "phase": "import-2",
+      "op": "relationRead",
+      "items": 0,
+      "ms": 243,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "71",
+      "requestsRemaining": "2456",
+      "complexityRemaining": "2999929"
+    },
+    {
+      "phase": "import-2",
+      "op": "relationRead",
+      "items": 0,
+      "ms": 211,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "71",
+      "requestsRemaining": "2455",
+      "complexityRemaining": "2999858"
+    },
+    {
+      "phase": "import-2",
+      "op": "relationRead",
+      "items": 0,
+      "ms": 159,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "71",
+      "requestsRemaining": "2454",
+      "complexityRemaining": "2999787"
+    },
+    {
+      "phase": "import-2",
+      "op": "relationRead",
+      "items": 0,
+      "ms": 177,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "71",
+      "requestsRemaining": "2453",
+      "complexityRemaining": "2999716"
+    },
+    {
+      "phase": "import-2",
+      "op": "relationRead",
+      "items": 0,
+      "ms": 163,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "71",
+      "requestsRemaining": "2452",
+      "complexityRemaining": "2999645"
+    },
+    {
+      "phase": "import-2",
+      "op": "relationRead",
+      "items": 0,
+      "ms": 285,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "71",
+      "requestsRemaining": "2452",
+      "complexityRemaining": "2999929"
+    },
+    {
+      "phase": "import-2",
+      "op": "issueProbe",
+      "items": 0,
+      "ms": 185,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2451",
+      "complexityRemaining": "2999926"
+    },
+    {
+      "phase": "verify",
+      "op": "duplicateTitles",
+      "items": 0,
+      "ms": 175,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2450",
+      "complexityRemaining": "2999923"
+    },
+    {
+      "phase": "limits-after",
+      "op": "rateLimitStatus",
+      "items": 0,
+      "ms": 161,
+      "httpStatus": 200,
+      "ok": true,
+      "complexity": "3",
+      "requestsRemaining": "2449",
+      "complexityRemaining": "2999920"
+    }
+  ],
+  "notes": [
+    "The full response bodies of the three failed probes are truncated here; the messages and codes are exact.",
+    "Written by rehearse.ts and verify.ts in this directory. Read REPORT.md first."
+  ]
+}

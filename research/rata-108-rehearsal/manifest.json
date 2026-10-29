@@ -1,0 +1,404 @@
+[
+  {
+    "key": "epic-alpha",
+    "title": "Epic Alpha",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `alpha`\n- index: 0\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "todo",
+    "priority": 0,
+    "labels": ["feature"],
+    "parent": null,
+    "createdAt": "2025-03-01T09:00:00.000Z",
+    "comments": [
+      {
+        "key": "alpha-kickoff",
+        "createdAt": "2025-03-01T12:00:00.000Z",
+        "body": "Kickoff note for epic alpha."
+      }
+    ],
+    "blocks": ["alpha-1"]
+  },
+  {
+    "key": "epic-bravo",
+    "title": "Epic Bravo",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `alpha`\n- index: 1\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "todo",
+    "priority": 1,
+    "labels": ["feature"],
+    "parent": null,
+    "createdAt": "2025-03-02T09:00:00.000Z",
+    "comments": [
+      {
+        "key": "bravo-kickoff",
+        "createdAt": "2025-03-02T12:00:00.000Z",
+        "body": "Kickoff note for epic bravo."
+      }
+    ],
+    "blocks": ["bravo-1"]
+  },
+  {
+    "key": "epic-charlie",
+    "title": "Epic Charlie",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `bravo`\n- index: 2\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "todo",
+    "priority": 2,
+    "labels": ["feature"],
+    "parent": null,
+    "createdAt": "2025-03-03T09:00:00.000Z",
+    "comments": [],
+    "blocks": ["charlie-1"]
+  },
+  {
+    "key": "epic-delta",
+    "title": "Epic Delta",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `charlie`\n- index: 3\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "todo",
+    "priority": 0,
+    "labels": ["feature"],
+    "parent": null,
+    "createdAt": "2025-03-04T09:00:00.000Z",
+    "comments": [],
+    "blocks": []
+  },
+  {
+    "key": "epic-echo",
+    "title": "Epic Echo",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `delta`\n- index: 4\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "todo",
+    "priority": 1,
+    "labels": ["feature"],
+    "parent": null,
+    "createdAt": "2025-03-05T09:00:00.000Z",
+    "comments": [],
+    "blocks": []
+  },
+  {
+    "key": "alpha-1",
+    "title": "Alpha child 1",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `alpha`\n- index: 0\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "inProgress",
+    "priority": 1,
+    "labels": ["enhancement"],
+    "parent": "epic-alpha",
+    "createdAt": "2025-03-05T10:00:00.000Z",
+    "comments": [
+      {
+        "key": "epic-alpha-1-plan",
+        "createdAt": "2025-03-05T15:00:00.000Z",
+        "body": "Plan for epic-alpha-1."
+      }
+    ],
+    "blocks": ["alpha-2"]
+  },
+  {
+    "key": "alpha-2",
+    "title": "Alpha child 2",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `bravo`\n- index: 1\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "todo",
+    "priority": 2,
+    "labels": ["enhancement", "readyForAgent"],
+    "parent": "epic-alpha",
+    "createdAt": "2025-03-06T10:00:00.000Z",
+    "comments": [],
+    "blocks": ["alpha-3"]
+  },
+  {
+    "key": "alpha-3",
+    "title": "Alpha child 3",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `charlie`\n- index: 2\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "todo",
+    "priority": 3,
+    "labels": ["enhancement"],
+    "parent": "epic-alpha",
+    "createdAt": "2025-03-07T10:00:00.000Z",
+    "comments": [],
+    "blocks": ["bravo-1"]
+  },
+  {
+    "key": "bravo-1",
+    "title": "Bravo child 1",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `delta`\n- index: 3\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "inProgress",
+    "priority": 4,
+    "labels": ["enhancement"],
+    "parent": "epic-bravo",
+    "createdAt": "2025-03-08T10:00:00.000Z",
+    "comments": [
+      {
+        "key": "epic-bravo-1-plan",
+        "createdAt": "2025-03-08T15:00:00.000Z",
+        "body": "Plan for epic-bravo-1."
+      }
+    ],
+    "blocks": ["bravo-2"]
+  },
+  {
+    "key": "bravo-2",
+    "title": "Bravo child 2",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `echo`\n- index: 4\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "todo",
+    "priority": 0,
+    "labels": ["enhancement", "readyForAgent"],
+    "parent": "epic-bravo",
+    "createdAt": "2025-03-09T10:00:00.000Z",
+    "comments": [],
+    "blocks": []
+  },
+  {
+    "key": "bravo-3",
+    "title": "Bravo child 3",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `foxtrot`\n- index: 5\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "todo",
+    "priority": 1,
+    "labels": ["enhancement"],
+    "parent": "epic-bravo",
+    "createdAt": "2025-03-10T10:00:00.000Z",
+    "comments": [],
+    "blocks": []
+  },
+  {
+    "key": "charlie-1",
+    "title": "Charlie child 1",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `golf`\n- index: 6\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "inProgress",
+    "priority": 2,
+    "labels": ["enhancement"],
+    "parent": "epic-charlie",
+    "createdAt": "2025-03-11T10:00:00.000Z",
+    "comments": [
+      {
+        "key": "epic-charlie-1-plan",
+        "createdAt": "2025-03-11T15:00:00.000Z",
+        "body": "Plan for epic-charlie-1."
+      }
+    ],
+    "blocks": ["charlie-2"]
+  },
+  {
+    "key": "charlie-2",
+    "title": "Charlie child 2",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `hotel`\n- index: 7\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "todo",
+    "priority": 3,
+    "labels": ["enhancement", "readyForAgent"],
+    "parent": "epic-charlie",
+    "createdAt": "2025-03-12T10:00:00.000Z",
+    "comments": [],
+    "blocks": ["delta-1"]
+  },
+  {
+    "key": "charlie-3",
+    "title": "Charlie child 3",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `alpha`\n- index: 8\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "todo",
+    "priority": 4,
+    "labels": ["enhancement"],
+    "parent": "epic-charlie",
+    "createdAt": "2025-03-13T10:00:00.000Z",
+    "comments": [],
+    "blocks": []
+  },
+  {
+    "key": "delta-1",
+    "title": "Delta child 1",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `bravo`\n- index: 9\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "inProgress",
+    "priority": 0,
+    "labels": ["enhancement"],
+    "parent": "epic-delta",
+    "createdAt": "2025-03-14T10:00:00.000Z",
+    "comments": [
+      {
+        "key": "epic-delta-1-plan",
+        "createdAt": "2025-03-14T15:00:00.000Z",
+        "body": "Plan for epic-delta-1."
+      }
+    ],
+    "blocks": ["delta-2"]
+  },
+  {
+    "key": "delta-2",
+    "title": "Delta child 2",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `charlie`\n- index: 10\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "todo",
+    "priority": 1,
+    "labels": ["enhancement", "readyForAgent"],
+    "parent": "epic-delta",
+    "createdAt": "2025-03-15T10:00:00.000Z",
+    "comments": [],
+    "blocks": []
+  },
+  {
+    "key": "delta-3",
+    "title": "Delta child 3",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `delta`\n- index: 11\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "todo",
+    "priority": 2,
+    "labels": ["enhancement"],
+    "parent": "epic-delta",
+    "createdAt": "2025-03-16T10:00:00.000Z",
+    "comments": [],
+    "blocks": []
+  },
+  {
+    "key": "echo-1",
+    "title": "Echo child 1",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `echo`\n- index: 12\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "inProgress",
+    "priority": 3,
+    "labels": ["enhancement"],
+    "parent": "epic-echo",
+    "createdAt": "2025-03-17T10:00:00.000Z",
+    "comments": [
+      {
+        "key": "epic-echo-1-plan",
+        "createdAt": "2025-03-17T15:00:00.000Z",
+        "body": "Plan for epic-echo-1."
+      }
+    ],
+    "blocks": ["echo-2"]
+  },
+  {
+    "key": "echo-2",
+    "title": "Echo child 2",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `foxtrot`\n- index: 13\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "todo",
+    "priority": 4,
+    "labels": ["enhancement", "readyForAgent"],
+    "parent": "epic-echo",
+    "createdAt": "2025-03-18T10:00:00.000Z",
+    "comments": [],
+    "blocks": []
+  },
+  {
+    "key": "echo-3",
+    "title": "Echo child 3",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `golf`\n- index: 14\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "todo",
+    "priority": 0,
+    "labels": ["enhancement"],
+    "parent": "epic-echo",
+    "createdAt": "2025-03-19T10:00:00.000Z",
+    "comments": [],
+    "blocks": []
+  },
+  {
+    "key": "alpha-1-1",
+    "title": "Alpha-1 grandchild 1",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `hotel`\n- index: 0\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "backlog",
+    "priority": 2,
+    "labels": ["improvement"],
+    "parent": "alpha-1",
+    "createdAt": "2025-03-20T08:00:00.000Z",
+    "comments": [],
+    "blocks": ["alpha-1-2"]
+  },
+  {
+    "key": "alpha-1-2",
+    "title": "Alpha-1 grandchild 2",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `golf`\n- index: 1\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "backlog",
+    "priority": 3,
+    "labels": ["needsTriage"],
+    "parent": "alpha-1",
+    "createdAt": "2025-03-21T08:00:00.000Z",
+    "comments": [],
+    "blocks": []
+  },
+  {
+    "key": "alpha-2-1",
+    "title": "Alpha-2 grandchild 1",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `foxtrot`\n- index: 2\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "backlog",
+    "priority": 4,
+    "labels": ["improvement"],
+    "parent": "alpha-2",
+    "createdAt": "2025-03-22T08:00:00.000Z",
+    "comments": [],
+    "blocks": []
+  },
+  {
+    "key": "bravo-1-1",
+    "title": "Bravo-1 grandchild 1",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `echo`\n- index: 3\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "backlog",
+    "priority": 0,
+    "labels": ["improvement"],
+    "parent": "bravo-1",
+    "createdAt": "2025-03-23T08:00:00.000Z",
+    "comments": [],
+    "blocks": ["bravo-1-2"]
+  },
+  {
+    "key": "bravo-1-2",
+    "title": "Bravo-1 grandchild 2",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `delta`\n- index: 4\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "backlog",
+    "priority": 1,
+    "labels": ["needsTriage"],
+    "parent": "bravo-1",
+    "createdAt": "2025-03-24T08:00:00.000Z",
+    "comments": [],
+    "blocks": []
+  },
+  {
+    "key": "bravo-2-1",
+    "title": "Bravo-2 grandchild 1",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `charlie`\n- index: 5\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "backlog",
+    "priority": 2,
+    "labels": ["improvement"],
+    "parent": "bravo-2",
+    "createdAt": "2025-03-25T08:00:00.000Z",
+    "comments": [],
+    "blocks": []
+  },
+  {
+    "key": "charlie-1-1",
+    "title": "Charlie-1 grandchild 1",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `bravo`\n- index: 6\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "backlog",
+    "priority": 3,
+    "labels": ["improvement"],
+    "parent": "charlie-1",
+    "createdAt": "2025-03-26T08:00:00.000Z",
+    "comments": [],
+    "blocks": []
+  },
+  {
+    "key": "charlie-1-2",
+    "title": "Charlie-1 grandchild 2",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `alpha`\n- index: 7\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "backlog",
+    "priority": 4,
+    "labels": ["needsTriage"],
+    "parent": "charlie-1",
+    "createdAt": "2025-03-27T08:00:00.000Z",
+    "comments": [],
+    "blocks": []
+  },
+  {
+    "key": "delta-1-1",
+    "title": "Delta-1 grandchild 1",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `hotel`\n- index: 8\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "backlog",
+    "priority": 0,
+    "labels": ["improvement"],
+    "parent": "delta-1",
+    "createdAt": "2025-03-28T08:00:00.000Z",
+    "comments": [],
+    "blocks": ["delta-1-2"]
+  },
+  {
+    "key": "delta-1-2",
+    "title": "Delta-1 grandchild 2",
+    "description": "## Context\n\nThis entry is part of the RATA-108 rehearsal slice for team RHR. It exists to\nmeasure the batch create path, not to carry real work.\n\n- key: `golf`\n- index: 9\n- generated: 2026-10-29\n\n### Notes\n\nThe body is long enough to look like a real ticket and short enough to keep the request\nsmall. A real migration carries prose of this shape.",
+    "state": "backlog",
+    "priority": 1,
+    "labels": ["needsTriage"],
+    "parent": "delta-1",
+    "createdAt": "2025-03-29T08:00:00.000Z",
+    "comments": [],
+    "blocks": []
+  }
+]
