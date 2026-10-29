@@ -10,9 +10,11 @@ operations.
 - **Shape the output**: `--json` is global and works before or after the
   subcommand. `--fields` trims a read command to dotted paths, for example
   `rata issue list --json --fields identifier,title,state.name`; it needs
-  `--json` and is valid on reads only. A failed `--json` command writes
-  `{ "error": { "code", "message", "hint" } }` to stderr and exits 1. Parse
-  that object instead of the prose.
+  `--json` and is valid on `status`, `issue show`, `issue list`, `search`,
+  `team show`, `team list`, `label list`, `project list` and `config show`. A
+  failed `--json` command writes one `error` object to stderr and exits 1. Its
+  fields are `code`, `message` and `hint`. Parse that object instead of the
+  prose.
 - **Discover the workflow states**: `rata team show --json` lists every state
   with its name and type, plus the labels, members and priorities. Do not guess
   a state name.

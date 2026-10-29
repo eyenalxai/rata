@@ -45,8 +45,8 @@ An issue reference is an identifier (`ABC-42`), a UUID, or a `linear.app` URL.
 `--json` is global: it works before or after the subcommand. Parse that, not the
 human output. `--fields` trims a read to dotted paths, for example
 `rata issue list --json --fields identifier,title,state.name`. A failed `--json`
-command writes `{ "error": { "code", "message", "hint" } }` to stderr and exits
-with code 1. List commands return one page with `pageInfo`: see **Paging
+command writes one `error` object (`code`, `message`, `hint`) to stderr and
+exits with code 1. List commands return one page with `pageInfo`: see **Paging
 lists**.
 
 A comment or a child that a write just created can be missing from the next

@@ -10,9 +10,9 @@ machine-readable form, issue references accept identifiers, UUIDs and URLs, and
 the output is deterministic.
 
 The project is in early development. This repository is the first user: its own
-work is tracked in Linear and driven with `rata`. Version 0.7.0 is the
-agent-facing surface: one global `--json`, `--fields` selection, structured
-errors, and read-after-write checks.
+work is tracked in Linear and driven with `rata`. The 0.7.0 release adds one
+global `--json`, `--fields` selection, structured errors, and read-after-write
+checks.
 
 ## Install
 
@@ -79,15 +79,17 @@ rata --json issue list
 rata issue list --json
 ```
 
-Every command prints one stable JSON document. With `--json`, a failure writes
-one JSON object to stderr, leaves stdout empty, and exits 1:
+With `--json`, every command prints one stable JSON document. With `--json`, a
+failure writes one JSON object to stderr, leaves stdout empty, and exits 1. A
+bulk write is the exception: it reports one result per issue on stdout and exits
+1 when any result failed.
 
 ```json
 {
   "error": {
     "code": "conflict",
-    "message": "The label `Bug` already exists in RAT.",
-    "hint": "Use `Bug`, or pass `--if-not-exists`."
+    "message": "The label `Bug` already exists.",
+    "hint": "Labels resolve case-insensitively; use `Bug`, or pass `--if-not-exists`."
   }
 }
 ```
@@ -107,14 +109,14 @@ rata status --json --fields repository.root,team.key
 rata config show --json --fields assignee,labels
 ```
 
-The path applies to the command's primary object, not to the envelope key: the
-`issue` of `issue show`, each item of `issues`, `teams`, `labels` or `projects`,
-the `team` of `team show`, the `defaults` object of `config show`, or the whole
-`status` document. The envelope stays:
+The path applies to the command's own object, not to the JSON key that wraps
+it: the `issue` of `issue show`, each item of `issues`, `teams`, `labels` or
+`projects`, the `team` of `team show`, the `defaults` object of `config show`,
+or the whole `status` document. The wrapper key stays:
 `{ "issues": [ { "identifier": "...", "title": "..." } ] }`. An unknown path is
 a `validation` error. `--fields` is valid on `status`, `issue show`,
 `issue list`, `search`, `team show`, `team list`, `label list`, `project list`
-and `config show`; on a write command it fails with `validation`.
+and `config show`. Other commands reject it with `validation`.
 
 Rata's own output is plain text. Effect's help and error presenter honor
 `NO_COLOR`, so set `NO_COLOR=1` to drop color from help and errors. There is no
