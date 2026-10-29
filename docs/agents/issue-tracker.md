@@ -44,6 +44,11 @@ operations.
 - **Comment on an issue**: `rata issue comment <ref> --body-file -`
 - **Apply / remove labels**: `rata issue label add <ref> <label...>` and
   `rata issue label remove <ref> <label...>`
+- **Repair a parent's children**: `rata issue assign --parent <ref> --assignee me`
+  and `rata issue label add|remove --parent <ref> <label...>` write to every
+  child, open and closed. With `--parent`, every positional of a label command is
+  a label. A bad reference or a missing label aborts the batch before any write;
+  add `--dry-run` to preview the results.
 - **Close**: `rata issue close <ref> --comment "..."`
 - **Search**: `rata search "..."`
 

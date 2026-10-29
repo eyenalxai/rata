@@ -780,24 +780,27 @@ rata issue reopen RAT-42
 rata issue assign RAT-42 --assignee me
 rata issue assign RAT-42 --assignee none
 rata issue unassign RAT-42
+rata issue assign --parent RAT-1 --assignee me
+rata issue label add --parent RAT-1 enhancement bug
+rata issue label remove --parent RAT-1 needs-triage
 rata issue link RAT-43 --blocked-by RAT-42
 rata issue link RAT-42 --blocks RAT-43 --related RAT-44
 rata issue unlink RAT-43 --blocked-by RAT-42
 ```
 
-| Command                               | Flags                                                                                                                                                                               |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `issue create`                        | `--title` (required), `--body`, `--body-file`, `--team`, `--label` (repeatable), `--no-default-labels`, `--parent`, `--project`, `--state`, `--assignee`, `--priority`, `--dry-run` |
-| `issue comment <ref>`                 | `--body`, `--body-file` (one is required)                                                                                                                                           |
-| `issue update <ref>`                  | `--title`, `--body`, `--body-file`, `--state`, `--assignee`, `--project`, `--parent`, `--priority`                                                                                  |
-| `issue label add <ref> <label...>`    | label names, `--dry-run`                                                                                                                                                            |
-| `issue label remove <ref> <label...>` | label names, `--dry-run`                                                                                                                                                            |
-| `issue close <ref>`                   | `--comment`, `--comment-file`                                                                                                                                                       |
-| `issue reopen <ref>`                  |                                                                                                                                                                                     |
-| `issue assign <ref>`                  | `--assignee` (required): `me`, a user id, or `none`; `--dry-run`                                                                                                                    |
-| `issue unassign <ref>`                | `--dry-run`                                                                                                                                                                         |
-| `issue link <ref>`                    | `--blocks`, `--blocked-by`, `--related`, `--duplicate` (each repeatable), `--dry-run`                                                                                               |
-| `issue unlink <ref>`                  | the same relation flags and `--dry-run`                                                                                                                                             |
+| Command                                 | Flags                                                                                                                                                                               |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `issue create`                          | `--title` (required), `--body`, `--body-file`, `--team`, `--label` (repeatable), `--no-default-labels`, `--parent`, `--project`, `--state`, `--assignee`, `--priority`, `--dry-run` |
+| `issue comment <ref>`                   | `--body`, `--body-file` (one is required)                                                                                                                                           |
+| `issue update <ref>`                    | `--title`, `--body`, `--body-file`, `--state`, `--assignee`, `--project`, `--parent`, `--priority`                                                                                  |
+| `issue label add [<ref>] <label...>`    | label names, `--parent`, `--dry-run`                                                                                                                                                |
+| `issue label remove [<ref>] <label...>` | label names, `--parent`, `--dry-run`                                                                                                                                                |
+| `issue close <ref>`                     | `--comment`, `--comment-file`                                                                                                                                                       |
+| `issue reopen <ref>`                    |                                                                                                                                                                                     |
+| `issue assign [<ref>]`                  | `--assignee` (required): `me`, a user id, or `none`; `--parent`, `--dry-run`                                                                                                        |
+| `issue unassign <ref>`                  | `--dry-run`                                                                                                                                                                         |
+| `issue link <ref>`                      | `--blocks`, `--blocked-by`, `--related`, `--duplicate` (each repeatable), `--dry-run`                                                                                               |
+| `issue unlink <ref>`                    | the same relation flags and `--dry-run`                                                                                                                                             |
 
 Linear has one `blocks` relation. `link --blocks X` records that the issue blocks
 X. `link --blocked-by X` records the same relation in the inverse direction: X
@@ -808,6 +811,48 @@ relation is a skipped success, not an error.
 
 `--assignee none` clears the assignee. `issue unassign` is the same write with
 less typing. `--assignee me` resolves the viewer.
+
+### Bulk writes by parent
+
+`issue assign`, `issue label add` and `issue label remove` accept `--parent`.
+The command then targets every child of the parent issue, open and closed, in
+creation order. Pass exactly one of the positional issue reference and
+`--parent`.
+
+```bash
+rata issue assign --parent RAT-1 --assignee me
+rata issue label add --parent RAT-1 enhancement bug
+rata issue label remove --parent RAT-1 needs-triage
+```
+
+With `--parent`, every positional of a label command is a label. Without it, the
+first positional is the issue reference.
+
+Rata validates every target and every label before the first write. A bad
+reference or a missing label aborts the whole batch with zero changes. The
+writes then run best-effort: a failure mid-batch does not roll back the earlier
+writes. The command exits 1 when any result failed.
+
+`--json` prints one result per issue:
+
+```json
+{
+  "dryRun": false,
+  "results": [
+    { "identifier": "RAT-3", "status": "updated", "issue": { "identifier": "RAT-3" } },
+    { "identifier": "RAT-4", "status": "skipped", "issue": { "identifier": "RAT-4" } },
+    {
+      "identifier": "RAT-5",
+      "status": "failed",
+      "error": { "code": "not_found", "message": "No issue RAT-5.", "hint": null }
+    }
+  ]
+}
+```
+
+`status` is `updated`, `skipped` or `failed`. Human output prints one line per
+issue. `--dry-run` resolves the children and reports the same results with
+`"dryRun": true`, without calling a mutation.
 
 ### Idempotency
 

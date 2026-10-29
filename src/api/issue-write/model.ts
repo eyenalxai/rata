@@ -50,6 +50,22 @@ type WriteOptions = {
   readonly dryRun?: boolean | undefined
 }
 
+const bulkStatuses = ["updated", "skipped", "failed"] as const
+type BulkStatus = (typeof bulkStatuses)[number]
+
+type BulkTarget = {
+  readonly summary: IssueSummary
+  readonly teamId: string
+}
+
+type BulkWriteResult = {
+  readonly identifier: string
+  readonly status: BulkStatus
+  readonly issue?: IssueSummary | undefined
+  readonly error?: IssueWriteApiError | undefined
+  readonly labels?: readonly string[] | undefined
+}
+
 type IssueWriteResult = {
   readonly status: WriteStatus
   readonly issue: IssueSummary
@@ -161,6 +177,21 @@ type IssueWriteApiShape = {
     names: readonly string[],
     options?: WriteOptions,
   ) => Effect.Effect<IssueWriteResult, IssueWriteApiError>
+  readonly assignChildren: (
+    parentRef: string,
+    assignee: string,
+    options?: WriteOptions,
+  ) => Effect.Effect<readonly BulkWriteResult[], IssueWriteApiError>
+  readonly addLabelsToChildren: (
+    parentRef: string,
+    names: readonly string[],
+    options?: WriteOptions,
+  ) => Effect.Effect<readonly BulkWriteResult[], IssueWriteApiError>
+  readonly removeLabelsFromChildren: (
+    parentRef: string,
+    names: readonly string[],
+    options?: WriteOptions,
+  ) => Effect.Effect<readonly BulkWriteResult[], IssueWriteApiError>
   readonly close: (
     ref: string,
     body?: string,
@@ -189,6 +220,8 @@ type IssueWriteApiShape = {
 
 const parseRefOrFail = (input: string): Effect.Effect<IssueRef, InvalidIssueRef> =>
   Effect.fromResult(parseIssueRef(input))
+
+const isNoneValue = (value: string): boolean => value.toLowerCase() === "none"
 
 const stateByName = (states: readonly WorkflowState[], name: string): WorkflowState | undefined =>
   states.find((state) => state.name.toLowerCase() === name.toLowerCase())
@@ -220,8 +253,13 @@ const unwrapComment = (payload: {
     : Effect.fail(new IssueWriteError({ message: "Linear did not create the comment." }))
 
 export {
+  type BulkStatus,
+  type BulkTarget,
+  type BulkWriteResult,
+  bulkStatuses,
   combineStatus,
   IssueWriteError,
+  isNoneValue,
   type IssueCreateOptions,
   type IssueCreatePlan,
   type IssueRelationChange,

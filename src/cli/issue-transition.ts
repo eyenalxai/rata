@@ -1,10 +1,11 @@
 import { Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 
-import type { WriteAction } from "@/api/issue-write/model"
+import type { BulkWriteResult, WriteAction } from "@/api/issue-write/model"
 
 import { IssueWriteApi } from "@/api/issue-write"
 import { resolveBody } from "@/cli/body"
+import { writeBulkResults } from "@/cli/bulk"
 import { OutputFields, rejectFields } from "@/cli/fields"
 import {
   JsonOutput,
@@ -23,13 +24,39 @@ const refArgument = Argument.String("ref").pipe(
   Argument.withDescription("Issue reference: an identifier, a UUID, or a linear.app URL"),
 )
 
-const noChange = (action: WriteAction): string =>
-  action.status === "skipped" ? " (no change)" : ""
+const noChange = (result: { readonly status: string }): string =>
+  result.status === "skipped" ? " (no change)" : ""
 
 const assigneeLabel = (action: WriteAction): string => {
   const assignee = action.changes.assignee
   return typeof assignee === "string" ? assignee : "nobody"
 }
+
+const parentFlag = Flag.String("parent").pipe(
+  Flag.withDescription("Apply to every child of this issue, open and closed"),
+  Flag.optional,
+)
+
+const assignLine =
+  (assignee: string, dryRun: boolean) =>
+  (result: BulkWriteResult): string => {
+    const clears = assignee.toLowerCase() === "none"
+    const name = dryRun ? assignee : (result.issue?.assignee?.name ?? assignee)
+    if (dryRun) {
+      return clears
+        ? `Would clear the assignee of ${result.identifier}.${noChange(result)}`
+        : `Would assign ${result.identifier} to ${name}.${noChange(result)}`
+    }
+    if (clears) {
+      return result.status === "skipped"
+        ? `${result.identifier} is already unassigned.`
+        : `Unassigned ${result.identifier}.`
+    }
+    if (result.status === "skipped") {
+      return `${result.identifier} is already assigned to ${name}.`
+    }
+    return `Assigned ${result.identifier} to ${name}.`
+  }
 
 const closeCommand = Command.make(
   "close",
@@ -107,13 +134,16 @@ const assignCommand = Command.make(
   "assign",
   {
     ref: refArgument.pipe(
-      Argument.variadic({ min: 1, max: 2 }),
-      Argument.withDescription("Issue reference: an identifier, a UUID, or a linear.app URL"),
+      Argument.variadic({ min: 0, max: 2 }),
+      Argument.withDescription(
+        "Issue reference: an identifier, a UUID, or a linear.app URL. Optional with --parent",
+      ),
     ),
     assignee: Flag.String("assignee").pipe(
       Flag.withDescription("Assignee: `me`, a user id, or `none` to clear it"),
       Flag.optional,
     ),
+    parent: parentFlag,
     dryRun: dryRunFlag,
   },
   (config) =>
@@ -121,13 +151,7 @@ const assignCommand = Command.make(
       const json = yield* JsonOutput
       yield* rejectFields(yield* OutputFields)
       const [ref, legacyAssignee] = config.ref
-      if (ref === undefined) {
-        return yield* errorLine(
-          1,
-          "The issue reference is required.",
-          "rata issue assign <ref> --assignee me",
-        )
-      }
+      const parent = Option.getOrUndefined(config.parent)
       if (legacyAssignee !== undefined) {
         return yield* errorLine(
           1,
@@ -141,6 +165,30 @@ const assignCommand = Command.make(
           1,
           "The --assignee flag is required.",
           "rata issue assign <ref> --assignee <me|user-id|none>",
+        )
+      }
+      if (parent !== undefined) {
+        if (ref !== undefined) {
+          return yield* errorLine(
+            1,
+            "The issue reference and --parent are mutually exclusive.",
+            "Pass one of them.",
+          )
+        }
+        const api = yield* IssueWriteApi
+        const results = yield* api.assignChildren(parent, assignee, { dryRun: config.dryRun })
+        return yield* writeBulkResults(
+          json,
+          config.dryRun,
+          results,
+          assignLine(assignee, config.dryRun),
+        )
+      }
+      if (ref === undefined) {
+        return yield* errorLine(
+          1,
+          "An issue reference or --parent is required.",
+          "rata issue assign <ref> --assignee me",
         )
       }
       const api = yield* IssueWriteApi
@@ -174,7 +222,7 @@ const assignCommand = Command.make(
       )
     }).pipe(Effect.catch(reportFailure)),
 ).pipe(
-  Command.withDescription("Assign an issue, or clear the assignee with `none`"),
+  Command.withDescription("Assign an issue, or every child of a parent issue"),
   Command.withExamples([
     {
       command: "rata issue assign RAT-42 --assignee me",
@@ -183,6 +231,10 @@ const assignCommand = Command.make(
     {
       command: "rata issue assign RAT-42 --assignee none",
       description: "Clear the assignee",
+    },
+    {
+      command: "rata issue assign --parent RAT-1 --assignee me",
+      description: "Assign every child of an issue",
     },
   ]),
 )
