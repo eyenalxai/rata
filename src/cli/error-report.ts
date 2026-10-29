@@ -61,6 +61,7 @@ const errorRules: Record<string, ErrorRule> = {
   ColorInputError: { code: "validation", hint: null },
   PriorityInputError: { code: "validation", hint: null },
   LinkError: { code: "validation", hint: null },
+  MissionStateError: { code: "validation", hint: null },
   AuthStoreError: { code: "auth", hint: "Run `rata auth login --with-token`." },
 }
 

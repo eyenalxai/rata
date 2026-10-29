@@ -29,6 +29,7 @@ import { LinearClient } from "@/api/client"
 import { IssueApi } from "@/api/issue"
 import { IssueWriteApi } from "@/api/issue-write"
 import { LabelService } from "@/api/label"
+import { MissionApi } from "@/api/mission"
 import { ProjectService } from "@/api/project"
 import { RepoTeam } from "@/api/repo-team"
 import { TeamService } from "@/api/team"
@@ -271,6 +272,7 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
   const issueWrite = IssueWriteApi.layer.pipe(
     Layer.provide(Layer.mergeAll(client, labels, projects, repoConfig, repoTeam)),
   )
+  const mission = MissionApi.layer.pipe(Layer.provide(Layer.mergeAll(client, issueWrite)))
   const defaults = IssueDefaultsService.layer.pipe(
     Layer.provide(Layer.mergeAll(labels, repoConfig, repoTeam)),
   )
@@ -290,6 +292,7 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
     identity,
     defaults,
     issueWrite,
+    mission,
     link,
   )
 }

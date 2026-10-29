@@ -8,6 +8,7 @@ import { LinearClient } from "@/api/client"
 import { IssueApi } from "@/api/issue"
 import { IssueWriteApi } from "@/api/issue-write"
 import { LabelService } from "@/api/label"
+import { MissionApi } from "@/api/mission"
 import { ProjectService } from "@/api/project"
 import { RepoTeam } from "@/api/repo-team"
 import { TeamService } from "@/api/team"
@@ -58,6 +59,9 @@ const issueWriteLayer = IssueWriteApi.layer.pipe(
     Layer.mergeAll(clientLayer, labelLayer, projectLayer, repoConfigLayer, repoTeamLayer),
   ),
 )
+const missionLayer = MissionApi.layer.pipe(
+  Layer.provide(Layer.mergeAll(clientLayer, issueWriteLayer)),
+)
 const appLayer = Layer.mergeAll(
   authLayer,
   clientLayer,
@@ -71,6 +75,7 @@ const appLayer = Layer.mergeAll(
   defaultsLayer,
   linkLayer,
   issueWriteLayer,
+  missionLayer,
   platformLayer,
 )
 
