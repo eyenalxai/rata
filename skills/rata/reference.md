@@ -3,7 +3,9 @@
 ## Conventions
 
 - `<ref>` is an identifier (`ABC-42`), a UUID, or a `linear.app` URL.
-- `--json` works on every command and prints one stable JSON document.
+- `--json` is a global flag: it works before or after the subcommand and prints
+  one stable JSON document. `--fields` selects dotted paths from the supported
+  read commands and needs `--json`.
 - List commands return one page: `--limit` is the page size (default 50,
   maximum 250) and `--after <cursor>` continues the list. JSON is
   `{ <plural>, pageInfo }`.
@@ -11,7 +13,44 @@
 - The default team and project come from the repository config, written by
   `rata link` and removed by `rata unlink`. List commands default to the linked
   team; without a link they fail and ask for `--team` or `rata link`.
-- Exit code 0 on success, 1 on failure. Failures print one line to stderr.
+- Exit code 0 on success, 1 on failure. With `--json`, a failure writes one JSON
+  object to stderr. A bulk write reports its results on stdout and exits 1 when
+  any result failed.
+
+## Global flags and errors
+
+```bash
+rata --json issue list
+rata issue list --json --fields identifier,title,state.name
+```
+
+With `--json`, a failure writes one object to stderr and exits 1. A bulk write
+is the exception: it reports one result per issue on stdout and exits 1 when any
+result failed.
+
+```json
+{
+  "error": {
+    "code": "conflict",
+    "message": "The label `Bug` already exists.",
+    "hint": "Labels resolve case-insensitively; use `Bug`, or pass `--if-not-exists`."
+  }
+}
+```
+
+`hint` is a string or `null`; `RATA_DEBUG=1` adds `details`. The codes are
+`validation`, `not_linked`, `not_found`, `ambiguous`, `auth`, `forbidden`,
+`conflict`, `rate_limited`, `network` and `internal`. In human mode the error
+prints `error: <message>` and, when present, `hint: <hint>` on stderr.
+
+`--fields` applies to the command's own object: the `issue` of `issue show`,
+each item of `issues`, `teams`, `labels` or `projects`, the `team` of
+`team show`, the `defaults` object of `config show`, or the whole `status`
+document. The wrapper key stays. It is valid on `status`, `issue show`,
+`issue list`, `search`, `team show`, `team list`, `label list`, `project list`
+and `config show`. Other commands reject it with `validation`.
+
+`NO_COLOR=1` drops color from help and errors. Rata's own output is plain text.
 
 ## Setup
 

@@ -42,8 +42,12 @@ rata search "flaky test" --json
 another team. Do not guess a workflow state name: read it from `team show`.
 
 An issue reference is an identifier (`ABC-42`), a UUID, or a `linear.app` URL.
-Every command supports `--json`; parse that, not the human output. List
-commands return one page with `pageInfo`: see **Paging lists**.
+`--json` is global: it works before or after the subcommand. Parse that, not the
+human output. `--fields` trims a read to dotted paths, for example
+`rata issue list --json --fields identifier,title,state.name`. A failed `--json`
+command writes one `error` object (`code`, `message`, `hint`) to stderr and
+exits with code 1. List commands return one page with `pageInfo`: see **Paging
+lists**.
 
 A comment or a child that a write just created can be missing from the next
 read. `issue comment` and `issue create --parent` check for up to 5 seconds.
