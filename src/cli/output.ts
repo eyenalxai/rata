@@ -68,6 +68,8 @@ const writeJson = (value: unknown): Effect.Effect<void> =>
 
 const writeLine = (line: string): Effect.Effect<void> => Console.log(line)
 
+const warningLine = (message: string): Effect.Effect<void> => Console.error(`warning: ${message}`)
+
 type PlanAction = {
   readonly action: string
   readonly target: string
@@ -211,6 +213,7 @@ export {
   type PlanAction,
   reportFailure,
   validatePageSize,
+  warningLine,
   writeBulkResults,
   writeDryRun,
   writeJson,

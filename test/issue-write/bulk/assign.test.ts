@@ -1,6 +1,6 @@
-import { lastJson } from "@test/cli-harness"
+import { lastJson, runIssue } from "@test/cli-harness"
 import { user } from "@test/issue-fixtures"
-import { mutations, recorderFor, runIssue, seed } from "@test/issue-write/bulk/fixtures"
+import { mutations, recorderFor, seed } from "@test/issue-write/bulk/fixtures"
 import { afterEach, describe, expect, test } from "bun:test"
 
 afterEach(() => {

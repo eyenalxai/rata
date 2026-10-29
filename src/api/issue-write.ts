@@ -1,6 +1,7 @@
 import { Context, Effect, Layer } from "effect"
 
-import type { IssueUpdateOptions, IssueWriteApiShape } from "@/api/issue-write/model"
+import type { IssueWriteApiShape } from "@/api/issue-write/model"
+import type { IssueUpdateOptions, VisibilityOptions } from "@/api/issue-write/write-types"
 
 import { LinearClient } from "@/api/client"
 import { updateIssueMutation } from "@/api/issue-query"
@@ -11,6 +12,7 @@ import { makeIssueWrites } from "@/api/issue-write/issue-writes"
 import { unwrapIssue } from "@/api/issue-write/model"
 import { makeRelationWrites } from "@/api/issue-write/relation-writes"
 import { makeIssueWriteResolvers } from "@/api/issue-write/resolvers"
+import { makeVisibilityChecks } from "@/api/issue-write/visibility"
 import { LabelService } from "@/api/label"
 import { ProjectService } from "@/api/project"
 import { RepoTeam } from "@/api/repo-team"
@@ -28,17 +30,27 @@ class IssueWriteApi extends Context.Service<IssueWriteApi, IssueWriteApiShape>()
       const repoConfig = yield* RepoConfigService
       const repoTeam = yield* RepoTeam
       const resolvers = makeIssueWriteResolvers({ client, labels, projects })
+      const visibility = makeVisibilityChecks({ client })
       const issueWrites = makeIssueWrites(resolvers)
       const bulkWrites = makeBulkWrites(resolvers)
       const relationWrites = makeRelationWrites({ client, resolvers })
-      const createWrites = makeCreateWrites({ client, repoConfig, repoTeam, resolvers })
+      const createWrites = makeCreateWrites({
+        client,
+        repoConfig,
+        repoTeam,
+        resolvers,
+        visibility,
+      })
 
       const comment = Effect.fn("IssueWriteApi.comment")(function* comment(
         ref: string,
         body: string,
+        options: VisibilityOptions = {},
       ) {
         const issueId = yield* resolvers.resolveIssueId(ref)
-        return yield* resolvers.postComment(issueId, body)
+        const created = yield* resolvers.postComment(issueId, body)
+        const visible = yield* visibility.waitForComment(issueId, created.id, options.waitSeconds)
+        return { comment: created, visible }
       })
 
       const update = Effect.fn("IssueWriteApi.update")(function* update(

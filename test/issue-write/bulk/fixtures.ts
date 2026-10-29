@@ -1,13 +1,6 @@
-import type { Handler } from "@test/fake-linear/model"
-
-import { cliLayer } from "@test/cli-harness"
 import { inputOf } from "@test/fake-linear/model"
 import { jsonResponse, summaryNode, user, viewer } from "@test/issue-fixtures"
 import { makeRecorder } from "@test/issue-write/fixtures"
-import { Effect } from "effect"
-import { Command } from "effect/cli"
-
-import { issueCommand } from "@/cli/issue"
 
 type ChildSeed = {
   readonly identifier: string
@@ -99,13 +92,7 @@ const recorderFor = (children: readonly ChildSeed[], options: { readonly failOn?
     return jsonResponse({ errors: [{ message: `Unexpected query: ${request.query}` }] }, 400)
   })
 
-const runIssue = (handler: Handler, args: readonly string[], lines: string[]) =>
-  Command.run(issueCommand, { version: "test" }).pipe(
-    Effect.provide(cliLayer(handler, args, lines, [{ key: process.cwd(), team: "RAT" }])),
-    Effect.runPromise,
-  )
-
 const mutations = (recorder: ReturnType<typeof recorderFor>, fragment: string) =>
   recorder.requests.filter((request) => request.query.includes(fragment))
 
-export { labels, mutations, recorderFor, runIssue, seed }
+export { labels, mutations, recorderFor, seed }

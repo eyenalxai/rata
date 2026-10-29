@@ -45,6 +45,12 @@ An issue reference is an identifier (`ABC-42`), a UUID, or a `linear.app` URL.
 Every command supports `--json`; parse that, not the human output. List
 commands return one page with `pageInfo`: see **Paging lists**.
 
+A comment or a child that a write just created can be missing from the next
+read. `issue comment` and `issue create --parent` check for up to 5 seconds.
+`--wait <seconds>` changes the bound and `--wait 0` skips the check. JSON reports
+`visible`: `null` means unchecked, `false` means not seen. The write itself still
+succeeded.
+
 ## Paging lists
 
 `issue list`, `search`, `team list`, `project list` and `label list` return one

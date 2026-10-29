@@ -769,6 +769,7 @@ value is a key or a UUID. A project value is a name or a UUID.
 
 ```bash
 rata issue create --title "Fix login" --team RAT --label ready-for-agent --priority high
+rata issue create --title "Add the client" --parent RAT-1 --wait 10
 rata issue comment RAT-42 --body "Looks good."
 printf 'From a pipe' | rata issue update RAT-42 --body-file -
 rata issue update RAT-42 --state "In Progress" --assignee me
@@ -788,19 +789,19 @@ rata issue link RAT-42 --blocks RAT-43 --related RAT-44
 rata issue unlink RAT-43 --blocked-by RAT-42
 ```
 
-| Command                                 | Flags                                                                                                                                                                               |
-| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `issue create`                          | `--title` (required), `--body`, `--body-file`, `--team`, `--label` (repeatable), `--no-default-labels`, `--parent`, `--project`, `--state`, `--assignee`, `--priority`, `--dry-run` |
-| `issue comment <ref>`                   | `--body`, `--body-file` (one is required)                                                                                                                                           |
-| `issue update <ref>`                    | `--title`, `--body`, `--body-file`, `--state`, `--assignee`, `--project`, `--parent`, `--priority`                                                                                  |
-| `issue label add [<ref>] <label...>`    | label names, `--parent`, `--dry-run`                                                                                                                                                |
-| `issue label remove [<ref>] <label...>` | label names, `--parent`, `--dry-run`                                                                                                                                                |
-| `issue close <ref>`                     | `--comment`, `--comment-file`                                                                                                                                                       |
-| `issue reopen <ref>`                    |                                                                                                                                                                                     |
-| `issue assign [<ref>]`                  | `--assignee` (required): `me`, a user id, or `none`; `--parent`, `--dry-run`                                                                                                        |
-| `issue unassign <ref>`                  | `--dry-run`                                                                                                                                                                         |
-| `issue link <ref>`                      | `--blocks`, `--blocked-by`, `--related`, `--duplicate` (each repeatable), `--dry-run`                                                                                               |
-| `issue unlink <ref>`                    | the same relation flags and `--dry-run`                                                                                                                                             |
+| Command                                 | Flags                                                                                                                                                                                         |
+| --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `issue create`                          | `--title` (required), `--body`, `--body-file`, `--team`, `--label` (repeatable), `--no-default-labels`, `--parent`, `--project`, `--state`, `--assignee`, `--priority`, `--wait`, `--dry-run` |
+| `issue comment <ref>`                   | `--body`, `--body-file` (one is required), `--wait`                                                                                                                                           |
+| `issue update <ref>`                    | `--title`, `--body`, `--body-file`, `--state`, `--assignee`, `--project`, `--parent`, `--priority`                                                                                            |
+| `issue label add [<ref>] <label...>`    | label names, `--parent`, `--dry-run`                                                                                                                                                          |
+| `issue label remove [<ref>] <label...>` | label names, `--parent`, `--dry-run`                                                                                                                                                          |
+| `issue close <ref>`                     | `--comment`, `--comment-file`                                                                                                                                                                 |
+| `issue reopen <ref>`                    |                                                                                                                                                                                               |
+| `issue assign [<ref>]`                  | `--assignee` (required): `me`, a user id, or `none`; `--parent`, `--dry-run`                                                                                                                  |
+| `issue unassign <ref>`                  | `--dry-run`                                                                                                                                                                                   |
+| `issue link <ref>`                      | `--blocks`, `--blocked-by`, `--related`, `--duplicate` (each repeatable), `--dry-run`                                                                                                         |
+| `issue unlink <ref>`                    | the same relation flags and `--dry-run`                                                                                                                                                       |
 
 Linear has one `blocks` relation. `link --blocks X` records that the issue blocks
 X. `link --blocked-by X` records the same relation in the inverse direction: X
@@ -867,6 +868,24 @@ object.
 
 `label create --if-not-exists` returns the existing label with `created: false`.
 
+### Read-after-write
+
+Linear documents no read-after-write guarantee. A comment or a child issue that a
+write just created can be missing from a later read. `issue comment` and
+`issue create --parent` therefore check that the new object appears on a bounded
+re-read.
+
+The check waits 5 seconds by default. `--wait <seconds>` changes the bound and
+`--wait 0` disables it. A write that never appears exits 0: the mutation payload
+is the source of truth. JSON reports `"visible": false` and human mode prints a
+warning to stderr. `"visible"` is `null` when the check is disabled and on
+`issue create` without `--parent`.
+
+```bash
+rata issue comment RAT-42 --body "Looks good." --wait 10
+rata issue create --title "Add the client" --parent RAT-1 --wait 0
+```
+
 ### Dry runs
 
 `--dry-run` resolves the targets and prints the actions without calling a
@@ -899,8 +918,8 @@ The triage roles are label names. `issue label add RAT-42 ready-for-agent` adds
 the `ready-for-agent` label. A label name resolves against the team labels and
 the workspace labels, ignoring case. `issue label remove` resolves the same way.
 
-Every write command accepts `--json`. The create, update and reopen commands
-print the summary shape:
+Every write command accepts `--json`. The update and reopen commands print the
+summary shape:
 
 ```json
 {
@@ -919,12 +938,16 @@ print the summary shape:
 }
 ```
 
+`issue create` wraps the same issue and adds `visible`:
+`{ "issue": { ... }, "visible": true }`. `visible` is `false` when the parent
+does not show the new child before the bound, and `null` without `--parent`.
+
 The idempotent writes add the outcome: `issue close`, `issue assign`,
 `issue unassign`, `issue label add` and `issue label remove` print
 `{ "dryRun": false, "status": "updated", "issue": { ... } }`. `status` is
 `skipped` when the desired state already held.
 
-The comment command prints:
+The comment command prints the comment and its visibility:
 
 ```json
 {
@@ -933,9 +956,13 @@ The comment command prints:
     "body": "Looks good.",
     "createdAt": "2026-01-01T10:00:00.000Z",
     "user": { "id": "u1", "name": "Ada", "displayName": "ada" }
-  }
+  },
+  "visible": true
 }
 ```
+
+`visible` is `false` when the comment does not appear before the bound, and
+`null` with `--wait 0`.
 
 The link and unlink commands print the relations they changed, with a
 `skipped` entry for a relation that already held the desired state:

@@ -1,7 +1,7 @@
 import type { ApiLayerOptions } from "@test/fake-linear"
 import type { Handler } from "@test/fake-linear/model"
 
-import { cliLayer, lastJson } from "@test/cli-harness"
+import { cliLayer, lastJson, runIssue } from "@test/cli-harness"
 import { makeFakeLinear } from "@test/fake-linear"
 import { jsonResponse, readRequest } from "@test/fake-linear/model"
 import { summaryNode } from "@test/issue-fixtures"
@@ -9,7 +9,6 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { Effect } from "effect"
 import { Command } from "effect/cli"
 
-import { issueCommand } from "@/cli/issue"
 import { labelCommand } from "@/cli/label"
 import { projectCommand } from "@/cli/project"
 import { teamCommand } from "@/cli/team"
@@ -47,12 +46,6 @@ const runLabel = (
 ) =>
   Command.run(labelCommand, { version: "test" }).pipe(
     Effect.provide(cliLayer(handler, args, lines, repositories)),
-    Effect.runPromise,
-  )
-
-const runIssue = (handler: Handler, args: readonly string[], lines: string[]) =>
-  Command.run(issueCommand, { version: "test" }).pipe(
-    Effect.provide(cliLayer(handler, args, lines, [{ key: process.cwd(), team: "RAT" }])),
     Effect.runPromise,
   )
 

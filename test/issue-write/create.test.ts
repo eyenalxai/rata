@@ -111,6 +111,7 @@ describe("IssueWriteApi create payload", () => {
           project: "Tracker",
           assignee: "me",
           priority: 2,
+          waitSeconds: 0,
         })
       }),
     )

@@ -1,8 +1,10 @@
 import { Effect, Option } from "effect"
 
 import type { LinearClient } from "@/api/client"
-import type { IssueCreateOptions, ResolvedLabel } from "@/api/issue-write/model"
+import type { ResolvedLabel } from "@/api/issue-write/model"
 import type { makeIssueWriteResolvers } from "@/api/issue-write/resolvers"
+import type { makeVisibilityChecks } from "@/api/issue-write/visibility"
+import type { IssueCreateOptions } from "@/api/issue-write/write-types"
 import type { RepoTeam } from "@/api/repo-team"
 import type { IssueDefaults } from "@/config/defaults"
 import type { RepoConfigService } from "@/config/repo"
@@ -19,6 +21,7 @@ type CreateDependencies = {
   readonly repoConfig: RepoConfigService["Service"]
   readonly repoTeam: RepoTeam["Service"]
   readonly resolvers: ReturnType<typeof makeIssueWriteResolvers>
+  readonly visibility: ReturnType<typeof makeVisibilityChecks>
 }
 
 const labelsFor = (options: IssueCreateOptions, defaults: IssueDefaults): readonly string[] => [
@@ -40,7 +43,13 @@ const priorityFor = (options: IssueCreateOptions, defaults: IssueDefaults): numb
   return storedPriority(options.priority)
 }
 
-const makeCreateWrites = ({ client, repoConfig, repoTeam, resolvers }: CreateDependencies) => {
+const makeCreateWrites = ({
+  client,
+  repoConfig,
+  repoTeam,
+  resolvers,
+  visibility,
+}: CreateDependencies) => {
   const resolve = Effect.fn("IssueWriteApi.resolveCreate")(function* resolveCreate(
     options: IssueCreateOptions,
   ) {
@@ -68,8 +77,10 @@ const makeCreateWrites = ({ client, repoConfig, repoTeam, resolvers }: CreateDep
     if (options.state !== undefined) {
       input.stateId = yield* resolvers.teamStateIdByName(teamId, options.state)
     }
+    let parentId: string | null = null
     if (options.parent !== undefined) {
-      input.parentId = yield* resolvers.resolveIssueId(options.parent)
+      parentId = yield* resolvers.resolveIssueId(options.parent)
+      input.parentId = parentId
     }
     const project = options.project ?? config?.project
     if (project !== undefined) {
@@ -86,6 +97,7 @@ const makeCreateWrites = ({ client, repoConfig, repoTeam, resolvers }: CreateDep
 
     return {
       input,
+      parentId,
       plan: {
         team: options.team ?? config?.team ?? teamId,
         title: options.title,
@@ -97,13 +109,14 @@ const makeCreateWrites = ({ client, repoConfig, repoTeam, resolvers }: CreateDep
   })
 
   const create = Effect.fn("IssueWriteApi.create")(function* create(options: IssueCreateOptions) {
-    const resolved = yield* resolve(options)
-    const data = yield* client.execute(
-      createIssueMutation,
-      { input: resolved.input },
-      CreateIssueResponse,
-    )
-    return yield* unwrapIssue(data.issueCreate)
+    const { input, parentId } = yield* resolve(options)
+    const data = yield* client.execute(createIssueMutation, { input }, CreateIssueResponse)
+    const issue = yield* unwrapIssue(data.issueCreate)
+    const visible =
+      parentId === null
+        ? null
+        : yield* visibility.waitForChild(parentId, issue.id, options.waitSeconds)
+    return { issue, visible }
   })
 
   const planCreate = Effect.fn("IssueWriteApi.planCreate")(function* planCreate(

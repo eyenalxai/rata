@@ -1,15 +1,9 @@
-import type { Handler } from "@test/fake-linear/model"
-
-import { cliLayer, lastJson } from "@test/cli-harness"
+import { lastJson, runIssue } from "@test/cli-harness"
 import { jsonResponse, pageInfo, summaryNode, viewer } from "@test/issue-fixtures"
 import { makeRecorder } from "@test/issue-write/fixtures"
 import { afterEach, describe, expect, test } from "bun:test"
-import { Effect } from "effect"
-import { Command } from "effect/cli"
 
 import type { IssueInverseRelation, IssueRelation } from "@/api/issue-schema"
-
-import { issueCommand } from "@/cli/issue"
 
 type WriteState = {
   readonly assignee: typeof viewer | null
@@ -123,12 +117,6 @@ const recorderFor = (current: WriteState) =>
     }
     return jsonResponse({ errors: [{ message: `Unexpected query: ${request.query}` }] }, 400)
   })
-
-const runIssue = (handler: Handler, args: readonly string[], lines: string[]) =>
-  Command.run(issueCommand, { version: "test" }).pipe(
-    Effect.provide(cliLayer(handler, args, lines, [{ key: process.cwd(), team: "RAT" }])),
-    Effect.runPromise,
-  )
 
 afterEach(() => {
   process.exitCode = 0
