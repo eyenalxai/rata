@@ -62,10 +62,24 @@ Every issue carries `updatedAt`. Pass it to `--if-unchanged <updatedAt>` on
 the issue changed since that read. Linear has no compare-and-swap, so the check
 is best effort.
 
-Edit one section of the body with `issue section get|append|replace`. The
-heading match is exact and case-sensitive. `append` creates a missing heading
-at the end; `--level` sets its level. Add `--dry-run` to preview the unified
-diff. `issue update --body-file - --append` appends to the whole body.
+Edit one section of the body with `issue section replace`. It is the safe body
+write: it replaces the content under one heading and keeps the rest of the body.
+The heading match is exact and case-sensitive. Read the issue for `updatedAt`,
+preview the diff, then write against that snapshot:
+
+```bash
+rata issue show ABC-42 --summary --json
+rata issue section replace ABC-42 "Handoff log" --body-file handoff.md --dry-run
+rata issue section replace ABC-42 "Handoff log" --body-file handoff.md --if-unchanged <updatedAt>
+```
+
+The file holds the content under the heading, without the heading line. A deeper
+heading belongs to that section, so write it too. Do not rewrite the whole body
+for one section: `issue update --body-file` replaces the whole body and drops
+every heading that the new body leaves out, without an error. `issue section
+append` adds to the end of a section, or creates a missing heading, and
+`--level` sets its level. `issue section get` reads the content back;
+`--with-heading` adds the heading line.
 
 A comment or a child that a write just created can be missing from the next
 read. `issue comment create` and `issue create --parent` check for up to 5

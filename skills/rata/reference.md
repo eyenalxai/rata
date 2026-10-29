@@ -236,6 +236,22 @@ line numbers. `--dry-run` prints a unified diff. JSON dry runs are
 `{ "dryRun": true, "action": "section-append", "target", "heading", "diff" }`;
 a write returns `{ "issue": { "identifier", "updatedAt" }, "section": { "heading", "level" } }`.
 
+`replace` is the safe body write for one section: it replaces the content under
+that heading and keeps the rest of the body. The body holds the content, without
+the heading line, and includes any deeper heading in the section. Read the
+snapshot, preview the diff, then write:
+
+```bash
+rata issue show RAT-42 --summary --json
+rata issue section replace RAT-42 "Handoff log" --body-file handoff.md --dry-run
+rata issue section replace RAT-42 "Handoff log" --body-file handoff.md --if-unchanged 2026-01-01T10:00:00.000Z
+```
+
+Do not rewrite the whole body for one section. `issue update --body-file`
+replaces the whole body, so a heading that the new body leaves out is lost
+without an error. A duplicate heading is the one exception: `replace` refuses it
+as `ambiguous`, so rename one heading with `issue update --body-file` first.
+
 ### `issue link` and `issue unlink` flags
 
 | Flag           | Meaning                                          |
