@@ -3,17 +3,12 @@ import { Effect, Schema } from "effect"
 import type { LinearApiError } from "@/api/errors"
 import type { IssueSummary } from "@/api/issue-model"
 import type { IssueComment, IssueSummaryNode, WorkflowState } from "@/api/issue-schema"
-import type {
-  IssueCommentResult,
-  IssueCreateOptions,
-  IssueCreateResult,
-  IssueUpdateOptions,
-  VisibilityOptions,
-} from "@/api/issue-write/write-types"
 import type { LabelNotFoundError } from "@/api/label"
 import type { ProjectNotFoundError } from "@/api/project/errors"
 import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
+import type { SectionLookupError } from "@/domain/body/section/model"
+import type { ConflictError } from "@/domain/conflict"
 import type { InvalidIssueRef, IssueRef } from "@/domain/ref"
 
 import { toSummary } from "@/api/issue-model"
@@ -134,10 +129,12 @@ type RelationWriteResult = {
 type IssueWriteApiError =
   | InvalidIssueRef
   | IssueWriteError
+  | ConflictError
   | LabelNotFoundError
   | LinearApiError
   | ProjectNotFoundError
   | RepoConfigError
+  | SectionLookupError
   | StateNotFoundError
   | TeamNotFoundError
   | TeamResolutionError
@@ -148,73 +145,6 @@ type IssueCreatePlan = {
   readonly labels: readonly string[]
   readonly assignee: string | null
   readonly priority: number | null
-}
-
-type IssueWriteApiShape = {
-  readonly create: (
-    options: IssueCreateOptions,
-  ) => Effect.Effect<IssueCreateResult, IssueWriteApiError>
-  readonly planCreate: (
-    options: IssueCreateOptions,
-  ) => Effect.Effect<IssueCreatePlan, IssueWriteApiError>
-  readonly comment: (
-    ref: string,
-    body: string,
-    options?: VisibilityOptions,
-  ) => Effect.Effect<IssueCommentResult, IssueWriteApiError>
-  readonly update: (
-    ref: string,
-    options: IssueUpdateOptions,
-  ) => Effect.Effect<IssueSummary, IssueWriteApiError>
-  readonly addLabels: (
-    ref: string,
-    names: readonly string[],
-    options?: WriteOptions,
-  ) => Effect.Effect<IssueWriteResult, IssueWriteApiError>
-  readonly removeLabels: (
-    ref: string,
-    names: readonly string[],
-    options?: WriteOptions,
-  ) => Effect.Effect<IssueWriteResult, IssueWriteApiError>
-  readonly assignChildren: (
-    parentRef: string,
-    assignee: string,
-    options?: WriteOptions,
-  ) => Effect.Effect<readonly BulkWriteResult[], IssueWriteApiError>
-  readonly addLabelsToChildren: (
-    parentRef: string,
-    names: readonly string[],
-    options?: WriteOptions,
-  ) => Effect.Effect<readonly BulkWriteResult[], IssueWriteApiError>
-  readonly removeLabelsFromChildren: (
-    parentRef: string,
-    names: readonly string[],
-    options?: WriteOptions,
-  ) => Effect.Effect<readonly BulkWriteResult[], IssueWriteApiError>
-  readonly close: (
-    ref: string,
-    body?: string,
-  ) => Effect.Effect<IssueWriteResult, IssueWriteApiError>
-  readonly reopen: (ref: string) => Effect.Effect<IssueSummary, IssueWriteApiError>
-  readonly assign: (
-    ref: string,
-    assignee: string,
-    options?: WriteOptions,
-  ) => Effect.Effect<IssueWriteResult, IssueWriteApiError>
-  readonly unassign: (
-    ref: string,
-    options?: WriteOptions,
-  ) => Effect.Effect<IssueWriteResult, IssueWriteApiError>
-  readonly link: (
-    ref: string,
-    changes: IssueRelationChanges,
-    options?: WriteOptions,
-  ) => Effect.Effect<RelationWriteResult, IssueWriteApiError>
-  readonly unlink: (
-    ref: string,
-    changes: IssueRelationChanges,
-    options?: WriteOptions,
-  ) => Effect.Effect<RelationWriteResult, IssueWriteApiError>
 }
 
 const parseRefOrFail = (input: string): Effect.Effect<IssueRef, InvalidIssueRef> =>
@@ -259,10 +189,9 @@ export {
   IssueWriteError,
   isNoneValue,
   type IssueCreatePlan,
+  type IssueWriteApiError,
   type IssueRelationChange,
   type IssueRelationChanges,
-  type IssueWriteApiError,
-  type IssueWriteApiShape,
   type IssueWriteResult,
   parseRefOrFail,
   type RelationKind,

@@ -125,6 +125,7 @@ describe("IssueApi show", () => {
     const issue = await run(handler, showRef("RAT-1"))
 
     expect(issue.priority).toBe("urgent")
+    expect(issue.updatedAt).toBe("2026-01-01T09:00:00.000Z")
     expect(queries[0]).toContain("priority")
   })
 

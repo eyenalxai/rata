@@ -30,6 +30,7 @@ type IssueSummary = {
   readonly url: string
   readonly state: IssueState
   readonly priority: Priority
+  readonly updatedAt: string
   readonly assignee: IssueUser | null
   readonly project: IssueProject | null
   readonly parent: IssueParent | null
@@ -53,6 +54,7 @@ type IssueDetail = {
   readonly url: string
   readonly state: IssueState
   readonly priority: Priority
+  readonly updatedAt: string
   readonly assignee: IssueUser | null
   readonly project: IssueProject | null
   readonly parent: IssueParent | null
@@ -99,6 +101,7 @@ const toSummary = (node: IssueSummaryNode): IssueSummary => ({
   url: node.url,
   state: node.state,
   priority: toPriority(node.priority),
+  updatedAt: node.updatedAt,
   assignee: node.assignee,
   project: node.project,
   parent: node.parent,

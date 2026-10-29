@@ -33,6 +33,17 @@ type IssueUpdateOptions = {
   readonly project?: string | undefined
   readonly parent?: string | undefined
   readonly priority?: number | undefined
+  readonly append?: boolean | undefined
+}
+
+type IssueUpdateWriteOptions = {
+  readonly ifUnchanged?: string | undefined
+}
+
+type IssueUpdatePlan = {
+  readonly identifier: string
+  readonly changes: Readonly<Record<string, unknown>>
+  readonly diff: string | null
 }
 
 type IssueCommentResult = {
@@ -40,11 +51,39 @@ type IssueCommentResult = {
   readonly visible: WriteVisibility
 }
 
+type SectionWriteOptions = {
+  readonly dryRun?: boolean | undefined
+  readonly ifUnchanged?: string | undefined
+  readonly level?: number | undefined
+}
+
+type SectionWriteResult =
+  | {
+      readonly dryRun: true
+      readonly action: "section-append" | "section-replace"
+      readonly target: string
+      readonly heading: string
+      readonly level: number
+      readonly diff: string
+    }
+  | {
+      readonly dryRun: false
+      readonly action: "section-append" | "section-replace"
+      readonly target: string
+      readonly heading: string
+      readonly level: number
+      readonly issue: IssueSummary
+    }
+
 export {
   type IssueCommentResult,
   type IssueCreateOptions,
   type IssueCreateResult,
   type IssueUpdateOptions,
+  type IssueUpdatePlan,
+  type IssueUpdateWriteOptions,
+  type SectionWriteOptions,
+  type SectionWriteResult,
   type VisibilityOptions,
   type WriteVisibility,
 }
