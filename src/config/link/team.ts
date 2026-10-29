@@ -117,8 +117,7 @@ const resolveLinkTeam = Effect.fn("LinkTeam.resolve")(function* resolveLinkTeam(
   options: LinkTargetOptions,
   deps: LinkTeamDependencies,
 ) {
-  const team = yield* resolveTeamTarget(options, deps)
-  return yield* updateTeamTimezone(team, options.timezone, deps.teams)
+  return yield* resolveTeamTarget(options, deps)
 })
 
 export {

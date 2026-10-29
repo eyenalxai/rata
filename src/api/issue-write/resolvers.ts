@@ -218,20 +218,26 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
     return yield* unwrapIssue(data.issueUpdate)
   })
 
-  const resolveLabelIds = Effect.fn("IssueWriteApi.resolveLabelIds")(function* resolveLabelIds(
+  const resolveLabels = Effect.fn("IssueWriteApi.resolveLabels")(function* resolveLabels(
     teamId: string,
     names: readonly string[],
   ) {
     const available = yield* collectConnection((after) =>
       labels.listAvailable(teamId, { after, limit: pageSize }),
     )
-    return yield* Effect.forEach(names, (name) => {
+    const resolved: { id: string; name: string }[] = []
+    const seen = new Set<string>()
+    for (const name of names) {
       const match = findLabelByName(available, name)
       if (match === undefined) {
-        return Effect.fail(labelNotFoundError(teamId, name))
+        return yield* labelNotFoundError(teamId, name)
       }
-      return Effect.succeed(match.id)
-    })
+      if (!seen.has(match.id)) {
+        seen.add(match.id)
+        resolved.push({ id: match.id, name: match.name })
+      }
+    }
+    return resolved
   })
 
   const postComment = Effect.fn("IssueWriteApi.postComment")(function* postComment(
@@ -266,7 +272,7 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
     resolveAssignee,
     resolveIssueId,
     resolveIssueTeamId,
-    resolveLabelIds,
+    resolveLabels,
     resolveProjectId,
     setAssignee,
     setStateByType,

@@ -1,8 +1,6 @@
 import { Config, Console, Effect, Option, Result, Schema } from "effect"
 import { Flag, GlobalFlag } from "effect/cli"
 
-import type { WriteAction } from "@/api/issue-write/model"
-
 import { maxPageSize } from "@/api/pagination"
 
 const jsonOutput = Schema.fromJsonString(Schema.Unknown, { space: 2 })
@@ -162,10 +160,16 @@ const writeJson = (value: unknown): Effect.Effect<void> =>
 
 const writeLine = (line: string): Effect.Effect<void> => Console.log(line)
 
-const writeDryRun = (
+type PlanAction = {
+  readonly action: string
+  readonly target: string
+  readonly changes: Record<string, unknown>
+}
+
+const writeDryRun = <A extends PlanAction>(
   json: boolean,
-  actions: readonly WriteAction[],
-  format: (action: WriteAction) => string,
+  actions: readonly A[],
+  format: (action: A) => string,
 ): Effect.Effect<void> =>
   json
     ? writeJson({ dryRun: true, actions })
@@ -247,6 +251,7 @@ export {
   dryRunFlag,
   errorLine,
   nextPageHint,
+  type PlanAction,
   reportFailure,
   validatePageSize,
   writeDryRun,

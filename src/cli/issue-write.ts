@@ -1,11 +1,23 @@
 import { Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 
+import type { IssueCreatePlan } from "@/api/issue-write/model"
+import type { PlanAction } from "@/cli/output"
+
 import { IssueWriteApi } from "@/api/issue-write"
 import { resolveBody } from "@/cli/body"
 import { OutputFields, rejectFields } from "@/cli/fields"
-import { JsonOutput, errorLine, reportFailure, writeJson, writeLine } from "@/cli/output"
+import {
+  JsonOutput,
+  dryRunFlag,
+  errorLine,
+  reportFailure,
+  writeDryRun,
+  writeJson,
+  writeLine,
+} from "@/cli/output"
 import { resolvePriority } from "@/cli/priority"
+import { toPriority } from "@/domain/priority"
 
 const optionalText = (name: string, description: string) =>
   Flag.String(name).pipe(Flag.withDescription(description), Flag.optional)
@@ -20,6 +32,33 @@ const bodyFileFlag = optionalText(
   "Read the body from a file. Use - for standard input",
 )
 
+const createAction = (plan: IssueCreatePlan): PlanAction => ({
+  action: "create",
+  target: "new",
+  changes: {
+    team: plan.team,
+    title: plan.title,
+    labels: plan.labels,
+    assignee: plan.assignee,
+    priority: plan.priority === null ? null : toPriority(plan.priority),
+  },
+})
+
+const describeCreate = (plan: IssueCreatePlan): string => {
+  const details: string[] = []
+  if (plan.labels.length > 0) {
+    details.push(`labels ${plan.labels.join(", ")}`)
+  }
+  if (plan.assignee !== null) {
+    details.push(`assignee ${plan.assignee}`)
+  }
+  if (plan.priority !== null) {
+    details.push(`priority ${toPriority(plan.priority)}`)
+  }
+  const suffix = details.length === 0 ? "" : ` with ${details.join(", ")}`
+  return `Would create "${plan.title}" in ${plan.team}${suffix}.`
+}
+
 const createCommand = Command.make(
   "create",
   {
@@ -30,11 +69,16 @@ const createCommand = Command.make(
     label: Flag.atLeast(Flag.String("label"), 0).pipe(
       Flag.withDescription("Label name. Repeat for more labels"),
     ),
+    noDefaultLabels: Flag.Boolean("no-default-labels").pipe(
+      Flag.withDescription("Ignore the repository default labels"),
+      Flag.withDefault(false),
+    ),
     parent: optionalText("parent", "Parent issue reference"),
     project: optionalText("project", "Project id or name"),
     state: optionalText("state", "Workflow state name"),
-    assignee: optionalText("assignee", "Assignee: `me` or a user id"),
+    assignee: optionalText("assignee", "Assignee: `me`, a user id, or `none`"),
     priority: optionalText("priority", "Priority: none, urgent, high, medium, low, or 0-4"),
+    dryRun: dryRunFlag,
   },
   (config) =>
     Effect.gen(function* createIssue() {
@@ -45,9 +89,7 @@ const createCommand = Command.make(
         config.body,
         config.bodyFile,
       )
-      const priority = Option.getOrUndefined(yield* resolvePriority(config.priority))
-      const api = yield* IssueWriteApi
-      const issue = yield* api.create({
+      const options = {
         title: config.title,
         body: Option.getOrUndefined(body),
         team: Option.getOrUndefined(config.team),
@@ -56,8 +98,15 @@ const createCommand = Command.make(
         project: Option.getOrUndefined(config.project),
         state: Option.getOrUndefined(config.state),
         assignee: Option.getOrUndefined(config.assignee),
-        priority,
-      })
+        priority: Option.getOrUndefined(yield* resolvePriority(config.priority)),
+        useDefaultLabels: !config.noDefaultLabels,
+      }
+      const api = yield* IssueWriteApi
+      if (config.dryRun) {
+        const plan = yield* api.planCreate(options)
+        return yield* writeDryRun(json, [createAction(plan)], () => describeCreate(plan))
+      }
+      const issue = yield* api.create(options)
       if (json) {
         return yield* writeJson({ issue })
       }

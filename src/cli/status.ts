@@ -3,12 +3,14 @@ import { Command } from "effect/cli"
 import { EOL } from "node:os"
 
 import type { KeySource } from "@/config/auth"
+import type { DefaultsDocument } from "@/config/defaults"
 
 import { LinearClient } from "@/api/client"
 import { TeamService } from "@/api/team"
 import { OutputFields, readFields, selectObject } from "@/cli/fields"
 import { JsonOutput, reportFailure, writeJson, writeLine } from "@/cli/output"
 import { Auth } from "@/config/auth"
+import { defaultsDocument, formatDefaults, issueDefaults } from "@/config/defaults"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
 import { RepositoryIdentity } from "@/config/repo-identity"
 
@@ -40,7 +42,7 @@ type StatusDocument = {
     readonly name: string
   } | null
   readonly project: string | null
-  readonly defaults: null
+  readonly defaults: DefaultsDocument | null
 }
 
 const labelWidth = 11
@@ -65,6 +67,8 @@ const statusCommand = Command.make("status", {}, () =>
     const viewer = yield* client.viewer
     const linked = config?.team !== undefined
     const team = linked ? yield* teams.byKey(config.team) : null
+    const defaults =
+      config === undefined || !linked ? null : defaultsDocument(issueDefaults(config))
     const document: StatusDocument = {
       repository: { root: location.root, linked },
       workspace: {
@@ -80,7 +84,7 @@ const statusCommand = Command.make("status", {}, () =>
       },
       team: team === null ? null : { id: team.id, key: team.key, name: team.name },
       project: linked ? (config.project ?? null) : null,
-      defaults: null,
+      defaults,
     }
     if (json) {
       return yield* writeJson(yield* selectObject(fields, document))
@@ -97,7 +101,7 @@ const statusCommand = Command.make("status", {}, () =>
         row("api key:", key),
         row("team:", team === null ? "not linked (run rata link)" : `${team.key} (${team.name})`),
         row("project:", linked ? (config.project ?? "none") : "none"),
-        row("defaults:", "none"),
+        row("defaults:", defaults === null ? "none" : formatDefaults(defaults)),
         row("viewer:", `${viewer.name} <${viewer.email}>`),
         row("org:", `${viewer.organization.name} (${viewer.organization.urlKey})`),
       ].join(EOL),

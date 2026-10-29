@@ -1,6 +1,7 @@
 import { Command } from "effect/cli"
 
 import { authCommand, whoamiCommand } from "@/cli/auth"
+import { configCommand } from "@/cli/config"
 import { OutputFields } from "@/cli/fields"
 import { issueCommand, searchCommand } from "@/cli/issue"
 import { labelCommand } from "@/cli/label"
@@ -18,6 +19,7 @@ const root = Command.make("rata").pipe(
     authCommand,
     whoamiCommand,
     statusCommand,
+    configCommand,
     linkCommand,
     unlinkCommand,
     workspaceCommand,

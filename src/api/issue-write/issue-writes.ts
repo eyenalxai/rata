@@ -17,18 +17,19 @@ const makeIssueWrites = (resolvers: WriteResolvers) => {
   ) {
     const summary = yield* resolvers.readIssueSummary(ref)
     const teamId = yield* resolvers.resolveIssueTeamId(summary.id)
-    const ids = yield* resolvers.resolveLabelIds(teamId, names)
+    const resolved = yield* resolvers.resolveLabels(teamId, names)
     const current = yield* resolvers.collectIssueLabels(summary.id)
     const present = new Set(current.map((label) => label.id))
     const actions: WriteAction[] = []
     const seen = new Set<string>()
     let issue = summary
-    for (const [index, labelId] of ids.entries()) {
+    for (const item of resolved) {
+      const labelId = item.id
       if (seen.has(labelId)) {
         continue
       }
       seen.add(labelId)
-      const label = names[index] ?? labelId
+      const label = item.name
       if (present.has(labelId)) {
         actions.push({
           action: "add-label",
@@ -58,18 +59,19 @@ const makeIssueWrites = (resolvers: WriteResolvers) => {
   ) {
     const summary = yield* resolvers.readIssueSummary(ref)
     const teamId = yield* resolvers.resolveIssueTeamId(summary.id)
-    const ids = yield* resolvers.resolveLabelIds(teamId, names)
+    const resolved = yield* resolvers.resolveLabels(teamId, names)
     const current = yield* resolvers.collectIssueLabels(summary.id)
     const present = new Set(current.map((label) => label.id))
     const actions: WriteAction[] = []
     const seen = new Set<string>()
     let issue = summary
-    for (const [index, labelId] of ids.entries()) {
+    for (const item of resolved) {
+      const labelId = item.id
       if (seen.has(labelId)) {
         continue
       }
       seen.add(labelId)
-      const label = names[index] ?? labelId
+      const label = item.name
       if (!present.has(labelId)) {
         actions.push({
           action: "remove-label",

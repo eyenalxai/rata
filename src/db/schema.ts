@@ -11,6 +11,9 @@ const repositories = sqliteTable("repositories", {
   team: text("team"),
   project: text("project"),
   workspace: text("workspace"),
+  defaultAssignee: text("default_assignee"),
+  defaultLabels: text("default_labels"),
+  defaultPriority: integer("default_priority"),
 })
 
 export { profiles, repositories }

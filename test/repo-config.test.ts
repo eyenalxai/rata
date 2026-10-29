@@ -29,6 +29,12 @@ const withRepoConfig = <A, E>(
   )
 }
 
+const emptyDefaults = {
+  defaultAssignee: null,
+  defaultLabels: null,
+  defaultPriority: null,
+}
+
 const repoTree: MemoryTree = {
   directories: ["/repo", "/repo/.git", "/repo/src"],
   files: new Map(),
@@ -72,7 +78,7 @@ describe("RepoConfigService.write", () => {
     )
 
     expect(result.rows).toEqual([
-      { key: "/repo/.git", team: "RAT", project: "rata", workspace: null },
+      { key: "/repo/.git", team: "RAT", project: "rata", workspace: null, ...emptyDefaults },
     ])
     expect(result.atRoot).toEqual(Option.some({ team: "RAT", project: "rata" }))
     expect(result.atSub).toEqual(Option.some({ team: "RAT", project: "rata" }))
@@ -168,7 +174,7 @@ describe("RepoConfigService.read", () => {
 
     expect(result.config).toEqual(Option.some({ team: "RAT", workspace: "work" }))
     expect(result.rows).toEqual([
-      { key: "/repo/.git", team: "RAT", project: null, workspace: "work" },
+      { key: "/repo/.git", team: "RAT", project: null, workspace: "work", ...emptyDefaults },
     ])
     expect(tree.files.has("/repo/src/.rata.json")).toBe(false)
     expect(tree.files.has("/repo/.rata.json")).toBe(true)

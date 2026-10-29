@@ -12,6 +12,9 @@ type RepositorySeed = {
   readonly team?: string | undefined
   readonly project?: string | undefined
   readonly workspace?: string | undefined
+  readonly defaultAssignee?: string | undefined
+  readonly defaultLabels?: readonly string[] | undefined
+  readonly defaultPriority?: number | undefined
 }
 
 type ProfileSeed = {
@@ -39,6 +42,15 @@ const databaseLayer = (
             team: row.team ?? null,
             project: row.project ?? null,
             workspace: row.workspace ?? null,
+            defaultAssignee: row.defaultAssignee ?? null,
+            defaultLabels:
+              row.defaultLabels === undefined || row.defaultLabels.length === 0
+                ? null
+                : JSON.stringify(row.defaultLabels),
+            defaultPriority:
+              row.defaultPriority === undefined || row.defaultPriority === 0
+                ? null
+                : row.defaultPriority,
           })
           .run(),
       )

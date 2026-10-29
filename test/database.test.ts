@@ -63,8 +63,24 @@ describe("Drizzle stack", () => {
 
     expect(storedProfiles).toEqual([{ name: "work", apiKey: "secret", isDefault: 1 }])
     expect(storedRepositories).toEqual([
-      { key: "/repo", team: "RAT", project: null, workspace: "work" },
-      { key: "/other", team: null, project: null, workspace: null },
+      {
+        key: "/repo",
+        team: "RAT",
+        project: null,
+        workspace: "work",
+        defaultAssignee: null,
+        defaultLabels: null,
+        defaultPriority: null,
+      },
+      {
+        key: "/other",
+        team: null,
+        project: null,
+        workspace: null,
+        defaultAssignee: null,
+        defaultLabels: null,
+        defaultPriority: null,
+      },
     ])
   })
 })
@@ -111,7 +127,17 @@ describe("Database", () => {
         }),
     )
 
-    expect(result.rows).toEqual([{ key: "/repo", team: "RAT", project: null, workspace: "work" }])
+    expect(result.rows).toEqual([
+      {
+        key: "/repo",
+        team: "RAT",
+        project: null,
+        workspace: "work",
+        defaultAssignee: null,
+        defaultLabels: null,
+        defaultPriority: null,
+      },
+    ])
     expect(result.directoryMode).toBe(0o700)
     expect(result.fileMode).toBe(0o600)
   })
@@ -175,6 +201,16 @@ describe("Database", () => {
       ).pipe(Effect.provide(platformLayer)),
     )
 
-    expect(rows).toEqual([{ key: "/repo", team: null, project: null, workspace: null }])
+    expect(rows).toEqual([
+      {
+        key: "/repo",
+        team: null,
+        project: null,
+        workspace: null,
+        defaultAssignee: null,
+        defaultLabels: null,
+        defaultPriority: null,
+      },
+    ])
   })
 })

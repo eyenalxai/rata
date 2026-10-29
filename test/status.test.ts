@@ -94,7 +94,7 @@ describe("status", () => {
       viewer: statusViewer,
       team: { id: "team-1", key: "RAT", name: "Rata" },
       project: null,
-      defaults: null,
+      defaults: { assignee: null, labels: [], priority: null },
     })
   })
 
@@ -113,7 +113,7 @@ describe("status", () => {
       viewer: statusViewer,
       team: { id: "team-1", key: "RAT", name: "Rata" },
       project: "rata",
-      defaults: null,
+      defaults: { assignee: null, labels: [], priority: null },
     })
   })
 

@@ -49,6 +49,8 @@ rata project delete "Login revamp" --yes # move a project to the trash
 rata project restore "Login revamp"      # bring a project back from the trash
 rata label list --team RAT               # list a team's labels
 rata link --team RAT                     # bind this repository to a Linear team
+rata config set --assignee me --label enhancement --priority medium  # defaults for new issues
+rata config show                         # read the issue defaults
 rata unlink                              # remove the stored link of this repository
 rata issue list                          # list issues
 rata issue list --parent RAT-1 --unblocked --unassigned --sort priority  # the frontier of a map
@@ -100,7 +102,7 @@ org:       Acme (acme)
   "workspace": { "name": "personal", "keySource": "default" },
   "team": { "id": "t1", "key": "JYO", "name": "Jyoti" },
   "project": null,
-  "defaults": null,
+  "defaults": { "assignee": "me", "labels": ["enhancement"], "priority": "medium" },
   "viewer": {
     "id": "u1",
     "name": "Ada",
@@ -112,8 +114,9 @@ org:       Acme (acme)
 ```
 
 `keySource` is `env` for `LINEAR_API_KEY`, `repo` for the `workspace` in the
-repository config, and `default` for the default profile. `team`, `project` and
-`defaults` are `null` or empty when unset.
+repository config, and `default` for the default profile. `team` and `project`
+are `null` when unset. `defaults` holds the repository issue defaults; each
+field is `null` or empty when it is unset.
 
 ## Paging lists
 
@@ -578,6 +581,45 @@ document with the removed team, project and workspace:
 }
 ```
 
+## Repository issue defaults
+
+`rata config` stores the values that `issue create` applies without explicit
+flags:
+
+```bash
+rata config set --assignee me --label enhancement --priority medium
+rata config show
+rata config show --json
+rata config unset --label
+```
+
+| Flag         | Meaning                                                                                 |
+| ------------ | --------------------------------------------------------------------------------------- |
+| `--assignee` | `me`, a user id, or `none` to clear it. `me` follows the current viewer.                |
+| `--label`    | Label name. Repeat to replace the default list. `config unset --label` clears the list. |
+| `--priority` | `none`, `urgent`, `high`, `medium`, `low`, or `0`-`4`. `none` and `0` clear it.         |
+
+`config set` needs a linked team because labels are team-scoped. It resolves
+every label against the team and fails with `not_found` for a missing label.
+`config set --label` replaces the default list; `config unset` clears only the
+named fields.
+
+`config show --json` prints:
+
+```json
+{ "defaults": { "assignee": "me", "labels": ["enhancement"], "priority": "medium" } }
+```
+
+`issue create` resolves each field in this order: the explicit flag, the
+repository default, unset. An explicit `--priority low` wins, and `--label bug`
+adds `bug` to the default labels. `--no-default-labels` drops the default labels
+for one call. `--assignee none` and `--priority none` clear their fields.
+
+When `rata link --team` changes the team, rata validates the stored default
+labels against the new team. A missing label fails the link and lists the
+missing labels. `rata unlink` clears the defaults with the rest of the
+repository config.
+
 ## Reading issues
 
 `rata issue list` accepts filters. Combine any of them. Without `--team`, the
@@ -721,7 +763,8 @@ lists the issues that block it. `--json` includes `comments` by default.
 ## Writing issues
 
 `rata issue create` needs a team: pass `--team`, or run `rata link` once. The
-`project` of the repository config is the default project for `create`. A team
+`project` of the repository config is the default project for `create`. The
+repository issue defaults fill the assignee, the labels and the priority. A team
 value is a key or a UUID. A project value is a name or a UUID.
 
 ```bash
@@ -742,19 +785,19 @@ rata issue link RAT-42 --blocks RAT-43 --related RAT-44
 rata issue unlink RAT-43 --blocked-by RAT-42
 ```
 
-| Command                               | Flags                                                                                                                                           |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `issue create`                        | `--title` (required), `--body`, `--body-file`, `--team`, `--label` (repeatable), `--parent`, `--project`, `--state`, `--assignee`, `--priority` |
-| `issue comment <ref>`                 | `--body`, `--body-file` (one is required)                                                                                                       |
-| `issue update <ref>`                  | `--title`, `--body`, `--body-file`, `--state`, `--assignee`, `--project`, `--parent`, `--priority`                                              |
-| `issue label add <ref> <label...>`    | label names, `--dry-run`                                                                                                                        |
-| `issue label remove <ref> <label...>` | label names, `--dry-run`                                                                                                                        |
-| `issue close <ref>`                   | `--comment`, `--comment-file`                                                                                                                   |
-| `issue reopen <ref>`                  |                                                                                                                                                 |
-| `issue assign <ref>`                  | `--assignee` (required): `me`, a user id, or `none`; `--dry-run`                                                                                |
-| `issue unassign <ref>`                | `--dry-run`                                                                                                                                     |
-| `issue link <ref>`                    | `--blocks`, `--blocked-by`, `--related`, `--duplicate` (each repeatable), `--dry-run`                                                           |
-| `issue unlink <ref>`                  | the same relation flags and `--dry-run`                                                                                                         |
+| Command                               | Flags                                                                                                                                                                               |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `issue create`                        | `--title` (required), `--body`, `--body-file`, `--team`, `--label` (repeatable), `--no-default-labels`, `--parent`, `--project`, `--state`, `--assignee`, `--priority`, `--dry-run` |
+| `issue comment <ref>`                 | `--body`, `--body-file` (one is required)                                                                                                                                           |
+| `issue update <ref>`                  | `--title`, `--body`, `--body-file`, `--state`, `--assignee`, `--project`, `--parent`, `--priority`                                                                                  |
+| `issue label add <ref> <label...>`    | label names, `--dry-run`                                                                                                                                                            |
+| `issue label remove <ref> <label...>` | label names, `--dry-run`                                                                                                                                                            |
+| `issue close <ref>`                   | `--comment`, `--comment-file`                                                                                                                                                       |
+| `issue reopen <ref>`                  |                                                                                                                                                                                     |
+| `issue assign <ref>`                  | `--assignee` (required): `me`, a user id, or `none`; `--dry-run`                                                                                                                    |
+| `issue unassign <ref>`                | `--dry-run`                                                                                                                                                                         |
+| `issue link <ref>`                    | `--blocks`, `--blocked-by`, `--related`, `--duplicate` (each repeatable), `--dry-run`                                                                                               |
+| `issue unlink <ref>`                  | the same relation flags and `--dry-run`                                                                                                                                             |
 
 Linear has one `blocks` relation. `link --blocks X` records that the issue blocks
 X. `link --blocked-by X` records the same relation in the inverse direction: X
@@ -783,18 +826,21 @@ object.
 ### Dry runs
 
 `--dry-run` resolves the targets and prints the actions without calling a
-mutation. It is available on `issue link`, `issue unlink`, `issue assign`,
-`issue unassign`, `issue label add` and `issue label remove`. It is not
-available on `issue create`, `issue update`, `issue close`, `issue reopen`,
-`issue comment` or the team, project and label mutations.
+mutation. It is available on `issue create`, `issue link`, `issue unlink`,
+`issue assign`, `issue unassign`, `issue label add`, `issue label remove`,
+`config set` and `config unset`. It is not available on `issue update`,
+`issue close`, `issue reopen`, `issue comment` or the team, project and label
+mutations.
 
 ```bash
+rata issue create --title "Fix login" --dry-run
 rata issue assign RAT-42 --assignee me --dry-run
-rata issue label add RAT-42 ready-for-agent --dry-run --json
+rata config set --label enhancement --dry-run --json
 ```
 
 `--json` prints `{ "dryRun": true, "actions": [...] }`. Each action carries the
-command action, the target, the status it would reach, and the changes.
+command action, the target and the changes. The issue writes also carry the
+status they would reach.
 
 `--body-file -` and `--comment-file -` read the body from standard input. The
 `--body` and `--body-file` flags are mutually exclusive, as are `--comment` and

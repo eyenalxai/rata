@@ -76,6 +76,14 @@ type FakeWorkspace = {
   readonly priorities?: readonly FakePriority[]
 }
 
+const defaultPriorities: readonly FakePriority[] = [
+  { priority: 0, label: "No priority" },
+  { priority: 1, label: "Urgent" },
+  { priority: 2, label: "High" },
+  { priority: 3, label: "Medium" },
+  { priority: 4, label: "Low" },
+]
+
 const defaultEnv = { HOME: "/home/test", LINEAR_API_KEY: "test-key" }
 
 const defaultViewer: FakeViewer = {
@@ -142,6 +150,7 @@ const stringField = (record: Record<string, unknown>, name: string): string => {
 
 export {
   defaultEnv,
+  defaultPriorities,
   defaultViewer,
   type FakeLabel,
   type FakePriority,

@@ -5,12 +5,12 @@ import { Prompt } from "effect/cli"
 
 import type { LinearClient, Viewer } from "@/api/client"
 import type { LinearApiError } from "@/api/errors"
-import type { Team, TeamCreateError, TeamService, TeamUpdateError } from "@/api/team"
+import type { Team, TeamCreateError, TeamService } from "@/api/team"
 import type { Auth, AuthStoreError, StoredProfile } from "@/config/auth"
-import type { LinkTargetOptions, TimezoneChange } from "@/config/link/team"
+import type { LinkTargetOptions } from "@/config/link/team"
 
 import { TeamNotFoundError } from "@/api/team"
-import { LinkError, resolveLinkTeam, updateTeamTimezone } from "@/config/link/team"
+import { LinkError, resolveLinkTeam } from "@/config/link/team"
 import { runPrompt } from "@/config/prompt"
 
 type LinkTargetDependencies = {
@@ -31,7 +31,6 @@ type LinkInDependencies = {
 
 type LinkTarget = {
   readonly team: Team
-  readonly timezone: Option.Option<TimezoneChange>
   readonly workspace: Option.Option<string>
   readonly apiKey: Redacted.Redacted
 }
@@ -119,11 +118,11 @@ const linkIn = Effect.fn("LinkWorkspace.linkIn")(function* linkIn(
   options: LinkTargetOptions,
   deps: LinkInDependencies,
 ) {
-  const link = yield* resolveLinkTeam(options, {
+  const team = yield* resolveLinkTeam(options, {
     teams: deps.teams.withKey(apiKey),
     stdio: deps.stdio,
   })
-  return { ...link, workspace, apiKey }
+  return { team, workspace, apiKey }
 })
 
 const resolveExplicitWorkspace = Effect.fn("LinkWorkspace.resolveExplicit")(
@@ -158,12 +157,11 @@ const resolveAcrossProfiles = Effect.fn("LinkWorkspace.resolveAcrossProfiles")(
     }
     const match = matches[0]
     if (match !== undefined) {
-      const link = yield* updateTeamTimezone(
-        match.team,
-        options.timezone,
-        deps.teams.withKey(match.profile.apiKey),
-      )
-      return { ...link, workspace: Option.some(match.profile.name), apiKey: match.profile.apiKey }
+      return {
+        team: match.team,
+        workspace: Option.some(match.profile.name),
+        apiKey: match.profile.apiKey,
+      }
     }
     if (!options.create) {
       return yield* new TeamNotFoundError({
@@ -185,12 +183,7 @@ const resolveLinkTarget = Effect.fn("LinkWorkspace.resolve")(function* resolveLi
   deps: LinkTargetDependencies,
 ): Effect.fn.Return<
   LinkTarget,
-  | AuthStoreError
-  | LinkError
-  | LinearApiError
-  | TeamCreateError
-  | TeamNotFoundError
-  | TeamUpdateError,
+  AuthStoreError | LinkError | LinearApiError | TeamCreateError | TeamNotFoundError,
   FileSystem.FileSystem | Path.Path | Terminal.Terminal
 > {
   const envKey = yield* deps.auth.envKey
