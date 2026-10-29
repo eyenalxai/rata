@@ -2,11 +2,11 @@ import { Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 import { EOL } from "node:os"
 
-import { maxPageSize } from "@/api/pagination"
 import { ProjectService } from "@/api/project"
 import { RepoTeam } from "@/api/repo-team"
 import { confirm } from "@/cli/confirm"
 import { OutputFields, readFields, rejectFields, selectItems } from "@/cli/fields"
+import { afterFlag, allFlag, limitFlag } from "@/cli/list-flags"
 import {
   JsonOutput,
   nextPageHint,
@@ -18,16 +18,6 @@ import {
 
 const optionalText = (name: string, description: string) =>
   Flag.String(name).pipe(Flag.withDescription(description), Flag.optional)
-
-const limitFlag = Flag.Int("limit").pipe(
-  Flag.withDescription(`Page size, at most ${maxPageSize}`),
-  Flag.withDefault(50),
-)
-
-const afterFlag = Flag.String("after").pipe(
-  Flag.withDescription("Continue after this cursor"),
-  Flag.optional,
-)
 
 const includeArchivedFlag = Flag.Boolean("include-archived").pipe(
   Flag.withDescription("Include trashed and archived projects"),
@@ -42,6 +32,7 @@ const listCommand = Command.make(
     team: optionalText("team", "Filter by team key or id. Defaults to the team from `rata link`"),
     limit: limitFlag,
     after: afterFlag,
+    all: allFlag,
     includeArchived: includeArchivedFlag,
   },
   (config) =>
@@ -58,6 +49,7 @@ const listCommand = Command.make(
       const page = yield* projects.list({
         after: Option.getOrNull(config.after),
         limit: config.limit,
+        all: config.all,
         includeArchived: config.includeArchived,
         teamId,
       })

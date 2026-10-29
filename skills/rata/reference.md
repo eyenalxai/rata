@@ -7,8 +7,8 @@
   one stable JSON document. `--fields` selects dotted paths from the supported
   read commands and needs `--json`.
 - List commands return one page: `--limit` is the page size (default 50,
-  maximum 250) and `--after <cursor>` continues the list. JSON is
-  `{ <plural>, pageInfo }`.
+  maximum 250) and `--after <cursor>` continues the list. Add `--all` to drain
+  every page. JSON is `{ <plural>, pageInfo }`.
 - `--body-file -` reads the value from stdin; `--body-file <path>` reads a file.
 - The default team and project come from the repository config, written by
   `rata link` and removed by `rata unlink`. List commands default to the linked
@@ -81,19 +81,19 @@ recorded `workspace`.
 
 ## Teams, projects, labels
 
-| Command                                                                                  | Description                                                                                                         |
-| ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
-| `rata team list [--limit <n>] [--after <cursor>]`                                        | List teams, one page per call.                                                                                      |
-| `rata team show [<team-ref>] [--json]`                                                   | Show the states, labels, members and priorities of a team. Defaults to the linked team.                             |
-| `rata team create --name <name> [--key <key>]`                                           | Create a team.                                                                                                      |
-| `rata team delete <key> [--yes]`                                                         | Delete a team (Linear keeps it recoverable). `--yes` skips the confirmation.                                        |
-| `rata project list [--team <key>] [--include-archived] [--limit <n>] [--after <cursor>]` | List the projects of the linked team: name, state, progress, id. One page per call. Trashed rows show ` (deleted)`. |
-| `rata project create --name <name> [--team <key>]`                                       | Create a project. `--team` is repeatable.                                                                           |
-| `rata project delete <ref> [--yes]`                                                      | Move a project to the trash (Linear keeps it recoverable). `--yes` skips the confirmation.                          |
-| `rata project restore <ref>`                                                             | Bring a project back from the trash. Runs without a prompt.                                                         |
-| `rata label list [--team <key>] [--limit <n>] [--after <cursor>]`                        | List the labels of the linked team: name, id, color. One page per call.                                             |
-| `rata label create --name <name> [--color <hex>] [--team <key>] [--if-not-exists]`       | Create a team-scoped label. `--team` defaults to the linked team. `--if-not-exists` returns the existing label.     |
-| `rata label edit <ref> [--name <new>] [--color <hex>] [--team <key>]`                    | Update a label. `<ref>` is a name or a UUID. Pass `--name`, `--color`, or both.                                     |
+| Command                                                                                          | Description                                                                                                                                    |
+| ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rata team list [--limit <n>] [--after <cursor>] [--all]`                                        | List the teams in the workspace. One page per call; `--all` drains every page.                                                                 |
+| `rata team show [<team-ref>] [--json]`                                                           | Show the states, labels, members and priorities of a team. Defaults to the linked team.                                                        |
+| `rata team create --name <name> [--key <key>]`                                                   | Create a team.                                                                                                                                 |
+| `rata team delete <key> [--yes]`                                                                 | Delete a team (Linear keeps it recoverable). `--yes` skips the confirmation.                                                                   |
+| `rata project list [--team <key>] [--include-archived] [--limit <n>] [--after <cursor>] [--all]` | List the projects of the linked team: name, state, progress, id. One page per call; `--all` drains every page. Trashed rows show ` (deleted)`. |
+| `rata project create --name <name> [--team <key>]`                                               | Create a project. `--team` is repeatable.                                                                                                      |
+| `rata project delete <ref> [--yes]`                                                              | Move a project to the trash (Linear keeps it recoverable). `--yes` skips the confirmation.                                                     |
+| `rata project restore <ref>`                                                                     | Bring a project back from the trash. Runs without a prompt.                                                                                    |
+| `rata label list [--team <key>] [--limit <n>] [--after <cursor>] [--all]`                        | List the labels of the linked team: name, id, color. One page per call; `--all` drains every page.                                             |
+| `rata label create --name <name> [--color <hex>] [--team <key>] [--if-not-exists]`               | Create a team-scoped label. `--team` defaults to the linked team. `--if-not-exists` returns the existing label.                                |
+| `rata label edit <ref> [--name <new>] [--color <hex>] [--team <key>]`                            | Update a label. `<ref>` is a name or a UUID. Pass `--name`, `--color`, or both.                                                                |
 
 ## Issues
 
@@ -103,7 +103,7 @@ recorded `workspace`.
 | `rata next --parent <ref>`                           | Show the next ready child of a parent: priority, then oldest `createdAt`.     |
 | `rata why <ref>`                                     | Show one level of the blocking graph: `blocked` and `blockedBy`.              |
 | `rata search <text> [flags]`                         | Full-text search. Keeps relevance ranking; paging is best effort.             |
-| `rata issue show <ref> [--comments] [--no-comments]` | Show one issue with comments, children, relations and attachments.            |
+| `rata issue show <ref> [--comments] [--no-comments]` | Show one issue. `view` aliases `show`. `--summary` reads headers only.        |
 | `rata issue create --title <title> [flags]`          | Create an issue.                                                              |
 | `rata issue update <ref> [flags]`                    | Update an issue.                                                              |
 | `rata issue section get <ref> <heading>`             | Print one section of the body. `--with-heading` adds the heading line.        |
@@ -118,6 +118,14 @@ recorded `workspace`.
 | `rata issue reopen <ref>`                            | Reopen.                                                                       |
 | `rata issue link <ref> [flags]`                      | Create relations.                                                             |
 | `rata issue unlink <ref> [flags]`                    | Remove relations.                                                             |
+
+### `issue show` flags
+
+`--comments` adds comments; `--no-comments` skips the fetch and omits the key.
+`--summary` reads the header fields only and rejects `--comments`. `--no-body`,
+`--no-relations`, `--no-children` and `--no-attachments` drop those parts and
+skip their fetches. JSON is `{ "issue": ... }`; `--summary` returns the lean
+summary object.
 
 ### `issue list` flags
 
@@ -137,6 +145,7 @@ recorded `workspace`.
 | `--sort`       | `priority`: urgent first and none last; ties go to the oldest.           |
 | `--limit`      | Page size. Default: 50, maximum: 250.                                    |
 | `--after`      | Continue after a cursor from a previous page.                            |
+| `--all`        | Drain every page. `--limit` stays the page size.                         |
 
 ### `search` flags
 
@@ -145,6 +154,7 @@ recorded `workspace`.
 | `--team`  | Team key or id. Default: the linked team.         |
 | `--limit` | Page size. Default: 50, maximum: 250.             |
 | `--after` | Continue after a cursor from a previous page.     |
+| `--all`   | Drain every page. `--limit` stays the page size.  |
 | `--json`  | Print `{ "issues": [...], "pageInfo": { ... } }`. |
 
 Search keeps Linear's relevance ranking, so its paging is best effort. Keep the
@@ -152,7 +162,7 @@ search text fixed across pages.
 
 ### List JSON
 
-Every list command prints one page:
+Every list command prints one page by default and every page with `--all`:
 
 ```json
 {
@@ -163,7 +173,8 @@ Every list command prints one page:
 
 The plural key matches the command: `issues`, `teams`, `projects`, or `labels`.
 `pageInfo.hasNextPage` says whether a next page exists. Pass
-`pageInfo.endCursor` to `--after` to read it. Keep the filters and the order
+`pageInfo.endCursor` to `--after` to read it. With `--all`, `pageInfo` is
+`{ "hasNextPage": false, "endCursor": null }` and `--limit` stays the page size. Keep the filters and the order
 fixed across pages: a cursor is bound to its query. Lists are ordered by
 creation time.
 

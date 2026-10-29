@@ -32,7 +32,28 @@ const searchQuery = `query IssueSearch($term: String!, $filter: IssueFilter, $fi
 
 const attachmentFields = "id title subtitle url sourceType createdAt"
 
-const showQuery = `query IssueShow($id: String!) {
+const showFields = {
+  labels: `    labels(first: ${pageSize}) { nodes { id name } pageInfo { hasNextPage endCursor } }`,
+  children: `    children(first: ${pageSize}) { nodes { id identifier title state { name type } } pageInfo { hasNextPage endCursor } }`,
+  relations: `    relations(first: ${pageSize}) { nodes { id type relatedIssue { id identifier title state { name type } } } pageInfo { hasNextPage endCursor } }`,
+  inverseRelations: `    inverseRelations(first: ${pageSize}) { nodes { id type issue { id identifier title state { name type } } } pageInfo { hasNextPage endCursor } }`,
+  attachments: `    attachments(first: ${pageSize}) { nodes { ${attachmentFields} } pageInfo { hasNextPage endCursor } }`,
+}
+
+type ShowQueryOptions = {
+  readonly children: boolean
+  readonly relations: boolean
+  readonly attachments: boolean
+}
+
+const showQuery = (options: ShowQueryOptions): string => {
+  const connections = [
+    showFields.labels,
+    ...(options.children ? [showFields.children] : []),
+    ...(options.relations ? [showFields.relations, showFields.inverseRelations] : []),
+    ...(options.attachments ? [showFields.attachments] : []),
+  ]
+  return `query IssueShow($id: String!) {
   issue(id: $id) {
     id
     identifier
@@ -46,13 +67,10 @@ const showQuery = `query IssueShow($id: String!) {
     project { id name }
     parent { id identifier title }
     team { id key name }
-    labels(first: ${pageSize}) { nodes { id name } pageInfo { hasNextPage endCursor } }
-    children(first: ${pageSize}) { nodes { id identifier title state { name type } } pageInfo { hasNextPage endCursor } }
-    relations(first: ${pageSize}) { nodes { id type relatedIssue { id identifier title state { name type } } } pageInfo { hasNextPage endCursor } }
-    inverseRelations(first: ${pageSize}) { nodes { id type issue { id identifier title state { name type } } } pageInfo { hasNextPage endCursor } }
-    attachments(first: ${pageSize}) { nodes { ${attachmentFields} } pageInfo { hasNextPage endCursor } }
+${connections.join("\n")}
   }
 }`
+}
 
 const issueIdQuery = `query IssueId($id: String!) {
   issue(id: $id) {

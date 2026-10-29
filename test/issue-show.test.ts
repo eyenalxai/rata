@@ -103,7 +103,10 @@ describe("IssueApi show", () => {
   test("resolves identifier, UUID and URL references", async () => {
     const captured: Record<string, unknown>[] = []
     const handler = (request: HttpClientRequest.HttpClientRequest): Response => {
-      captured.push(readBody(request).variables)
+      const body = readBody(request)
+      if (body.query.includes("query IssueShow")) {
+        captured.push(body.variables)
+      }
       return jsonResponse({ data: { issue: baseDetail } })
     }
 
@@ -195,6 +198,7 @@ describe("issue show", () => {
     expect(document.issue.children.map((item) => item.identifier)).toEqual(["RAT-2"])
     expect(document.issue.relations.blocks.map((item) => item.identifier)).toEqual(["RAT-8"])
     expect(document.issue.attachments.map((item) => item.id)).toEqual(["a1"])
+    expect(requests.filter((request) => request.query.includes("query IssueShow"))).toHaveLength(1)
   })
 
   test("--no-comments omits the comments and skips the fetch", async () => {

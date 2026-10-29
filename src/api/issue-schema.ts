@@ -147,10 +147,10 @@ const IssueDetailNode = Schema.Struct({
   parent: Schema.NullOr(IssueParent),
   team: IssueTeam,
   labels: IssueLabelConnection,
-  children: IssueChildConnection,
-  relations: IssueRelationConnection,
-  inverseRelations: IssueInverseRelationConnection,
-  attachments: IssueAttachmentConnection,
+  children: Schema.optional(IssueChildConnection),
+  relations: Schema.optional(IssueRelationConnection),
+  inverseRelations: Schema.optional(IssueInverseRelationConnection),
+  attachments: Schema.optional(IssueAttachmentConnection),
 })
 type IssueDetailNode = typeof IssueDetailNode.Type
 

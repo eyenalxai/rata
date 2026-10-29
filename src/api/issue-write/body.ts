@@ -16,7 +16,7 @@ import type { Section } from "@/domain/body/section/model"
 import { updateIssueMutation } from "@/api/issue-query"
 import { UpdateIssueResponse } from "@/api/issue-schema"
 import { IssueBodyResponse, issueBodyQuery } from "@/api/issue-write/body/query"
-import { parseRefOrFail, unwrapIssue } from "@/api/issue-write/model"
+import { unwrapIssue } from "@/api/issue-write/model"
 import { unifiedDiff } from "@/domain/body/diff"
 import { readSection as readSectionText } from "@/domain/body/section"
 import {
@@ -26,6 +26,7 @@ import {
 import { normalizeLineEndings } from "@/domain/body/text"
 import { ConflictError } from "@/domain/conflict"
 import { toPriority } from "@/domain/priority"
+import { parseRefOrFail } from "@/domain/ref"
 
 type BodyDependencies = {
   readonly client: LinearClient["Service"]

@@ -1,4 +1,4 @@
-import type { IssueDetail, IssueRelations } from "@/api/issue-model"
+import type { IssueDetail, IssueRelations, IssueSummary } from "@/api/issue-model"
 import type { IssueChild } from "@/api/issue-schema"
 
 const formatRelations = (relations: IssueRelations): string[] => {
@@ -20,7 +20,7 @@ const formatRelations = (relations: IssueRelations): string[] => {
   return lines
 }
 
-const formatIssueDetail = (issue: IssueDetail): string => {
+const formatIssueHeader = (issue: IssueSummary): string[] => {
   const lines: string[] = [
     `${issue.identifier}: ${issue.title}`,
     `state: ${issue.state.name} (${issue.state.type})`,
@@ -36,7 +36,13 @@ const formatIssueDetail = (issue: IssueDetail): string => {
   if (issue.parent !== null) {
     lines.push(`parent: ${issue.parent.identifier}: ${issue.parent.title}`)
   }
-  if (issue.description !== null && issue.description.trim().length > 0) {
+  lines.push(`url: ${issue.url}`, `updatedAt: ${issue.updatedAt}`)
+  return lines
+}
+
+const formatIssueDetail = (issue: IssueDetail, showBody: boolean): string => {
+  const lines = formatIssueHeader(issue)
+  if (showBody && issue.description !== null && issue.description.trim().length > 0) {
     lines.push("", issue.description)
   }
   if (issue.children.length > 0) {
@@ -70,4 +76,6 @@ const formatIssueDetail = (issue: IssueDetail): string => {
   return lines.join("\n")
 }
 
-export { formatIssueDetail }
+const formatIssueSummary = (issue: IssueSummary): string => formatIssueHeader(issue).join("\n")
+
+export { formatIssueDetail, formatIssueSummary }

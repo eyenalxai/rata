@@ -13,7 +13,7 @@ import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
 
 import { LinearClient } from "@/api/client"
-import { collectConnection, pageSize } from "@/api/pagination"
+import { collectConnection, pageOrDrain, pageSize } from "@/api/pagination"
 import {
   alreadyDeletedError,
   notDeletedError,
@@ -83,19 +83,20 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
         options: ProjectListOptions,
       ) {
         const variables: Record<string, unknown> = {
-          first: options.limit,
-          after: options.after,
           includeArchived: options.includeArchived ?? false,
         }
         if (options.teamId !== undefined) {
           variables.filter = { accessibleTeams: { some: { id: { eq: options.teamId } } } }
         }
-        const data = yield* client.execute(
-          listProjectsQuery,
-          variables,
-          Schema.Struct({ projects: ProjectConnection }),
-        )
-        return data.projects
+        const fetchPage = (after: string | null) =>
+          client
+            .execute(
+              listProjectsQuery,
+              { ...variables, first: options.limit, after },
+              Schema.Struct({ projects: ProjectConnection }),
+            )
+            .pipe(Effect.map((data) => data.projects))
+        return yield* pageOrDrain(fetchPage, options)
       })
 
       const projectById = Effect.fn("ProjectService.projectById")(function* projectById(

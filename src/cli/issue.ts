@@ -3,8 +3,7 @@ import { Argument, Command, Flag } from "effect/cli"
 
 import { IssueApi } from "@/api/issue"
 import { sortFields, stateTypes } from "@/api/issue-model"
-import { maxPageSize } from "@/api/pagination"
-import { OutputFields, readFields, selectObject } from "@/cli/fields"
+import { OutputFields, readFields } from "@/cli/fields"
 import { issueLabelCommand } from "@/cli/issue-label"
 import { linkCommand, unlinkCommand } from "@/cli/issue-link"
 import { writeIssuePage } from "@/cli/issue-page"
@@ -12,43 +11,14 @@ import { assignCommand, closeCommand, reopenCommand, unassignCommand } from "@/c
 import { createCommand } from "@/cli/issue-write/create"
 import { updateCommand } from "@/cli/issue-write/update"
 import { commentCommand } from "@/cli/issue/comment"
-import { formatIssueDetail } from "@/cli/issue/format"
 import { sectionCommand } from "@/cli/issue/section"
-import {
-  JsonOutput,
-  errorLine,
-  reportFailure,
-  validatePageSize,
-  writeJson,
-  writeLine,
-} from "@/cli/output"
+import { showCommand } from "@/cli/issue/show"
+import { afterFlag, allFlag, limitFlag } from "@/cli/list-flags"
+import { JsonOutput, reportFailure, validatePageSize } from "@/cli/output"
 import { resolvePriority } from "@/cli/priority"
 
-const limitFlag = Flag.Int("limit").pipe(
-  Flag.withDescription(`Page size, at most ${maxPageSize}`),
-  Flag.withDefault(50),
-)
-
-const afterFlag = Flag.String("after").pipe(
-  Flag.withDescription("Continue after this cursor"),
-  Flag.optional,
-)
 const optionalText = (name: string, description: string) =>
   Flag.String(name).pipe(Flag.withDescription(description), Flag.optional)
-
-const refArgument = Argument.String("ref").pipe(
-  Argument.withDescription("Issue reference: an identifier, a UUID, or a linear.app URL"),
-)
-
-const commentsFlag = Flag.Boolean("comments").pipe(
-  Flag.withDescription("Include the issue comments"),
-  Flag.optional,
-)
-
-const noCommentsFlag = Flag.Boolean("no-comments").pipe(
-  Flag.withDescription("Skip the comment fetch and omit the comments key"),
-  Flag.optional,
-)
 
 const listCommand = Command.make(
   "list",
@@ -79,6 +49,7 @@ const listCommand = Command.make(
     ),
     limit: limitFlag,
     after: afterFlag,
+    all: allFlag,
   },
   (config) =>
     Effect.gen(function* list() {
@@ -105,6 +76,7 @@ const listCommand = Command.make(
         after: Option.getOrNull(config.after),
         sort: Option.getOrUndefined(config.sort),
         limit: config.limit,
+        all: config.all,
       })
       yield* writeIssuePage(json, fields, page)
     }).pipe(Effect.catch(reportFailure)),
@@ -120,50 +92,12 @@ const listCommand = Command.make(
       description: "List the frontier of a map",
     },
     {
+      command: "rata issue list --all --json",
+      description: "Drain every page of matching issues",
+    },
+    {
       command: "rata issue list --limit 100 --after <cursor>",
       description: "Read the next page from the endCursor of the previous call",
-    },
-  ]),
-)
-
-const showCommand = Command.make(
-  "show",
-  {
-    ref: refArgument,
-    comments: commentsFlag,
-    noComments: noCommentsFlag,
-  },
-  (config) =>
-    Effect.gen(function* show() {
-      const json = yield* JsonOutput
-      const fields = yield* readFields(json, yield* OutputFields)
-      const includesComments = Option.exists(config.comments, (value) => value)
-      const skipsComments = Option.exists(config.noComments, (value) => value)
-      if (includesComments && skipsComments) {
-        return yield* errorLine(
-          1,
-          "--comments and --no-comments are mutually exclusive.",
-          "Pass one of the two flags.",
-        )
-      }
-      const comments = skipsComments ? false : includesComments || json
-      const api = yield* IssueApi
-      const issue = yield* api.show(config.ref, { comments })
-      if (json) {
-        return yield* writeJson({ issue: yield* selectObject(fields, issue) })
-      }
-      return yield* writeLine(formatIssueDetail(issue))
-    }).pipe(Effect.catch(reportFailure)),
-).pipe(
-  Command.withDescription("Show one issue"),
-  Command.withExamples([
-    {
-      command: "rata issue show RAT-42 --comments",
-      description: "Show one issue with its comments",
-    },
-    {
-      command: "rata issue show RAT-42 --json --no-comments",
-      description: "Read the complete issue document without the comments",
     },
   ]),
 )
@@ -175,6 +109,7 @@ const searchCommand = Command.make(
     team: optionalText("team", "Filter by team key or id. Defaults to the team from `rata link`"),
     limit: limitFlag,
     after: afterFlag,
+    all: allFlag,
   },
   (config) =>
     Effect.gen(function* search() {
@@ -189,6 +124,7 @@ const searchCommand = Command.make(
         team: Option.getOrUndefined(config.team),
         after: Option.getOrNull(config.after),
         limit: config.limit,
+        all: config.all,
       })
       yield* writeIssuePage(json, fields, page)
     }).pipe(Effect.catch(reportFailure)),
@@ -198,6 +134,10 @@ const searchCommand = Command.make(
     {
       command: 'rata search "rate limit"',
       description: "Search issues by text",
+    },
+    {
+      command: 'rata search "rate limit" --all --json',
+      description: "Drain every page of results",
     },
     {
       command: 'rata search "rate limit" --after <cursor>',

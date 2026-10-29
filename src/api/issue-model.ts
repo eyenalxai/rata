@@ -63,7 +63,7 @@ type IssueDetail = {
   readonly children: readonly IssueChild[]
   readonly relations: IssueRelations
   readonly attachments: readonly IssueAttachment[]
-  readonly comments?: readonly IssueComment[]
+  readonly comments?: readonly IssueComment[] | undefined
 }
 
 type IssuePage = {
@@ -92,6 +92,9 @@ type IssueSearchOptions = PageOptions & {
 
 type IssueShowOptions = {
   readonly comments: boolean
+  readonly relations?: boolean | undefined
+  readonly children?: boolean | undefined
+  readonly attachments?: boolean | undefined
 }
 
 const toSummary = (node: IssueSummaryNode): IssueSummary => ({
@@ -162,16 +165,16 @@ const sortComparators: Readonly<
   priority: byPriority,
 }
 
-const collectsAllPages = (options: IssueListOptions): boolean => options.sort !== undefined
+const collectsAllPages = (options: IssueListOptions): boolean =>
+  options.sort !== undefined || options.all === true
 
 const sortAndLimitNodes = (
   nodes: readonly IssueSummaryNode[],
   options: IssueListOptions,
-): readonly IssueSummaryNode[] =>
-  (options.sort === undefined ? nodes : nodes.toSorted(sortComparators[options.sort])).slice(
-    0,
-    options.limit,
-  )
+): readonly IssueSummaryNode[] => {
+  const sorted = options.sort === undefined ? nodes : nodes.toSorted(sortComparators[options.sort])
+  return options.all === true ? sorted : sorted.slice(0, options.limit)
+}
 
 export {
   byCreatedAt,

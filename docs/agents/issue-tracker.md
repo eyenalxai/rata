@@ -46,8 +46,10 @@ operations.
 - **Read an issue**: `rata issue show <ref> --json`. One call returns the issue,
   its comments, children, relations and attachments. Add `--no-comments` to
   skip the comment fetch; `--comments` and `--no-comments` are mutually
-  exclusive. The issue carries `updatedAt`; pass it to `--if-unchanged` before a
-  body write.
+  exclusive. `--summary` reads the header fields only; it rejects `--comments`.
+  `--no-body`, `--no-relations`, `--no-children` and `--no-attachments` drop
+  those parts and skip their fetches. `view` is an alias for `show`. The issue
+  carries `updatedAt`; pass it to `--if-unchanged` before a body write.
 - **Edit one section**: `rata issue section get <ref> "<heading>"`,
   `issue section append <ref> "<heading>" --body-file -`, and
   `issue section replace <ref> "<heading>" --body-file -`. The heading match is
@@ -60,7 +62,8 @@ operations.
   `--team`, `--project`, `--state`, `--state-type`, `--priority`, `--label`,
   `--assignee`, `--parent`, `--text`, `--unblocked`, `--unassigned`. Every list
   command returns one page: `--limit` is the page size (default 50, maximum
-  250), and `--after <cursor>` continues a list. See **Paging lists**.
+  250), and `--after <cursor>` continues a list. Add `--all` to drain every
+  page. See **Paging lists**.
 - **Comment on an issue**: `rata issue comment create <ref> --body-file -`. The
   command waits up to 5 seconds for the comment to appear on a re-read. Use
   `--wait <seconds>` to change the bound, or `--wait 0` to skip the check. A
@@ -91,11 +94,13 @@ every worktree of the repository finds it.
 
 Every user-facing list command returns one page per call: `issue list`,
 `search`, `team list`, `project list` and `label list`. `--limit` is the page
-size (default 50, maximum 250). `--after <cursor>` continues a list. JSON is
-`{ <plural>, pageInfo }`: `pageInfo.hasNextPage` says whether a next page
-exists, and `pageInfo.endCursor` is the cursor for `--after`. Keep the filters
-and the order fixed across pages: a cursor is bound to its query. Lists are
-ordered by creation time (`createdAt`); `search` keeps Linear's relevance
+size (default 50, maximum 250). `--after <cursor>` continues a list. Add `--all`
+to drain every page; `--limit` stays the page size and `--after` starts from the
+cursor. JSON is `{ <plural>, pageInfo }`: `pageInfo.hasNextPage` says whether a
+next page exists, and `pageInfo.endCursor` is the cursor for `--after`. With
+`--all`, `pageInfo` is `{ "hasNextPage": false, "endCursor": null }`. Keep the
+filters and the order fixed across pages: a cursor is bound to its query. Lists
+are ordered by creation time (`createdAt`); `search` keeps Linear's relevance
 ranking, so its paging is best effort. Internal reads drain every page, so
 `issue show` is complete.
 
@@ -125,10 +130,9 @@ together under the spec. This repository does not use Linear projects.
   `rata issue create --title "..." --parent <spec-ref> --label ready-for-agent --priority medium --assignee me --body-file -`.
   Wire the blocking edges with
   `rata issue link <ticket-ref> --blocked-by <blocker-ref>`.
-- **Implement the spec**: `/implement-spec` fetches the whole set one page at
-  a time: `rata issue list --parent <spec-ref> --limit 250 --json`, then
-  continue with `--after <endCursor>` while `pageInfo.hasNextPage` is true.
-  `rata issue show <spec-ref> --json` also lists the children.
+- **Implement the spec**: `/implement-spec` fetches the whole set in one call:
+  `rata issue list --parent <spec-ref> --all --json`. `rata issue show
+<spec-ref> --json` also lists the children.
 - **Close the spec**: when every ticket is Done, close the spec with a comment
   that points at the result: `rata issue close <spec-ref> --comment "..."`.
 

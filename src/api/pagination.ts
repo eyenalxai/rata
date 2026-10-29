@@ -19,9 +19,12 @@ type Connection<A> = {
 type PageOptions = {
   readonly after: string | null
   readonly limit: number
+  readonly all?: boolean | undefined
 }
 
 const pageSize = 50
+
+const lastPageInfo: PageInfo = { hasNextPage: false, endCursor: null }
 
 const collectPages = <A>(
   initial: Connection<A>,
@@ -46,12 +49,31 @@ const collectConnection = <A>(
     return yield* collectPages(first, (after) => fetch(after))
   })
 
+const drainConnection = <A>(
+  fetch: (after: string | null) => Effect.Effect<Connection<A>, LinearApiError>,
+  after: string | null,
+): Effect.Effect<Connection<A>, LinearApiError> =>
+  Effect.gen(function* drainEveryPage() {
+    const first = yield* fetch(after)
+    const nodes = yield* collectPages(first, (cursor) => fetch(cursor))
+    return { nodes, pageInfo: lastPageInfo }
+  })
+
+const pageOrDrain = <A>(
+  fetch: (after: string | null) => Effect.Effect<Connection<A>, LinearApiError>,
+  options: PageOptions,
+): Effect.Effect<Connection<A>, LinearApiError> =>
+  options.all === true ? drainConnection(fetch, options.after) : fetch(options.after)
+
 export {
   type Connection,
   collectConnection,
   collectPages,
+  drainConnection,
+  lastPageInfo,
   maxPageSize,
   PageInfo,
   type PageOptions,
+  pageOrDrain,
   pageSize,
 }
