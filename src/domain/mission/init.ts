@@ -1,13 +1,14 @@
 import { Result } from "effect"
 
+import type { SectionLookupError } from "@/domain/body/section/model"
 import type {
-  MissionGateRecord,
+  MissionGate,
   MissionPhase,
   MissionScope,
   MissionSection,
   MissionState,
 } from "@/domain/mission/state"
-import type { ParsedTable } from "@/domain/mission/table"
+import type { ParsedTable, TableSpec } from "@/domain/mission/table"
 
 import { readSection } from "@/domain/body/section"
 import { appendSection, replaceSection } from "@/domain/body/section/edit"
@@ -36,26 +37,34 @@ type MissionInitInput = {
   readonly exit?: string | undefined
 }
 
-const mapSectionError = (error: { readonly _tag: string }): MissionStateError =>
-  error._tag === "SectionAmbiguousError"
-    ? new MissionStateError({ message: "A mission section heading appears more than once." })
-    : new MissionStateError({ message: "The mission section could not be read." })
-
 const optionalSection = (body: string, heading: string) => {
   const section = readSection(body, heading)
   if (Result.isFailure(section) && section.failure._tag === "SectionNotFoundError") {
     return Result.succeed(null)
   }
-  return Result.map(section, (found) => found)
+  return section
+}
+
+const readTable = (
+  body: string,
+  spec: TableSpec,
+): Result.Result<ParsedTable | null, MissionStateError | SectionLookupError> => {
+  const section = optionalSection(body, spec.heading)
+  if (Result.isFailure(section)) {
+    return Result.fail(section.failure)
+  }
+  return section.success === null ? Result.succeed(null) : parseTable(section.success.content, spec)
 }
 
 const isGateName = (name: string): name is (typeof gateNames)[number] =>
   gateNames.some((candidate) => candidate === name)
 
-const inspectMissionBody = (body: string): Result.Result<MissionInspection, MissionStateError> => {
+const inspectMissionBody = (
+  body: string,
+): Result.Result<MissionInspection, MissionStateError | SectionLookupError> => {
   const mission = optionalSection(body, "Mission")
   if (Result.isFailure(mission)) {
-    return Result.fail(mapSectionError(mission.failure))
+    return Result.fail(mission.failure)
   }
   const parsedMission =
     mission.success === null
@@ -64,32 +73,18 @@ const inspectMissionBody = (body: string): Result.Result<MissionInspection, Miss
   if (Result.isFailure(parsedMission)) {
     return Result.fail(parsedMission.failure)
   }
-  const sessionPlan = optionalSection(body, sessionPlanTable.heading)
+  const sessionPlan = readTable(body, sessionPlanTable)
   if (Result.isFailure(sessionPlan)) {
-    return Result.fail(mapSectionError(sessionPlan.failure))
+    return Result.fail(sessionPlan.failure)
   }
-  const references = optionalSection(body, referencesTable.heading)
+  const references = readTable(body, referencesTable)
   if (Result.isFailure(references)) {
-    return Result.fail(mapSectionError(references.failure))
-  }
-  const parsedSessionPlan =
-    sessionPlan.success === null
-      ? Result.succeed<ParsedTable | null>(null)
-      : parseTable(sessionPlan.success.content, sessionPlanTable)
-  if (Result.isFailure(parsedSessionPlan)) {
-    return Result.fail(parsedSessionPlan.failure)
-  }
-  const parsedReferences =
-    references.success === null
-      ? Result.succeed<ParsedTable | null>(null)
-      : parseTable(references.success.content, referencesTable)
-  if (Result.isFailure(parsedReferences)) {
-    return Result.fail(parsedReferences.failure)
+    return Result.fail(references.failure)
   }
   return Result.succeed({
     mission: parsedMission.success,
-    sessionPlan: parsedSessionPlan.success,
-    references: parsedReferences.success,
+    sessionPlan: sessionPlan.success,
+    references: references.success,
   })
 }
 
@@ -138,7 +133,7 @@ const nextForPhase = (
   return { skill: step.skill, gate, command: step.command, produce: step.produce }
 }
 
-const defaultGates = (gateName: string, method: string): readonly MissionGateRecord[] =>
+const defaultGates = (gateName: string, method: string): readonly MissionGate[] =>
   gateNames.map((name) => ({
     name,
     status: "pending",
@@ -149,13 +144,16 @@ const mergeGates = (
   base: MissionState,
   gateName: string,
   method: string | undefined,
-): readonly MissionGateRecord[] =>
+): readonly MissionGate[] =>
   base.gates.map((gate) =>
     gate.name === gateName && method !== undefined ? { ...gate, method } : gate,
   )
 
 const pick = <A>(input: A | undefined, base: A | undefined, fallback: A): A =>
   input ?? base ?? fallback
+
+const gateRecord = (state: MissionState | undefined, name: string): MissionGate | undefined =>
+  state?.gates.find((gate) => gate.name === name)
 
 const resolveMethod = (
   input: MissionInitInput,
@@ -165,7 +163,7 @@ const resolveMethod = (
   if (input.method !== undefined) {
     return input.method
   }
-  const record = base?.gates.find((gate) => gate.name === gateName)
+  const record = gateRecord(base, gateName)
   if (record !== undefined) {
     return record.method
   }
@@ -175,8 +173,7 @@ const resolveMethod = (
 const resolveGateStatus = (
   base: MissionState | undefined,
   gateName: string,
-): MissionGateRecord["status"] =>
-  base?.gates.find((gate) => gate.name === gateName)?.status ?? "pending"
+): MissionGate["status"] => gateRecord(base, gateName)?.status ?? "pending"
 
 const resolveNext = (
   input: MissionInitInput,
@@ -193,7 +190,7 @@ const resolveGates = (
   base: MissionState | undefined,
   gateName: string,
   method: string,
-): readonly MissionGateRecord[] =>
+): readonly MissionGate[] =>
   base === undefined ? defaultGates(gateName, method) : mergeGates(base, gateName, input.method)
 
 const initState = (
@@ -210,7 +207,9 @@ const initState = (
   }
   const session = pick(input.session, base?.session, 1)
   if (session < 1) {
-    return Result.fail(new MissionStateError({ message: "The --session flag must be at least 1." }))
+    return Result.fail(
+      new MissionStateError({ message: "The mission session must be at least 1." }),
+    )
   }
   const phase = pick(input.phase, base?.phase, "classify")
   const method = resolveMethod(input, base, gateName)
@@ -232,14 +231,14 @@ const planMissionBody = (
   body: string,
   inspection: MissionInspection,
   state: MissionState,
-): Result.Result<string, MissionStateError> => {
+): Result.Result<string, SectionLookupError> => {
   const content = encodeMissionSection(state)
   const withMission =
     inspection.mission === "missing"
       ? appendSection(body, "Mission", content, 2)
       : replaceSection(body, "Mission", content)
   if (Result.isFailure(withMission)) {
-    return Result.fail(mapSectionError(withMission.failure))
+    return withMission
   }
   const withSessionPlan =
     inspection.sessionPlan === null
@@ -251,20 +250,16 @@ const planMissionBody = (
         )
       : Result.succeed<string>(withMission.success)
   if (Result.isFailure(withSessionPlan)) {
-    return Result.fail(mapSectionError(withSessionPlan.failure))
+    return withSessionPlan
   }
-  const withReferences =
-    inspection.references === null
-      ? appendSection(
-          withSessionPlan.success,
-          referencesTable.heading,
-          tableSection({ columns: referencesTable.columns, rows: [] }),
-          2,
-        )
-      : Result.succeed<string>(withSessionPlan.success)
-  return Result.isFailure(withReferences)
-    ? Result.fail(mapSectionError(withReferences.failure))
-    : Result.succeed(withReferences.success)
+  return inspection.references === null
+    ? appendSection(
+        withSessionPlan.success,
+        referencesTable.heading,
+        tableSection({ columns: referencesTable.columns, rows: [] }),
+        2,
+      )
+    : Result.succeed(withSessionPlan.success)
 }
 
 export {

@@ -5,14 +5,7 @@ import type { MissionInitResult } from "@/api/mission/model"
 
 import { MissionApi } from "@/api/mission"
 import { OutputFields, rejectFields } from "@/cli/fields"
-import {
-  JsonOutput,
-  dryRunFlag,
-  errorLine,
-  reportFailure,
-  writeJson,
-  writeLine,
-} from "@/cli/output"
+import { JsonOutput, dryRunFlag, reportFailure, writeJson, writeLine } from "@/cli/output"
 import { missionPhases, missionScopes } from "@/domain/mission/state"
 
 const optionalText = (name: string, description: string) =>
@@ -63,17 +56,13 @@ const initCommand = Command.make(
     Effect.gen(function* missionInit() {
       const json = yield* JsonOutput
       yield* rejectFields(yield* OutputFields)
-      const session = Option.getOrUndefined(config.session)
-      if (session !== undefined && session < 1) {
-        return yield* errorLine("validation", "The --session flag must be at least 1.")
-      }
       const api = yield* MissionApi
       const result = yield* api.init(config.ref, {
         scope: Option.getOrUndefined(config.scope),
         phase: Option.getOrUndefined(config.phase),
         gate: Option.getOrUndefined(config.gate),
         method: Option.getOrUndefined(config.method),
-        session,
+        session: Option.getOrUndefined(config.session),
         goal: Option.getOrUndefined(config.goal),
         exit: Option.getOrUndefined(config.exit),
         reset: config.reset,

@@ -24,8 +24,6 @@ const referencesTable: TableSpec = {
   columns: ["Reference", "Why", "Path or URL", "Phase"],
 }
 
-const missionTables: readonly TableSpec[] = [sessionPlanTable, referencesTable]
-
 const separatorCell = /^:?-+:?$/u
 
 const cellsOf = (line: string): readonly string[] => {
@@ -101,8 +99,6 @@ export {
   parseTable,
   referencesTable,
   sessionPlanTable,
-  missionTables,
-  type TableRow,
   type TableSpec,
   tableSection,
 }

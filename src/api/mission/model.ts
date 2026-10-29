@@ -28,4 +28,4 @@ type MissionInitResult =
       readonly state: MissionState
     }
 
-export { type MissionInitIssue, type MissionInitOptions, type MissionInitResult }
+export { type MissionInitOptions, type MissionInitResult }

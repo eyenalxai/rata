@@ -59,9 +59,7 @@ const issueWriteLayer = IssueWriteApi.layer.pipe(
     Layer.mergeAll(clientLayer, labelLayer, projectLayer, repoConfigLayer, repoTeamLayer),
   ),
 )
-const missionLayer = MissionApi.layer.pipe(
-  Layer.provide(Layer.mergeAll(clientLayer, issueWriteLayer)),
-)
+const missionLayer = MissionApi.layer.pipe(Layer.provide(issueWriteLayer))
 const appLayer = Layer.mergeAll(
   authLayer,
   clientLayer,

@@ -28,18 +28,11 @@ const MissionGate = Schema.Struct({
   name: Schema.String,
   status: GateStatus,
   method: Schema.String,
-})
-type MissionGate = typeof MissionGate.Type
-
-const MissionGateRecord = Schema.Struct({
-  name: Schema.String,
-  status: GateStatus,
-  method: Schema.String,
   evidence: Schema.optionalKey(Schema.String),
   approvedAt: Schema.optionalKey(Schema.String),
   reason: Schema.optionalKey(Schema.String),
 })
-type MissionGateRecord = typeof MissionGateRecord.Type
+type MissionGate = typeof MissionGate.Type
 
 const MissionNext = Schema.Struct({
   skill: Schema.String,
@@ -59,7 +52,7 @@ const MissionState = Schema.Struct({
   exit: Schema.String,
   session: Schema.Int,
   next: MissionNext,
-  gates: Schema.Array(MissionGateRecord),
+  gates: Schema.Array(MissionGate),
 })
 type MissionState = typeof MissionState.Type
 
@@ -183,12 +176,7 @@ export {
   encodeMissionState,
   gateMethods,
   gateNames,
-  type GateName,
-  GateStatus,
-  gateStatuses,
   MissionGate,
-  MissionGateRecord,
-  MissionNext,
   MissionPhase,
   missionPhases,
   MissionScope,

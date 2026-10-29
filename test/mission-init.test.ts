@@ -6,7 +6,8 @@ import { Option, Result, Schema } from "effect"
 import type { MissionState } from "@/domain/mission/state"
 
 import { readSection } from "@/domain/body/section"
-import { readMissionSection } from "@/domain/mission/state"
+import { initState } from "@/domain/mission/init"
+import { encodeMissionSection, readMissionSection } from "@/domain/mission/state"
 
 const InitResult = Schema.Struct({
   dryRun: Schema.Boolean,
@@ -142,6 +143,24 @@ describe("mission init", () => {
     expect(written).toContain("## Flow\n\n- [X] classify")
     expect(headingCount(written, "Mission")).toBe(1)
     expect(stateOf(written).phase).toBe("classify")
+  })
+
+  test("adds missing tables when a block already exists", async () => {
+    const existing = Result.getOrThrow(initState(undefined, { goal: "ship", exit: "merged" }))
+    const { recorder, state } = body(`## Mission\n\n${encodeMissionSection(existing)}\n`)
+    const lines: string[] = []
+
+    await runRoot(recorder.handler, ["mission", "init", "RAT-1", "--json"], lines)
+
+    expect(decodeResult(lines).status).toBe("created")
+    const written = state.description ?? ""
+    expect(headingCount(written, "Session plan")).toBe(1)
+    expect(headingCount(written, "References")).toBe(1)
+    expect(stateOf(written)).toMatchObject({ goal: "ship", exit: "merged", phase: "classify" })
+
+    const second: string[] = []
+    await runRoot(recorder.handler, ["mission", "init", "RAT-1", "--json"], second)
+    expect(decodeResult(second).status).toBe("skipped")
   })
 
   test("keeps existing tables and their rows", async () => {

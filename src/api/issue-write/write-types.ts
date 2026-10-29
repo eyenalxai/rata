@@ -120,6 +120,13 @@ type SectionWriteResult =
       readonly issue: IssueSummary
     }
 
+type IssueBodySnapshot = {
+  readonly id: string
+  readonly identifier: string
+  readonly description: string | null
+  readonly updatedAt: string
+}
+
 export {
   type CommentCreateOptions,
   type CommentCreatePlan,
@@ -128,6 +135,7 @@ export {
   type CommentDeleteResult,
   type CommentUpdateOptions,
   type CommentUpdateResult,
+  type IssueBodySnapshot,
   type IssueCreateOptions,
   type IssueCreateResult,
   type IssueUpdateOptions,

@@ -19,6 +19,7 @@ import type {
   CommentDeleteResult,
   CommentUpdateOptions,
   CommentUpdateResult,
+  IssueBodySnapshot,
   IssueCreateOptions,
   IssueCreateResult,
   IssueUpdateOptions,
@@ -70,6 +71,7 @@ type IssueWriteApiShape = {
     options: IssueUpdateOptions,
     writeOptions?: IssueUpdateWriteOptions,
   ) => Effect.Effect<IssueUpdatePlan, IssueWriteApiError>
+  readonly readBody: (ref: string) => Effect.Effect<IssueBodySnapshot, IssueWriteApiError>
   readonly readSection: (ref: string, heading: string) => Effect.Effect<Section, IssueWriteApiError>
   readonly appendSection: (
     ref: string,

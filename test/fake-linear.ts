@@ -272,7 +272,7 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
   const issueWrite = IssueWriteApi.layer.pipe(
     Layer.provide(Layer.mergeAll(client, labels, projects, repoConfig, repoTeam)),
   )
-  const mission = MissionApi.layer.pipe(Layer.provide(Layer.mergeAll(client, issueWrite)))
+  const mission = MissionApi.layer.pipe(Layer.provide(issueWrite))
   const defaults = IssueDefaultsService.layer.pipe(
     Layer.provide(Layer.mergeAll(labels, repoConfig, repoTeam)),
   )

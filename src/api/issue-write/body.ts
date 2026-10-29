@@ -87,9 +87,7 @@ const updateChanges = (options: IssueUpdateOptions): Readonly<Record<string, unk
 }
 
 const makeBodyWrites = ({ client, resolvers }: BodyDependencies) => {
-  const readIssueBody = Effect.fn("IssueWriteApi.readIssueBody")(function* readIssueBody(
-    input: string,
-  ) {
+  const readBody = Effect.fn("IssueWriteApi.readBody")(function* readBody(input: string) {
     const ref = yield* parseRefOrFail(input)
     const data = yield* client.execute(issueBodyQuery, { id: ref }, IssueBodyResponse)
     return data.issue
@@ -111,7 +109,7 @@ const makeBodyWrites = ({ client, resolvers }: BodyDependencies) => {
     ref: string,
     heading: string,
   ): Effect.fn.Return<Section, IssueWriteApiError> {
-    const issue = yield* readIssueBody(ref)
+    const issue = yield* readBody(ref)
     return yield* Effect.fromResult(readSectionText(issue.description ?? "", heading))
   })
 
@@ -124,7 +122,7 @@ const makeBodyWrites = ({ client, resolvers }: BodyDependencies) => {
     transform: SectionTransform,
   ): Effect.Effect<SectionWriteResult, IssueWriteApiError> =>
     Effect.gen(function* changeSectionBody() {
-      const issue = yield* readIssueBody(ref)
+      const issue = yield* readBody(ref)
       yield* ensureUnchanged(issue.identifier, issue.updatedAt, options.ifUnchanged)
       const current = issue.description ?? ""
       const next = yield* Effect.fromResult(transform(current, heading, body))
@@ -181,7 +179,7 @@ const makeBodyWrites = ({ client, resolvers }: BodyDependencies) => {
     writeOptions: IssueUpdateWriteOptions,
   ) {
     const readsBody = options.append === true || writeOptions.ifUnchanged !== undefined
-    const issueBody = readsBody ? yield* readIssueBody(ref) : undefined
+    const issueBody = readsBody ? yield* readBody(ref) : undefined
     const issueId = issueBody === undefined ? yield* resolvers.resolveIssueId(ref) : issueBody.id
     if (issueBody !== undefined) {
       yield* ensureUnchanged(issueBody.identifier, issueBody.updatedAt, writeOptions.ifUnchanged)
@@ -246,7 +244,7 @@ const makeBodyWrites = ({ client, resolvers }: BodyDependencies) => {
     return yield* unwrapIssue(data.issueUpdate)
   })
 
-  return { appendSection, planUpdate, readSection, replaceSection, update }
+  return { appendSection, planUpdate, readBody, readSection, replaceSection, update }
 }
 
 export { makeBodyWrites }
