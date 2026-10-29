@@ -13,9 +13,11 @@ import type {
   IssueUser,
 } from "@/api/issue-schema"
 import type { PageInfo, PageOptions } from "@/api/pagination"
+import type { PullRequest } from "@/domain/pr"
 import type { Priority } from "@/domain/priority"
 
 import { priorityRank, toPriority } from "@/domain/priority"
+import { isClosedState } from "@/domain/state"
 
 const stateTypes = ["triage", "backlog", "unstarted", "started", "completed", "canceled"] as const
 type StateType = (typeof stateTypes)[number]
@@ -69,6 +71,21 @@ type IssueDetail = {
 type IssuePage = {
   readonly issues: readonly IssueSummary[]
   readonly pageInfo: PageInfo
+}
+
+type IssueBlocker = {
+  readonly identifier: string
+  readonly title: string
+  readonly state: IssueState
+  readonly closed: boolean
+}
+
+type IssueStatus = {
+  readonly issue: IssueSummary
+  readonly blocked: boolean
+  readonly blockedBy: readonly IssueBlocker[]
+  readonly prs: readonly PullRequest[]
+  readonly nextChild: IssueSummary | null
 }
 
 type IssueListOptions = PageOptions & {
@@ -141,6 +158,17 @@ const relationTargets = (
   ],
 })
 
+const toBlockers = (relations: IssueRelations): readonly IssueBlocker[] =>
+  relations.blockedBy.map((blocker) => ({
+    identifier: blocker.identifier,
+    title: blocker.title,
+    state: blocker.state,
+    closed: isClosedState(blocker.state.type),
+  }))
+
+const isBlocked = (blockers: readonly IssueBlocker[]): boolean =>
+  blockers.some((blocker) => !blocker.closed)
+
 const byCreatedAt = (
   left: { readonly createdAt: string },
   right: { readonly createdAt: string },
@@ -179,18 +207,22 @@ const sortAndLimitNodes = (
 export {
   byCreatedAt,
   collectsAllPages,
+  type IssueBlocker,
   type IssueDetail,
   type IssueListOptions,
   type IssuePage,
   type IssueRelations,
   type IssueSearchOptions,
   type IssueShowOptions,
+  type IssueStatus,
   type IssueSummary,
+  isBlocked,
   relationTargets,
   sortAndLimitNodes,
   type SortField,
   sortFields,
   type StateType,
   stateTypes,
+  toBlockers,
   toSummary,
 }

@@ -92,9 +92,9 @@ const IssueAttachment = Schema.Struct({
   url: Schema.String,
   sourceType: Schema.NullOr(Schema.String),
   createdAt: Schema.String,
+  metadata: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
 })
 type IssueAttachment = typeof IssueAttachment.Type
-
 const IssueAttachmentConnection = Schema.Struct({
   nodes: Schema.Array(IssueAttachment),
   pageInfo: PageInfo,

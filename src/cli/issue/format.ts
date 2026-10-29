@@ -1,5 +1,8 @@
-import type { IssueDetail, IssueRelations, IssueSummary } from "@/api/issue-model"
+import type { IssueDetail, IssueRelations, IssueStatus, IssueSummary } from "@/api/issue-model"
 import type { IssueChild } from "@/api/issue-schema"
+import type { PullRequest } from "@/domain/pr"
+
+import { formatIssueLine } from "@/cli/issue/line"
 
 const formatRelations = (relations: IssueRelations): string[] => {
   const lines: string[] = []
@@ -78,4 +81,49 @@ const formatIssueDetail = (issue: IssueDetail, showBody: boolean): string => {
 
 const formatIssueSummary = (issue: IssueSummary): string => formatIssueHeader(issue).join("\n")
 
-export { formatIssueDetail, formatIssueSummary }
+const pullRequestState = (pull: PullRequest): string =>
+  pull.draft === true || pull.status === "draft" ? "draft" : (pull.status ?? "unknown")
+
+const formatPullRequest = (pull: PullRequest): string =>
+  `  ${[
+    pull.number === null ? null : `#${pull.number}`,
+    pullRequestState(pull),
+    pull.repo,
+    pull.url,
+  ]
+    .filter((value): value is string => value !== null)
+    .join("  ")}`
+
+const formatIssueStatus = (status: IssueStatus): string => {
+  const { issue } = status
+  const lines: string[] = [
+    `${issue.identifier}: ${issue.title}`,
+    `state: ${issue.state.name} (${issue.state.type})`,
+    `priority: ${issue.priority}`,
+    `assignee: ${issue.assignee?.name ?? "unassigned"}`,
+    `blocked: ${status.blocked ? "yes" : "no"}`,
+  ]
+  const openBlockers = status.blockedBy.filter((blocker) => !blocker.closed)
+  if (openBlockers.length > 0) {
+    lines.push("open blockers:")
+    for (const blocker of openBlockers) {
+      lines.push(`  ${blocker.identifier}  [${blocker.state.name}]  ${blocker.title}`)
+    }
+  }
+  if (status.prs.length === 0) {
+    lines.push("prs: none")
+  } else {
+    lines.push("prs:")
+    for (const pull of status.prs) {
+      lines.push(formatPullRequest(pull))
+    }
+  }
+  lines.push(
+    status.nextChild === null
+      ? "next child: none"
+      : `next child: ${formatIssueLine(status.nextChild)}`,
+  )
+  return lines.join("\n")
+}
+
+export { formatIssueDetail, formatIssueStatus, formatIssueSummary }

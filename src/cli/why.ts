@@ -2,9 +2,9 @@ import { Effect } from "effect"
 import { Argument, Command } from "effect/cli"
 
 import { IssueApi } from "@/api/issue"
+import { isBlocked, toBlockers } from "@/api/issue-model"
 import { OutputFields, rejectFields } from "@/cli/fields"
 import { JsonOutput, reportFailure, writeJson, writeLine } from "@/cli/output"
-import { isClosedState } from "@/domain/state"
 
 const refArgument = Argument.String("ref").pipe(
   Argument.withDescription("Issue reference: an identifier, a UUID, or a linear.app URL"),
@@ -16,13 +16,8 @@ const whyCommand = Command.make("why", { ref: refArgument }, (config) =>
     yield* rejectFields(yield* OutputFields)
     const api = yield* IssueApi
     const issue = yield* api.show(config.ref, { comments: false })
-    const blockedBy = issue.relations.blockedBy.map((blocker) => ({
-      identifier: blocker.identifier,
-      title: blocker.title,
-      state: blocker.state,
-      closed: isClosedState(blocker.state.type),
-    }))
-    const blocked = blockedBy.some((blocker) => !blocker.closed)
+    const blockedBy = toBlockers(issue.relations)
+    const blocked = isBlocked(blockedBy)
     if (json) {
       return yield* writeJson({
         issue: { identifier: issue.identifier, title: issue.title },
