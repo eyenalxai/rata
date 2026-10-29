@@ -57,7 +57,9 @@ rata issue list                          # list issues
 rata issue list --parent RAT-1 --unblocked --unassigned --sort priority  # the frontier of a map
 rata next --parent RAT-1                 # the next ready child of a map
 rata issue list --after <cursor>         # read the next page of a list
+rata issue list --all                    # drain every page of a list
 rata issue show RAT-42                   # read one issue
+rata issue view RAT-42 --summary         # lean read; `view` is an alias for `show`
 rata why RAT-42                          # the blockers of one issue
 rata search "rate limit"                 # search issues by text
 rata issue create --title "Fix login" --team RAT   # create an issue
@@ -181,6 +183,17 @@ page per call. `--limit` sets the page size: 50 by default, 250 at most. A
 value above 250 fails before the API call. `--after <cursor>` reads the page
 after a cursor.
 
+`--all` drains every page in one call. `--limit` stays the page size; it is not
+a total bound. `--all` with `--after` starts from the cursor. JSON returns the
+full array and `pageInfo: { "hasNextPage": false, "endCursor": null }`. Human
+output prints no next-page hint.
+
+```bash
+rata issue list --all --json
+rata search "rate limit" --all --json
+rata team list --all
+```
+
 `--json` prints one page and its page state:
 
 ```json
@@ -206,10 +219,11 @@ query: keep the filters and the order fixed across pages. Pages are consistent
 while the data does not change, and best effort when it does. `search` keeps
 Linear's relevance ranking, so its paging is best effort.
 
-Internal reads always drain every page. Only these list commands return one
-page. In particular, `issue show` is complete: it reads every page of an
-issue's labels, children, relations, attachments and comments. `--no-comments`
-skips the comment pages.
+Internal reads always drain every page. The list commands return one page by
+default and drain every page with `--all`. In particular, `issue show` is
+complete: it reads every page of an issue's labels, children, relations,
+attachments and comments. `--no-comments` skips the comment pages, and the
+`--no-*` flags skip their fetches.
 
 ## Authentication
 
@@ -503,9 +517,7 @@ issues of the spec, so the set stays together:
    `rata issue create --title "Add the Stripe client" --parent ABC-42 --label ready-for-agent --priority medium --body-file -`.
    Wire the blocking edges between the tickets with
    `rata issue link ABC-44 --blocked-by ABC-43`.
-3. `/implement-spec` fetches the whole set one page at a time:
-   `rata issue list --parent ABC-42 --limit 250 --json`, then continue with
-   `--after <endCursor>` while `pageInfo.hasNextPage` is true.
+3. `/implement-spec` fetches the whole set: `rata issue list --parent ABC-42 --all --json`.
 
 `issue show <spec-ref> --json` also lists the child issues.
 
@@ -706,6 +718,7 @@ rata issue list --priority urgent --sort priority --limit 10
 | `--sort`       | `priority` orders urgent first and none last.                                |
 | `--limit`      | Page size. Default: 50, maximum: 250.                                        |
 | `--after`      | Continue after a cursor from a previous page.                                |
+| `--all`        | Drain every page. `--limit` stays the page size.                             |
 
 `--priority` keeps issues with exactly one priority value. `none` and `0`
 select the issues with no priority. `--sort priority` orders the results
@@ -741,11 +754,28 @@ rata why RAT-42 --json
 ```
 
 `rata issue show` accepts an identifier (`RAT-42`), a UUID, or a linear.app
-URL. `--comments` adds the comments to the human output. `--json` returns the
-complete read model in one call: the issue, its comments, children, relations
-and attachments. `--no-comments` skips the comment fetch and omits the key.
-`--comments` and `--no-comments` are mutually exclusive. Every collection
-drains every page.
+URL. `view` is an alias for `show`. `--comments` adds the comments to the human
+output. `--json` returns the complete read model in one call: the issue, its
+comments, children, relations and attachments. `--no-comments` skips the
+comment fetch and omits the key. `--comments` and `--no-comments` are mutually
+exclusive. Every collection drains every page.
+
+`--summary` reads the lean summary: identifier, title, state, priority, labels,
+assignee, project, parent, url and `updatedAt`. It skips the description,
+children, relations, attachments and comments. JSON is `{ "issue": <summary> }`.
+`--summary` with `--comments` is a `validation` error.
+
+`--no-body` drops the description from the output. The full read still fetches
+it. `--no-relations`, `--no-children` and `--no-attachments` drop those parts
+from the output and skip their fetches. The flags are independent:
+`--no-relations --comments` prints the body, children, attachments and
+comments.
+
+```bash
+rata issue view RAT-42 --summary
+rata issue show RAT-42 --json --no-body
+rata issue show RAT-42 --json --no-relations --comments
+```
 
 Each issue carries `updatedAt`, the Linear modification timestamp. It appears
 in `issue list`, `issue show`, `search` and every write result that returns an
@@ -753,15 +783,16 @@ issue. Pass it to `--if-unchanged` to make a best-effort conditional write
 before a body change.
 
 Every read command accepts the global `--json` and prints one stable JSON
-document. The list and search commands print one page:
+document. The list and search commands print one page by default and every page
+with `--all`:
 `{ "issues": [...], "pageInfo": { "hasNextPage": ..., "endCursor": ... } }`.
 The show command prints `{ "issue": {...} }`, with the comments, children,
-relations and attachments.
+relations and attachments. `--summary` prints the lean summary instead.
 
 `rata search "<text>"` searches by text. Without `--team`, the search stays
 inside the linked team; pass `--team <key>` for another team. It keeps Linear's
 relevance ranking, so the best match stays first and its paging is best effort.
-It accepts `--team`, `--limit`, `--after` and `--json`.
+It accepts `--team`, `--limit`, `--after`, `--all` and `--json`.
 
 ```json
 {

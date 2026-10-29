@@ -9,10 +9,9 @@ import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
 import type { SectionLookupError } from "@/domain/body/section/model"
 import type { ConflictError } from "@/domain/conflict"
-import type { InvalidIssueRef, IssueRef } from "@/domain/ref"
+import type { InvalidIssueRef } from "@/domain/ref"
 
 import { toSummary } from "@/api/issue-model"
-import { parseIssueRef } from "@/domain/ref"
 
 class IssueWriteError extends Schema.TaggedError<IssueWriteError>()("IssueWriteError", {
   message: Schema.String,
@@ -156,9 +155,6 @@ type IssueCreatePlan = {
   readonly priority: number | null
 }
 
-const parseRefOrFail = (input: string): Effect.Effect<IssueRef, InvalidIssueRef> =>
-  Effect.fromResult(parseIssueRef(input))
-
 const isNoneValue = (value: string): boolean => value.toLowerCase() === "none"
 
 const stateByName = (states: readonly WorkflowState[], name: string): WorkflowState | undefined =>
@@ -214,7 +210,6 @@ export {
   type IssueRelationChange,
   type IssueRelationChanges,
   type IssueWriteResult,
-  parseRefOrFail,
   type RelationKind,
   relationKindInfo,
   type RelationType,

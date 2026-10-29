@@ -7,7 +7,7 @@ import type { Connection, PageOptions } from "@/api/pagination"
 import type { TeamDetail } from "@/api/team/details"
 
 import { LinearClient } from "@/api/client"
-import { collectConnection, PageInfo, pageSize } from "@/api/pagination"
+import { collectConnection, pageOrDrain, PageInfo, pageSize } from "@/api/pagination"
 import { fetchTeamDetail } from "@/api/team/details"
 import { isUuid } from "@/domain/ref"
 
@@ -147,12 +147,13 @@ type TeamServiceShape = TeamOperations & {
 
 const makeTeamOperations = (execute: LinearClient["Service"]["execute"]): TeamOperations => {
   const list = Effect.fn("TeamService.list")(function* listTeams(options: PageOptions) {
-    const data = yield* execute(
-      teamsQuery,
-      { first: options.limit, after: options.after },
-      Schema.Struct({ teams: TeamConnection }),
-    )
-    return data.teams
+    const fetchPage = (after: string | null) =>
+      execute(
+        teamsQuery,
+        { first: options.limit, after },
+        Schema.Struct({ teams: TeamConnection }),
+      ).pipe(Effect.map((data) => data.teams))
+    return yield* pageOrDrain(fetchPage, options)
   })
 
   const lookupTeam = Effect.fn("TeamService.lookup")(function* lookupTeam(

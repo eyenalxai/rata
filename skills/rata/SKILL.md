@@ -33,8 +33,10 @@ rata status --json                        # repo, workspace, team, defaults, vie
 rata config show --json                   # issue defaults for this repository
 rata team show --json                     # states, labels, members and priorities
 rata issue list --json                    # list issues; returns one page
+rata issue list --all --json              # drain every page
 rata issue list --after <cursor> --json   # read the next page
 rata issue show ABC-42 --json             # comments, children, relations, attachments
+rata issue view ABC-42 --summary --json   # lean header read; `view` aliases `show`
 rata issue section get ABC-42 "Handoff log"  # one heading section of the body
 rata search "flaky test" --json
 ```
@@ -49,6 +51,11 @@ human output. `--fields` trims a read to dotted paths, for example
 command writes one `error` object (`code`, `message`, `hint`) to stderr and
 exits with code 1. List commands return one page with `pageInfo`: see **Paging
 lists**.
+
+`issue show` has `--summary`, `--no-body`, `--no-relations`, `--no-children` and
+`--no-attachments`. `--summary` reads the header fields only and rejects
+`--comments`. The `--no-*` flags drop those parts and skip their fetches. `view`
+is an alias for `show`.
 
 Every issue carries `updatedAt`. Pass it to `--if-unchanged <updatedAt>` on
 `issue update` or `issue section append|replace` to fail with `conflict` when
@@ -70,7 +77,9 @@ succeeded.
 
 `issue list`, `search`, `team list`, `project list` and `label list` return one
 page per call. `--limit` is the page size: 50 by default, 250 at most.
-`--after <cursor>` reads the next page. JSON is `{ <plural>, pageInfo }`:
+`--after <cursor>` reads the next page. Add `--all` to drain every page;
+`--limit` stays the page size and `--after` starts from the cursor. JSON is
+`{ <plural>, pageInfo }`:
 
 ```json
 {
@@ -79,11 +88,13 @@ page per call. `--limit` is the page size: 50 by default, 250 at most.
 }
 ```
 
-Continue with `--after b2c3...` while `pageInfo.hasNextPage` is true. Keep the
-filters and the order fixed across pages: a cursor is bound to its query. Lists
-are ordered by creation time; `search` keeps Linear's relevance ranking, so its
-paging is best effort. The human output prints a next-page hint when more
-results exist. Internal reads drain every page, so `issue show` is complete.
+Continue with `--after b2c3...` while `pageInfo.hasNextPage` is true, or add
+`--all` for the full set. With `--all`, `pageInfo` is
+`{ "hasNextPage": false, "endCursor": null }`. Keep the filters and the order
+fixed across pages: a cursor is bound to its query. Lists are ordered by
+creation time; `search` keeps Linear's relevance ranking, so its paging is best
+effort. The human output prints a next-page hint when more results exist.
+Internal reads drain every page, so `issue show` is complete.
 
 ## Triage
 
@@ -176,8 +187,7 @@ rata issue create --title "Switch billing to Stripe" --label ready-for-agent --p
 rata issue create --title "Add the Stripe client" --parent ABC-50 --label ready-for-agent --priority medium --body-file -
 rata issue create --title "Switch the webhooks" --parent ABC-50 --label ready-for-agent --priority medium --body-file -
 rata issue link ABC-52 --blocked-by ABC-51
-rata issue list --parent ABC-50 --limit 250 --json
-# continue with --after <pageInfo.endCursor> while pageInfo.hasNextPage is true
+rata issue list --parent ABC-50 --all --json
 ```
 
 `issue show <spec-ref> --json` also lists the child issues. A wayfinding map

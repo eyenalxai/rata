@@ -7,48 +7,21 @@ import type {
   IssuePage,
   IssueSearchOptions,
   IssueShowOptions,
+  IssueSummary,
 } from "@/api/issue-model"
 import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
-import type { InvalidIssueRef, IssueRef } from "@/domain/ref"
+import type { InvalidIssueRef } from "@/domain/ref"
 
 import { LinearClient } from "@/api/client"
 import { composeFilter, projectFilter, teamIdFilter, textFilter } from "@/api/issue-filter"
-import {
-  byCreatedAt,
-  collectsAllPages,
-  relationTargets,
-  sortAndLimitNodes,
-  toSummary,
-} from "@/api/issue-model"
-import {
-  attachmentsQuery,
-  childrenQuery,
-  commentsQuery,
-  inverseRelationsQuery,
-  issueIdQuery,
-  labelsQuery,
-  listQuery,
-  relationsQuery,
-  searchQuery,
-  showQuery,
-} from "@/api/issue-query"
-import {
-  AttachmentsResponse,
-  ChildrenResponse,
-  CommentsResponse,
-  InverseRelationsResponse,
-  IssueIdResponse,
-  LabelsResponse,
-  ListResponse,
-  RelationsResponse,
-  SearchResponse,
-  ShowResponse,
-} from "@/api/issue-schema"
-import { collectPages, pageSize } from "@/api/pagination"
+import { collectsAllPages, sortAndLimitNodes, toSummary } from "@/api/issue-model"
+import { issueIdQuery, listQuery, searchQuery } from "@/api/issue-query"
+import { IssueIdResponse, ListResponse, SearchResponse } from "@/api/issue-schema"
+import { makeReadOperations } from "@/api/issue/read"
+import { collectPages, lastPageInfo, pageOrDrain, pageSize } from "@/api/pagination"
 import { RepoTeam } from "@/api/repo-team"
-import { toPriority } from "@/domain/priority"
-import { isUuid, parseIssueRef } from "@/domain/ref"
+import { isUuid, parseRefOrFail } from "@/domain/ref"
 import { closedStateTypes } from "@/domain/state"
 
 type IssueApiShape = {
@@ -69,10 +42,8 @@ type IssueApiShape = {
     ref: string,
     options: IssueShowOptions,
   ) => Effect.Effect<IssueDetail, LinearApiError | InvalidIssueRef>
+  readonly summary: (ref: string) => Effect.Effect<IssueSummary, LinearApiError | InvalidIssueRef>
 }
-
-const parseRefOrFail = (input: string): Effect.Effect<IssueRef, InvalidIssueRef> =>
-  Effect.fromResult(parseIssueRef(input))
 
 const projectRefFilter = (value: string): Record<string, unknown> =>
   isUuid(value) ? { project: { id: { eq: value } } } : projectFilter(value)
@@ -83,6 +54,7 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
     Effect.gen(function* issueApiLayer() {
       const client = yield* LinearClient
       const repoTeam = yield* RepoTeam
+      const { show, summary } = makeReadOperations(client.execute)
 
       const resolveAssignee = (value: string): Effect.Effect<string, LinearApiError> =>
         value.toLowerCase() === "me"
@@ -146,19 +118,20 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
           return { issues: data.issues.nodes.map(toSummary), pageInfo: data.issues.pageInfo }
         }
 
+        const size = options.all === true ? options.limit : pageSize
         const firstPage = yield* client.execute(
           listQuery,
-          { filter, first: pageSize, after: options.after },
+          { filter, first: size, after: options.after },
           ListResponse,
         )
         const nodes = yield* collectPages(firstPage.issues, (after) =>
           client
-            .execute(listQuery, { filter, first: pageSize, after }, ListResponse)
+            .execute(listQuery, { filter, first: size, after }, ListResponse)
             .pipe(Effect.map((page) => page.issues)),
         )
         return {
           issues: sortAndLimitNodes(nodes, options).map(toSummary),
-          pageInfo: { hasNextPage: false, endCursor: null },
+          pageInfo: lastPageInfo,
         }
       })
 
@@ -167,96 +140,27 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
         options: IssueSearchOptions,
       ) {
         const teamId = yield* repoTeam.resolve(options.team)
-        const data = yield* client.execute(
-          searchQuery,
-          {
-            term,
-            filter: teamIdFilter(teamId),
-            first: options.limit,
-            after: options.after,
-          },
-          SearchResponse,
-        )
-        return {
-          issues: data.searchIssues.nodes.map(toSummary),
-          pageInfo: data.searchIssues.pageInfo,
-        }
-      })
-
-      const show = Effect.fn("IssueApi.show")(function* show(
-        input: string,
-        options: IssueShowOptions,
-      ) {
-        const ref = yield* parseRefOrFail(input)
-        const data = yield* client.execute(showQuery, { id: ref }, ShowResponse)
-        const issue = data.issue
-
-        const labels = yield* collectPages(issue.labels, (after) =>
-          client
-            .execute(labelsQuery, { id: ref, first: pageSize, after }, LabelsResponse)
-            .pipe(Effect.map((page) => page.issue.labels)),
-        )
-        const children = yield* collectPages(issue.children, (after) =>
-          client
-            .execute(childrenQuery, { id: ref, first: pageSize, after }, ChildrenResponse)
-            .pipe(Effect.map((page) => page.issue.children)),
-        )
-        const relations = yield* collectPages(issue.relations, (after) =>
-          client
-            .execute(relationsQuery, { id: ref, first: pageSize, after }, RelationsResponse)
-            .pipe(Effect.map((page) => page.issue.relations)),
-        )
-        const inverseRelations = yield* collectPages(issue.inverseRelations, (after) =>
+        const fetchPage = (after: string | null) =>
           client
             .execute(
-              inverseRelationsQuery,
-              { id: ref, first: pageSize, after },
-              InverseRelationsResponse,
+              searchQuery,
+              {
+                term,
+                filter: teamIdFilter(teamId),
+                first: options.limit,
+                after,
+              },
+              SearchResponse,
             )
-            .pipe(Effect.map((page) => page.issue.inverseRelations)),
-        )
-        const attachments = yield* collectPages(issue.attachments, (after) =>
-          client
-            .execute(attachmentsQuery, { id: ref, first: pageSize, after }, AttachmentsResponse)
-            .pipe(Effect.map((page) => page.issue.attachments)),
-        )
-
-        const detail: IssueDetail = {
-          id: issue.id,
-          identifier: issue.identifier,
-          title: issue.title,
-          description: issue.description,
-          url: issue.url,
-          state: issue.state,
-          priority: toPriority(issue.priority),
-          updatedAt: issue.updatedAt,
-          assignee: issue.assignee,
-          project: issue.project,
-          parent: issue.parent,
-          team: issue.team,
-          labels,
-          children,
-          relations: relationTargets(relations, inverseRelations),
-          attachments,
+            .pipe(Effect.map((data) => data.searchIssues))
+        const page = yield* pageOrDrain(fetchPage, options)
+        return {
+          issues: page.nodes.map(toSummary),
+          pageInfo: page.pageInfo,
         }
-
-        if (options.comments) {
-          const firstComments = yield* client.execute(
-            commentsQuery,
-            { id: ref, first: pageSize, after: null },
-            CommentsResponse,
-          )
-          const comments = yield* collectPages(firstComments.issue.comments, (after) =>
-            client
-              .execute(commentsQuery, { id: ref, first: pageSize, after }, CommentsResponse)
-              .pipe(Effect.map((page) => page.issue.comments)),
-          )
-          return { ...detail, comments: comments.toSorted(byCreatedAt) }
-        }
-        return detail
       })
 
-      return IssueApi.of({ list, search, show })
+      return IssueApi.of({ list, search, show, summary })
     }),
   )
 }

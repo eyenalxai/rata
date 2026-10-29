@@ -1,4 +1,4 @@
-import { Result, Schema } from "effect"
+import { Effect, Result, Schema } from "effect"
 
 const identifierPattern = /^[A-Z][A-Z0-9]*-\d+$/u
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu
@@ -70,4 +70,7 @@ const parseIssueRef = (input: string): Result.Result<IssueRef, InvalidIssueRef> 
   return Result.orElse(decode(candidate), () => decode(candidate.toUpperCase()))
 }
 
-export { InvalidIssueRef, isUuid, IssueRef, parseIssueRef }
+const parseRefOrFail = (input: string): Effect.Effect<IssueRef, InvalidIssueRef> =>
+  Effect.fromResult(parseIssueRef(input))
+
+export { InvalidIssueRef, isUuid, IssueRef, parseIssueRef, parseRefOrFail }

@@ -34,7 +34,6 @@ import {
   UpdateIssueResponse,
 } from "@/api/issue-schema"
 import {
-  parseRefOrFail,
   StateNotFoundError,
   stateByName,
   stateByType,
@@ -46,7 +45,7 @@ import { labelNotFoundError } from "@/api/label"
 import { collectConnection, collectPages, pageSize } from "@/api/pagination"
 import { ProjectNotFoundError } from "@/api/project/errors"
 import { findLabelByName } from "@/domain/labels"
-import { isUuid } from "@/domain/ref"
+import { isUuid, parseRefOrFail } from "@/domain/ref"
 
 type IssueWriteDependencies = {
   readonly client: LinearClient["Service"]

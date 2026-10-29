@@ -8,16 +8,12 @@ import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
 
 import { LinearClient } from "@/api/client"
-import { collectConnection, PageInfo, pageSize } from "@/api/pagination"
+import { collectConnection, pageOrDrain, PageInfo, pageSize } from "@/api/pagination"
 import { RepoTeam } from "@/api/repo-team"
 import { findLabelByName } from "@/domain/labels"
 import { isUuid } from "@/domain/ref"
 
-const Label = Schema.Struct({
-  id: Schema.String,
-  name: Schema.String,
-  color: Schema.String,
-})
+const Label = Schema.Struct({ id: Schema.String, name: Schema.String, color: Schema.String })
 
 type Label = typeof Label.Type
 
@@ -162,12 +158,13 @@ const makeLabelOperations = (
     teamId: string,
     options: PageOptions,
   ) {
-    const data = yield* execute(
-      listLabelsQuery,
-      { teamId, first: options.limit, after: options.after },
-      Schema.Struct({ issueLabels: LabelConnection }),
-    )
-    return data.issueLabels
+    const fetchPage = (after: string | null) =>
+      execute(
+        listLabelsQuery,
+        { teamId, first: options.limit, after },
+        Schema.Struct({ issueLabels: LabelConnection }),
+      ).pipe(Effect.map((data) => data.issueLabels))
+    return yield* pageOrDrain(fetchPage, options)
   })
 
   const listAvailable = Effect.fn("LabelService.listAvailable")(function* listAvailableLabels(

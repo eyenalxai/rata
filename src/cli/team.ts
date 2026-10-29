@@ -4,10 +4,10 @@ import { EOL } from "node:os"
 
 import type { TeamDetail } from "@/api/team/details"
 
-import { maxPageSize } from "@/api/pagination"
 import { TeamResolutionError, TeamService } from "@/api/team"
 import { confirm } from "@/cli/confirm"
 import { OutputFields, readFields, rejectFields, selectItems, selectObject } from "@/cli/fields"
+import { afterFlag, allFlag, limitFlag } from "@/cli/list-flags"
 import {
   JsonOutput,
   nextPageHint,
@@ -22,47 +22,41 @@ import { machineTimezone } from "@/domain/timezone"
 const optionalText = (name: string, description: string) =>
   Flag.String(name).pipe(Flag.withDescription(description), Flag.optional)
 
-const limitFlag = Flag.Int("limit").pipe(
-  Flag.withDescription(`Page size, at most ${maxPageSize}`),
-  Flag.withDefault(50),
-)
-
-const afterFlag = Flag.String("after").pipe(
-  Flag.withDescription("Continue after this cursor"),
-  Flag.optional,
-)
-
-const listCommand = Command.make("list", { limit: limitFlag, after: afterFlag }, (config) =>
-  Effect.gen(function* listTeams() {
-    const json = yield* JsonOutput
-    const fields = yield* readFields(json, yield* OutputFields)
-    const valid = yield* validatePageSize(config.limit)
-    if (!valid) {
-      return
-    }
-    const teams = yield* TeamService
-    const page = yield* teams.list({
-      after: Option.getOrNull(config.after),
-      limit: config.limit,
-    })
-    if (json) {
-      yield* writeJson({
-        teams: yield* selectItems(fields, page.nodes),
-        pageInfo: page.pageInfo,
+const listCommand = Command.make(
+  "list",
+  { limit: limitFlag, after: afterFlag, all: allFlag },
+  (config) =>
+    Effect.gen(function* listTeams() {
+      const json = yield* JsonOutput
+      const fields = yield* readFields(json, yield* OutputFields)
+      const valid = yield* validatePageSize(config.limit)
+      if (!valid) {
+        return
+      }
+      const teams = yield* TeamService
+      const page = yield* teams.list({
+        after: Option.getOrNull(config.after),
+        limit: config.limit,
+        all: config.all,
       })
-      return
-    }
-    if (page.nodes.length === 0) {
-      yield* writeLine("No teams.")
-      return
-    }
-    const body = page.nodes.map((team) => `${team.key}\t${team.name}\t${team.id}`).join(EOL)
-    const hint =
-      page.pageInfo.hasNextPage && page.pageInfo.endCursor !== null
-        ? `${EOL}${nextPageHint("teams", page.pageInfo.endCursor)}`
-        : ""
-    yield* writeLine(`${body}${hint}`)
-  }).pipe(Effect.catch(reportFailure)),
+      if (json) {
+        yield* writeJson({
+          teams: yield* selectItems(fields, page.nodes),
+          pageInfo: page.pageInfo,
+        })
+        return
+      }
+      if (page.nodes.length === 0) {
+        yield* writeLine("No teams.")
+        return
+      }
+      const body = page.nodes.map((team) => `${team.key}\t${team.name}\t${team.id}`).join(EOL)
+      const hint =
+        page.pageInfo.hasNextPage && page.pageInfo.endCursor !== null
+          ? `${EOL}${nextPageHint("teams", page.pageInfo.endCursor)}`
+          : ""
+      yield* writeLine(`${body}${hint}`)
+    }).pipe(Effect.catch(reportFailure)),
 ).pipe(Command.withDescription("List the teams in the workspace"))
 
 const createCommand = Command.make(

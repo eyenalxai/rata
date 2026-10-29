@@ -3,10 +3,10 @@ import { Argument, Command, Flag } from "effect/cli"
 import { EOL } from "node:os"
 
 import { LabelService } from "@/api/label"
-import { maxPageSize } from "@/api/pagination"
 import { RepoTeam } from "@/api/repo-team"
 import { resolveColor } from "@/cli/color"
 import { OutputFields, readFields, rejectFields, selectItems } from "@/cli/fields"
+import { afterFlag, allFlag, limitFlag } from "@/cli/list-flags"
 import {
   JsonOutput,
   errorLine,
@@ -22,19 +22,9 @@ const teamFlag = Flag.String("team").pipe(
   Flag.optional,
 )
 
-const limitFlag = Flag.Int("limit").pipe(
-  Flag.withDescription(`Page size, at most ${maxPageSize}`),
-  Flag.withDefault(50),
-)
-
-const afterFlag = Flag.String("after").pipe(
-  Flag.withDescription("Continue after this cursor"),
-  Flag.optional,
-)
-
 const listCommand = Command.make(
   "list",
-  { team: teamFlag, limit: limitFlag, after: afterFlag },
+  { team: teamFlag, limit: limitFlag, after: afterFlag, all: allFlag },
   (config) =>
     Effect.gen(function* listLabels() {
       const json = yield* JsonOutput
@@ -49,6 +39,7 @@ const listCommand = Command.make(
       const page = yield* labels.list(teamId, {
         after: Option.getOrNull(config.after),
         limit: config.limit,
+        all: config.all,
       })
       if (json) {
         yield* writeJson({
