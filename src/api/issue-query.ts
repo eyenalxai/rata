@@ -7,6 +7,7 @@ const summaryFields = `
       url
       state { name type }
       priority
+      createdAt
       updatedAt
       assignee { id name displayName }
       project { id name }

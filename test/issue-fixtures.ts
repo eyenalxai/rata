@@ -45,6 +45,7 @@ const summaryNode = (identifier: string) => ({
   url: `https://linear.app/eyenalx/issue/${identifier}/title`,
   state,
   priority: 0,
+  createdAt: "2026-01-01T08:00:00.000Z",
   updatedAt: "2026-01-01T09:00:00.000Z",
   assignee: user,
   project,
@@ -176,4 +177,5 @@ export {
   user,
   uuid,
   viewer,
+  withTeamLookup,
 }

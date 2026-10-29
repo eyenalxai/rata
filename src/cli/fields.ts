@@ -102,7 +102,7 @@ const rejectFields = Effect.fn("Cli.Fields.reject")(function* rejectFields(
 ) {
   if (Option.isSome(fields)) {
     return yield* new FieldSelectionError({
-      message: "--fields is only valid on read commands.",
+      message: "--fields is not supported by this command.",
     })
   }
   return yield* Effect.void

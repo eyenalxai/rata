@@ -18,7 +18,7 @@ import {
   byCreatedAt,
   collectsAllPages,
   relationTargets,
-  sortAndLimitIssues,
+  sortAndLimitNodes,
   toSummary,
 } from "@/api/issue-model"
 import {
@@ -49,6 +49,7 @@ import { collectPages, pageSize } from "@/api/pagination"
 import { RepoTeam } from "@/api/repo-team"
 import { toPriority } from "@/domain/priority"
 import { isUuid, parseIssueRef } from "@/domain/ref"
+import { closedStateTypes } from "@/domain/state"
 
 type IssueApiShape = {
   readonly list: (
@@ -131,7 +132,7 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
         if (options.unblocked === true) {
           parts.push(
             { hasBlockedByRelations: { eq: false } },
-            { state: { type: { nin: ["completed", "canceled"] } } },
+            { state: { type: { nin: closedStateTypes } } },
           )
         }
         const filter = composeFilter(parts)
@@ -156,7 +157,7 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
             .pipe(Effect.map((page) => page.issues)),
         )
         return {
-          issues: sortAndLimitIssues(nodes.map(toSummary), options),
+          issues: sortAndLimitNodes(nodes, options).map(toSummary),
           pageInfo: { hasNextPage: false, endCursor: null },
         }
       })

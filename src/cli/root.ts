@@ -6,11 +6,13 @@ import { OutputFields } from "@/cli/fields"
 import { issueCommand, searchCommand } from "@/cli/issue"
 import { labelCommand } from "@/cli/label"
 import { linkCommand } from "@/cli/link"
+import { nextCommand } from "@/cli/next"
 import { JsonOutput } from "@/cli/output"
 import { projectCommand } from "@/cli/project"
 import { statusCommand } from "@/cli/status"
 import { teamCommand } from "@/cli/team"
 import { unlinkCommand } from "@/cli/unlink"
+import { whyCommand } from "@/cli/why"
 import { workspaceCommand } from "@/cli/workspace"
 
 const root = Command.make("rata").pipe(
@@ -25,6 +27,8 @@ const root = Command.make("rata").pipe(
     workspaceCommand,
     issueCommand,
     searchCommand,
+    nextCommand,
+    whyCommand,
     teamCommand,
     projectCommand,
     labelCommand,

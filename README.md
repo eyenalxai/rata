@@ -55,8 +55,10 @@ rata config show                         # read the issue defaults
 rata unlink                              # remove the stored link of this repository
 rata issue list                          # list issues
 rata issue list --parent RAT-1 --unblocked --unassigned --sort priority  # the frontier of a map
+rata next --parent RAT-1                 # the next ready child of a map
 rata issue list --after <cursor>         # read the next page of a list
 rata issue show RAT-42                   # read one issue
+rata why RAT-42                          # the blockers of one issue
 rata search "rate limit"                 # search issues by text
 rata issue create --title "Fix login" --team RAT   # create an issue
 rata issue link RAT-43 --blocked-by RAT-42         # RAT-43 waits for RAT-42
@@ -708,9 +710,9 @@ rata issue list --priority urgent --sort priority --limit 10
 `--priority` keeps issues with exactly one priority value. `none` and `0`
 select the issues with no priority. `--sort priority` orders the results
 urgent, high, medium, low, then none. The sort fetches every matching issue
-across all pages before `--limit` applies. Issues with equal priorities keep
-their incoming order. With `--unblocked`, blocked issues are dropped before
-the sort.
+across all pages before `--limit` applies. Issues with equal priorities stay in
+`createdAt` order, oldest first. With `--unblocked`, blocked issues are dropped
+before the sort.
 
 An open issue is one whose state type is not `completed` or `canceled`. An open
 blocker is a blocker whose state type is not `completed` or `canceled`.
@@ -719,7 +721,24 @@ on the server and composes with the other filters with AND, so a state filter
 that contradicts it returns an empty list.
 `--parent` with `--unblocked` and `--unassigned` is the **frontier** of a map:
 the open, unblocked, unclaimed children. With `--sort priority`, the first
-result is the most urgent; ties keep their incoming order.
+result is the most urgent; ties go to the oldest first. `rata next --parent
+<ref>` is the frontier as one command: it prints the first ready child, or
+`No ready ticket.` when the frontier is empty. JSON is `{ "issue": ... }`, with
+`null` for an empty frontier; both exit 0.
+
+`rata why <ref>` prints one level of the blocking graph. JSON is
+`{ "issue", "blocked", "blockedBy" }`. Each blocker carries its state and a
+`closed` flag; `blocked` is true when any blocker is open. A blocker is closed
+when its state type is `completed` or `canceled`. Human output prints
+`RATA-42 is blocked by:` and one line per blocker, or `RATA-42 is ready.` when
+nothing blocks.
+
+```bash
+rata next --parent RAT-1
+rata next --parent RAT-1 --json
+rata why RAT-42
+rata why RAT-42 --json
+```
 
 `rata issue show` accepts an identifier (`RAT-42`), a UUID, or a linear.app
 URL. `--comments` adds the comments to the human output. `--json` returns the

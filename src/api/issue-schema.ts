@@ -99,7 +99,6 @@ const IssueAttachmentConnection = Schema.Struct({
   nodes: Schema.Array(IssueAttachment),
   pageInfo: PageInfo,
 })
-
 const IssueComment = Schema.Struct({
   id: Schema.String,
   body: Schema.String,
@@ -119,6 +118,7 @@ const IssueSummaryNode = Schema.Struct({
   url: Schema.String,
   state: IssueState,
   priority: Schema.Literals([0, 1, 2, 3, 4]),
+  createdAt: Schema.String,
   updatedAt: Schema.String,
   assignee: Schema.NullOr(IssueUser),
   project: Schema.NullOr(IssueProject),
