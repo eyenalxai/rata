@@ -9,9 +9,10 @@ wayfinding maps. It is built for machines first: every command has a stable
 machine-readable form, issue references accept identifiers, UUIDs and URLs, and
 the output is deterministic.
 
-The project is in early development. The tracker workflow itself is the first
-user: this repository starts on GitHub issues and moves to Linear as soon as
-`rata` can run the workflow.
+The project is in early development. This repository is the first user: its own
+work is tracked in Linear and driven with `rata`. Version 0.7.0 is the
+agent-facing surface: one global `--json`, `--fields` selection, structured
+errors, and read-after-write checks.
 
 ## Install
 
@@ -67,6 +68,57 @@ Every command selects the API key in this order: `LINEAR_API_KEY`, the
 repository `workspace` of the repository config, the `default` profile.
 
 `rata --help` lists every command.
+
+## Output and errors
+
+`--json` is one global flag. It may come before or after the subcommand, and
+both forms are equivalent:
+
+```bash
+rata --json issue list
+rata issue list --json
+```
+
+Every command prints one stable JSON document. With `--json`, a failure writes
+one JSON object to stderr, leaves stdout empty, and exits 1:
+
+```json
+{
+  "error": {
+    "code": "conflict",
+    "message": "The label `Bug` already exists in RAT.",
+    "hint": "Use `Bug`, or pass `--if-not-exists`."
+  }
+}
+```
+
+`hint` is a string or `null`. Set `RATA_DEBUG=1` to add `details`. The codes are
+`validation`, `not_linked`, `not_found`, `ambiguous`, `auth`, `forbidden`,
+`conflict`, `rate_limited`, `network` and `internal`. In human mode the error
+prints `error: <message>` and, when present, `hint: <hint>` on stderr.
+Argument-parse errors keep the built-in help text.
+
+`--fields` selects dotted paths from the JSON output of a read command. It
+requires `--json`:
+
+```bash
+rata issue list --json --fields identifier,title,state.name
+rata status --json --fields repository.root,team.key
+rata config show --json --fields assignee,labels
+```
+
+The path applies to the command's primary object, not to the envelope key: the
+`issue` of `issue show`, each item of `issues`, `teams`, `labels` or `projects`,
+the `team` of `team show`, the `defaults` object of `config show`, or the whole
+`status` document. The envelope stays:
+`{ "issues": [ { "identifier": "...", "title": "..." } ] }`. An unknown path is
+a `validation` error. `--fields` is valid on `status`, `issue show`,
+`issue list`, `search`, `team show`, `team list`, `label list`, `project list`
+and `config show`; on a write command it fails with `validation`.
+
+Rata's own output is plain text. Effect's help and error presenter honor
+`NO_COLOR`, so set `NO_COLOR=1` to drop color from help and errors. There is no
+`--no-color` flag.
 
 ## Status
 
@@ -674,8 +726,8 @@ and attachments. `--no-comments` skips the comment fetch and omits the key.
 `--comments` and `--no-comments` are mutually exclusive. Every collection
 drains every page.
 
-Every read command accepts `--json` and prints one stable JSON document. The
-list and search commands print one page:
+Every read command accepts the global `--json` and prints one stable JSON
+document. The list and search commands print one page:
 `{ "issues": [...], "pageInfo": { "hasNextPage": ..., "endCursor": ... } }`.
 The show command prints `{ "issue": {...} }`, with the comments, children,
 relations and attachments.
@@ -918,8 +970,8 @@ The triage roles are label names. `issue label add RAT-42 ready-for-agent` adds
 the `ready-for-agent` label. A label name resolves against the team labels and
 the workspace labels, ignoring case. `issue label remove` resolves the same way.
 
-Every write command accepts `--json`. The update and reopen commands print the
-summary shape:
+Every write command accepts the global `--json`. The update and reopen commands
+print the summary shape:
 
 ```json
 {
