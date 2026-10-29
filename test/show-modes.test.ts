@@ -96,6 +96,22 @@ describe("issue show output modes", () => {
     expect(requests[0]?.query).toContain("query IssueSummary")
   })
 
+  test("hints the valid paths at the failing level of --fields", async () => {
+    const lines: string[] = []
+    await runShow(
+      summaryHandler,
+      ["show", "RAT-1", "--summary", "--json", "--fields", "state.nope"],
+      lines,
+    )
+    const error = Option.getOrThrow(
+      Schema.decodeUnknownOption(
+        Schema.Struct({ error: Schema.Struct({ code: Schema.String, hint: Schema.String }) }),
+      )(lastJson(lines)),
+    )
+    expect(error.error.code).toBe("validation")
+    expect(error.error.hint).toBe("Valid paths: name, type.")
+  })
+
   test("--no-body omits the description but keeps the full read", async () => {
     const requests: ReturnType<typeof readBody>[] = []
     const lines: string[] = []

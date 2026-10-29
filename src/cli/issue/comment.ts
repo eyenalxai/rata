@@ -218,11 +218,11 @@ const deleteCommand = Command.make(
       return yield* writeLine(`Deleted comment ${config.commentId}.`)
     }).pipe(Effect.catch(reportFailure)),
 ).pipe(
-  Command.withDescription("Delete a comment"),
+  Command.withDescription("Move a comment to the trash"),
   Command.withExamples([
     {
       command: "rata issue comment delete c1 --yes",
-      description: "Delete a comment without a prompt",
+      description: "Delete a comment without a prompt; Linear keeps it recoverable",
     },
     {
       command: "rata issue comment delete c1 --dry-run",

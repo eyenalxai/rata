@@ -10,9 +10,10 @@ machine-readable form, issue references accept identifiers, UUIDs and URLs, and
 the output is deterministic.
 
 The project is in early development. This repository is the first user: its own
-work is tracked in Linear and driven with `rata`. The 0.7.0 release adds one
-global `--json`, `--fields` selection, structured errors, and read-after-write
-checks.
+work is tracked in Linear and driven with `rata`. The 0.8.0 release adds heading
+section edits, the comment lifecycle with retry-safe dedupe, the `next` and
+`why` frontier commands, selectable reads, and `--all` paging. See **Breaking
+changes in 0.8.0** for the surface that moved.
 
 ## Install
 
@@ -64,7 +65,8 @@ rata why RAT-42                          # the blockers of one issue
 rata search "rate limit"                 # search issues by text
 rata issue create --title "Fix login" --team RAT   # create an issue
 rata issue link RAT-43 --blocked-by RAT-42         # RAT-43 waits for RAT-42
-rata issue comment RAT-42 --body "..."   # comment on an issue
+rata issue comment create RAT-42 --body "..."      # comment on an issue
+rata issue section append RAT-42 "Handoff log" --body "Started."  # edit one section
 rata issue close RAT-42 --comment "..."  # close an issue
 ```
 
@@ -114,13 +116,9 @@ rata config show --json --fields assignee,labels
 ```
 
 The path applies to the command's own object, not to the JSON key that wraps
-it: the `issue` of `issue show`, each item of `issues`, `teams`, `labels` or
-`projects`, the `team` of `team show`, the `defaults` object of `config show`,
-or the whole `status` document. The wrapper key stays:
-`{ "issues": [ { "identifier": "...", "title": "..." } ] }`. An unknown path is
-a `validation` error. `--fields` is valid on `status`, `issue show`,
-`issue list`, `search`, `team show`, `team list`, `label list`, `project list`
-and `config show`. Other commands reject it with `validation`.
+it, and the wrapper key stays. An unknown path is a `validation` error, and the
+hint lists the valid paths. See **Field selection** under **Reading issues** for
+the valid commands and the list rule.
 
 Rata's own output is plain text. Effect's help and error presenter honor
 `NO_COLOR`, so set `NO_COLOR=1` to drop color from help and errors. There is no
@@ -807,7 +805,8 @@ It accepts `--team`, `--limit`, `--after`, `--all` and `--json`.
       "assignee": { "id": "u1", "name": "Ada", "displayName": "ada" },
       "project": { "id": "p1", "name": "rata" },
       "parent": { "id": "i0", "identifier": "RAT-1", "title": "Map" },
-      "labels": [{ "id": "l1", "name": "ready-for-agent" }]
+      "labels": [{ "id": "l1", "name": "ready-for-agent" }],
+      "updatedAt": "2026-01-01T10:00:00.000Z"
     }
   ],
   "pageInfo": { "hasNextPage": true, "endCursor": "b2c3..." }
@@ -826,6 +825,7 @@ is set.
     "title": "Add the issue read path",
     "description": "...",
     "url": "https://linear.app/eyenalx/issue/RAT-42/add-the-issue-read-path",
+    "updatedAt": "2026-01-01T10:00:00.000Z",
     "state": { "name": "In Progress", "type": "started" },
     "priority": "high",
     "assignee": null,
@@ -869,6 +869,30 @@ lists the issues that block it. `--json` includes `comments` by default.
 `--no-comments` skips the fetch and omits the key. `--comments` and
 `--no-comments` are mutually exclusive.
 
+### Field selection
+
+`--fields` selects dotted paths from the JSON output of a read command. It needs
+`--json`, and it applies to the command's primary object:
+
+```bash
+rata issue show RAT-42 --json --fields identifier,title,state.name
+rata issue list --json --fields identifier,title --limit 10
+rata issue section get RAT-42 "Handoff log" --json --fields content
+```
+
+The wrapper key stays, and a list selection applies to each item:
+`{ "issues": [ { "identifier": "...", "title": "..." } ], "pageInfo": ... }`.
+`pageInfo` stays in a list result. Paths are dotted and nested, such as
+`state.name` or `repository.root`.
+
+`--fields` is valid on `status`, `issue show`, `issue section get`,
+`issue list`, `search`, `team show`, `team list`, `label list`, `project list`
+and `config show`. Write commands reject it with `validation`. An unknown path
+is a `validation` error whose hint lists the valid paths.
+
+For any other shape, use `--json` and `jq`. There is no `--format` template
+language.
+
 ### Section editing
 
 `issue section` reads and edits one heading section of the description. A
@@ -893,10 +917,10 @@ at the end of the description when the heading is missing. `--level` sets the
 new heading level (default 2). `replace` replaces the content and keeps the
 heading; a missing heading is `not_found`. Both need `--body` or `--body-file`.
 
-`--dry-run` prints a unified diff and writes nothing. `--if-unchanged
-<updatedAt>` fails with `conflict` before the write when the issue changed since
-that read; the hint names the current value. Linear has no compare-and-swap, so
-the check is best effort.
+`--dry-run` prints a unified diff and writes nothing.
+`--if-unchanged <updatedAt>` fails with `conflict` before the write when the
+issue changed since that read; the hint names the current value. Linear has no
+compare-and-swap, so the check is best effort.
 
 A duplicate heading is an `ambiguous` error that lists the line numbers. A
 missing heading read or replace is `not_found` and lists the available headings.
@@ -911,11 +935,13 @@ value is a key or a UUID. A project value is a name or a UUID.
 ```bash
 rata issue create --title "Fix login" --team RAT --label ready-for-agent --priority high
 rata issue create --title "Add the client" --parent RAT-1 --wait 10
-rata issue comment RAT-42 --body "Looks good."
+rata issue comment create RAT-42 --body "Looks good."
+rata issue comment create RAT-42 --body "Handoff." --dedupe-key mission-42-handoff
 printf 'From a pipe' | rata issue update RAT-42 --body-file -
 printf '\nUpdate.' | rata issue update RAT-42 --body-file - --append
 rata issue update RAT-42 --state "In Progress" --assignee me
 rata issue update RAT-42 --priority high --if-unchanged 2026-01-01T10:00:00.000Z
+rata issue update RAT-42 --state Done --comment "Shipped in PR #12."
 rata issue section append RAT-42 "Handoff log" --body "Started."
 rata issue section replace RAT-42 "Handoff log" --body-file -
 rata issue label add RAT-42 ready-for-agent bug
@@ -936,15 +962,17 @@ rata issue unlink RAT-43 --blocked-by RAT-42
 | Command                                 | Flags                                                                                                                                                                                         |
 | --------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `issue create`                          | `--title` (required), `--body`, `--body-file`, `--team`, `--label` (repeatable), `--no-default-labels`, `--parent`, `--project`, `--state`, `--assignee`, `--priority`, `--wait`, `--dry-run` |
-| `issue comment <ref>`                   | `--body`, `--body-file` (one is required), `--wait`                                                                                                                                           |
-| `issue update <ref>`                    | `--title`, `--body`, `--body-file`, `--append`, `--state`, `--assignee`, `--project`, `--parent`, `--priority`, `--dry-run`, `--if-unchanged`                                                 |
+| `issue update <ref>`                    | `--title`, `--body`, `--body-file`, `--append`, `--state`, `--assignee`, `--project`, `--parent`, `--priority`, `--comment`, `--comment-file`, `--dry-run`, `--if-unchanged`                  |
+| `issue comment create <ref>`            | `--body`, `--body-file` (one is required), `--dedupe-key`, `--wait`, `--dry-run`                                                                                                              |
+| `issue comment update <comment-id>`     | `--body`, `--body-file` (one is required), `--dry-run`                                                                                                                                        |
+| `issue comment delete <comment-id>`     | `--yes`, `--dry-run`                                                                                                                                                                          |
 | `issue section get <ref> <heading>`     | `--with-heading`                                                                                                                                                                              |
 | `issue section append <ref> <heading>`  | `--body`, `--body-file` (one is required), `--level`, `--dry-run`, `--if-unchanged`                                                                                                           |
 | `issue section replace <ref> <heading>` | `--body`, `--body-file` (one is required), `--dry-run`, `--if-unchanged`                                                                                                                      |
 | `issue label add [<ref>] <label...>`    | label names, `--parent`, `--dry-run`                                                                                                                                                          |
 | `issue label remove [<ref>] <label...>` | label names, `--parent`, `--dry-run`                                                                                                                                                          |
-| `issue close <ref>`                     | `--comment`, `--comment-file`                                                                                                                                                                 |
-| `issue reopen <ref>`                    |                                                                                                                                                                                               |
+| `issue close <ref>`                     | `--comment`, `--comment-file`, `--dry-run`                                                                                                                                                    |
+| `issue reopen <ref>`                    | `--dry-run`                                                                                                                                                                                   |
 | `issue assign [<ref>]`                  | `--assignee` (required): `me`, a user id, or `none`; `--parent`, `--dry-run`                                                                                                                  |
 | `issue unassign <ref>`                  | `--dry-run`                                                                                                                                                                                   |
 | `issue link <ref>`                      | `--blocks`, `--blocked-by`, `--related`, `--duplicate` (each repeatable), `--dry-run`                                                                                                         |
@@ -959,6 +987,96 @@ relation is a skipped success, not an error.
 
 `--assignee none` clears the assignee. `issue unassign` is the same write with
 less typing. `--assignee me` resolves the viewer.
+
+### Comment lifecycle
+
+`issue comment` is a group: `create`, `update` and `delete`.
+
+```bash
+rata issue comment create RAT-42 --body "Looks good."
+printf '## Handoff\n...' | rata issue comment create RAT-42 --body-file -
+rata issue comment create RAT-42 --body "Handoff." --dedupe-key mission-42-handoff
+rata issue comment update c1 --body "Revised."
+rata issue comment delete c1
+rata issue comment delete c1 --yes
+```
+
+`create` needs exactly one of `--body` and `--body-file -`. It waits up to 5
+seconds for the new comment to appear on a re-read; `--wait <seconds>` changes
+the bound and `--wait 0` skips the check. A timeout still exits 0, because the
+mutation payload is the source of truth.
+
+`--dedupe-key <key>` makes a retried comment idempotent. The key is scoped to
+the issue. rata derives a UUIDv4 from `sha256(issueId + "\0" + key)` and checks
+for a comment with that id. When the comment exists, the command returns it
+without writing. The same key on another issue creates a separate comment.
+Without `--dedupe-key`, every call creates a comment.
+
+JSON prints the outcome and the comment:
+
+```json
+{
+  "status": "created",
+  "comment": {
+    "id": "c1",
+    "body": "Looks good.",
+    "createdAt": "2026-01-01T10:00:00.000Z",
+    "user": { "id": "u1", "name": "Ada", "displayName": "ada" }
+  },
+  "visible": true
+}
+```
+
+`status` is `created` or `skipped`. `visible` follows **Read-after-write**:
+`true`, `false`, or `null` when the check is disabled. Human output prints
+`Commented on RAT-42.` or `Comment already exists on RAT-42.`
+
+`update <comment-id>` replaces the body. The id is a UUID. A missing comment is
+`not_found`. JSON prints `{ "comment": ... }`; human output prints
+`Updated comment c1.`
+
+`delete <comment-id>` moves the comment to the trash. Linear keeps it
+recoverable. Human mode asks for confirmation; `--yes` skips the prompt. JSON
+mode requires `--yes` and fails with `validation` without it. JSON prints
+`{ "deleted": true, "id": "c1" }`; human output prints `Deleted comment c1.`
+
+All three accept `--dry-run`. `create` runs the dedupe check and reports the
+outcome without writing, so a dry run can report `skipped`. `update` prints a
+unified diff. `delete` prints the comment that would be deleted and asks nothing.
+
+`issue update <ref>` also takes `--comment` and `--comment-file -`. The update
+and the comment compose with the other flags, so one call changes the body, the
+state and the comment:
+
+```bash
+rata issue update RAT-42 --state Done --comment "Shipped in PR #12."
+printf 'Handoff note.' | rata issue update RAT-42 --comment-file -
+```
+
+The two flags are mutually exclusive, and an empty comment body is a
+`validation` error. The command validates every target before it writes: the
+issue, the state, the assignee, the project, the parent, the priority and the
+comment body. A validation failure aborts with zero writes. It then applies the
+issue update and creates the comment. Linear has no transaction, so the issue
+update stays when the comment fails.
+
+JSON on success prints the issue and the comment:
+
+```json
+{
+  "issue": { "identifier": "RAT-42", "updatedAt": "2026-01-01T10:00:00.000Z" },
+  "comment": { "id": "c1", "body": "Shipped in PR #12." }
+}
+```
+
+Without `--comment` or `--comment-file`, the output stays `{ "issue": ... }`. A
+comment failure prints the issue update, `"comment": null` and the `error`
+object, and exits 1. This is the one command that writes a partial result to
+stdout on failure, because the issue update already landed. Human mode prints
+the issue result and the error on stderr.
+
+`--dry-run` prints `{ "dryRun": true, "actions": [...] }` with the issue update
+action and the comment action, and writes nothing.
 
 ### Bulk writes by parent
 
@@ -1007,18 +1125,19 @@ A write that finds the desired state already in place exits 0 and reports
 `skipped`. This holds for `issue link` with an existing relation, `issue unlink`
 with a missing relation, `issue assign` with the same assignee, `issue unassign`
 when the issue has none, `issue label add` with a present label, `issue label
-remove` with an absent label, and `issue close` when the state is already
-`completed`. A `canceled` issue still moves to a completed state. `issue close`
-with a comment still posts the comment when the issue is already completed; the
-state write is skipped. `issue create` and `issue comment` always create a new
-object.
+remove` with an absent label, `issue close` when the state is already
+`completed`, and `issue reopen` when the state is already `unstarted`. A
+`canceled` issue still moves to a completed state. `issue close` with a comment
+still posts the comment when the issue is already completed; the state write is
+skipped. `issue create` always creates a new object. `issue comment create`
+creates a comment unless `--dedupe-key` finds the one it made before.
 
 `label create --if-not-exists` returns the existing label with `created: false`.
 
 ### Read-after-write
 
 Linear documents no read-after-write guarantee. A comment or a child issue that a
-write just created can be missing from a later read. `issue comment` and
+write just created can be missing from a later read. `issue comment create` and
 `issue create --parent` therefore check that the new object appears on a bounded
 re-read.
 
@@ -1029,28 +1148,34 @@ warning to stderr. `"visible"` is `null` when the check is disabled and on
 `issue create` without `--parent`.
 
 ```bash
-rata issue comment RAT-42 --body "Looks good." --wait 10
+rata issue comment create RAT-42 --body "Looks good." --wait 10
 rata issue create --title "Add the client" --parent RAT-1 --wait 0
 ```
 
 ### Dry runs
 
 `--dry-run` resolves the targets and prints the actions without calling a
-mutation. It is available on `issue create`, `issue update`,
-`issue section append`, `issue section replace`, `issue link`, `issue unlink`,
+mutation. Every issue write accepts it: `issue create`, `issue update`,
+`issue section append`, `issue section replace`, `issue comment create`,
+`issue comment update`, `issue comment delete`, `issue link`, `issue unlink`,
 `issue assign`, `issue unassign`, `issue label add`, `issue label remove`,
-`config set` and `config unset`. It is not available on `issue close`,
-`issue reopen` or `issue comment`.
+`issue close` and `issue reopen`. It stays on `config set` and `config unset`.
 
 ```bash
 rata issue create --title "Fix login" --dry-run
 rata issue assign RAT-42 --assignee me --dry-run
+rata issue close RAT-42 --comment "Done." --dry-run
 rata config set --label enhancement --dry-run --json
 ```
 
 `--json` prints `{ "dryRun": true, "actions": [...] }`. Each action carries the
 command action, the target and the changes. The issue writes also carry the
 status they would reach.
+
+The body writes print a unified diff: `issue update --append`,
+`issue section append`, `issue section replace` and `issue comment update`.
+`issue update --comment` prints the planned issue update and the comment action.
+No mutation runs.
 
 `--body-file -` and `--comment-file -` read the body from standard input. The
 `--body` and `--body-file` flags are mutually exclusive, as are `--comment` and
@@ -1080,7 +1205,8 @@ print the summary shape:
     "assignee": null,
     "project": null,
     "parent": null,
-    "labels": []
+    "labels": [],
+    "updatedAt": "2026-01-01T10:00:00.000Z"
   }
 }
 ```
@@ -1092,24 +1218,11 @@ does not show the new child before the bound, and `null` without `--parent`.
 The idempotent writes add the outcome: `issue close`, `issue assign`,
 `issue unassign`, `issue label add` and `issue label remove` print
 `{ "dryRun": false, "status": "updated", "issue": { ... } }`. `status` is
-`skipped` when the desired state already held.
+`skipped` when the desired state already held. `issue reopen` prints the plain
+summary shape `{ "issue": { ... } }`; its status shows only in the dry run.
 
-The comment command prints the comment and its visibility:
-
-```json
-{
-  "comment": {
-    "id": "c1",
-    "body": "Looks good.",
-    "createdAt": "2026-01-01T10:00:00.000Z",
-    "user": { "id": "u1", "name": "Ada", "displayName": "ada" }
-  },
-  "visible": true
-}
-```
-
-`visible` is `false` when the comment does not appear before the bound, and
-`null` with `--wait 0`.
+`issue comment create` prints `{ "status", "comment", "visible" }`; see
+**Comment lifecycle** for the shape and the meaning of `visible`.
 
 The link and unlink commands print the relations they changed, with a
 `skipped` entry for a relation that already held the desired state:
@@ -1124,6 +1237,26 @@ The link and unlink commands print the relations they changed, with a
   ]
 }
 ```
+
+## Breaking changes in 0.8.0
+
+- `issue comment <ref>` becomes `issue comment create <ref>`. The group also
+  gains `update` and `delete`.
+- `issue section` is new: `get`, `append` and `replace`.
+- `issue update` gains `--append`, `--dry-run`, `--if-unchanged`, `--comment`
+  and `--comment-file`.
+- `issue show` gains `--summary`, `--no-body`, `--no-relations`, `--no-children`
+  and `--no-attachments`.
+- `issue list`, `search`, `team list`, `project list` and `label list` gain
+  `--all`.
+- `issue show` gains the `view` alias.
+- `IssueSummary` and `IssueDetail` gain `updatedAt`. Every issue in every read
+  and write result carries it.
+- `--dry-run` now covers every issue write, including `issue comment create`,
+  `issue comment update`, `issue comment delete`, `issue close` and
+  `issue reopen`.
+- `rata next` and `rata why` are new top-level commands.
+- An unknown `--fields` path now fails with a hint that lists the valid paths.
 
 ## Documentation
 
