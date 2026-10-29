@@ -64,8 +64,24 @@ is best effort.
 
 Edit one section of the body with `issue section get|append|replace`. The
 heading match is exact and case-sensitive. `append` creates a missing heading
-at the end; `--level` sets its level. Add `--dry-run` to preview the unified
-diff. `issue update --body-file - --append` appends to the whole body.
+at the end; `--level` sets its level.
+
+`section replace` with `--dry-run` and `--if-unchanged` is the safe door for a
+section edit. Read the issue first, preview the diff, then rerun the command
+with `--if-unchanged` and the `updatedAt` from the read:
+
+```bash
+rata issue show ABC-42 --summary --json
+rata issue section replace ABC-42 "Gates" --body-file gates.md --dry-run
+rata issue section replace ABC-42 "Gates" --body-file gates.md --if-unchanged 2026-10-29T17:21:45.954Z
+```
+
+A whole-body rewrite, `issue update --body-file -`, replaces every heading, so
+one dropped section is lost silently. Never use it for a mission log or gate
+evidence. `section append` is for new content only. `issue update` with
+`--body-file - --append` adds new content at the end of the whole body. The file
+for `section replace` holds the content under the heading, without the heading
+line.
 
 A comment or a child that a write just created can be missing from the next
 read. `issue comment create` and `issue create --parent` check for up to 5

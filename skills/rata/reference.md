@@ -236,6 +236,19 @@ line numbers. `--dry-run` prints a unified diff. JSON dry runs are
 `{ "dryRun": true, "action": "section-append", "target", "heading", "diff" }`;
 a write returns `{ "issue": { "identifier", "updatedAt" }, "section": { "heading", "level" } }`.
 
+`replace` with `--dry-run` and `--if-unchanged` is the safe door for a section
+edit. A whole-body `issue update --body-file -` replaces every heading, so it
+is not the tool for a mission log or gate evidence. `append` adds new content
+and never drops a section. The input carries the content under the heading, not
+the heading line. `--if-unchanged` takes the `updatedAt` from a prior
+`issue show --summary --json`; skip it when the issue was not read first.
+
+```bash
+rata issue show ABC-42 --summary --json
+rata issue section replace ABC-42 "Gates" --body-file gates.md --dry-run
+rata issue section replace ABC-42 "Gates" --body-file gates.md --if-unchanged <updatedAt>
+```
+
 ### `issue link` and `issue unlink` flags
 
 | Flag           | Meaning                                          |

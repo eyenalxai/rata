@@ -50,6 +50,11 @@ they explore the codebase. Use these terms; do not drift to synonyms.
   creates a missing heading at the end of the body.
 - **Body append**: adding content to the end of the description, or to the end
   of one section, without replacing the rest.
+- **Safe body write** (or **safe door**): a section edit through
+  `issue section replace` with `--dry-run` and `--if-unchanged`. It writes one
+  section and leaves the rest of the body in place. A whole-body rewrite,
+  `issue update --body-file -`, is not a safe body write: it replaces every
+  heading.
 - **updatedAt** (or **snapshot**): the Linear modification timestamp of an
   issue, as read at one moment. It is the snapshot for a best-effort conditional
   write. Pass it to `--if-unchanged`.

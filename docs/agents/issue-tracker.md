@@ -54,11 +54,11 @@ operations.
 - **Edit one section**: `rata issue section get <ref> "<heading>"`,
   `issue section append <ref> "<heading>" --body-file -`, and
   `issue section replace <ref> "<heading>" --body-file -`. The heading match is
-  exact and case-sensitive. Add `--dry-run` to preview the unified diff, or
-  `--if-unchanged <updatedAt>` to fail with `conflict` when the issue changed.
-  `append` creates a missing heading at the end; `--level` sets its level.
-- **Append to the body**: `rata issue update <ref> --body-file - --append`. A
-  blank line separates the old and the new content.
+  exact and case-sensitive. `append` creates a missing heading at the end;
+  `--level` sets its level. For a section edit, follow **Safe body writes**.
+- **Append to the body**: `rata issue update <ref> --body-file - --append` adds
+  new content at the end. A blank line separates the old and the new content. Do
+  not use it to add a section: `issue section append` names the heading.
 - **List issues**: `rata issue list` with the filters you need. Useful filters:
   `--team`, `--project`, `--state`, `--state-type`, `--priority`, `--label`,
   `--assignee`, `--parent`, `--text`, `--unblocked`, `--unassigned`. Every list
@@ -90,6 +90,34 @@ profile, so most commands need no `--team`. `issue list` and the other list
 commands default to the linked team; without a link they fail and ask for
 `--team` or `rata link`. Run `rata link` once to set it: every subdirectory and
 every worktree of the repository finds it.
+
+## Safe body writes
+
+`rata issue section replace <ref> "<heading>" --body-file -` with `--dry-run`
+and `--if-unchanged` is the safe door for a section edit. Read the issue first,
+preview the diff, then rerun the same command with `--if-unchanged` and the
+`updatedAt` from the read:
+
+```bash
+rata issue show ABC-42 --summary --json
+rata issue section replace ABC-42 "Gates" --body-file gates.md --dry-run
+rata issue section replace ABC-42 "Gates" --body-file gates.md --if-unchanged 2026-10-29T17:21:45.954Z
+```
+
+`--dry-run` prints a real unified diff and writes nothing. `--if-unchanged`
+fails with `conflict` when the issue changed after your read; skip it only when
+you did not read the issue first. Linear has no compare-and-swap, so the check
+is best effort.
+
+The file holds the content under the heading, without the heading line itself.
+
+Never rewrite the whole body for a mission log or gate evidence. A whole-body
+write, `issue update <ref> --body-file -`, replaces every heading, so one
+dropped section is lost silently. Use `issue section append` for new content
+only: a handoff line, a gate note, a decision. Use `issue section replace` when
+the content of an existing section changes. Both write the whole body back, so
+they leave every other section in place; the body is normalized to `\n` line
+endings.
 
 ## Paging lists
 

@@ -905,7 +905,7 @@ and case-sensitive.
 rata issue section get RAT-42 "Handoff log"
 rata issue section get RAT-42 "Handoff log" --with-heading
 rata issue section append RAT-42 "Handoff log" --body "Started."
-printf 'New content' | rata issue section replace RAT-42 "Handoff log" --body-file -
+printf 'New content' | rata issue section replace RAT-42 "Handoff log" --body-file - --dry-run
 ```
 
 `get` prints the content only. `--with-heading` prints the heading line first.
@@ -921,6 +921,11 @@ heading; a missing heading is `not_found`. Both need `--body` or `--body-file`.
 `--if-unchanged <updatedAt>` fails with `conflict` before the write when the
 issue changed since that read; the hint names the current value. Linear has no
 compare-and-swap, so the check is best effort.
+
+`section replace` with `--dry-run` and `--if-unchanged` is the safe door for a
+section edit. Never rewrite the whole body for a mission log or gate evidence:
+`issue update --body-file -` replaces every heading, so a dropped section is
+silent. `append` is for new content only.
 
 A duplicate heading is an `ambiguous` error that lists the line numbers. A
 missing heading read or replace is `not_found` and lists the available headings.
