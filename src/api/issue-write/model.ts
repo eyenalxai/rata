@@ -50,6 +50,31 @@ type WriteOptions = {
   readonly dryRun?: boolean | undefined
 }
 
+type BulkTarget = {
+  readonly summary: IssueSummary
+  readonly teamId: string
+}
+
+type ResolvedLabel = {
+  readonly id: string
+  readonly name: string
+}
+
+type BulkWriteSuccess = {
+  readonly identifier: string
+  readonly status: "updated" | "skipped"
+  readonly issue: IssueSummary
+  readonly labels?: readonly string[] | undefined
+}
+
+type BulkWriteFailure = {
+  readonly identifier: string
+  readonly status: "failed"
+  readonly error: IssueWriteApiError
+}
+
+type BulkWriteResult = BulkWriteSuccess | BulkWriteFailure
+
 type IssueWriteResult = {
   readonly status: WriteStatus
   readonly issue: IssueSummary
@@ -161,6 +186,21 @@ type IssueWriteApiShape = {
     names: readonly string[],
     options?: WriteOptions,
   ) => Effect.Effect<IssueWriteResult, IssueWriteApiError>
+  readonly assignChildren: (
+    parentRef: string,
+    assignee: string,
+    options?: WriteOptions,
+  ) => Effect.Effect<readonly BulkWriteResult[], IssueWriteApiError>
+  readonly addLabelsToChildren: (
+    parentRef: string,
+    names: readonly string[],
+    options?: WriteOptions,
+  ) => Effect.Effect<readonly BulkWriteResult[], IssueWriteApiError>
+  readonly removeLabelsFromChildren: (
+    parentRef: string,
+    names: readonly string[],
+    options?: WriteOptions,
+  ) => Effect.Effect<readonly BulkWriteResult[], IssueWriteApiError>
   readonly close: (
     ref: string,
     body?: string,
@@ -189,6 +229,8 @@ type IssueWriteApiShape = {
 
 const parseRefOrFail = (input: string): Effect.Effect<IssueRef, InvalidIssueRef> =>
   Effect.fromResult(parseIssueRef(input))
+
+const isNoneValue = (value: string): boolean => value.toLowerCase() === "none"
 
 const stateByName = (states: readonly WorkflowState[], name: string): WorkflowState | undefined =>
   states.find((state) => state.name.toLowerCase() === name.toLowerCase())
@@ -220,8 +262,12 @@ const unwrapComment = (payload: {
     : Effect.fail(new IssueWriteError({ message: "Linear did not create the comment." }))
 
 export {
+  type BulkTarget,
+  type BulkWriteResult,
+  type BulkWriteSuccess,
   combineStatus,
   IssueWriteError,
+  isNoneValue,
   type IssueCreateOptions,
   type IssueCreatePlan,
   type IssueRelationChange,
@@ -235,6 +281,7 @@ export {
   relationKindInfo,
   type RelationType,
   type RelationWriteResult,
+  type ResolvedLabel,
   type ResolvedRelationTarget,
   StateNotFoundError,
   stateByName,

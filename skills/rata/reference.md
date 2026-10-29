@@ -57,22 +57,22 @@ recorded `workspace`.
 
 ## Issues
 
-| Command                                              | Description                                                        |
-| ---------------------------------------------------- | ------------------------------------------------------------------ |
-| `rata issue list [flags]`                            | List issues. One page per call.                                    |
-| `rata search <text> [flags]`                         | Full-text search. Keeps relevance ranking; paging is best effort.  |
-| `rata issue show <ref> [--comments] [--no-comments]` | Show one issue with comments, children, relations and attachments. |
-| `rata issue create --title <title> [flags]`          | Create an issue.                                                   |
-| `rata issue update <ref> [flags]`                    | Update an issue.                                                   |
-| `rata issue comment <ref> --body <text>`             | Comment on an issue.                                               |
-| `rata issue label add <ref> <label...>`              | Add labels.                                                        |
-| `rata issue label remove <ref> <label...>`           | Remove labels.                                                     |
-| `rata issue assign <ref> --assignee <value>`         | Assign an issue. `me`, a user id, or `none` to clear it.           |
-| `rata issue unassign <ref>`                          | Clear the assignee.                                                |
-| `rata issue close <ref> [--comment <text>]`          | Close with an optional comment. `--comment-file -` reads stdin.    |
-| `rata issue reopen <ref>`                            | Reopen.                                                            |
-| `rata issue link <ref> [flags]`                      | Create relations.                                                  |
-| `rata issue unlink <ref> [flags]`                    | Remove relations.                                                  |
+| Command                                              | Description                                                                   |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `rata issue list [flags]`                            | List issues. One page per call.                                               |
+| `rata search <text> [flags]`                         | Full-text search. Keeps relevance ranking; paging is best effort.             |
+| `rata issue show <ref> [--comments] [--no-comments]` | Show one issue with comments, children, relations and attachments.            |
+| `rata issue create --title <title> [flags]`          | Create an issue.                                                              |
+| `rata issue update <ref> [flags]`                    | Update an issue.                                                              |
+| `rata issue comment <ref> --body <text>`             | Comment on an issue.                                                          |
+| `rata issue label add [<ref>] <label...>`            | Add labels. `--parent` targets every child; then every positional is a label. |
+| `rata issue label remove [<ref>] <label...>`         | Remove labels. The same `--parent` rule.                                      |
+| `rata issue assign [<ref>] --assignee <value>`       | Assign an issue, or every child with `--parent`. `me`, a user id, or `none`.  |
+| `rata issue unassign <ref>`                          | Clear the assignee.                                                           |
+| `rata issue close <ref> [--comment <text>]`          | Close with an optional comment. `--comment-file -` reads stdin.               |
+| `rata issue reopen <ref>`                            | Reopen.                                                                       |
+| `rata issue link <ref> [flags]`                      | Create relations.                                                             |
+| `rata issue unlink <ref> [flags]`                    | Remove relations.                                                             |
 
 ### `issue list` flags
 
@@ -161,7 +161,37 @@ and `none` clears the priority.
 `issue create`, `issue link`, `issue unlink`, `issue assign`, `issue unassign`,
 `issue label add`, `issue label remove`, `config set` and `config unset` accept
 `--dry-run`. It resolves the targets and prints the actions; no mutation runs.
-JSON is `{ "dryRun": true, "actions": [...] }`.
+JSON is `{ "dryRun": true, "actions": [...] }` for the single-issue forms. The
+bulk forms return `{ "dryRun": true, "results": [...] }`; see **Bulk writes by
+parent**.
+
+### Bulk writes by parent
+
+`issue assign`, `issue label add` and `issue label remove` accept `--parent`.
+Pass exactly one of the positional issue reference and `--parent`. With
+`--parent`, every positional of a label command is a label, and the command
+targets every child of the parent, open and closed, in creation order.
+
+Rata validates every target and label before the first write: a bad reference or
+a missing label aborts the batch with zero changes. The writes then run
+best-effort and the command exits 1 when any result failed. JSON is:
+
+```json
+{
+  "dryRun": false,
+  "results": [
+    { "identifier": "ABC-3", "status": "updated", "issue": { "identifier": "ABC-3" } },
+    { "identifier": "ABC-4", "status": "skipped", "issue": { "identifier": "ABC-4" } },
+    {
+      "identifier": "ABC-5",
+      "status": "failed",
+      "error": { "code": "not_found", "message": "...", "hint": null }
+    }
+  ]
+}
+```
+
+`--dry-run` reports the same results with `"dryRun": true` and writes nothing.
 
 These writes are idempotent: a repeat exits 0 and reports `skipped` in JSON.
 `unlink` with a missing relation is a skipped success. `label create` fails on a

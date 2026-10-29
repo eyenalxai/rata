@@ -5,6 +5,7 @@ import type { IssueUpdateOptions, IssueWriteApiShape } from "@/api/issue-write/m
 import { LinearClient } from "@/api/client"
 import { updateIssueMutation } from "@/api/issue-query"
 import { UpdateIssueResponse } from "@/api/issue-schema"
+import { makeBulkWrites } from "@/api/issue-write/bulk"
 import { makeCreateWrites } from "@/api/issue-write/create"
 import { makeIssueWrites } from "@/api/issue-write/issue-writes"
 import { unwrapIssue } from "@/api/issue-write/model"
@@ -28,6 +29,7 @@ class IssueWriteApi extends Context.Service<IssueWriteApi, IssueWriteApiShape>()
       const repoTeam = yield* RepoTeam
       const resolvers = makeIssueWriteResolvers({ client, labels, projects })
       const issueWrites = makeIssueWrites(resolvers)
+      const bulkWrites = makeBulkWrites(resolvers)
       const relationWrites = makeRelationWrites({ client, resolvers })
       const createWrites = makeCreateWrites({ client, repoConfig, repoTeam, resolvers })
 
@@ -76,6 +78,7 @@ class IssueWriteApi extends Context.Service<IssueWriteApi, IssueWriteApiShape>()
 
       return IssueWriteApi.of({
         ...issueWrites,
+        ...bulkWrites,
         ...relationWrites,
         ...createWrites,
         comment,

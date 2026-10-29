@@ -2,12 +2,14 @@ import { Effect } from "effect"
 
 import type { LinearClient } from "@/api/client"
 import type { WorkflowState } from "@/api/issue-schema"
+import type { BulkTarget, ResolvedLabel } from "@/api/issue-write/model"
 import type { LabelService } from "@/api/label"
 import type { ProjectService } from "@/api/project"
 
 import { toSummary } from "@/api/issue-model"
 import {
   addLabelMutation,
+  bulkTargetsQuery,
   createCommentMutation,
   issueIdQuery,
   issueStatesQuery,
@@ -20,6 +22,7 @@ import {
 } from "@/api/issue-query"
 import {
   AddLabelResponse,
+  BulkTargetsResponse,
   CreateCommentResponse,
   IssueIdResponse,
   IssueStatesResponse,
@@ -75,6 +78,18 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
           .execute(labelsQuery, { id: issueId, first: pageSize, after }, LabelsResponse)
           .pipe(Effect.map((data) => data.issue.labels)),
       )
+    },
+  )
+
+  const collectChildTargets = Effect.fn("IssueWriteApi.collectChildTargets")(
+    function* collectChildTargets(ref: string) {
+      const parentId = yield* resolveIssueId(ref)
+      const nodes = yield* collectConnection((after) =>
+        client
+          .execute(bulkTargetsQuery, { id: parentId, first: pageSize, after }, BulkTargetsResponse)
+          .pipe(Effect.map((data) => data.issue.children)),
+      )
+      return nodes.map((node): BulkTarget => ({ summary: toSummary(node), teamId: node.team.id }))
     },
   )
 
@@ -225,13 +240,14 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
     const available = yield* collectConnection((after) =>
       labels.listAvailable(teamId, { after, limit: pageSize }),
     )
-    return yield* Effect.forEach(names, (name) => {
+    const resolved: readonly ResolvedLabel[] = yield* Effect.forEach(names, (name) => {
       const match = findLabelByName(available, name)
       if (match === undefined) {
         return Effect.fail(labelNotFoundError(teamId, name))
       }
       return Effect.succeed({ id: match.id, name: match.name })
     })
+    return resolved
   })
 
   const postComment = Effect.fn("IssueWriteApi.postComment")(function* postComment(
@@ -258,6 +274,7 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
   return {
     ...relationResolvers,
     addLabel,
+    collectChildTargets,
     collectIssueLabels,
     issueStateIdByName,
     postComment,

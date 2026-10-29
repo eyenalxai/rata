@@ -14,4 +14,29 @@ const findLabelByName = <A extends { readonly name: string }>(
   name: string,
 ): A | undefined => labels.find((label) => label.name.toLowerCase() === name.toLowerCase())
 
-export { findLabelByName, parseLabelColor }
+type LabelMode = "add" | "remove"
+
+const labelChanges = <A extends { readonly id: string }>(
+  wanted: readonly A[],
+  present: ReadonlySet<string>,
+  mode: LabelMode,
+): readonly A[] => {
+  const seen = new Set<string>()
+  const changes: A[] = []
+  for (const label of wanted) {
+    if (seen.has(label.id)) {
+      continue
+    }
+    seen.add(label.id)
+    const has = present.has(label.id)
+    if (mode === "add" && !has) {
+      changes.push(label)
+    }
+    if (mode === "remove" && has) {
+      changes.push(label)
+    }
+  }
+  return changes
+}
+
+export { findLabelByName, labelChanges, type LabelMode, parseLabelColor }

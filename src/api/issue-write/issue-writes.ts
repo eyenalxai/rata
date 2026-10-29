@@ -3,11 +3,9 @@ import { Effect } from "effect"
 import type { WriteAction, WriteOptions, WriteStatus } from "@/api/issue-write/model"
 import type { makeIssueWriteResolvers } from "@/api/issue-write/resolvers"
 
-import { combineStatus } from "@/api/issue-write/model"
+import { combineStatus, isNoneValue } from "@/api/issue-write/model"
 
 type WriteResolvers = ReturnType<typeof makeIssueWriteResolvers>
-
-const isNoneValue = (value: string): boolean => value.toLowerCase() === "none"
 
 const makeIssueWrites = (resolvers: WriteResolvers) => {
   const addLabels = Effect.fn("IssueWriteApi.addLabels")(function* addLabels(

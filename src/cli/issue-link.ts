@@ -15,6 +15,7 @@ import {
   JsonOutput,
   dryRunFlag,
   errorLine,
+  noChange,
   reportFailure,
   writeDryRun,
   writeJson,
@@ -67,9 +68,6 @@ const relationOf = (action: WriteAction): { kind: RelationKind; issue: string } 
     issue: typeof issue === "string" ? issue : "",
   }
 }
-
-const noChange = (action: WriteAction): string =>
-  action.status === "skipped" ? " (no change)" : ""
 
 const linkCommand = Command.make(
   "link",

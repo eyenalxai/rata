@@ -127,6 +127,12 @@ const IssueSummaryNode = Schema.Struct({
 })
 type IssueSummaryNode = typeof IssueSummaryNode.Type
 
+const BulkTargetNode = Schema.Struct({
+  ...IssueSummaryNode.fields,
+  team: Schema.Struct({ id: Schema.String }),
+})
+type BulkTargetNode = typeof BulkTargetNode.Type
+
 const IssueDetailNode = Schema.Struct({
   id: Schema.String,
   identifier: Schema.String,
@@ -163,6 +169,15 @@ const IssueSummaryResponse = Schema.Struct({ issue: IssueSummaryNode })
 
 const ChildrenResponse = Schema.Struct({
   issue: Schema.Struct({ children: IssueChildConnection }),
+})
+
+const BulkTargetsResponse = Schema.Struct({
+  issue: Schema.Struct({
+    children: Schema.Struct({
+      nodes: Schema.Array(BulkTargetNode),
+      pageInfo: PageInfo,
+    }),
+  }),
 })
 
 const LabelsResponse = Schema.Struct({
@@ -240,6 +255,7 @@ const DeleteRelationResponse = Schema.Struct({ issueRelationDelete: RelationPayl
 export {
   AddLabelResponse,
   AttachmentsResponse,
+  BulkTargetsResponse,
   ChildrenResponse,
   CommentsResponse,
   CreateCommentResponse,

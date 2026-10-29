@@ -71,6 +71,17 @@ const childrenQuery = `query IssueChildren($id: String!, $first: Int!, $after: S
   }
 }`
 
+const bulkTargetsQuery = `query IssueChildrenSummary($id: String!, $first: Int!, $after: String) {
+  issue(id: $id) {
+    children(first: $first, after: $after, orderBy: createdAt) {
+      nodes {${summaryFields}
+        team { id }
+      }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+}`
+
 const labelsQuery = `query IssueLabels($id: String!, $first: Int!, $after: String) {
   issue(id: $id) {
     labels(first: $first, after: $after) {
@@ -199,6 +210,7 @@ const issueTeamQuery = `query IssueTeam($id: String!) {
 export {
   addLabelMutation,
   attachmentsQuery,
+  bulkTargetsQuery,
   childrenQuery,
   commentsQuery,
   createCommentMutation,
