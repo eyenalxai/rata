@@ -1,12 +1,13 @@
 import { Effect, Result } from "effect"
-import { Argument, Command, Flag } from "effect/cli"
+import { Argument, Command } from "effect/cli"
 import { EOL } from "node:os"
 
 import type { Viewer } from "@/api/client"
 import type { LinearApiError } from "@/api/errors"
 
 import { LinearClient } from "@/api/client"
-import { reportFailure, writeJson, writeLine } from "@/cli/output"
+import { OutputFields, rejectFields } from "@/cli/fields"
+import { JsonOutput, reportFailure, writeJson, writeLine } from "@/cli/output"
 import { Auth } from "@/config/auth"
 
 type WorkspaceEntry = {
@@ -31,19 +32,16 @@ const collectWorkspaces = Effect.fn("Workspace.collect")(function* collectWorksp
   )
 })
 
-const jsonFlag = Flag.Boolean("json").pipe(
-  Flag.withDescription("Print machine-readable JSON"),
-  Flag.withDefault(false),
-)
-
 const nameArgument = Argument.String("name").pipe(
   Argument.withDescription("Workspace profile name"),
 )
 
-const listCommand = Command.make("list", { json: jsonFlag }, (config) =>
+const listCommand = Command.make("list", {}, () =>
   Effect.gen(function* listWorkspaces() {
+    const json = yield* JsonOutput
+    yield* rejectFields(yield* OutputFields)
     const workspaces = yield* collectWorkspaces()
-    if (config.json) {
+    if (json) {
       return yield* writeJson({
         workspaces: workspaces.map((workspace) => ({
           name: workspace.name,
@@ -68,11 +66,13 @@ const listCommand = Command.make("list", { json: jsonFlag }, (config) =>
   }).pipe(Effect.catch(reportFailure)),
 ).pipe(Command.withDescription("List the stored workspaces with their viewer and organization"))
 
-const useCommand = Command.make("use", { name: nameArgument, json: jsonFlag }, (config) =>
+const useCommand = Command.make("use", { name: nameArgument }, (config) =>
   Effect.gen(function* useWorkspace() {
+    const json = yield* JsonOutput
+    yield* rejectFields(yield* OutputFields)
     const auth = yield* Auth
     yield* auth.use(config.name)
-    if (config.json) {
+    if (json) {
       return yield* writeJson({ default: config.name })
     }
     return yield* writeLine(`Default workspace: ${config.name}.`)
@@ -90,6 +90,7 @@ const useCommand = Command.make("use", { name: nameArgument, json: jsonFlag }, (
 const workspaceCommand = Command.make("workspace").pipe(
   Command.withDescription("Manage the stored Linear workspace profiles"),
   Command.withSubcommands([listCommand, useCommand]),
+  Command.withGlobalFlags([JsonOutput, OutputFields]),
 )
 
 export { collectWorkspaces, workspaceCommand }

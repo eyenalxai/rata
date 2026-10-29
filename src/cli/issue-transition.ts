@@ -3,12 +3,8 @@ import { Argument, Command, Flag } from "effect/cli"
 
 import { IssueWriteApi } from "@/api/issue-write"
 import { resolveBody } from "@/cli/body"
-import { errorLine, reportFailure, writeJson, writeLine } from "@/cli/output"
-
-const jsonFlag = Flag.Boolean("json").pipe(
-  Flag.withDescription("Print machine-readable JSON"),
-  Flag.withDefault(false),
-)
+import { OutputFields, rejectFields } from "@/cli/fields"
+import { JsonOutput, errorLine, reportFailure, writeJson, writeLine } from "@/cli/output"
 
 const optionalText = (name: string, description: string) =>
   Flag.String(name).pipe(Flag.withDescription(description), Flag.optional)
@@ -26,10 +22,11 @@ const closeCommand = Command.make(
       "comment-file",
       "Read the comment from a file. Use - for standard input",
     ),
-    json: jsonFlag,
   },
   (config) =>
     Effect.gen(function* closeIssue() {
+      const json = yield* JsonOutput
+      yield* rejectFields(yield* OutputFields)
       const body = yield* resolveBody(
         { body: "comment", file: "comment-file" },
         config.comment,
@@ -41,7 +38,7 @@ const closeCommand = Command.make(
       const comment = Option.getOrUndefined(body)
       const api = yield* IssueWriteApi
       const issue = yield* api.close(config.ref, comment)
-      if (config.json) {
+      if (json) {
         return yield* writeJson({ issue })
       }
       return yield* writeLine(
@@ -60,11 +57,13 @@ const closeCommand = Command.make(
   ]),
 )
 
-const reopenCommand = Command.make("reopen", { ref: refArgument, json: jsonFlag }, (config) =>
+const reopenCommand = Command.make("reopen", { ref: refArgument }, (config) =>
   Effect.gen(function* reopenIssue() {
+    const json = yield* JsonOutput
+    yield* rejectFields(yield* OutputFields)
     const api = yield* IssueWriteApi
     const issue = yield* api.reopen(config.ref)
-    if (config.json) {
+    if (json) {
       return yield* writeJson({ issue })
     }
     return yield* writeLine(`Reopened ${issue.identifier}.`)
@@ -86,13 +85,14 @@ const assignCommand = Command.make(
       Argument.withDescription("Assignee: `me` or a user id"),
     ),
     ref: refArgument,
-    json: jsonFlag,
   },
   (config) =>
     Effect.gen(function* assignIssue() {
+      const json = yield* JsonOutput
+      yield* rejectFields(yield* OutputFields)
       const api = yield* IssueWriteApi
       const issue = yield* api.assign(config.ref, config.assignee)
-      if (config.json) {
+      if (json) {
         return yield* writeJson({ issue })
       }
       return yield* writeLine(
@@ -109,11 +109,13 @@ const assignCommand = Command.make(
   ]),
 )
 
-const unassignCommand = Command.make("unassign", { ref: refArgument, json: jsonFlag }, (config) =>
+const unassignCommand = Command.make("unassign", { ref: refArgument }, (config) =>
   Effect.gen(function* unassignIssue() {
+    const json = yield* JsonOutput
+    yield* rejectFields(yield* OutputFields)
     const api = yield* IssueWriteApi
     const issue = yield* api.unassign(config.ref)
-    if (config.json) {
+    if (json) {
       return yield* writeJson({ issue })
     }
     return yield* writeLine(`Unassigned ${issue.identifier}.`)

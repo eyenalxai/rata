@@ -1,13 +1,39 @@
 import { Config, Console, Effect, Option, Result, Schema } from "effect"
+import { Flag, GlobalFlag } from "effect/cli"
 
 import { maxPageSize } from "@/api/pagination"
 
 const jsonOutput = Schema.fromJsonString(Schema.Unknown, { space: 2 })
 const defectJson = Schema.Defect()
 
+const JsonOutput = GlobalFlag.Setting("json")({
+  flag: Flag.Boolean("json").pipe(
+    Flag.withDescription("Print machine-readable JSON"),
+    Flag.withDefault(false),
+  ),
+})
+
+type ErrorCode =
+  | "validation"
+  | "not_linked"
+  | "not_found"
+  | "ambiguous"
+  | "auth"
+  | "forbidden"
+  | "conflict"
+  | "rate_limited"
+  | "network"
+  | "internal"
+
 type ReportedError = {
   readonly message: string
   readonly cause?: unknown
+}
+
+type ErrorReport = {
+  readonly code: ErrorCode
+  readonly message: string
+  readonly hint: string | null
 }
 
 const encodeCause = (cause: unknown): unknown => {
@@ -32,6 +58,84 @@ const debugText = (error: ReportedError): string => {
   return Result.isSuccess(encoded) ? encoded.success : error.message
 }
 
+const tagOf = (error: ReportedError): string | undefined => {
+  const tag: unknown = Reflect.get(error, "_tag")
+  return typeof tag === "string" ? tag : undefined
+}
+
+type ErrorRule = {
+  readonly code: ErrorCode
+  readonly hint: string | null
+}
+
+const errorRules: Record<string, ErrorRule> = {
+  LinearAuthError: { code: "auth", hint: "Run `rata auth login --with-token`." },
+  LinearNetworkError: { code: "network", hint: "Check the connection and retry." },
+  TeamResolutionError: { code: "not_linked", hint: null },
+  TeamNotFoundError: { code: "not_found", hint: null },
+  LabelNotFoundError: { code: "not_found", hint: null },
+  LabelCreateError: {
+    code: "conflict",
+    hint: "Check the label name, or pass `--if-not-exists`.",
+  },
+  LabelUpdateError: {
+    code: "conflict",
+    hint: "Check the label name, or pass `--if-not-exists`.",
+  },
+  ProjectNotFoundError: { code: "not_found", hint: null },
+  ProjectNameAmbiguousError: { code: "ambiguous", hint: null },
+  ProjectAlreadyDeletedError: { code: "conflict", hint: null },
+  ProjectNotDeletedError: { code: "conflict", hint: null },
+  StateNotFoundError: { code: "not_found", hint: null },
+  RelationNotFoundError: { code: "not_found", hint: null },
+  InvalidIssueRef: { code: "validation", hint: null },
+  InputError: { code: "validation", hint: null },
+  BodyInputError: { code: "validation", hint: null },
+  ColorInputError: { code: "validation", hint: null },
+  PriorityInputError: { code: "validation", hint: null },
+  FieldSelectionError: { code: "validation", hint: null },
+  LinkError: { code: "validation", hint: null },
+  AuthStoreError: { code: "auth", hint: "Run `rata auth login --with-token`." },
+}
+
+const classifyError = (error: ReportedError): ErrorReport => {
+  const message = error.message
+  const tag = tagOf(error)
+  const rule = tag === undefined ? undefined : errorRules[tag]
+  if (rule !== undefined) {
+    return { ...rule, message }
+  }
+  if (tag === "LinearRateLimitError") {
+    return { code: "rate_limited", message, hint: "Retry later." }
+  }
+  if (tag === "LinearGraphQLError") {
+    const text = message.toLowerCase()
+    if (text.includes("duplicate") || text.includes("already exists")) {
+      return {
+        code: "conflict",
+        message,
+        hint: "Use the existing object, or pass `--if-not-exists`.",
+      }
+    }
+    if (text.includes("not found")) {
+      return { code: "not_found", message, hint: "Check the reference and retry." }
+    }
+  }
+  return { code: "internal", message, hint: "Run with RATA_DEBUG=1 for details." }
+}
+
+const fallbackErrorJson =
+  '{"error":{"code":"internal","message":"Could not serialize the error.","hint":null}}'
+
+const writeJsonError = (value: unknown): Effect.Effect<void> =>
+  Effect.gen(function* writeErrorJson() {
+    const encoded = Schema.encodeResult(jsonOutput)(value)
+    if (Result.isSuccess(encoded)) {
+      return yield* Console.error(encoded.success)
+    }
+    return yield* Console.error(fallbackErrorJson)
+  })
+
 const writeJson = (value: unknown): Effect.Effect<void> =>
   Effect.sync(() => {
     const encoded = Schema.encodeResult(jsonOutput)(value)
@@ -43,9 +147,25 @@ const writeJson = (value: unknown): Effect.Effect<void> =>
 
 const writeLine = (line: string): Effect.Effect<void> => Console.log(line)
 
-const errorLine = (code: number, message: string): Effect.Effect<void> =>
+const isEnabledFlag = (value: string): boolean => value !== "" && value !== "0" && value !== "false"
+
+const debugEnabled: Effect.Effect<boolean> = Config.String("RATA_DEBUG").pipe(
+  Config.option,
+  Effect.map((debug) => Option.exists(debug, isEnabledFlag)),
+  Effect.orDie,
+)
+
+const errorLine = (code: number, message: string, hint?: string) =>
   Effect.gen(function* writeErrorLine() {
-    yield* Console.error(`error: ${message}`)
+    const json = yield* JsonOutput
+    if (json) {
+      yield* writeJsonError({ error: { code: "validation", message, hint: hint ?? null } })
+    } else {
+      yield* Console.error(`error: ${message}`)
+      if (hint !== undefined) {
+        yield* Console.error(`hint: ${hint}`)
+      }
+    }
     yield* Effect.sync(() => {
       process.exitCode = code
     })
@@ -54,7 +174,7 @@ const errorLine = (code: number, message: string): Effect.Effect<void> =>
 const nextPageHint = (name: string, endCursor: string): string =>
   `More ${name} available. Continue with --after ${endCursor}`
 
-const validatePageSize = (limit: number): Effect.Effect<boolean> =>
+const validatePageSize = (limit: number) =>
   Effect.gen(function* validate() {
     if (limit < 1) {
       yield* errorLine(1, "The --limit flag must be at least 1.")
@@ -67,15 +187,43 @@ const validatePageSize = (limit: number): Effect.Effect<boolean> =>
     return true
   })
 
-const isEnabledFlag = (value: string): boolean => value !== "" && value !== "0" && value !== "false"
-
-const reportFailure = (error: ReportedError): Effect.Effect<void> =>
-  Effect.gen(function* report() {
-    yield* errorLine(1, error.message)
-    const debug = yield* Config.String("RATA_DEBUG").pipe(Config.option, Effect.orDie)
-    if (Option.exists(debug, isEnabledFlag)) {
-      yield* Console.error(debugText(error))
+const reportFailure = (error: ReportedError) =>
+  Effect.gen(function* reportFailureEffect() {
+    const json = yield* JsonOutput
+    const classified = classifyError(error)
+    const debug = yield* debugEnabled
+    if (json) {
+      yield* writeJsonError({
+        error: {
+          code: classified.code,
+          message: classified.message,
+          hint: classified.hint,
+          ...(debug ? { details: encodeCause(error.cause ?? error) } : {}),
+        },
+      })
+    } else {
+      yield* Console.error(`error: ${classified.message}`)
+      if (classified.hint !== null) {
+        yield* Console.error(`hint: ${classified.hint}`)
+      }
+      if (debug) {
+        yield* Console.error(debugText(error))
+      }
     }
+    yield* Effect.sync(() => {
+      process.exitCode = 1
+    })
   })
 
-export { errorLine, nextPageHint, reportFailure, validatePageSize, writeJson, writeLine }
+export {
+  type ErrorCode,
+  type ErrorReport,
+  JsonOutput,
+  classifyError,
+  errorLine,
+  nextPageHint,
+  reportFailure,
+  validatePageSize,
+  writeJson,
+  writeLine,
+}

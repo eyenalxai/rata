@@ -6,12 +6,15 @@ import { maxPageSize } from "@/api/pagination"
 import { ProjectService } from "@/api/project"
 import { RepoTeam } from "@/api/repo-team"
 import { confirm } from "@/cli/confirm"
-import { nextPageHint, reportFailure, validatePageSize, writeJson, writeLine } from "@/cli/output"
-
-const jsonFlag = Flag.Boolean("json").pipe(
-  Flag.withDescription("Print machine-readable JSON"),
-  Flag.withDefault(false),
-)
+import { OutputFields, readFields, rejectFields, selectItems } from "@/cli/fields"
+import {
+  JsonOutput,
+  nextPageHint,
+  reportFailure,
+  validatePageSize,
+  writeJson,
+  writeLine,
+} from "@/cli/output"
 
 const optionalText = (name: string, description: string) =>
   Flag.String(name).pipe(Flag.withDescription(description), Flag.optional)
@@ -36,7 +39,6 @@ const formatProgress = (progress: number): string => `${Math.round(progress * 10
 const listCommand = Command.make(
   "list",
   {
-    json: jsonFlag,
     team: optionalText("team", "Filter by team key or id. Defaults to the team from `rata link`"),
     limit: limitFlag,
     after: afterFlag,
@@ -44,6 +46,8 @@ const listCommand = Command.make(
   },
   (config) =>
     Effect.gen(function* listProjects() {
+      const json = yield* JsonOutput
+      const fields = yield* readFields(json, yield* OutputFields)
       const valid = yield* validatePageSize(config.limit)
       if (!valid) {
         return
@@ -57,8 +61,11 @@ const listCommand = Command.make(
         includeArchived: config.includeArchived,
         teamId,
       })
-      if (config.json) {
-        yield* writeJson({ projects: page.nodes, pageInfo: page.pageInfo })
+      if (json) {
+        yield* writeJson({
+          projects: yield* selectItems(fields, page.nodes),
+          pageInfo: page.pageInfo,
+        })
         return
       }
       if (page.nodes.length === 0) {
@@ -89,17 +96,18 @@ const createCommand = Command.make(
       ),
     ),
     description: optionalText("description", "Project description"),
-    json: jsonFlag,
   },
   (config) =>
     Effect.gen(function* createProject() {
+      const json = yield* JsonOutput
+      yield* rejectFields(yield* OutputFields)
       const projects = yield* ProjectService
       const project = yield* projects.create({
         name: config.name,
         description: Option.getOrUndefined(config.description),
         teams: config.team.length > 0 ? config.team : undefined,
       })
-      if (config.json) {
+      if (json) {
         return yield* writeJson({ project })
       }
       return yield* writeLine(`Created project ${project.name} (${project.id}).`)
@@ -126,10 +134,11 @@ const deleteCommand = Command.make(
       Flag.withDescription("Skip the confirmation prompt"),
       Flag.withDefault(false),
     ),
-    json: jsonFlag,
   },
   (config) =>
     Effect.gen(function* deleteProject() {
+      const json = yield* JsonOutput
+      yield* rejectFields(yield* OutputFields)
       const projects = yield* ProjectService
       const project = yield* projects.resolve(config.ref)
       const confirmed = yield* confirm(
@@ -140,7 +149,7 @@ const deleteCommand = Command.make(
         return yield* writeLine("Aborted.")
       }
       const deleted = yield* projects.delete(project)
-      if (config.json) {
+      if (json) {
         return yield* writeJson({ deleted })
       }
       return yield* writeLine(`Deleted ${deleted.name} (${deleted.id}).`)
@@ -163,14 +172,15 @@ const restoreCommand = Command.make(
   "restore",
   {
     ref: Argument.String("ref").pipe(Argument.withDescription("Project name or UUID")),
-    json: jsonFlag,
   },
   (config) =>
     Effect.gen(function* restoreProject() {
+      const json = yield* JsonOutput
+      yield* rejectFields(yield* OutputFields)
       const projects = yield* ProjectService
       const project = yield* projects.resolveTrashed(config.ref)
       const restored = yield* projects.restore(project)
-      if (config.json) {
+      if (json) {
         return yield* writeJson({ restored })
       }
       return yield* writeLine(`Restored ${restored.name} (${restored.id}).`)
@@ -192,6 +202,7 @@ const restoreCommand = Command.make(
 const projectCommand = Command.make("project").pipe(
   Command.withDescription("Create, inspect, delete and restore the projects in the workspace"),
   Command.withSubcommands([listCommand, createCommand, deleteCommand, restoreCommand]),
+  Command.withGlobalFlags([JsonOutput, OutputFields]),
 )
 
 export { projectCommand }

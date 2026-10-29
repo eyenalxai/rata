@@ -6,7 +6,9 @@ import { LabelService } from "@/api/label"
 import { maxPageSize } from "@/api/pagination"
 import { RepoTeam } from "@/api/repo-team"
 import { resolveColor } from "@/cli/color"
+import { OutputFields, readFields, rejectFields, selectItems } from "@/cli/fields"
 import {
+  JsonOutput,
   errorLine,
   nextPageHint,
   reportFailure,
@@ -14,11 +16,6 @@ import {
   writeJson,
   writeLine,
 } from "@/cli/output"
-
-const jsonFlag = Flag.Boolean("json").pipe(
-  Flag.withDescription("Print machine-readable JSON"),
-  Flag.withDefault(false),
-)
 
 const teamFlag = Flag.String("team").pipe(
   Flag.withDescription("Team key or id. Defaults to the team from `rata link`"),
@@ -37,9 +34,11 @@ const afterFlag = Flag.String("after").pipe(
 
 const listCommand = Command.make(
   "list",
-  { json: jsonFlag, team: teamFlag, limit: limitFlag, after: afterFlag },
+  { team: teamFlag, limit: limitFlag, after: afterFlag },
   (config) =>
     Effect.gen(function* listLabels() {
+      const json = yield* JsonOutput
+      const fields = yield* readFields(json, yield* OutputFields)
       const valid = yield* validatePageSize(config.limit)
       if (!valid) {
         return
@@ -51,8 +50,11 @@ const listCommand = Command.make(
         after: Option.getOrNull(config.after),
         limit: config.limit,
       })
-      if (config.json) {
-        yield* writeJson({ labels: page.nodes, pageInfo: page.pageInfo })
+      if (json) {
+        yield* writeJson({
+          labels: yield* selectItems(fields, page.nodes),
+          pageInfo: page.pageInfo,
+        })
         return
       }
       if (page.nodes.length === 0) {
@@ -82,10 +84,11 @@ const createCommand = Command.make(
     name: Flag.String("name").pipe(Flag.withDescription("Label name")),
     color: colorFlag,
     team: optionalText("team", "Team key or id. Defaults to the team from `rata link`"),
-    json: jsonFlag,
   },
   (config) =>
     Effect.gen(function* createLabel() {
+      const json = yield* JsonOutput
+      yield* rejectFields(yield* OutputFields)
       const color = yield* resolveColor(config.color)
       const labels = yield* LabelService
       const label = yield* labels.create({
@@ -93,7 +96,7 @@ const createCommand = Command.make(
         color: Option.getOrUndefined(color),
         team: Option.getOrUndefined(config.team),
       })
-      if (config.json) {
+      if (json) {
         return yield* writeJson({ label })
       }
       return yield* writeLine(`Created label ${label.name}.`)
@@ -121,10 +124,11 @@ const editCommand = Command.make(
     name: optionalText("name", "New label name"),
     color: colorFlag,
     team: optionalText("team", "Team key or id. Defaults to the team from `rata link`"),
-    json: jsonFlag,
   },
   (config) =>
     Effect.gen(function* editLabel() {
+      const json = yield* JsonOutput
+      yield* rejectFields(yield* OutputFields)
       const color = yield* resolveColor(config.color)
       const name = Option.getOrUndefined(config.name)
       const colorValue = Option.getOrUndefined(color)
@@ -137,7 +141,7 @@ const editCommand = Command.make(
         color: colorValue,
         team: Option.getOrUndefined(config.team),
       })
-      if (config.json) {
+      if (json) {
         return yield* writeJson({ label })
       }
       return yield* writeLine(`Updated label ${label.name}.`)
@@ -159,6 +163,7 @@ const editCommand = Command.make(
 const labelCommand = Command.make("label").pipe(
   Command.withDescription("Create and inspect the labels of a team"),
   Command.withSubcommands([listCommand, createCommand, editCommand]),
+  Command.withGlobalFlags([JsonOutput, OutputFields]),
 )
 
 export { labelCommand }

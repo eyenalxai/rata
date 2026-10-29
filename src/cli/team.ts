@@ -5,13 +5,16 @@ import { EOL } from "node:os"
 import { maxPageSize } from "@/api/pagination"
 import { TeamService } from "@/api/team"
 import { confirm } from "@/cli/confirm"
-import { nextPageHint, reportFailure, validatePageSize, writeJson, writeLine } from "@/cli/output"
+import { OutputFields, readFields, rejectFields, selectItems } from "@/cli/fields"
+import {
+  JsonOutput,
+  nextPageHint,
+  reportFailure,
+  validatePageSize,
+  writeJson,
+  writeLine,
+} from "@/cli/output"
 import { machineTimezone } from "@/domain/timezone"
-
-const jsonFlag = Flag.Boolean("json").pipe(
-  Flag.withDescription("Print machine-readable JSON"),
-  Flag.withDefault(false),
-)
 
 const optionalText = (name: string, description: string) =>
   Flag.String(name).pipe(Flag.withDescription(description), Flag.optional)
@@ -26,35 +29,37 @@ const afterFlag = Flag.String("after").pipe(
   Flag.optional,
 )
 
-const listCommand = Command.make(
-  "list",
-  { json: jsonFlag, limit: limitFlag, after: afterFlag },
-  (config) =>
-    Effect.gen(function* listTeams() {
-      const valid = yield* validatePageSize(config.limit)
-      if (!valid) {
-        return
-      }
-      const teams = yield* TeamService
-      const page = yield* teams.list({
-        after: Option.getOrNull(config.after),
-        limit: config.limit,
+const listCommand = Command.make("list", { limit: limitFlag, after: afterFlag }, (config) =>
+  Effect.gen(function* listTeams() {
+    const json = yield* JsonOutput
+    const fields = yield* readFields(json, yield* OutputFields)
+    const valid = yield* validatePageSize(config.limit)
+    if (!valid) {
+      return
+    }
+    const teams = yield* TeamService
+    const page = yield* teams.list({
+      after: Option.getOrNull(config.after),
+      limit: config.limit,
+    })
+    if (json) {
+      yield* writeJson({
+        teams: yield* selectItems(fields, page.nodes),
+        pageInfo: page.pageInfo,
       })
-      if (config.json) {
-        yield* writeJson({ teams: page.nodes, pageInfo: page.pageInfo })
-        return
-      }
-      if (page.nodes.length === 0) {
-        yield* writeLine("No teams.")
-        return
-      }
-      const body = page.nodes.map((team) => `${team.key}\t${team.name}\t${team.id}`).join(EOL)
-      const hint =
-        page.pageInfo.hasNextPage && page.pageInfo.endCursor !== null
-          ? `${EOL}${nextPageHint("teams", page.pageInfo.endCursor)}`
-          : ""
-      yield* writeLine(`${body}${hint}`)
-    }).pipe(Effect.catch(reportFailure)),
+      return
+    }
+    if (page.nodes.length === 0) {
+      yield* writeLine("No teams.")
+      return
+    }
+    const body = page.nodes.map((team) => `${team.key}\t${team.name}\t${team.id}`).join(EOL)
+    const hint =
+      page.pageInfo.hasNextPage && page.pageInfo.endCursor !== null
+        ? `${EOL}${nextPageHint("teams", page.pageInfo.endCursor)}`
+        : ""
+    yield* writeLine(`${body}${hint}`)
+  }).pipe(Effect.catch(reportFailure)),
 ).pipe(Command.withDescription("List the teams in the workspace"))
 
 const createCommand = Command.make(
@@ -64,10 +69,11 @@ const createCommand = Command.make(
     key: optionalText("key", "Team key, for example RAT"),
     description: optionalText("description", "Team description"),
     copySettingsFrom: optionalText("copy-settings-from", "Team key or id to copy settings from"),
-    json: jsonFlag,
   },
   (config) =>
     Effect.gen(function* createTeam() {
+      const json = yield* JsonOutput
+      yield* rejectFields(yield* OutputFields)
       const teams = yield* TeamService
       const team = yield* teams.create({
         name: config.name,
@@ -76,7 +82,7 @@ const createCommand = Command.make(
         copySettingsFrom: Option.getOrUndefined(config.copySettingsFrom),
         timezone: Option.getOrUndefined(machineTimezone()),
       })
-      if (config.json) {
+      if (json) {
         return yield* writeJson({ team })
       }
       return yield* writeLine(`Created ${team.key}: ${team.name} (${team.id})`)
@@ -103,10 +109,11 @@ const deleteCommand = Command.make(
       Flag.withDescription("Skip the confirmation prompt"),
       Flag.withDefault(false),
     ),
-    json: jsonFlag,
   },
   (config) =>
     Effect.gen(function* deleteTeam() {
+      const json = yield* JsonOutput
+      yield* rejectFields(yield* OutputFields)
       const teams = yield* TeamService
       const team = yield* teams.byKey(config.key)
       const confirmed = yield* confirm(`Delete team ${team.key} (${team.name})?`, config.yes)
@@ -114,7 +121,7 @@ const deleteCommand = Command.make(
         return yield* writeLine("Aborted.")
       }
       const deleted = yield* teams.delete(team)
-      if (config.json) {
+      if (json) {
         return yield* writeJson({ deleted: { id: deleted.id, key: deleted.key } })
       }
       return yield* writeLine(`Deleted ${deleted.key}: ${deleted.name} (${deleted.id}).`)
@@ -136,6 +143,7 @@ const deleteCommand = Command.make(
 const teamCommand = Command.make("team").pipe(
   Command.withDescription("Inspect, create and delete the teams in the workspace"),
   Command.withSubcommands([listCommand, createCommand, deleteCommand]),
+  Command.withGlobalFlags([JsonOutput, OutputFields]),
 )
 
 export { teamCommand }
