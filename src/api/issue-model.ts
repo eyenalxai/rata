@@ -138,10 +138,10 @@ const relationTargets = (
   ],
 })
 
-const byPriority = (left: IssueSummary, right: IssueSummary): number =>
-  priorityRank(left.priority) - priorityRank(right.priority)
-
-const byCreatedAt = (left: IssueComment, right: IssueComment): number => {
+const byCreatedAt = (
+  left: { readonly createdAt: string },
+  right: { readonly createdAt: string },
+): number => {
   if (left.createdAt < right.createdAt) {
     return -1
   }
@@ -151,19 +151,24 @@ const byCreatedAt = (left: IssueComment, right: IssueComment): number => {
   return 0
 }
 
+const byPriority = (left: IssueSummaryNode, right: IssueSummaryNode): number => {
+  const rank = priorityRank(toPriority(left.priority)) - priorityRank(toPriority(right.priority))
+  return rank === 0 ? byCreatedAt(left, right) : rank
+}
+
 const sortComparators: Readonly<
-  Record<SortField, (left: IssueSummary, right: IssueSummary) => number>
+  Record<SortField, (left: IssueSummaryNode, right: IssueSummaryNode) => number>
 > = {
   priority: byPriority,
 }
 
 const collectsAllPages = (options: IssueListOptions): boolean => options.sort !== undefined
 
-const sortAndLimitIssues = (
-  issues: readonly IssueSummary[],
+const sortAndLimitNodes = (
+  nodes: readonly IssueSummaryNode[],
   options: IssueListOptions,
-): readonly IssueSummary[] =>
-  (options.sort === undefined ? issues : issues.toSorted(sortComparators[options.sort])).slice(
+): readonly IssueSummaryNode[] =>
+  (options.sort === undefined ? nodes : nodes.toSorted(sortComparators[options.sort])).slice(
     0,
     options.limit,
   )
@@ -179,7 +184,7 @@ export {
   type IssueShowOptions,
   type IssueSummary,
   relationTargets,
-  sortAndLimitIssues,
+  sortAndLimitNodes,
   type SortField,
   sortFields,
   type StateType,

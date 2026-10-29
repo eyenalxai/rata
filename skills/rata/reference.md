@@ -100,6 +100,8 @@ recorded `workspace`.
 | Command                                              | Description                                                                   |
 | ---------------------------------------------------- | ----------------------------------------------------------------------------- |
 | `rata issue list [flags]`                            | List issues. One page per call.                                               |
+| `rata next --parent <ref>`                           | Show the next ready child of a parent: priority, then oldest `createdAt`.     |
+| `rata why <ref>`                                     | Show one level of the blocking graph: `blocked` and `blockedBy`.              |
 | `rata search <text> [flags]`                         | Full-text search. Keeps relevance ranking; paging is best effort.             |
 | `rata issue show <ref> [--comments] [--no-comments]` | Show one issue with comments, children, relations and attachments.            |
 | `rata issue create --title <title> [flags]`          | Create an issue.                                                              |
@@ -132,7 +134,7 @@ recorded `workspace`.
 | `--text`       | Text in the title or the description.                                    |
 | `--unblocked`  | Only open issues with no open blocker.                                   |
 | `--unassigned` | Only issues with no assignee.                                            |
-| `--sort`       | `priority`: urgent first and none last; ties keep the incoming order.    |
+| `--sort`       | `priority`: urgent first and none last; ties go to the oldest.           |
 | `--limit`      | Page size. Default: 50, maximum: 250.                                    |
 | `--after`      | Continue after a cursor from a previous page.                            |
 

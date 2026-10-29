@@ -209,16 +209,22 @@ EOF
 rata issue close ABC-51
 ```
 
-The frontier is the set of tickets under a map that are unblocked and
+The frontier is the set of tickets under a map that are open, unblocked and
 unassigned. Read the first ready ticket with:
 
 ```bash
-rata issue list --parent ABC-50 --unblocked --unassigned --sort priority --limit 1 --json
+rata next --parent ABC-50
 ```
 
-The JSON is `{ issues, pageInfo }`. The first result is the most urgent
-ticket; ties keep the previous order. The sort reads every matching page
-before it applies the limit, so one call returns the top ticket.
+The JSON is `{ issue }`. `issue` is the summary, or `null` when the frontier is
+empty. Human output prints the ticket line, or `No ready ticket.`; both exit 0.
+`next` reads every matching page before it picks: priority first (urgent
+first), then the oldest `createdAt`.
+
+Check why a ticket is not ready with `rata why ABC-51`. The JSON carries
+`blocked`, which is true when any blocker is open, and `blockedBy`, where each
+blocker names its state and whether it is `closed`. Human output prints
+`ABC-51 is ready.` when nothing blocks.
 
 ## Reference
 

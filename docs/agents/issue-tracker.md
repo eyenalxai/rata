@@ -146,11 +146,14 @@ with **child** issues as tickets.
   `rata issue link <child-ref> --blocked-by <blocker-ref>`, or the inverse with
   `rata issue link <blocker-ref> --blocks <child-ref>`. A ticket is unblocked
   when every issue that blocks it is closed.
-- **Frontier query**: `rata issue list --parent <map-ref> --unblocked --unassigned --sort priority --limit 1 --json`.
-  The JSON is `{ issues, pageInfo }`. The first result is the most urgent open,
-  unblocked, unclaimed child; ties keep the previous order. The sort reads
-  every matching page before it applies the limit, so one call returns the top
-  ticket.
+- **Frontier**: `rata next --parent <map-ref>` returns the first open, unblocked,
+  unclaimed child. The order is priority (urgent first), then the oldest
+  `createdAt`. The JSON is `{ issue }`; `issue` is `null` when no child is
+  ready, and the command exits 0. It reads every matching page before it picks.
+- **Why blocked**: `rata why <ref>` prints one level of `blockedBy`. Each
+  blocker carries its state and a `closed` flag; `blocked` is true when any
+  blocker is open. A blocker is closed when its state type is `completed` or
+  `canceled`. Human output prints `RATA-42 is ready.` when nothing blocks.
 - **Claim**: `rata issue assign <ref> --assignee me`, the session's first write. The
   assignee is the claim; this is what assigns a wayfinder child.
 - **Resolve**: `rata issue comment create <ref> --body-file -`, then
