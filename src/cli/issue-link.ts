@@ -5,12 +5,21 @@ import type {
   IssueRelationChange,
   IssueRelationChanges,
   RelationKind,
-} from "@/api/issue-write-model"
+  WriteAction,
+} from "@/api/issue-write/model"
 
 import { IssueWriteApi } from "@/api/issue-write"
-import { relationKindInfo } from "@/api/issue-write-model"
+import { relationKindInfo } from "@/api/issue-write/model"
 import { OutputFields, rejectFields } from "@/cli/fields"
-import { JsonOutput, errorLine, reportFailure, writeJson, writeLine } from "@/cli/output"
+import {
+  JsonOutput,
+  dryRunFlag,
+  errorLine,
+  reportFailure,
+  writeDryRun,
+  writeJson,
+  writeLine,
+} from "@/cli/output"
 
 const refArgument = Argument.String("ref").pipe(
   Argument.withDescription("Issue reference: an identifier, a UUID, or a linear.app URL"),
@@ -43,24 +52,66 @@ const formatChanges = (
   return `${verb} ${ref}: ${parts.join(", ")}.`
 }
 
-const linkCommand = Command.make("link", { ref: refArgument, ...relationFlags }, (config) =>
-  Effect.gen(function* linkIssue() {
-    const json = yield* JsonOutput
-    yield* rejectFields(yield* OutputFields)
-    const changes: IssueRelationChanges = config
-    if (countChanges(changes) === 0) {
-      return yield* errorLine(
-        1,
-        "Pass at least one of --blocks, --blocked-by, --related or --duplicate.",
-      )
-    }
-    const api = yield* IssueWriteApi
-    const applied = yield* api.link(config.ref, changes)
-    if (json) {
-      return yield* writeJson({ relations: applied })
-    }
-    return yield* writeLine(formatChanges("Linked", config.ref, applied))
-  }).pipe(Effect.catch(reportFailure)),
+const relationOf = (action: WriteAction): { kind: RelationKind; issue: string } => {
+  const relation = action.changes.relation
+  const issue = action.changes.issue
+  const kind: RelationKind =
+    relation === "blocks" ||
+    relation === "blockedBy" ||
+    relation === "related" ||
+    relation === "duplicate"
+      ? relation
+      : "related"
+  return {
+    kind,
+    issue: typeof issue === "string" ? issue : "",
+  }
+}
+
+const noChange = (action: WriteAction): string =>
+  action.status === "skipped" ? " (no change)" : ""
+
+const linkCommand = Command.make(
+  "link",
+  { ref: refArgument, ...relationFlags, dryRun: dryRunFlag },
+  (config) =>
+    Effect.gen(function* linkIssue() {
+      const json = yield* JsonOutput
+      yield* rejectFields(yield* OutputFields)
+      const changes: IssueRelationChanges = config
+      if (countChanges(changes) === 0) {
+        return yield* errorLine(
+          1,
+          "Pass at least one of --blocks, --blocked-by, --related or --duplicate.",
+        )
+      }
+      const api = yield* IssueWriteApi
+      const result = yield* api.link(config.ref, changes, { dryRun: config.dryRun })
+      if (config.dryRun) {
+        return yield* writeDryRun(json, result.actions, (action) => {
+          const relation = relationOf(action)
+          return `Would link ${action.target}: ${kindLabel(relation.kind)} ${relation.issue}.${noChange(action)}`
+        })
+      }
+      if (json) {
+        return yield* writeJson({
+          dryRun: false,
+          status: result.status,
+          relations: result.changes,
+        })
+      }
+      const applied = result.changes.filter((change) => change.action !== "skipped")
+      const skipped = result.changes.filter((change) => change.action === "skipped")
+      if (applied.length > 0) {
+        yield* writeLine(formatChanges("Linked", config.ref, applied))
+      }
+      for (const change of skipped) {
+        yield* writeLine(
+          `Skipped ${config.ref}: ${kindLabel(change.kind)} ${change.target} is already linked.`,
+        )
+      }
+      return yield* Effect.void
+    }).pipe(Effect.catch(reportFailure)),
 ).pipe(
   Command.withDescription("Create relations between issues"),
   Command.withExamples([
@@ -75,24 +126,47 @@ const linkCommand = Command.make("link", { ref: refArgument, ...relationFlags },
   ]),
 )
 
-const unlinkCommand = Command.make("unlink", { ref: refArgument, ...relationFlags }, (config) =>
-  Effect.gen(function* unlinkIssue() {
-    const json = yield* JsonOutput
-    yield* rejectFields(yield* OutputFields)
-    const changes: IssueRelationChanges = config
-    if (countChanges(changes) === 0) {
-      return yield* errorLine(
-        1,
-        "Pass at least one of --blocks, --blocked-by, --related or --duplicate.",
-      )
-    }
-    const api = yield* IssueWriteApi
-    const applied = yield* api.unlink(config.ref, changes)
-    if (json) {
-      return yield* writeJson({ relations: applied })
-    }
-    return yield* writeLine(formatChanges("Unlinked", config.ref, applied))
-  }).pipe(Effect.catch(reportFailure)),
+const unlinkCommand = Command.make(
+  "unlink",
+  { ref: refArgument, ...relationFlags, dryRun: dryRunFlag },
+  (config) =>
+    Effect.gen(function* unlinkIssue() {
+      const json = yield* JsonOutput
+      yield* rejectFields(yield* OutputFields)
+      const changes: IssueRelationChanges = config
+      if (countChanges(changes) === 0) {
+        return yield* errorLine(
+          1,
+          "Pass at least one of --blocks, --blocked-by, --related or --duplicate.",
+        )
+      }
+      const api = yield* IssueWriteApi
+      const result = yield* api.unlink(config.ref, changes, { dryRun: config.dryRun })
+      if (config.dryRun) {
+        return yield* writeDryRun(json, result.actions, (action) => {
+          const relation = relationOf(action)
+          return `Would unlink ${action.target}: ${kindLabel(relation.kind)} ${relation.issue}.${noChange(action)}`
+        })
+      }
+      if (json) {
+        return yield* writeJson({
+          dryRun: false,
+          status: result.status,
+          relations: result.changes,
+        })
+      }
+      const applied = result.changes.filter((change) => change.action !== "skipped")
+      const skipped = result.changes.filter((change) => change.action === "skipped")
+      if (applied.length > 0) {
+        yield* writeLine(formatChanges("Unlinked", config.ref, applied))
+      }
+      for (const change of skipped) {
+        yield* writeLine(
+          `Skipped ${config.ref}: ${kindLabel(change.kind)} ${change.target} is not linked.`,
+        )
+      }
+      return yield* Effect.void
+    }).pipe(Effect.catch(reportFailure)),
 ).pipe(
   Command.withDescription("Remove relations between issues"),
   Command.withExamples([

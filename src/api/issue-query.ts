@@ -54,6 +54,11 @@ const issueIdQuery = `query IssueId($id: String!) {
   }
 }`
 
+const issueSummaryQuery = `query IssueSummary($id: String!) {
+  issue(id: $id) {${summaryFields}
+  }
+}`
+
 const childrenQuery = `query IssueChildren($id: String!, $first: Int!, $after: String) {
   issue(id: $id) {
     children(first: $first, after: $after) {
@@ -190,6 +195,7 @@ export {
   inverseRelationsQuery,
   issueIdQuery,
   issueStatesQuery,
+  issueSummaryQuery,
   issueTeamQuery,
   labelsQuery,
   listQuery,

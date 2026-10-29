@@ -19,9 +19,12 @@ operations.
   `rata issue update <ref> --priority <value>`.
 - **Assign the issue**: every issue must be assigned to the authenticated user.
   Pass `--assignee me` when you create the issue; triage assigns `me` to issues
-  that arrive without an assignee. Change it with `rata issue assign me <ref>`,
+  that arrive without an assignee. Change it with `rata issue assign <ref> --assignee me`,
   or clear it with `rata issue unassign <ref>`. Wayfinder children are the
   exception: they stay unassigned until the claim step.
+- **Preview a write**: add `--dry-run` to `rata issue link`, `unlink`, `assign`,
+  `unassign`, `label add` or `label remove`. A repeated idempotent write exits 0
+  and reports `skipped`.
 - **Read an issue**: `rata issue show <ref> --comments --json`
 - **List issues**: `rata issue list` with the filters you need. Useful filters:
   `--team`, `--project`, `--state`, `--state-type`, `--priority`, `--label`,
@@ -105,7 +108,7 @@ with **child** issues as tickets.
   unblocked, unclaimed child; ties keep the previous order. The sort reads
   every matching page before it applies the limit, so one call returns the top
   ticket.
-- **Claim**: `rata issue assign me <ref>`, the session's first write. The
+- **Claim**: `rata issue assign <ref> --assignee me`, the session's first write. The
   assignee is the claim; this is what assigns a wayfinder child.
 - **Resolve**: `rata issue comment <ref> --body-file -`, then
   `rata issue close <ref>`, then append a context pointer (gist plus link) to

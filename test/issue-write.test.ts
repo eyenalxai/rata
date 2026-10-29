@@ -1,5 +1,5 @@
 import { inputOf } from "@test/fake-linear/model"
-import { jsonResponse, pageInfo, viewer } from "@test/issue-fixtures"
+import { jsonResponse, pageInfo, summaryNode, viewer } from "@test/issue-fixtures"
 import {
   configWithTeam,
   issueCreated,
@@ -8,13 +8,17 @@ import {
   otherTeam,
   requestOf,
   run,
-  states,
   team,
-} from "@test/issue-write-fixtures"
+} from "@test/issue-write/fixtures"
 import { describe, expect, test } from "bun:test"
 import { Effect } from "effect"
 
 import { IssueWriteApi } from "@/api/issue-write"
+
+const summaryWith = (stateType: string) => ({
+  ...summaryNode("RAT-1"),
+  state: { name: stateType, type: stateType },
+})
 
 const teamHandler = () =>
   makeRecorder((request) => {
@@ -26,53 +30,6 @@ const teamHandler = () =>
     }
     if (request.query.includes("mutation CreateIssue")) {
       return issueCreated()
-    }
-    return jsonResponse({ errors: [{ message: `Unexpected query: ${request.query}` }] }, 400)
-  })
-
-const stateHandler = (workflowStates: readonly { id: string; name: string; type: string }[]) =>
-  makeRecorder((request) => {
-    if (request.query.includes("query IssueId")) {
-      return jsonResponse({ data: { issue: { id: "i1" } } })
-    }
-    if (request.query.includes("query IssueStates")) {
-      return jsonResponse({
-        data: { issue: { team: { id: "team-1", states: { nodes: workflowStates, pageInfo } } } },
-      })
-    }
-    if (request.query.includes("mutation UpdateIssue")) {
-      return issueUpdated()
-    }
-    return jsonResponse({ errors: [{ message: `Unexpected query: ${request.query}` }] }, 400)
-  })
-
-const closeCommentHandler = () =>
-  makeRecorder((request) => {
-    if (request.query.includes("query IssueId")) {
-      return jsonResponse({ data: { issue: { id: "i1" } } })
-    }
-    if (request.query.includes("mutation CreateComment")) {
-      return jsonResponse({
-        data: {
-          commentCreate: {
-            success: true,
-            comment: {
-              id: "c1",
-              body: "Done",
-              createdAt: "2026-01-01T10:00:00.000Z",
-              user: viewer,
-            },
-          },
-        },
-      })
-    }
-    if (request.query.includes("query IssueStates")) {
-      return jsonResponse({
-        data: { issue: { team: { id: "team-1", states: { nodes: states, pageInfo } } } },
-      })
-    }
-    if (request.query.includes("mutation UpdateIssue")) {
-      return issueUpdated()
     }
     return jsonResponse({ errors: [{ message: `Unexpected query: ${request.query}` }] }, 400)
   })
@@ -122,64 +79,81 @@ describe("IssueWriteApi team resolution", () => {
   })
 })
 
-describe("IssueWriteApi state resolution", () => {
-  test("close picks the completed state, not the first state", async () => {
-    const recorder = stateHandler(states)
-    await run(
-      recorder.handler,
-      Effect.gen(function* closeIssue() {
-        const api = yield* IssueWriteApi
-        return yield* api.close("RAT-1")
-      }),
-    )
-    const update = requestOf(recorder, "mutation UpdateIssue")
-    expect(inputOf(update?.variables ?? {})).toEqual({ stateId: "s-done" })
+const assignHandler = (assignee: typeof viewer | null) =>
+  makeRecorder((request) => {
+    if (request.query.includes("query IssueSummary")) {
+      return jsonResponse({ data: { issue: { ...summaryWith("started"), assignee } } })
+    }
+    if (request.query.includes("query Viewer")) {
+      return jsonResponse({ data: { viewer } })
+    }
+    if (request.query.includes("mutation UpdateIssue")) {
+      return issueUpdated()
+    }
+    return jsonResponse({ errors: [{ message: `Unexpected query: ${request.query}` }] }, 400)
   })
 
-  test("reopen picks the unstarted state, not the backlog state", async () => {
-    const recorder = stateHandler(states)
-    await run(
+describe("IssueWriteApi assign", () => {
+  test("skips when the assignee already holds the issue", async () => {
+    const recorder = assignHandler(viewer)
+    const result = await run(
       recorder.handler,
-      Effect.gen(function* reopenIssue() {
+      Effect.gen(function* assignSame() {
         const api = yield* IssueWriteApi
-        return yield* api.reopen("RAT-1")
+        return yield* api.assign("RAT-1", "me")
       }),
     )
-    const update = requestOf(recorder, "mutation UpdateIssue")
-    expect(inputOf(update?.variables ?? {})).toEqual({ stateId: "s-todo" })
-  })
-
-  test("close fails when the team has no completed state", async () => {
-    const recorder = stateHandler(states.filter((state) => state.type !== "completed"))
-    const error = await run(
-      recorder.handler,
-      Effect.gen(function* closeIssue() {
-        const api = yield* IssueWriteApi
-        return yield* Effect.flip(api.close("RAT-1"))
-      }),
-    )
-    expect(error._tag).toBe("StateNotFoundError")
+    expect(result.status).toBe("skipped")
     expect(requestOf(recorder, "mutation UpdateIssue")).toBeUndefined()
   })
 
-  test("close posts the comment before it moves the state", async () => {
-    const recorder = closeCommentHandler()
-    await run(
+  test("clears the assignee with none", async () => {
+    const recorder = assignHandler(viewer)
+    const result = await run(
       recorder.handler,
-      Effect.gen(function* closeIssue() {
+      Effect.gen(function* assignNone() {
         const api = yield* IssueWriteApi
-        return yield* api.close("RAT-1", "Done")
+        return yield* api.assign("RAT-1", "none")
       }),
     )
-    const commentIndex = recorder.requests.findIndex((request) =>
-      request.query.includes("mutation CreateComment"),
+    expect(result.status).toBe("updated")
+    expect(inputOf(requestOf(recorder, "mutation UpdateIssue")?.variables ?? {})).toEqual({
+      assigneeId: null,
+    })
+  })
+
+  test("does not write on a dry run", async () => {
+    const recorder = assignHandler(null)
+    const result = await run(
+      recorder.handler,
+      Effect.gen(function* dryRunAssign() {
+        const api = yield* IssueWriteApi
+        return yield* api.assign("RAT-1", "me", { dryRun: true })
+      }),
     )
-    const updateIndex = recorder.requests.findIndex((request) =>
-      request.query.includes("mutation UpdateIssue"),
+    expect(result.actions).toEqual([
+      {
+        action: "assign",
+        target: "RAT-1",
+        status: "updated",
+        changes: { assignee: "me" },
+      },
+    ])
+    expect(requestOf(recorder, "mutation UpdateIssue")).toBeUndefined()
+  })
+})
+
+describe("IssueWriteApi unassign", () => {
+  test("skips when the issue is already unassigned", async () => {
+    const recorder = assignHandler(null)
+    const result = await run(
+      recorder.handler,
+      Effect.gen(function* unassignEmpty() {
+        const api = yield* IssueWriteApi
+        return yield* api.unassign("RAT-1")
+      }),
     )
-    expect(commentIndex).toBeGreaterThanOrEqual(0)
-    expect(commentIndex).toBeLessThan(updateIndex)
-    const comment = requestOf(recorder, "mutation CreateComment")
-    expect(inputOf(comment?.variables ?? {})).toEqual({ issueId: "i1", body: "Done" })
+    expect(result.status).toBe("skipped")
+    expect(requestOf(recorder, "mutation UpdateIssue")).toBeUndefined()
   })
 })

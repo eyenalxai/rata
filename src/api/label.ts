@@ -84,6 +84,12 @@ class LabelCreateError extends Schema.TaggedError<LabelCreateError>()("LabelCrea
   message: Schema.String,
 }) {}
 
+class LabelExistsError extends Schema.TaggedError<LabelExistsError>()("LabelExistsError", {
+  name: Schema.String,
+  existingName: Schema.String,
+  message: Schema.String,
+}) {}
+
 class LabelUpdateError extends Schema.TaggedError<LabelUpdateError>()("LabelUpdateError", {
   ref: Schema.String,
   message: Schema.String,
@@ -100,6 +106,12 @@ type LabelCreateOptions = {
   readonly name: string
   readonly color?: string | undefined
   readonly team?: string | undefined
+  readonly ifNotExists?: boolean | undefined
+}
+
+type LabelCreateResult = {
+  readonly label: Label
+  readonly created: boolean
 }
 
 type LabelUpdateOptions = {
@@ -110,6 +122,7 @@ type LabelUpdateOptions = {
 
 type LabelWriteError =
   | LabelCreateError
+  | LabelExistsError
   | LabelNotFoundError
   | LabelUpdateError
   | LinearApiError
@@ -130,7 +143,9 @@ type LabelOperations = {
     teamId: string,
     name: string,
   ) => Effect.Effect<Label, LabelNotFoundError | LinearApiError>
-  readonly create: (options: LabelCreateOptions) => Effect.Effect<Label, LabelWriteError>
+  readonly create: (
+    options: LabelCreateOptions,
+  ) => Effect.Effect<LabelCreateResult, LabelWriteError>
   readonly update: (
     ref: string,
     options: LabelUpdateOptions,
@@ -188,6 +203,20 @@ class LabelService extends Context.Service<LabelService, LabelOperations>()(
         options: LabelCreateOptions,
       ) {
         const teamId = yield* repoTeam.resolve(options.team)
+        const available = yield* collectConnection((after) =>
+          listAvailable(teamId, { after, limit: pageSize }),
+        )
+        const existing = findLabelByName(available, options.name)
+        if (existing !== undefined) {
+          if (options.ifNotExists === true) {
+            return { label: existing, created: false }
+          }
+          return yield* new LabelExistsError({
+            name: options.name,
+            existingName: existing.name,
+            message: `The label \`${existing.name}\` already exists.`,
+          })
+        }
         const input: Record<string, unknown> = { name: options.name, teamId }
         if (options.color !== undefined) {
           input.color = options.color
@@ -203,7 +232,7 @@ class LabelService extends Context.Service<LabelService, LabelOperations>()(
             message: `Linear did not create the label ${options.name}.`,
           })
         }
-        return data.issueLabelCreate.issueLabel
+        return { label: data.issueLabelCreate.issueLabel, created: true }
       })
 
       const update = Effect.fn("LabelService.update")(function* updateLabel(
@@ -250,6 +279,8 @@ export {
   Label,
   LabelCreateError,
   type LabelCreateOptions,
+  type LabelCreateResult,
+  LabelExistsError,
   labelNotFoundError,
   LabelNotFoundError,
   type LabelOperations,

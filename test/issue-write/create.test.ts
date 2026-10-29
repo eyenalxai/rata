@@ -8,46 +8,12 @@ import {
   run,
   states,
   team,
-} from "@test/issue-write-fixtures"
+} from "@test/issue-write/fixtures"
 import { describe, expect, test } from "bun:test"
 import { Effect, FileSystem, Layer, Option, Stdio, Stream } from "effect"
 
 import { IssueWriteApi } from "@/api/issue-write"
 import { resolveBody } from "@/cli/body"
-
-const labelsHandler = () =>
-  makeRecorder((request) => {
-    if (request.query.includes("query IssueId")) {
-      return jsonResponse({ data: { issue: { id: "i1" } } })
-    }
-    if (request.query.includes("query IssueTeam")) {
-      return jsonResponse({ data: { issue: { team: { id: "team-1" } } } })
-    }
-    if (request.query.includes("query AvailableLabels")) {
-      return jsonResponse({
-        data: {
-          issueLabels: {
-            nodes: [
-              { id: "l1", name: "ready-for-agent", color: "#111111" },
-              { id: "l-bug", name: "Bug", color: "#EB5757" },
-            ],
-            pageInfo,
-          },
-        },
-      })
-    }
-    if (request.query.includes("mutation AddLabel")) {
-      return jsonResponse({
-        data: { issueAddLabel: { success: true, issue: summaryNode("RAT-1") } },
-      })
-    }
-    if (request.query.includes("mutation RemoveLabel")) {
-      return jsonResponse({
-        data: { issueRemoveLabel: { success: true, issue: summaryNode("RAT-1") } },
-      })
-    }
-    return jsonResponse({ errors: [{ message: `Unexpected query: ${request.query}` }] }, 400)
-  })
 
 const createHandler = () =>
   makeRecorder((request) => {
@@ -108,8 +74,11 @@ const minimalCreateHandler = () =>
     return jsonResponse({ errors: [{ message: `Unexpected query: ${request.query}` }] }, 400)
   })
 
-const updateHandler = () =>
+const updateHandler = (assignee: typeof viewer | null = viewer) =>
   makeRecorder((request) => {
+    if (request.query.includes("query IssueSummary")) {
+      return jsonResponse({ data: { issue: { ...summaryNode("RAT-1"), assignee } } })
+    }
     if (request.query.includes("query IssueId")) {
       return jsonResponse({ data: { issue: { id: "i1" } } })
     }
@@ -124,66 +93,6 @@ const bodyLayer = (input: string) =>
     Stdio.layerTest({ stdin: Stream.make(new TextEncoder().encode(input)) }),
     FileSystem.layerNoop({}),
   )
-
-describe("IssueWriteApi labels", () => {
-  test("maps a triage role to the team label id and calls issueAddLabel", async () => {
-    const recorder = labelsHandler()
-    await run(
-      recorder.handler,
-      Effect.gen(function* addLabels() {
-        const api = yield* IssueWriteApi
-        return yield* api.addLabels("RAT-1", ["READY-FOR-AGENT"])
-      }),
-    )
-    expect(requestOf(recorder, "mutation AddLabel")?.variables).toEqual({
-      id: "i1",
-      labelId: "l1",
-    })
-  })
-
-  test("calls issueRemoveLabel with the resolved label id", async () => {
-    const recorder = labelsHandler()
-    await run(
-      recorder.handler,
-      Effect.gen(function* removeLabels() {
-        const api = yield* IssueWriteApi
-        return yield* api.removeLabels("RAT-1", ["ready-for-agent"])
-      }),
-    )
-    expect(requestOf(recorder, "mutation RemoveLabel")?.variables).toEqual({
-      id: "i1",
-      labelId: "l1",
-    })
-  })
-
-  test("resolves a workspace label case-insensitively when adding", async () => {
-    const recorder = labelsHandler()
-    await run(
-      recorder.handler,
-      Effect.gen(function* addLabels() {
-        const api = yield* IssueWriteApi
-        return yield* api.addLabels("RAT-1", ["bug"])
-      }),
-    )
-    expect(requestOf(recorder, "mutation AddLabel")?.variables).toEqual({
-      id: "i1",
-      labelId: "l-bug",
-    })
-  })
-
-  test("fails before any mutation when the label does not exist", async () => {
-    const recorder = labelsHandler()
-    const error = await run(
-      recorder.handler,
-      Effect.gen(function* addLabels() {
-        const api = yield* IssueWriteApi
-        return yield* Effect.flip(api.addLabels("RAT-1", ["nope"]))
-      }),
-    )
-    expect(error._tag).toBe("LabelNotFoundError")
-    expect(requestOf(recorder, "mutation AddLabel")).toBeUndefined()
-  })
-})
 
 describe("IssueWriteApi create payload", () => {
   test("resolves every option to an id and sends one input object", async () => {
