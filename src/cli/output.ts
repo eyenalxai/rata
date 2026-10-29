@@ -3,10 +3,10 @@ import { Flag, GlobalFlag } from "effect/cli"
 
 import type { IssueSummary } from "@/api/issue-model"
 import type { BulkWriteResult, BulkWriteSuccess } from "@/api/issue-write/model"
-import type { ErrorReport, ReportedError } from "@/cli/error-report"
+import type { ErrorCode, ErrorReport, ReportedError } from "@/cli/error-report"
 
 import { maxPageSize } from "@/api/pagination"
-import { classifyError } from "@/cli/error-report"
+import { classifyError, exitCodeOf } from "@/cli/error-report"
 
 const jsonOutput = Schema.fromJsonString(Schema.Unknown, { space: 2 })
 const defectJson = Schema.Defect()
@@ -121,7 +121,7 @@ const writeBulkResults = (
   format: (result: BulkWriteSuccess) => string,
 ): Effect.Effect<void> =>
   Effect.gen(function* writeBulk() {
-    const failed = results.some((result) => result.status === "failed")
+    const failed = results.find((result) => result.status === "failed")
     yield* json
       ? writeJson({ dryRun, results: results.map(bulkJsonResult) })
       : Effect.forEach(
@@ -129,9 +129,10 @@ const writeBulkResults = (
           (result) => writeLine(result.status === "failed" ? failureLine(result) : format(result)),
           { discard: true },
         )
-    if (failed) {
+    if (failed !== undefined && failed.status === "failed") {
+      const code = classifyError(failed.error).code
       yield* Effect.sync(() => {
-        process.exitCode = 1
+        process.exitCode = exitCodeOf(code)
       })
     }
   })
@@ -144,11 +145,11 @@ const debugEnabled: Effect.Effect<boolean> = Config.String("RATA_DEBUG").pipe(
   Effect.orDie,
 )
 
-const errorLine = (code: number, message: string, hint?: string) =>
+const errorLine = (code: ErrorCode, message: string, hint?: string) =>
   Effect.gen(function* writeErrorLine() {
     const json = yield* JsonOutput
     if (json) {
-      yield* writeJsonError({ error: { code: "validation", message, hint: hint ?? null } })
+      yield* writeJsonError({ error: { code, message, hint: hint ?? null } })
     } else {
       yield* Console.error(`error: ${message}`)
       if (hint !== undefined) {
@@ -156,7 +157,7 @@ const errorLine = (code: number, message: string, hint?: string) =>
       }
     }
     yield* Effect.sync(() => {
-      process.exitCode = code
+      process.exitCode = exitCodeOf(code)
     })
   })
 
@@ -166,11 +167,11 @@ const nextPageHint = (name: string, endCursor: string): string =>
 const validatePageSize = (limit: number) =>
   Effect.gen(function* validate() {
     if (limit < 1) {
-      yield* errorLine(1, "The --limit flag must be at least 1.")
+      yield* errorLine("validation", "The --limit flag must be at least 1.")
       return false
     }
     if (limit > maxPageSize) {
-      yield* errorLine(1, `The --limit flag must be at most ${maxPageSize}.`)
+      yield* errorLine("validation", `The --limit flag must be at most ${maxPageSize}.`)
       return false
     }
     return true
@@ -200,7 +201,7 @@ const reportFailure = (error: ReportedError) =>
       }
     }
     yield* Effect.sync(() => {
-      process.exitCode = 1
+      process.exitCode = exitCodeOf(classified.code)
     })
   })
 

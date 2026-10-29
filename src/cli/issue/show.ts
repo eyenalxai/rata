@@ -85,14 +85,14 @@ const showCommand = Command.make(
       const skipsComments = Option.exists(config.noComments, (value) => value)
       if (config.summary && includesComments) {
         return yield* errorLine(
-          1,
+          "validation",
           "--summary and --comments are mutually exclusive.",
           "Drop one of the two flags.",
         )
       }
       if (includesComments && skipsComments) {
         return yield* errorLine(
-          1,
+          "validation",
           "--comments and --no-comments are mutually exclusive.",
           "Pass one of the two flags.",
         )

@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { BunRuntime, BunServices } from "@effect/platform-bun"
 import { Effect, Layer } from "effect"
-import { Command } from "effect/cli"
+import { CliError, Command } from "effect/cli"
 import { FetchHttpClient } from "effect/http"
 
 import { LinearClient } from "@/api/client"
@@ -11,6 +11,7 @@ import { LabelService } from "@/api/label"
 import { ProjectService } from "@/api/project"
 import { RepoTeam } from "@/api/repo-team"
 import { TeamService } from "@/api/team"
+import { reportCliError } from "@/cli/exit"
 import { root } from "@/cli/root"
 import { Auth } from "@/config/auth"
 import { IssueDefaultsService } from "@/config/defaults"
@@ -73,7 +74,10 @@ const appLayer = Layer.mergeAll(
   platformLayer,
 )
 
-// oxlint-disable-next-line effecttsgo/strict-effect-provide -- This is the application entry point; it owns the layer graph.
-const program = Command.run(root, { version: "0.8.0" }).pipe(Effect.provide(appLayer))
+const program = Command.run(root, { version: "0.8.0" }).pipe(
+  Effect.catchIf(CliError.isCliError, reportCliError),
+  // oxlint-disable-next-line effecttsgo/strict-effect-provide -- This is the application entry point; it owns the layer graph.
+  Effect.provide(appLayer),
+)
 
 BunRuntime.runMain(program)

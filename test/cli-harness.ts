@@ -23,9 +23,11 @@ const cliLayer = (
   args: readonly string[],
   lines: string[],
   repositories?: ApiLayerOptions["repositories"],
+  options: Omit<ApiLayerOptions, "repositories" | "stdio"> = {},
 ) =>
   Layer.mergeAll(
     apiLayer(handler, {
+      ...options,
       stdio: { args: Effect.succeed(args) },
       ...(repositories === undefined ? {} : { repositories }),
     }),
@@ -49,9 +51,10 @@ const runIssue = (
   args: readonly string[],
   lines: string[],
   repositories: ApiLayerOptions["repositories"] = defaultRepositories,
+  options: Omit<ApiLayerOptions, "repositories" | "stdio"> = {},
 ) =>
   Command.run(issueCommand, { version: "test" }).pipe(
-    Effect.provide(cliLayer(handler, args, lines, repositories)),
+    Effect.provide(cliLayer(handler, args, lines, repositories, options)),
     Effect.runPromise,
   )
 
@@ -60,9 +63,10 @@ const runRoot = (
   args: readonly string[],
   lines: string[],
   repositories: ApiLayerOptions["repositories"] = defaultRepositories,
+  options: Omit<ApiLayerOptions, "repositories" | "stdio"> = {},
 ) =>
   Command.run(root, { version: "test" }).pipe(
-    Effect.provide(cliLayer(handler, args, lines, repositories)),
+    Effect.provide(cliLayer(handler, args, lines, repositories, options)),
     Effect.runPromise,
   )
 

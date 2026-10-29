@@ -11,7 +11,7 @@ import type { PlanAction } from "@/cli/output"
 
 import { IssueWriteApi } from "@/api/issue-write"
 import { resolveBody } from "@/cli/body"
-import { classifyError } from "@/cli/error-report"
+import { classifyError, exitCodeOf } from "@/cli/error-report"
 import { OutputFields, rejectFields } from "@/cli/fields"
 import {
   bodyFileFlag,
@@ -84,11 +84,11 @@ const postUpdateComment = Effect.fn("Cli.IssueWrite.postUpdateComment")(function
     const report = classifyError(created.failure)
     if (!json) {
       yield* writeLine(`Updated ${issue.identifier}.`)
-      return yield* errorLine(1, report.message, report.hint ?? undefined)
+      return yield* errorLine("validation", report.message, report.hint ?? undefined)
     }
     yield* writeJson({ issue, comment: null, error: report })
     yield* Effect.sync(() => {
-      process.exitCode = 1
+      process.exitCode = exitCodeOf(report.code)
     })
     return yield* Effect.void
   }
@@ -147,10 +147,10 @@ const updateCommand = Command.make(
         return yield* Effect.void
       }
       if (config.append && Option.isNone(body)) {
-        return yield* errorLine(1, "The --append flag needs --body or --body-file.")
+        return yield* errorLine("validation", "The --append flag needs --body or --body-file.")
       }
       if (config.append && Option.isSome(body) && body.value.trim().length === 0) {
-        return yield* errorLine(1, "The body to append is empty.")
+        return yield* errorLine("validation", "The body to append is empty.")
       }
       const priority = Option.getOrUndefined(yield* resolvePriority(config.priority))
       const options = {
@@ -165,7 +165,7 @@ const updateCommand = Command.make(
       }
       if (Object.values(options).every((value) => value === undefined) && Option.isNone(comment)) {
         return yield* errorLine(
-          1,
+          "validation",
           "Pass at least one of --title, --body, --state, --assignee, --project, --parent, --priority or --comment.",
         )
       }

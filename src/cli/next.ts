@@ -17,7 +17,11 @@ const nextCommand = Command.make("next", { parent: parentFlag }, (config) =>
     yield* rejectFields(yield* OutputFields)
     const parent = Option.getOrUndefined(config.parent)
     if (parent === undefined || parent.trim().length === 0) {
-      return yield* errorLine(1, "The --parent flag is required.", "Pass --parent <ref>.")
+      return yield* errorLine(
+        "validation",
+        "The --parent flag is required.",
+        "Pass --parent <ref>.",
+      )
     }
     const api = yield* IssueApi
     const page = yield* api.list({

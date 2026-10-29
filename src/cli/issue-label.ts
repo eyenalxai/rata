@@ -114,7 +114,7 @@ const addCommand = Command.make(
         config.refOrLabel,
       )
       if (Result.isFailure(parsed)) {
-        return yield* errorLine(1, parsed.failure.message, parsed.failure.hint)
+        return yield* errorLine("validation", parsed.failure.message, parsed.failure.hint)
       }
       const target = parsed.success
       const api = yield* IssueWriteApi
@@ -176,7 +176,7 @@ const removeCommand = Command.make(
         config.refOrLabel,
       )
       if (Result.isFailure(parsed)) {
-        return yield* errorLine(1, parsed.failure.message, parsed.failure.hint)
+        return yield* errorLine("validation", parsed.failure.message, parsed.failure.hint)
       }
       const target = parsed.success
       const api = yield* IssueWriteApi

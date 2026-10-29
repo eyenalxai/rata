@@ -137,7 +137,7 @@ const editCommand = Command.make(
       const name = Option.getOrUndefined(config.name)
       const colorValue = Option.getOrUndefined(color)
       if (name === undefined && colorValue === undefined) {
-        return yield* errorLine(1, "Pass at least one of --name or --color.")
+        return yield* errorLine("validation", "Pass at least one of --name or --color.")
       }
       const labels = yield* LabelService
       const label = yield* labels.update(config.label, {

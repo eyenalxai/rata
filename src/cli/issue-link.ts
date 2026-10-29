@@ -79,7 +79,7 @@ const linkCommand = Command.make(
       const changes: IssueRelationChanges = config
       if (countChanges(changes) === 0) {
         return yield* errorLine(
-          1,
+          "validation",
           "Pass at least one of --blocks, --blocked-by, --related or --duplicate.",
         )
       }
@@ -134,7 +134,7 @@ const unlinkCommand = Command.make(
       const changes: IssueRelationChanges = config
       if (countChanges(changes) === 0) {
         return yield* errorLine(
-          1,
+          "validation",
           "Pass at least one of --blocks, --blocked-by, --related or --duplicate.",
         )
       }

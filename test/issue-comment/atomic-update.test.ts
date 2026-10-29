@@ -137,7 +137,7 @@ describe("issue update --comment", () => {
     expect(state.comments).toBe(0)
     expect(requestOf(recorder, "mutation UpdateIssue")).toBeUndefined()
     expect(requestOf(recorder, "mutation CreateComment")).toBeUndefined()
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(3)
   })
 
   test("an empty comment aborts before any write", async () => {
@@ -151,7 +151,7 @@ describe("issue update --comment", () => {
     expect(decodeError(lastJson(lines)).code).toBe("validation")
     expect(state.updates).toBe(0)
     expect(state.comments).toBe(0)
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(2)
   })
 
   test("a comment failure keeps the issue update and exits 1", async () => {

@@ -41,7 +41,7 @@ describe("bulk assign by parent", () => {
     expect(mutations(recorder, "mutation UpdateIssue")).toHaveLength(0)
   })
 
-  test("reports a mid-batch failure and exits 1", async () => {
+  test("reports a mid-batch failure and exits 3", async () => {
     const recorder = recorderFor([seed("RAT-3"), seed("RAT-4")], { failOn: "id-RAT-4" })
     const lines: string[] = []
     await runIssue(
@@ -56,7 +56,7 @@ describe("bulk assign by parent", () => {
       ],
     })
     expect(mutations(recorder, "mutation UpdateIssue")).toHaveLength(2)
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(3)
   })
 
   test("dry-run resolves every child and writes nothing", async () => {
@@ -85,7 +85,7 @@ describe("bulk target grammar", () => {
     await runIssue(recorder.handler, ["assign", "--assignee", "me"], lines)
     expect(lines).toContain("error: An issue reference or --parent is required.")
     expect(recorder.requests).toHaveLength(0)
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(2)
   })
 
   test("rejects a ref together with --parent", async () => {
@@ -98,6 +98,6 @@ describe("bulk target grammar", () => {
     )
     expect(lines).toContain("error: The issue reference and --parent are mutually exclusive.")
     expect(recorder.requests).toHaveLength(0)
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(2)
   })
 })

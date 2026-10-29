@@ -13,9 +13,8 @@
 - The default team and project come from the repository config, written by
   `rata link` and removed by `rata unlink`. List commands default to the linked
   team; without a link they fail and ask for `--team` or `rata link`.
-- Exit code 0 on success, 1 on failure. With `--json`, a failure writes one JSON
-  object to stderr. A bulk write reports its results on stdout and exits 1 when
-  any result failed.
+- Exit code 0 on success; a failure exits with the code of its class, from 1 to 6. With `--json`, a failure writes one JSON object to stderr. A bulk write
+  reports its results on stdout and exits with the first failed result's code.
 
 ## Global flags and errors
 
@@ -24,9 +23,9 @@ rata --json issue list
 rata issue list --json --fields identifier,title,state.name
 ```
 
-With `--json`, a failure writes one object to stderr and exits 1. A bulk write
-is the exception: it reports one result per issue on stdout and exits 1 when any
-result failed.
+With `--json`, a failure writes one object to stderr and exits with the code of
+its class. A bulk write is the exception: it reports one result per issue on
+stdout and exits with the first failed result's code.
 
 ```json
 {

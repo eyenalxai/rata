@@ -34,11 +34,11 @@ const requireBody = (body: Option.Option<string>, bodyFile: Option.Option<string
   Effect.gen(function* requireSectionBody() {
     const resolved = yield* resolveBody({ body: "body", file: "body-file" }, body, bodyFile)
     if (Option.isNone(resolved)) {
-      yield* errorLine(1, "Pass --body or --body-file.")
+      yield* errorLine("validation", "Pass --body or --body-file.")
       return Option.none<string>()
     }
     if (resolved.value.trim().length === 0) {
-      yield* errorLine(1, "The section body is empty.")
+      yield* errorLine("validation", "The section body is empty.")
       return Option.none<string>()
     }
     return resolved
@@ -50,7 +50,7 @@ const validateLevel = (level: number | undefined) =>
       return true
     }
     if (level < 1 || level > 6) {
-      yield* errorLine(1, "The --level flag must be from 1 to 6.")
+      yield* errorLine("validation", "The --level flag must be from 1 to 6.")
       return false
     }
     return true
