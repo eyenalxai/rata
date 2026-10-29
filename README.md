@@ -62,6 +62,7 @@ rata issue list --all                    # drain every page of a list
 rata issue show RAT-42                   # read one issue
 rata issue view RAT-42 --summary         # lean read; `view` is an alias for `show`
 rata why RAT-42                          # the blockers of one issue
+rata issue status RAT-42                 # state, blockers, pull requests and the next child
 rata search "rate limit"                 # search issues by text
 rata issue create --title "Fix login" --team RAT   # create an issue
 rata issue link RAT-43 --blocked-by RAT-42         # RAT-43 waits for RAT-42
@@ -768,6 +769,71 @@ rata why RAT-42
 rata why RAT-42 --json
 ```
 
+`rata issue status <ref>` reads one issue with everything a session needs in one
+call: the header, the open blockers, the GitHub pull requests and the next
+unblocked child. It reuses the issue read, the relation projection and the child
+list. JSON is `{ "issue", "blocked", "blockedBy", "prs", "nextChild" }`.
+
+The PR projection reads the Linear `github` attachments. Each PR carries its
+number, repo, url, status, draft flag, reviews, conflict flag, `mergedAt` and
+`closedAt`. `checks` and `mergeCommit` are `null`: Linear does not carry them.
+Each PR says `source: "linear"`. A missing attachment gives `prs: []`, and
+missing metadata gives `null` fields. The command needs no GitHub token.
+
+`nextChild` is the first open, unblocked child ordered by priority, then
+creation time. It does not filter on the assignee, unlike `rata next`, which
+keeps the unassigned filter for the wayfinder claim. A missing issue exits `3`.
+
+```bash
+rata issue status RAT-42
+rata issue status RAT-42 --json
+```
+
+```json
+{
+  "issue": {
+    "identifier": "RAT-42",
+    "title": "Add the issue read path",
+    "state": { "name": "In Progress", "type": "started" },
+    "priority": "high",
+    "assignee": { "id": "u1", "name": "Ada", "displayName": "ada" },
+    "project": null,
+    "parent": null,
+    "labels": [],
+    "url": "https://linear.app/eyenalx/issue/RAT-42/add-the-issue-read-path",
+    "updatedAt": "2026-01-01T10:00:00.000Z",
+    "id": "b2c3..."
+  },
+  "blocked": true,
+  "blockedBy": [
+    {
+      "identifier": "RAT-41",
+      "title": "Add the issue write path",
+      "state": { "name": "In Progress", "type": "started" },
+      "closed": false
+    }
+  ],
+  "prs": [
+    {
+      "source": "linear",
+      "number": 25,
+      "repo": "eyenalxai/rata",
+      "url": "https://github.com/eyenalxai/rata/pull/25",
+      "title": "feat(cli): add issue status",
+      "status": "merged",
+      "draft": false,
+      "reviews": [],
+      "hasConflicts": false,
+      "mergedAt": "2026-01-03T10:00:00.000Z",
+      "closedAt": "2026-01-03T10:00:00.000Z",
+      "checks": null,
+      "mergeCommit": null
+    }
+  ],
+  "nextChild": null
+}
+```
+
 `rata issue show` accepts an identifier (`RAT-42`), a UUID, or a linear.app
 URL. `view` is an alias for `show`. `--comments` adds the comments to the human
 output. `--json` returns the complete read model in one call: the issue, its
@@ -902,10 +968,11 @@ The wrapper key stays, and a list selection applies to each item:
 `pageInfo` stays in a list result. Paths are dotted and nested, such as
 `state.name` or `repository.root`.
 
-`--fields` is valid on `status`, `issue show`, `issue section get`,
-`issue list`, `search`, `team show`, `team list`, `label list`, `project list`
-and `config show`. Write commands reject it with `validation`. An unknown path
-is a `validation` error whose hint lists the valid paths.
+`--fields` is valid on `status`, `issue show`, `issue status`,
+`issue section get`, `issue list`, `search`, `team show`, `team list`,
+`label list`, `project list` and `config show`. Write commands reject it with
+`validation`. An unknown path is a `validation` error whose hint lists the valid
+paths.
 
 For any other shape, use `--json` and `jq`. There is no `--format` template
 language.

@@ -10,12 +10,13 @@ operations.
 - **Shape the output**: `--json` is global and works before or after the
   subcommand. `--fields` trims a read command to dotted paths, for example
   `rata issue list --json --fields identifier,title,state.name`; it needs
-  `--json` and is valid on `status`, `issue show`, `issue section get`,
-  `issue list`, `search`, `team show`, `team list`, `label list`,
-  `project list` and `config show`. A failed `--json` command writes one
-  `error` object to stderr and exits with the code of its class: 2 validation,
-  3 not found, 4 conflict, 5 auth, 6 retryable, 1 internal. Its fields are
-  `code`, `message` and `hint`. Parse that object instead of the prose.
+  `--json` and is valid on `status`, `issue show`, `issue status`,
+  `issue section get`, `issue list`, `search`, `team show`, `team list`,
+  `label list`, `project list` and `config show`. A failed `--json` command
+  writes one `error` object to stderr and exits with the code of its class: 2
+  validation, 3 not found, 4 conflict, 5 auth, 6 retryable, 1 internal. Its
+  fields are `code`, `message` and `hint`. Parse that object instead of the
+  prose.
 - **Discover the workflow states**: `rata team show --json` lists every state
   with its name and type, plus the labels, members and priorities. Do not guess
   a state name.
@@ -52,6 +53,11 @@ operations.
   `--no-body`, `--no-relations`, `--no-children` and `--no-attachments` drop
   those parts and skip their fetches. `view` is an alias for `show`. The issue
   carries `updatedAt`; pass it to `--if-unchanged` before a body write.
+- **Read the issue status**: `rata issue status <ref> --json` returns the issue
+  header, `blocked`, `blockedBy`, `prs` and `nextChild` in one call. The PR
+  projection reads the Linear `github` attachments; checks and the merge commit
+  are `null`. The next child ignores the assignee, unlike `next`. A missing
+  issue exits `3`.
 - **Edit one section**: `rata issue section replace <ref> "<heading>" --body-file -`
   is the safe body write. It replaces the content under one heading and keeps
   the rest of the body. The heading match is exact and case-sensitive. Read the

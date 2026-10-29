@@ -13,6 +13,7 @@ import { updateCommand } from "@/cli/issue-write/update"
 import { commentCommand } from "@/cli/issue/comment"
 import { sectionCommand } from "@/cli/issue/section"
 import { showCommand } from "@/cli/issue/show"
+import { statusCommand } from "@/cli/issue/status"
 import { afterFlag, allFlag, limitFlag } from "@/cli/list-flags"
 import { JsonOutput, reportFailure, validatePageSize } from "@/cli/output"
 import { resolvePriority } from "@/cli/priority"
@@ -152,6 +153,7 @@ const issueCommand = Command.make("issue").pipe(
   Command.withSubcommands([
     listCommand,
     showCommand,
+    statusCommand,
     createCommand,
     commentCommand,
     updateCommand,

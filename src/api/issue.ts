@@ -7,6 +7,7 @@ import type {
   IssuePage,
   IssueSearchOptions,
   IssueShowOptions,
+  IssueStatus,
   IssueSummary,
 } from "@/api/issue-model"
 import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
@@ -19,6 +20,7 @@ import { collectsAllPages, sortAndLimitNodes, toSummary } from "@/api/issue-mode
 import { issueIdQuery, listQuery, searchQuery } from "@/api/issue-query"
 import { IssueIdResponse, ListResponse, SearchResponse } from "@/api/issue-schema"
 import { makeReadOperations } from "@/api/issue/read"
+import { toIssueStatus } from "@/api/issue/status"
 import { collectPages, lastPageInfo, pageOrDrain, pageSize } from "@/api/pagination"
 import { RepoTeam } from "@/api/repo-team"
 import { isUuid, parseRefOrFail } from "@/domain/ref"
@@ -43,6 +45,12 @@ type IssueApiShape = {
     options: IssueShowOptions,
   ) => Effect.Effect<IssueDetail, LinearApiError | InvalidIssueRef>
   readonly summary: (ref: string) => Effect.Effect<IssueSummary, LinearApiError | InvalidIssueRef>
+  readonly status: (
+    ref: string,
+  ) => Effect.Effect<
+    IssueStatus,
+    LinearApiError | InvalidIssueRef | RepoConfigError | TeamNotFoundError | TeamResolutionError
+  >
 }
 
 const projectRefFilter = (value: string): Record<string, unknown> =>
@@ -160,7 +168,19 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
         }
       })
 
-      return IssueApi.of({ list, search, show, summary })
+      const status = Effect.fn("IssueApi.status")(function* status(input: string) {
+        const issue = yield* show(input, { comments: false, children: false })
+        const children = yield* list({
+          parent: input,
+          unblocked: true,
+          sort: "priority",
+          after: null,
+          limit: 1,
+        })
+        return toIssueStatus(issue, children.issues[0] ?? null)
+      })
+
+      return IssueApi.of({ list, search, show, status, summary })
     }),
   )
 }

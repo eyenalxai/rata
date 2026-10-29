@@ -36,6 +36,7 @@ rata issue list --json                    # list issues; returns one page
 rata issue list --all --json              # drain every page
 rata issue list --after <cursor> --json   # read the next page
 rata issue show ABC-42 --json             # comments, children, relations, attachments
+rata issue status ABC-42 --json           # header, blockers, PRs and the next child
 rata issue view ABC-42 --summary --json   # lean header read; `view` aliases `show`
 rata issue section get ABC-42 "Handoff log"  # one heading section of the body
 rata search "flaky test" --json
@@ -62,6 +63,14 @@ Every issue carries `updatedAt`. Pass it to `--if-unchanged <updatedAt>` on
 `issue update` or `issue section append|replace` to fail with `conflict` when
 the issue changed since that read. Linear has no compare-and-swap, so the check
 is best effort.
+
+`issue status` is the one read for a session start. It returns the issue header,
+`blocked`, `blockedBy`, `prs` and `nextChild`. The PR projection reads the
+Linear `github` attachments: each PR carries its number, repo, url, status,
+draft flag, reviews, conflict flag, `mergedAt` and `closedAt`. `checks` and
+`mergeCommit` are `null`, and each PR says `source: "linear"`, so the command
+needs no GitHub token. `nextChild` is the first open, unblocked child ordered by
+priority, then creation time; it ignores the assignee, unlike `next`.
 
 Edit one section of the body with `issue section replace`. It is the safe body
 write: it replaces the content under one heading and keeps the rest of the body.

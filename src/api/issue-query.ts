@@ -30,7 +30,7 @@ const searchQuery = `query IssueSearch($term: String!, $filter: IssueFilter, $fi
   }
 }`
 
-const attachmentFields = "id title subtitle url sourceType createdAt"
+const attachmentFields = "id title subtitle url sourceType createdAt metadata"
 
 const showFields = {
   labels: `    labels(first: ${pageSize}) { nodes { id name } pageInfo { hasNextPage endCursor } }`,
