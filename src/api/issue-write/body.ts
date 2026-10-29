@@ -234,6 +234,9 @@ const makeBodyWrites = ({ client, resolvers }: BodyDependencies) => {
     writeOptions: IssueUpdateWriteOptions = {},
   ): Effect.fn.Return<IssueSummary, IssueWriteApiError> {
     const resolved = yield* resolveUpdate(ref, options, writeOptions)
+    if (Object.keys(resolved.input).length === 0) {
+      return yield* resolvers.readIssueSummary(ref)
+    }
     const data = yield* client.execute(
       updateIssueMutation,
       { id: resolved.issueId, input: resolved.input },

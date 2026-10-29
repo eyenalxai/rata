@@ -1,11 +1,11 @@
 import { Context, Effect, Layer } from "effect"
 
 import type { IssueWriteApiShape } from "@/api/issue-write/api-shape"
-import type { VisibilityOptions } from "@/api/issue-write/write-types"
 
 import { LinearClient } from "@/api/client"
 import { makeBodyWrites } from "@/api/issue-write/body"
 import { makeBulkWrites } from "@/api/issue-write/bulk"
+import { makeCommentWrites } from "@/api/issue-write/comments"
 import { makeCreateWrites } from "@/api/issue-write/create"
 import { makeIssueWrites } from "@/api/issue-write/issue-writes"
 import { makeRelationWrites } from "@/api/issue-write/relation-writes"
@@ -33,6 +33,7 @@ class IssueWriteApi extends Context.Service<IssueWriteApi, IssueWriteApiShape>()
       const bulkWrites = makeBulkWrites(resolvers)
       const relationWrites = makeRelationWrites({ client, resolvers })
       const bodyWrites = makeBodyWrites({ client, resolvers })
+      const commentWrites = makeCommentWrites({ client, resolvers, visibility })
       const createWrites = makeCreateWrites({
         client,
         repoConfig,
@@ -41,24 +42,13 @@ class IssueWriteApi extends Context.Service<IssueWriteApi, IssueWriteApiShape>()
         visibility,
       })
 
-      const comment = Effect.fn("IssueWriteApi.comment")(function* comment(
-        ref: string,
-        body: string,
-        options: VisibilityOptions = {},
-      ) {
-        const issueId = yield* resolvers.resolveIssueId(ref)
-        const created = yield* resolvers.postComment(issueId, body)
-        const visible = yield* visibility.waitForComment(issueId, created.id, options.waitSeconds)
-        return { comment: created, visible }
-      })
-
       return IssueWriteApi.of({
         ...issueWrites,
         ...bulkWrites,
         ...relationWrites,
         ...createWrites,
         ...bodyWrites,
-        comment,
+        ...commentWrites,
       })
     }),
   )

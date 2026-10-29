@@ -46,9 +46,54 @@ type IssueUpdatePlan = {
   readonly diff: string | null
 }
 
-type IssueCommentResult = {
+type CommentCreateOptions = VisibilityOptions & {
+  readonly id?: string | undefined
+  readonly dedupeKey?: string | undefined
+}
+
+type CommentCreatePlan = {
+  readonly status: "created" | "skipped"
+  readonly action: "comment-create"
+  readonly target: string
+  readonly changes: {
+    readonly body: string
+    readonly dedupeKey?: string | undefined
+    readonly commentId?: string | undefined
+  }
+}
+
+type CommentCreateResult = {
+  readonly status: "created" | "skipped"
   readonly comment: IssueComment
   readonly visible: WriteVisibility
+}
+
+type CommentUpdateOptions = {
+  readonly dryRun?: boolean | undefined
+}
+
+type CommentUpdateResult =
+  | {
+      readonly dryRun: true
+      readonly action: "comment-update"
+      readonly target: string
+      readonly diff: string
+    }
+  | {
+      readonly dryRun: false
+      readonly status: "updated"
+      readonly comment: IssueComment
+    }
+
+type CommentDeletePlan = {
+  readonly action: "comment-delete"
+  readonly target: string
+  readonly comment: IssueComment
+}
+
+type CommentDeleteResult = {
+  readonly status: "deleted"
+  readonly commentId: string
 }
 
 type SectionWriteOptions = {
@@ -76,7 +121,13 @@ type SectionWriteResult =
     }
 
 export {
-  type IssueCommentResult,
+  type CommentCreateOptions,
+  type CommentCreatePlan,
+  type CommentCreateResult,
+  type CommentDeletePlan,
+  type CommentDeleteResult,
+  type CommentUpdateOptions,
+  type CommentUpdateResult,
   type IssueCreateOptions,
   type IssueCreateResult,
   type IssueUpdateOptions,

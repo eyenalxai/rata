@@ -107,7 +107,6 @@ const IssueComment = Schema.Struct({
   user: Schema.NullOr(IssueUser),
 })
 type IssueComment = typeof IssueComment.Type
-
 const IssueCommentConnection = Schema.Struct({
   nodes: Schema.Array(IssueComment),
   pageInfo: PageInfo,
@@ -197,6 +196,7 @@ const InverseRelationsResponse = Schema.Struct({
 const CommentsResponse = Schema.Struct({
   issue: Schema.Struct({ comments: IssueCommentConnection }),
 })
+const CommentByIdResponse = Schema.Struct({ comments: IssueCommentConnection })
 
 const AttachmentsResponse = Schema.Struct({
   issue: Schema.Struct({ attachments: IssueAttachmentConnection }),
@@ -247,6 +247,10 @@ const AddLabelResponse = Schema.Struct({ issueAddLabel: IssueMutationPayload })
 const RemoveLabelResponse = Schema.Struct({ issueRemoveLabel: IssueMutationPayload })
 
 const CreateCommentResponse = Schema.Struct({ commentCreate: CommentMutationPayload })
+const UpdateCommentResponse = Schema.Struct({ commentUpdate: CommentMutationPayload })
+const DeleteCommentResponse = Schema.Struct({
+  commentDelete: Schema.Struct({ success: Schema.Boolean, entityId: Schema.String }),
+})
 
 const RelationPayload = Schema.Struct({ success: Schema.Boolean })
 
@@ -259,10 +263,12 @@ export {
   AttachmentsResponse,
   BulkTargetsResponse,
   ChildrenResponse,
+  CommentByIdResponse,
   CommentsResponse,
   CreateCommentResponse,
   CreateIssueResponse,
   CreateRelationResponse,
+  DeleteCommentResponse,
   DeleteRelationResponse,
   InverseRelationsResponse,
   type IssueAttachment,
@@ -288,6 +294,7 @@ export {
   SearchResponse,
   ShowResponse,
   TeamStatesResponse,
+  UpdateCommentResponse,
   UpdateIssueResponse,
   type WorkflowState,
 }

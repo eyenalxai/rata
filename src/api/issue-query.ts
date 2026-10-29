@@ -111,12 +111,21 @@ const inverseRelationsQuery = `query IssueInverseRelations($id: String!, $first:
   }
 }`
 
+const commentFields = `id body createdAt user { id name displayName }`
+
 const commentsQuery = `query IssueComments($id: String!, $first: Int!, $after: String) {
   issue(id: $id) {
     comments(first: $first, after: $after, orderBy: createdAt) {
-      nodes { id body createdAt user { id name displayName } }
+      nodes { ${commentFields} }
       pageInfo { hasNextPage endCursor }
     }
+  }
+}`
+
+const commentByIdQuery = `query CommentById($filter: CommentFilter!, $first: Int!) {
+  comments(filter: $filter, first: $first) {
+    nodes { ${commentFields} }
+    pageInfo { hasNextPage endCursor }
   }
 }`
 
@@ -164,7 +173,21 @@ const updateIssueMutation = `mutation UpdateIssue($id: String!, $input: IssueUpd
 const createCommentMutation = `mutation CreateComment($input: CommentCreateInput!) {
   commentCreate(input: $input) {
     success
-    comment { id body createdAt user { id name displayName } }
+    comment { ${commentFields} }
+  }
+}`
+
+const updateCommentMutation = `mutation UpdateComment($id: String!, $input: CommentUpdateInput!) {
+  commentUpdate(id: $id, input: $input) {
+    success
+    comment { ${commentFields} }
+  }
+}`
+
+const deleteCommentMutation = `mutation DeleteComment($id: String!) {
+  commentDelete(id: $id) {
+    success
+    entityId
   }
 }`
 
@@ -231,11 +254,13 @@ export {
   bulkTargetsQuery,
   childTailQuery,
   childrenQuery,
+  commentByIdQuery,
   commentTailQuery,
   commentsQuery,
   createCommentMutation,
   createIssueMutation,
   createRelationMutation,
+  deleteCommentMutation,
   deleteRelationMutation,
   inverseRelationsQuery,
   issueIdQuery,
@@ -249,5 +274,6 @@ export {
   searchQuery,
   showQuery,
   teamStatesQuery,
+  updateCommentMutation,
   updateIssueMutation,
 }

@@ -47,6 +47,7 @@ const errorRules: Record<string, ErrorRule> = {
   },
   ProjectNotFoundError: { code: "not_found", hint: null },
   ProjectNameAmbiguousError: { code: "ambiguous", hint: null },
+  CommentNotFoundError: { code: "not_found", hint: "Check the comment id." },
   ProjectAlreadyDeletedError: { code: "conflict", hint: null },
   ProjectNotDeletedError: { code: "conflict", hint: null },
   StateNotFoundError: { code: "not_found", hint: null },

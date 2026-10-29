@@ -75,10 +75,10 @@ describe("read-after-write visibility", () => {
       recorder.handler,
       Effect.gen(function* comment() {
         const api = yield* IssueWriteApi
-        return yield* api.comment("RAT-1", "Body", { waitSeconds: 2 })
+        return yield* api.commentCreate("RAT-1", "Body", { waitSeconds: 2 })
       }),
     )
-    expect(result).toEqual({ comment: commentNode, visible: true })
+    expect(result).toEqual({ status: "created", comment: commentNode, visible: true })
     expect(reads).toBe(2)
   })
 
@@ -88,7 +88,7 @@ describe("read-after-write visibility", () => {
       recorder.handler,
       Effect.gen(function* comment() {
         const api = yield* IssueWriteApi
-        return yield* api.comment("RAT-1", "Body", { waitSeconds: 0.3 })
+        return yield* api.commentCreate("RAT-1", "Body", { waitSeconds: 0.3 })
       }),
     )
     expect(result.visible).toBe(false)
@@ -138,7 +138,7 @@ describe("read-after-write visibility", () => {
       recorder.handler,
       Effect.gen(function* comment() {
         const api = yield* IssueWriteApi
-        return yield* api.comment("RAT-1", "Body", { waitSeconds: 0.3 })
+        return yield* api.commentCreate("RAT-1", "Body", { waitSeconds: 0.3 })
       }),
     )
     expect(result.visible).toBe(false)
@@ -150,7 +150,7 @@ describe("read-after-write visibility", () => {
       recorder.handler,
       Effect.gen(function* comment() {
         const api = yield* IssueWriteApi
-        return yield* api.comment("RAT-1", "Body", { waitSeconds: 0 })
+        return yield* api.commentCreate("RAT-1", "Body", { waitSeconds: 0 })
       }),
     )
     expect(result.visible).toBeNull()
@@ -177,17 +177,21 @@ describe("visibility in the CLI", () => {
     const lines: string[] = []
     await runIssue(
       recorder.handler,
-      ["comment", "RAT-1", "--body", "Body", "--wait", "1", "--json"],
+      ["comment", "create", "RAT-1", "--body", "Body", "--wait", "1", "--json"],
       lines,
     )
-    expect(lastJson(lines)).toEqual({ comment: commentNode, visible: false })
+    expect(lastJson(lines)).toEqual({ status: "created", comment: commentNode, visible: false })
     expect(process.exitCode).toBe(0)
   })
 
   test("a timed-out comment in human mode prints a warning", async () => {
     const recorder = commentHandler(emptyComments)
     const lines: string[] = []
-    await runIssue(recorder.handler, ["comment", "RAT-1", "--body", "Body", "--wait", "1"], lines)
+    await runIssue(
+      recorder.handler,
+      ["comment", "create", "RAT-1", "--body", "Body", "--wait", "1"],
+      lines,
+    )
     expect(lines).toContain("Commented on RAT-1.")
     expect(lines).toContain(
       "warning: The comment is not visible on RAT-1 yet. Linear may catch up later.",

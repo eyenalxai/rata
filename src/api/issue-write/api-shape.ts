@@ -1,6 +1,7 @@
-import type { Effect } from "effect"
+import type { Effect, Option } from "effect"
 
 import type { IssueSummary } from "@/api/issue-model"
+import type { IssueComment } from "@/api/issue-schema"
 import type {
   BulkWriteResult,
   IssueCreatePlan,
@@ -11,7 +12,13 @@ import type {
   WriteOptions,
 } from "@/api/issue-write/model"
 import type {
-  IssueCommentResult,
+  CommentCreateOptions,
+  CommentCreatePlan,
+  CommentCreateResult,
+  CommentDeletePlan,
+  CommentDeleteResult,
+  CommentUpdateOptions,
+  CommentUpdateResult,
   IssueCreateOptions,
   IssueCreateResult,
   IssueUpdateOptions,
@@ -19,7 +26,6 @@ import type {
   IssueUpdateWriteOptions,
   SectionWriteOptions,
   SectionWriteResult,
-  VisibilityOptions,
 } from "@/api/issue-write/write-types"
 import type { Section } from "@/domain/body/section/model"
 
@@ -30,11 +36,30 @@ type IssueWriteApiShape = {
   readonly planCreate: (
     options: IssueCreateOptions,
   ) => Effect.Effect<IssueCreatePlan, IssueWriteApiError>
-  readonly comment: (
+  readonly commentCreate: (
     ref: string,
     body: string,
-    options?: VisibilityOptions,
-  ) => Effect.Effect<IssueCommentResult, IssueWriteApiError>
+    options?: CommentCreateOptions,
+  ) => Effect.Effect<CommentCreateResult, IssueWriteApiError>
+  readonly planCommentCreate: (
+    ref: string,
+    body: string,
+    options?: CommentCreateOptions,
+  ) => Effect.Effect<CommentCreatePlan, IssueWriteApiError>
+  readonly commentUpdate: (
+    commentId: string,
+    body: string,
+    options?: CommentUpdateOptions,
+  ) => Effect.Effect<CommentUpdateResult, IssueWriteApiError>
+  readonly commentDelete: (
+    commentId: string,
+  ) => Effect.Effect<CommentDeleteResult, IssueWriteApiError>
+  readonly planCommentDelete: (
+    commentId: string,
+  ) => Effect.Effect<CommentDeletePlan, IssueWriteApiError>
+  readonly findComment: (
+    commentId: string,
+  ) => Effect.Effect<Option.Option<IssueComment>, IssueWriteApiError>
   readonly update: (
     ref: string,
     options: IssueUpdateOptions,
