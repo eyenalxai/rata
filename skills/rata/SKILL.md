@@ -155,7 +155,7 @@ rata issue create --parent ABC-50 --title "Research: Stripe webhook retries" --l
 Claim a ticket by assigning yourself. Resolve it with a comment, then close it:
 
 ```bash
-rata issue assign me ABC-51
+rata issue assign ABC-51 --assignee me
 rata issue comment ABC-51 --body-file - <<'EOF'
 ## Answer
 

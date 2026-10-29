@@ -7,7 +7,7 @@ import {
   requestOf,
   run,
   team,
-} from "@test/issue-write-fixtures"
+} from "@test/issue-write/fixtures"
 import { describe, expect, test } from "bun:test"
 import { Effect } from "effect"
 
@@ -15,11 +15,21 @@ import { IssueWriteApi } from "@/api/issue-write"
 
 const labelsHandler = () =>
   makeRecorder((request) => {
+    if (request.query.includes("query IssueSummary")) {
+      return jsonResponse({
+        data: { issue: { ...summaryNode("RAT-1"), labels: { nodes: [] } } },
+      })
+    }
     if (request.query.includes("query IssueId")) {
       return jsonResponse({ data: { issue: { id: "i1" } } })
     }
     if (request.query.includes("query IssueTeam")) {
       return jsonResponse({ data: { issue: { team: { id: "team-1" } } } })
+    }
+    if (request.query.includes("query IssueLabels")) {
+      return jsonResponse({
+        data: { issue: { labels: { nodes: [], pageInfo } } },
+      })
     }
     if (request.query.includes("query AvailableLabels")) {
       return request.variables.after === null
@@ -119,6 +129,9 @@ const createHandler = () =>
 
 const closeHandler = () =>
   makeRecorder((request) => {
+    if (request.query.includes("query IssueSummary")) {
+      return jsonResponse({ data: { issue: summaryNode("RAT-1") } })
+    }
     if (request.query.includes("query IssueId")) {
       return jsonResponse({ data: { issue: { id: "i1" } } })
     }
@@ -165,7 +178,7 @@ describe("label drains", () => {
       }),
     )
     expect(requestOf(recorder, "mutation AddLabel")?.variables).toEqual({
-      id: "i1",
+      id: "id-RAT-1",
       labelId: "l2",
     })
     const pages = recorder.requests.filter((request) =>
@@ -220,6 +233,6 @@ describe("workflow-state drains", () => {
     })
     const pages = recorder.requests.filter((request) => request.query.includes("query IssueStates"))
     expect(pages).toHaveLength(2)
-    expect(pages[1]?.variables).toEqual({ id: "i1", first: 50, after: "s-todo" })
+    expect(pages[1]?.variables).toEqual({ id: "id-RAT-1", first: 50, after: "s-todo" })
   })
 })

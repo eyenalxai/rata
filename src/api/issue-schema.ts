@@ -143,6 +143,8 @@ const ShowResponse = Schema.Struct({ issue: IssueDetailNode })
 
 const IssueIdResponse = Schema.Struct({ issue: Schema.Struct({ id: Schema.String }) })
 
+const IssueSummaryResponse = Schema.Struct({ issue: IssueSummaryNode })
+
 const ChildrenResponse = Schema.Struct({
   issue: Schema.Struct({ children: IssueChildConnection }),
 })
@@ -235,6 +237,7 @@ export {
   type IssueState,
   IssueStatesResponse,
   type IssueSummaryNode,
+  IssueSummaryResponse,
   type IssueTeam,
   IssueTeamResponse,
   type IssueUser,

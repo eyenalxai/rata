@@ -2,27 +2,31 @@ import { Effect } from "effect"
 
 import type { LinearClient } from "@/api/client"
 import type { WorkflowState } from "@/api/issue-schema"
-import type { IssueRelationChanges, ResolvedRelationTarget } from "@/api/issue-write-model"
 import type { LabelService } from "@/api/label"
 import type { ProjectService } from "@/api/project"
 
+import { toSummary } from "@/api/issue-model"
 import {
+  addLabelMutation,
   createCommentMutation,
-  inverseRelationsQuery,
   issueIdQuery,
   issueStatesQuery,
+  issueSummaryQuery,
   issueTeamQuery,
-  relationsQuery,
+  labelsQuery,
+  removeLabelMutation,
   teamStatesQuery,
   updateIssueMutation,
 } from "@/api/issue-query"
 import {
+  AddLabelResponse,
   CreateCommentResponse,
-  InverseRelationsResponse,
   IssueIdResponse,
   IssueStatesResponse,
+  IssueSummaryResponse,
   IssueTeamResponse,
-  RelationsResponse,
+  LabelsResponse,
+  RemoveLabelResponse,
   TeamStatesResponse,
   UpdateIssueResponse,
 } from "@/api/issue-schema"
@@ -33,7 +37,8 @@ import {
   stateByType,
   unwrapComment,
   unwrapIssue,
-} from "@/api/issue-write-model"
+} from "@/api/issue-write/model"
+import { makeRelationResolvers } from "@/api/issue-write/relations"
 import { labelNotFoundError } from "@/api/label"
 import { collectConnection, collectPages, pageSize } from "@/api/pagination"
 import { ProjectNotFoundError } from "@/api/project/errors"
@@ -53,6 +58,56 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
     const ref = yield* parseRefOrFail(input)
     const data = yield* client.execute(issueIdQuery, { id: ref }, IssueIdResponse)
     return data.issue.id
+  })
+
+  const readIssueSummary = Effect.fn("IssueWriteApi.readIssueSummary")(function* readIssueSummary(
+    input: string,
+  ) {
+    const ref = yield* parseRefOrFail(input)
+    const data = yield* client.execute(issueSummaryQuery, { id: ref }, IssueSummaryResponse)
+    return toSummary(data.issue)
+  })
+
+  const collectIssueLabels = Effect.fn("IssueWriteApi.collectIssueLabels")(
+    function* collectIssueLabels(issueId: string) {
+      return yield* collectConnection((after) =>
+        client
+          .execute(labelsQuery, { id: issueId, first: pageSize, after }, LabelsResponse)
+          .pipe(Effect.map((data) => data.issue.labels)),
+      )
+    },
+  )
+
+  const setAssignee = Effect.fn("IssueWriteApi.setAssignee")(function* setAssignee(
+    issueId: string,
+    assigneeId: string | null,
+  ) {
+    const data = yield* client.execute(
+      updateIssueMutation,
+      { id: issueId, input: { assigneeId } },
+      UpdateIssueResponse,
+    )
+    return yield* unwrapIssue(data.issueUpdate)
+  })
+
+  const addLabel = Effect.fn("IssueWriteApi.addLabel")(function* addLabel(
+    issueId: string,
+    labelId: string,
+  ) {
+    const data = yield* client.execute(addLabelMutation, { id: issueId, labelId }, AddLabelResponse)
+    return yield* unwrapIssue(data.issueAddLabel)
+  })
+
+  const removeLabel = Effect.fn("IssueWriteApi.removeLabel")(function* removeLabel(
+    issueId: string,
+    labelId: string,
+  ) {
+    const data = yield* client.execute(
+      removeLabelMutation,
+      { id: issueId, labelId },
+      RemoveLabelResponse,
+    )
+    return yield* unwrapIssue(data.issueRemoveLabel)
   })
 
   const resolveAssignee = Effect.fn("IssueWriteApi.resolveAssignee")(function* resolveAssignee(
@@ -198,69 +253,22 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
     },
   )
 
-  const resolveRelationTargets = Effect.fn("IssueWriteApi.resolveRelationTargets")(
-    function* resolveRelationTargets(changes: IssueRelationChanges) {
-      const targets: ResolvedRelationTarget[] = []
-      for (const target of changes.blocks) {
-        const targetId = yield* resolveIssueId(target)
-        targets.push({ kind: "blocks", target, targetId })
-      }
-      for (const target of changes.blockedBy) {
-        const targetId = yield* resolveIssueId(target)
-        targets.push({ kind: "blockedBy", target, targetId })
-      }
-      for (const target of changes.related) {
-        const targetId = yield* resolveIssueId(target)
-        targets.push({ kind: "related", target, targetId })
-      }
-      for (const target of changes.duplicate) {
-        const targetId = yield* resolveIssueId(target)
-        targets.push({ kind: "duplicate", target, targetId })
-      }
-      return targets
-    },
-  )
-
-  const collectRelations = Effect.fn("IssueWriteApi.collectRelations")(function* collectRelations(
-    issueId: string,
-  ) {
-    const outgoingPage = yield* client.execute(
-      relationsQuery,
-      { id: issueId, first: pageSize, after: null },
-      RelationsResponse,
-    )
-    const outgoing = yield* collectPages(outgoingPage.issue.relations, (after) =>
-      client
-        .execute(relationsQuery, { id: issueId, first: pageSize, after }, RelationsResponse)
-        .pipe(Effect.map((page) => page.issue.relations)),
-    )
-    const incomingPage = yield* client.execute(
-      inverseRelationsQuery,
-      { id: issueId, first: pageSize, after: null },
-      InverseRelationsResponse,
-    )
-    const incoming = yield* collectPages(incomingPage.issue.inverseRelations, (after) =>
-      client
-        .execute(
-          inverseRelationsQuery,
-          { id: issueId, first: pageSize, after },
-          InverseRelationsResponse,
-        )
-        .pipe(Effect.map((page) => page.issue.inverseRelations)),
-    )
-    return { incoming, outgoing }
-  })
+  const relationResolvers = makeRelationResolvers({ client, resolveIssueId })
 
   return {
-    collectRelations,
+    ...relationResolvers,
+    addLabel,
+    collectIssueLabels,
     issueStateIdByName,
     postComment,
+    readIssueSummary,
+    removeLabel,
     resolveAssignee,
     resolveIssueId,
     resolveIssueTeamId,
     resolveLabelIds,
     resolveProjectId,
-    resolveRelationTargets,
+    setAssignee,
     setStateByType,
     teamStateIdByName,
   }

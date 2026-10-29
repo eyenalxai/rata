@@ -84,6 +84,10 @@ const createCommand = Command.make(
     name: Flag.String("name").pipe(Flag.withDescription("Label name")),
     color: colorFlag,
     team: optionalText("team", "Team key or id. Defaults to the team from `rata link`"),
+    ifNotExists: Flag.Boolean("if-not-exists").pipe(
+      Flag.withDescription("Return the existing label instead of failing on a duplicate name"),
+      Flag.withDefault(false),
+    ),
   },
   (config) =>
     Effect.gen(function* createLabel() {
@@ -91,15 +95,20 @@ const createCommand = Command.make(
       yield* rejectFields(yield* OutputFields)
       const color = yield* resolveColor(config.color)
       const labels = yield* LabelService
-      const label = yield* labels.create({
+      const result = yield* labels.create({
         name: config.name,
         color: Option.getOrUndefined(color),
         team: Option.getOrUndefined(config.team),
+        ifNotExists: config.ifNotExists,
       })
       if (json) {
-        return yield* writeJson({ label })
+        return yield* writeJson({ label: result.label, created: result.created })
       }
-      return yield* writeLine(`Created label ${label.name}.`)
+      return yield* writeLine(
+        result.created
+          ? `Created label ${result.label.name}.`
+          : `Label ${result.label.name} already exists.`,
+      )
     }).pipe(Effect.catch(reportFailure)),
 ).pipe(
   Command.withDescription("Create a label"),
@@ -111,6 +120,10 @@ const createCommand = Command.make(
     {
       command: "rata label create --team RAT --name bug",
       description: "Create a label and let Linear pick the color",
+    },
+    {
+      command: "rata label create --team RAT --name bug --if-not-exists",
+      description: "Return the existing label when the name is taken",
     },
   ]),
 )

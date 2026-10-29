@@ -1,6 +1,8 @@
 import { Config, Console, Effect, Option, Result, Schema } from "effect"
 import { Flag, GlobalFlag } from "effect/cli"
 
+import type { WriteAction } from "@/api/issue-write/model"
+
 import { maxPageSize } from "@/api/pagination"
 
 const jsonOutput = Schema.fromJsonString(Schema.Unknown, { space: 2 })
@@ -12,6 +14,11 @@ const JsonOutput = GlobalFlag.Setting("json")({
     Flag.withDefault(false),
   ),
 })
+
+const dryRunFlag = Flag.Boolean("dry-run").pipe(
+  Flag.withDescription("Resolve the targets and print the actions without writing"),
+  Flag.withDefault(false),
+)
 
 type ErrorCode =
   | "validation"
@@ -87,7 +94,6 @@ const errorRules: Record<string, ErrorRule> = {
   ProjectAlreadyDeletedError: { code: "conflict", hint: null },
   ProjectNotDeletedError: { code: "conflict", hint: null },
   StateNotFoundError: { code: "not_found", hint: null },
-  RelationNotFoundError: { code: "not_found", hint: null },
   InvalidIssueRef: { code: "validation", hint: null },
   InputError: { code: "validation", hint: null },
   BodyInputError: { code: "validation", hint: null },
@@ -101,6 +107,15 @@ const errorRules: Record<string, ErrorRule> = {
 const classifyError = (error: ReportedError): ErrorReport => {
   const message = error.message
   const tag = tagOf(error)
+  if (tag === "LabelExistsError") {
+    const existing: unknown = Reflect.get(error, "existingName")
+    const name = typeof existing === "string" ? existing : message
+    return {
+      code: "conflict",
+      message,
+      hint: `Labels resolve case-insensitively; use \`${name}\`, or pass \`--if-not-exists\`.`,
+    }
+  }
   const rule = tag === undefined ? undefined : errorRules[tag]
   if (rule !== undefined) {
     return { ...rule, message }
@@ -146,6 +161,15 @@ const writeJson = (value: unknown): Effect.Effect<void> =>
   }).pipe(Effect.flatMap((text) => Console.log(text)))
 
 const writeLine = (line: string): Effect.Effect<void> => Console.log(line)
+
+const writeDryRun = (
+  json: boolean,
+  actions: readonly WriteAction[],
+  format: (action: WriteAction) => string,
+): Effect.Effect<void> =>
+  json
+    ? writeJson({ dryRun: true, actions })
+    : Effect.forEach(actions, (action) => writeLine(format(action)), { discard: true })
 
 const isEnabledFlag = (value: string): boolean => value !== "" && value !== "0" && value !== "false"
 
@@ -220,10 +244,12 @@ export {
   type ErrorReport,
   JsonOutput,
   classifyError,
+  dryRunFlag,
   errorLine,
   nextPageHint,
   reportFailure,
   validatePageSize,
+  writeDryRun,
   writeJson,
   writeLine,
 }

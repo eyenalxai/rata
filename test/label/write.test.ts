@@ -3,7 +3,7 @@ import type { Handler } from "@test/fake-linear/model"
 import { cliLayer, lastJson } from "@test/cli-harness"
 import { inputOf } from "@test/fake-linear/model"
 import { jsonResponse, pageInfo } from "@test/issue-fixtures"
-import { makeRecorder, requestOf, team } from "@test/issue-write-fixtures"
+import { makeRecorder, requestOf, team } from "@test/issue-write/fixtures"
 import { afterEach, describe, expect, test } from "bun:test"
 import { Effect } from "effect"
 import { Command } from "effect/cli"
@@ -25,10 +25,13 @@ afterEach(() => {
   process.exitCode = 0
 })
 
-const createHandler = () =>
+const createHandler = (existing: readonly { id: string; name: string; color: string }[] = []) =>
   makeRecorder((request) => {
     if (request.query.includes("query TeamByKey")) {
       return jsonResponse({ data: { teams: { nodes: [team], pageInfo } } })
+    }
+    if (request.query.includes("query AvailableLabels")) {
+      return jsonResponse({ data: { issueLabels: { nodes: existing, pageInfo } } })
     }
     if (request.query.includes("mutation CreateLabel")) {
       const input = inputOf(request.variables)
@@ -60,7 +63,37 @@ describe("rata label create", () => {
     expect(requestOf(recorder, "mutation CreateLabel")?.variables).toEqual({
       input: { name: "bug", color: "#eb5757", teamId: "team-1" },
     })
-    expect(lastJson(lines)).toEqual({ label: { id: "label-9", name: "bug", color: "#eb5757" } })
+    expect(lastJson(lines)).toEqual({
+      label: { id: "label-9", name: "bug", color: "#eb5757" },
+      created: true,
+    })
+  })
+
+  test("fails on a duplicate with the existing casing and the flag hint", async () => {
+    const recorder = createHandler([{ id: "label-2", name: "Bug", color: "#EB5757" }])
+    const lines: string[] = []
+    await runLabel(recorder.handler, ["create", "--team", "RAT", "--name", "bug"], lines)
+    expect(lines).toContain("error: The label `Bug` already exists.")
+    expect(lines).toContain(
+      "hint: Labels resolve case-insensitively; use `Bug`, or pass `--if-not-exists`.",
+    )
+    expect(requestOf(recorder, "mutation CreateLabel")).toBeUndefined()
+    expect(process.exitCode).toBe(1)
+  })
+
+  test("returns the existing label with --if-not-exists", async () => {
+    const recorder = createHandler([{ id: "label-2", name: "Bug", color: "#EB5757" }])
+    const lines: string[] = []
+    await runLabel(
+      recorder.handler,
+      ["create", "--team", "RAT", "--name", "bug", "--if-not-exists", "--json"],
+      lines,
+    )
+    expect(lastJson(lines)).toEqual({
+      label: { id: "label-2", name: "Bug", color: "#EB5757" },
+      created: false,
+    })
+    expect(requestOf(recorder, "mutation CreateLabel")).toBeUndefined()
   })
 
   test("uses the repository team and omits a missing color", async () => {

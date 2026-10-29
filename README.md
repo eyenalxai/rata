@@ -459,9 +459,11 @@ UUID. A wayfinding map stays an issue with child issues.
 **Paging lists**. `--json` prints
 `{ "labels": [...], "pageInfo": { "hasNextPage": ..., "endCursor": ... } }`.
 
-`rata label create --name <name> [--color <hex>] [--team <key>]` creates a
-team-scoped label. `--team` defaults to the team from `rata link`. A missing
-`--color` lets Linear pick the color.
+`rata label create --name <name> [--color <hex>] [--team <key>] [--if-not-exists]`
+creates a team-scoped label. `--team` defaults to the team from `rata link`. A
+missing `--color` lets Linear pick the color. A duplicate name, ignoring case,
+fails with `conflict` and names the existing label. `--if-not-exists` returns
+the existing label instead.
 
 `rata label edit <label-ref> [--name <new-name>] [--color <hex>] [--team <key>]`
 changes an existing label. A label reference is a name or a UUID. A name
@@ -471,8 +473,10 @@ at least one of `--name` and `--color`.
 The color is 6 hex digits, with or without `#`: `#EB5757` and `EB5757` are both
 valid. rata adds the `#` when it is missing and keeps the case.
 
-`create` and `edit` accept `--json` and print
-`{ "label": { "id": ..., "name": ..., "color": ... } }`.
+`create` and `edit` accept `--json`. Both print
+`{ "label": { "id": ..., "name": ..., "color": ... } }`. `create` also prints
+`"created": true` or `"created": false` when `--if-not-exists` returns an
+existing label.
 
 ## Linking a repository
 
@@ -715,7 +719,8 @@ rata issue label add RAT-42 ready-for-agent bug
 rata issue label remove RAT-42 needs-triage
 rata issue close RAT-42 --comment "Done in PR #12"
 rata issue reopen RAT-42
-rata issue assign me RAT-42
+rata issue assign RAT-42 --assignee me
+rata issue assign RAT-42 --assignee none
 rata issue unassign RAT-42
 rata issue link RAT-43 --blocked-by RAT-42
 rata issue link RAT-42 --blocks RAT-43 --related RAT-44
@@ -727,21 +732,54 @@ rata issue unlink RAT-43 --blocked-by RAT-42
 | `issue create`                        | `--title` (required), `--body`, `--body-file`, `--team`, `--label` (repeatable), `--parent`, `--project`, `--state`, `--assignee`, `--priority` |
 | `issue comment <ref>`                 | `--body`, `--body-file` (one is required)                                                                                                       |
 | `issue update <ref>`                  | `--title`, `--body`, `--body-file`, `--state`, `--assignee`, `--project`, `--parent`, `--priority`                                              |
-| `issue label add <ref> <label...>`    | label names                                                                                                                                     |
-| `issue label remove <ref> <label...>` | label names                                                                                                                                     |
+| `issue label add <ref> <label...>`    | label names, `--dry-run`                                                                                                                        |
+| `issue label remove <ref> <label...>` | label names, `--dry-run`                                                                                                                        |
 | `issue close <ref>`                   | `--comment`, `--comment-file`                                                                                                                   |
 | `issue reopen <ref>`                  |                                                                                                                                                 |
-| `issue assign me <ref>`               | `me` or a user id                                                                                                                               |
-| `issue unassign <ref>`                |                                                                                                                                                 |
-| `issue link <ref>`                    | `--blocks`, `--blocked-by`, `--related`, `--duplicate` (each repeatable)                                                                        |
-| `issue unlink <ref>`                  | the same relation flags                                                                                                                         |
+| `issue assign <ref>`                  | `--assignee` (required): `me`, a user id, or `none`; `--dry-run`                                                                                |
+| `issue unassign <ref>`                | `--dry-run`                                                                                                                                     |
+| `issue link <ref>`                    | `--blocks`, `--blocked-by`, `--related`, `--duplicate` (each repeatable), `--dry-run`                                                           |
+| `issue unlink <ref>`                  | the same relation flags and `--dry-run`                                                                                                         |
 
 Linear has one `blocks` relation. `link --blocks X` records that the issue blocks
 X. `link --blocked-by X` records the same relation in the inverse direction: X
 blocks the issue. `--duplicate X` means the issue duplicates X. `--related X`
 links the two issues with no direction. Repeat a flag to link several issues at
-once. `unlink` removes the relation that the matching flag recorded; a missing
-relation is an error.
+once. `unlink` removes the relation that the matching flag recorded. A missing
+relation is a skipped success, not an error.
+
+`--assignee none` clears the assignee. `issue unassign` is the same write with
+less typing. `--assignee me` resolves the viewer.
+
+### Idempotency
+
+A write that finds the desired state already in place exits 0 and reports
+`skipped`. This holds for `issue link` with an existing relation, `issue unlink`
+with a missing relation, `issue assign` with the same assignee, `issue unassign`
+when the issue has none, `issue label add` with a present label, `issue label
+remove` with an absent label, and `issue close` when the state is already
+`completed`. A `canceled` issue still moves to a completed state. `issue close`
+with a comment still posts the comment when the issue is already completed; the
+state write is skipped. `issue create` and `issue comment` always create a new
+object.
+
+`label create --if-not-exists` returns the existing label with `created: false`.
+
+### Dry runs
+
+`--dry-run` resolves the targets and prints the actions without calling a
+mutation. It is available on `issue link`, `issue unlink`, `issue assign`,
+`issue unassign`, `issue label add` and `issue label remove`. It is not
+available on `issue create`, `issue update`, `issue close`, `issue reopen`,
+`issue comment` or the team, project and label mutations.
+
+```bash
+rata issue assign RAT-42 --assignee me --dry-run
+rata issue label add RAT-42 ready-for-agent --dry-run --json
+```
+
+`--json` prints `{ "dryRun": true, "actions": [...] }`. Each action carries the
+command action, the target, the status it would reach, and the changes.
 
 `--body-file -` and `--comment-file -` read the body from standard input. The
 `--body` and `--body-file` flags are mutually exclusive, as are `--comment` and
@@ -756,8 +794,8 @@ The triage roles are label names. `issue label add RAT-42 ready-for-agent` adds
 the `ready-for-agent` label. A label name resolves against the team labels and
 the workspace labels, ignoring case. `issue label remove` resolves the same way.
 
-Every write command accepts `--json`. The create, update, close, reopen,
-assign, unassign and label commands print the summary shape:
+Every write command accepts `--json`. The create, update and reopen commands
+print the summary shape:
 
 ```json
 {
@@ -776,6 +814,11 @@ assign, unassign and label commands print the summary shape:
 }
 ```
 
+The idempotent writes add the outcome: `issue close`, `issue assign`,
+`issue unassign`, `issue label add` and `issue label remove` print
+`{ "dryRun": false, "status": "updated", "issue": { ... } }`. `status` is
+`skipped` when the desired state already held.
+
 The comment command prints:
 
 ```json
@@ -789,11 +832,17 @@ The comment command prints:
 }
 ```
 
-The link and unlink commands print the relations they changed:
+The link and unlink commands print the relations they changed, with a
+`skipped` entry for a relation that already held the desired state:
 
 ```json
 {
-  "relations": [{ "action": "created", "kind": "blockedBy", "target": "RAT-42" }]
+  "dryRun": false,
+  "status": "updated",
+  "relations": [
+    { "action": "created", "kind": "blockedBy", "target": "RAT-42" },
+    { "action": "skipped", "kind": "blocks", "target": "RAT-43" }
+  ]
 }
 ```
 

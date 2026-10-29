@@ -1,10 +1,20 @@
 import { Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 
+import type { WriteAction } from "@/api/issue-write/model"
+
 import { IssueWriteApi } from "@/api/issue-write"
 import { resolveBody } from "@/cli/body"
 import { OutputFields, rejectFields } from "@/cli/fields"
-import { JsonOutput, errorLine, reportFailure, writeJson, writeLine } from "@/cli/output"
+import {
+  JsonOutput,
+  dryRunFlag,
+  errorLine,
+  reportFailure,
+  writeDryRun,
+  writeJson,
+  writeLine,
+} from "@/cli/output"
 
 const optionalText = (name: string, description: string) =>
   Flag.String(name).pipe(Flag.withDescription(description), Flag.optional)
@@ -12,6 +22,14 @@ const optionalText = (name: string, description: string) =>
 const refArgument = Argument.String("ref").pipe(
   Argument.withDescription("Issue reference: an identifier, a UUID, or a linear.app URL"),
 )
+
+const noChange = (action: WriteAction): string =>
+  action.status === "skipped" ? " (no change)" : ""
+
+const assigneeLabel = (action: WriteAction): string => {
+  const assignee = action.changes.assignee
+  return typeof assignee === "string" ? assignee : "nobody"
+}
 
 const closeCommand = Command.make(
   "close",
@@ -37,14 +55,21 @@ const closeCommand = Command.make(
       }
       const comment = Option.getOrUndefined(body)
       const api = yield* IssueWriteApi
-      const issue = yield* api.close(config.ref, comment)
+      const result = yield* api.close(config.ref, comment)
       if (json) {
-        return yield* writeJson({ issue })
+        return yield* writeJson({ dryRun: false, status: result.status, issue: result.issue })
+      }
+      if (result.actions[0]?.status === "skipped") {
+        return yield* writeLine(
+          comment === undefined
+            ? `${result.issue.identifier} is already completed.`
+            : `${result.issue.identifier} is already completed and posted a comment.`,
+        )
       }
       return yield* writeLine(
         comment === undefined
-          ? `Closed ${issue.identifier}.`
-          : `Closed ${issue.identifier} and posted a comment.`,
+          ? `Closed ${result.issue.identifier}.`
+          : `Closed ${result.issue.identifier} and posted a comment.`,
       )
     }).pipe(Effect.catch(reportFailure)),
 ).pipe(
@@ -81,45 +106,112 @@ const reopenCommand = Command.make("reopen", { ref: refArgument }, (config) =>
 const assignCommand = Command.make(
   "assign",
   {
-    assignee: Argument.String("assignee").pipe(
-      Argument.withDescription("Assignee: `me` or a user id"),
+    ref: refArgument.pipe(
+      Argument.variadic({ min: 1, max: 2 }),
+      Argument.withDescription("Issue reference: an identifier, a UUID, or a linear.app URL"),
     ),
-    ref: refArgument,
+    assignee: Flag.String("assignee").pipe(
+      Flag.withDescription("Assignee: `me`, a user id, or `none` to clear it"),
+      Flag.optional,
+    ),
+    dryRun: dryRunFlag,
   },
   (config) =>
     Effect.gen(function* assignIssue() {
       const json = yield* JsonOutput
       yield* rejectFields(yield* OutputFields)
+      const [ref, legacyAssignee] = config.ref
+      if (ref === undefined) {
+        return yield* errorLine(
+          1,
+          "The issue reference is required.",
+          "rata issue assign <ref> --assignee me",
+        )
+      }
+      if (legacyAssignee !== undefined) {
+        return yield* errorLine(
+          1,
+          "The issue reference comes before the assignee.",
+          `rata issue assign ${legacyAssignee} --assignee ${ref}`,
+        )
+      }
+      const assignee = Option.getOrUndefined(config.assignee)
+      if (assignee === undefined || assignee.length === 0) {
+        return yield* errorLine(
+          1,
+          "The --assignee flag is required.",
+          "rata issue assign <ref> --assignee <me|user-id|none>",
+        )
+      }
       const api = yield* IssueWriteApi
-      const issue = yield* api.assign(config.ref, config.assignee)
+      const result = yield* api.assign(ref, assignee, { dryRun: config.dryRun })
+      if (config.dryRun) {
+        return yield* writeDryRun(json, result.actions, (action) =>
+          action.changes.assignee === null
+            ? `Would clear the assignee of ${action.target}.${noChange(action)}`
+            : `Would assign ${action.target} to ${assigneeLabel(action)}.${noChange(action)}`,
+        )
+      }
       if (json) {
-        return yield* writeJson({ issue })
+        return yield* writeJson({ dryRun: false, status: result.status, issue: result.issue })
+      }
+      if (assignee.toLowerCase() === "none") {
+        return yield* writeLine(
+          result.status === "skipped"
+            ? `${result.issue.identifier} is already unassigned.`
+            : `Unassigned ${result.issue.identifier}.`,
+        )
+      }
+      if (result.status === "skipped") {
+        return yield* writeLine(
+          `${result.issue.identifier} is already assigned to ${
+            result.issue.assignee?.name ?? assignee
+          }.`,
+        )
       }
       return yield* writeLine(
-        `Assigned ${issue.identifier} to ${issue.assignee?.name ?? config.assignee}.`,
+        `Assigned ${result.issue.identifier} to ${result.issue.assignee?.name ?? assignee}.`,
       )
     }).pipe(Effect.catch(reportFailure)),
 ).pipe(
-  Command.withDescription("Assign an issue"),
+  Command.withDescription("Assign an issue, or clear the assignee with `none`"),
   Command.withExamples([
     {
-      command: "rata issue assign me RAT-42",
+      command: "rata issue assign RAT-42 --assignee me",
       description: "Claim an issue",
+    },
+    {
+      command: "rata issue assign RAT-42 --assignee none",
+      description: "Clear the assignee",
     },
   ]),
 )
 
-const unassignCommand = Command.make("unassign", { ref: refArgument }, (config) =>
-  Effect.gen(function* unassignIssue() {
-    const json = yield* JsonOutput
-    yield* rejectFields(yield* OutputFields)
-    const api = yield* IssueWriteApi
-    const issue = yield* api.unassign(config.ref)
-    if (json) {
-      return yield* writeJson({ issue })
-    }
-    return yield* writeLine(`Unassigned ${issue.identifier}.`)
-  }).pipe(Effect.catch(reportFailure)),
+const unassignCommand = Command.make(
+  "unassign",
+  { ref: refArgument, dryRun: dryRunFlag },
+  (config) =>
+    Effect.gen(function* unassignIssue() {
+      const json = yield* JsonOutput
+      yield* rejectFields(yield* OutputFields)
+      const api = yield* IssueWriteApi
+      const result = yield* api.unassign(config.ref, { dryRun: config.dryRun })
+      if (config.dryRun) {
+        return yield* writeDryRun(
+          json,
+          result.actions,
+          (action) => `Would unassign ${action.target}.${noChange(action)}`,
+        )
+      }
+      if (json) {
+        return yield* writeJson({ dryRun: false, status: result.status, issue: result.issue })
+      }
+      return yield* writeLine(
+        result.status === "skipped"
+          ? `${result.issue.identifier} is already unassigned.`
+          : `Unassigned ${result.issue.identifier}.`,
+      )
+    }).pipe(Effect.catch(reportFailure)),
 ).pipe(
   Command.withDescription("Remove the assignee of an issue"),
   Command.withExamples([
