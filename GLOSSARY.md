@@ -45,11 +45,14 @@ they explore the codebase. Use these terms; do not drift to synonyms.
 - **Section**: one heading of an issue description and the content under it. The
   heading is ATX (`#` to `######`), and the section ends at the next heading of
   the same or higher level. Deeper headings stay inside it. A heading inside a
-  fenced code block is not a section.
+  fenced code block is not a section. The heading text is trimmed, and the match
+  is exact and case-sensitive. A repeated heading is **ambiguous**. `append`
+  creates a missing heading at the end of the body.
 - **Body append**: adding content to the end of the description, or to the end
   of one section, without replacing the rest.
-- **updatedAt**: the Linear modification timestamp of an issue. It is the
-  snapshot for a best-effort conditional write.
+- **updatedAt** (or **snapshot**): the Linear modification timestamp of an
+  issue, as read at one moment. It is the snapshot for a best-effort conditional
+  write. Pass it to `--if-unchanged`.
 - **Conditional write**: a write that fails with `conflict` when the issue
   `updatedAt` differs from the value the caller read. Linear has no
   compare-and-swap, so the check races with other writers.
@@ -124,19 +127,10 @@ they explore the codebase. Use these terms; do not drift to synonyms.
 - **Page info**: the `pageInfo` object on every list result:
   `{ hasNextPage, endCursor }`. `hasNextPage` says whether a next page exists.
   With `--all`, `pageInfo` is `{ hasNextPage: false, endCursor: null }`.
-- **Section**: one heading line of an issue body and the content under it. An
-  ATX heading (`#` to `######`) opens a section. It ends at the next heading of
-  the same or a higher level. A heading inside a fenced code block opens no
-  section. The heading match is exact and case-sensitive. A repeated heading is
-  **ambiguous**. Avoid: block, chunk.
 - **Dedupe key**: a stable string that makes a comment retry-safe. It is scoped
   to one issue: rata derives a comment UUIDv4 from the issue id and the key.
-  The same key on the same issue returns the existing comment with
-  `skipped`; a different issue gets its own comment. Avoid: idempotency key.
-- **Snapshot**: the `updatedAt` value of an issue, as read at one moment. Pass
-  it to `--if-unchanged` to make a best-effort conditional write. Linear has no
-  compare-and-swap, so a concurrent write between the read and the write is not
-  detected. Avoid: version, revision.
+  The same key on the same issue returns the existing comment with `skipped`; a
+  different issue gets its own comment. Avoid: idempotency key.
 - **Summary** (or **issue summary**): the lean read of one issue: identifier,
   title, state, priority, labels, assignee, project, parent, url and
   `updatedAt`. It carries no description, children, relations, attachments or

@@ -134,7 +134,7 @@ const reopenCommand = Command.make("reopen", { ref: refArgument, dryRun: dryRunF
     }
     return yield* writeLine(
       result.status === "skipped"
-        ? `${result.issue.identifier} is already open.`
+        ? `${result.issue.identifier} is already unstarted.`
         : `Reopened ${result.issue.identifier}.`,
     )
   }).pipe(Effect.catch(reportFailure)),

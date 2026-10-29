@@ -100,12 +100,11 @@ const makeIssueWrites = (resolvers: WriteResolvers) => {
     const summary = yield* resolvers.readIssueSummary(ref)
     const commented = body !== undefined
     const alreadyCompleted = summary.state.type === "completed"
-    const status = alreadyCompleted ? ("skipped" as const) : ("updated" as const)
     const actions: readonly WriteAction[] = [
       {
-        action: "close" as const,
+        action: "close",
         target: ref,
-        status,
+        status: alreadyCompleted ? "skipped" : "updated",
         changes: { state: "completed" },
       },
       ...(commented
@@ -119,6 +118,7 @@ const makeIssueWrites = (resolvers: WriteResolvers) => {
           ]
         : []),
     ]
+    const status = combineStatus(actions)
     if (options.dryRun === true) {
       return { status, issue: summary, actions }
     }
@@ -126,7 +126,7 @@ const makeIssueWrites = (resolvers: WriteResolvers) => {
       yield* resolvers.postComment(summary.id, body)
     }
     if (alreadyCompleted) {
-      return { status: commented ? ("updated" as const) : status, issue: summary, actions }
+      return { status, issue: summary, actions }
     }
     const issue = yield* resolvers.setStateByType(summary.id, "completed")
     return { status, issue, actions }
@@ -138,20 +138,19 @@ const makeIssueWrites = (resolvers: WriteResolvers) => {
   ) {
     const summary = yield* resolvers.readIssueSummary(ref)
     const alreadyOpen = summary.state.type === "unstarted"
-    const status = alreadyOpen ? ("skipped" as const) : ("updated" as const)
     const actions: readonly WriteAction[] = [
       {
-        action: "reopen" as const,
+        action: "reopen",
         target: ref,
-        status,
+        status: alreadyOpen ? "skipped" : "updated",
         changes: { state: "unstarted" },
       },
     ]
     if (alreadyOpen || options.dryRun === true) {
-      return { status, issue: summary, actions }
+      return { status: combineStatus(actions), issue: summary, actions }
     }
     const issue = yield* resolvers.setStateByType(summary.id, "unstarted")
-    return { status, issue, actions }
+    return { status: combineStatus(actions), issue, actions }
   })
 
   const assign = Effect.fn("IssueWriteApi.assign")(function* assign(

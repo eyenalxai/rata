@@ -37,16 +37,16 @@ const parseFieldPaths = (
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value)
 
-const validPathHint = (value: unknown): string | undefined => {
-  if (!isRecord(value)) {
+const validPathHint = (scope: unknown): string | undefined => {
+  if (!isRecord(scope)) {
     return undefined
   }
-  const keys = Object.keys(value).toSorted()
+  const keys = Object.keys(scope).toSorted()
   return keys.length === 0 ? undefined : `Valid paths: ${keys.join(", ")}.`
 }
 
-const unknownPath = (value: unknown, path: FieldPath): FieldSelectionError => {
-  const hint = validPathHint(value)
+const unknownPath = (scope: unknown, path: FieldPath): FieldSelectionError => {
+  const hint = validPathHint(scope)
   return new FieldSelectionError({
     message: `Unknown field path: ${path.join(".")}.`,
     ...(hint === undefined ? {} : { hint }),
@@ -69,14 +69,14 @@ const selectFields = (
     for (let index = 0; index < path.length; index += 1) {
       const key = path[index]
       if (key === undefined || !isRecord(source) || !(key in source)) {
-        return Result.fail(unknownPath(value, path))
+        return Result.fail(unknownPath(source, path))
       }
       const next = source[key]
       if (index === path.length - 1) {
         target[key] = next
       } else {
         if (!isRecord(next)) {
-          return Result.fail(unknownPath(value, path))
+          return Result.fail(unknownPath(source, path))
         }
         const existing = target[key]
         if (isRecord(existing)) {

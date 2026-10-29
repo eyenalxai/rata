@@ -1215,11 +1215,11 @@ print the summary shape:
 `{ "issue": { ... }, "visible": true }`. `visible` is `false` when the parent
 does not show the new child before the bound, and `null` without `--parent`.
 
-The idempotent writes add the outcome: `issue close`, `issue reopen`,
-`issue assign`, `issue unassign`, `issue label add` and `issue label remove`
-print `{ "dryRun": false, "status": "updated", "issue": { ... } }`. `status` is
-`skipped` when the desired state already held. Reopen keeps the plain summary
-shape `{ "issue": { ... } }`; its status shows only in the dry run.
+The idempotent writes add the outcome: `issue close`, `issue assign`,
+`issue unassign`, `issue label add` and `issue label remove` print
+`{ "dryRun": false, "status": "updated", "issue": { ... } }`. `status` is
+`skipped` when the desired state already held. `issue reopen` prints the plain
+summary shape `{ "issue": { ... } }`; its status shows only in the dry run.
 
 `issue comment create` prints `{ "status", "comment", "visible" }`; see
 **Comment lifecycle** for the shape and the meaning of `visible`.

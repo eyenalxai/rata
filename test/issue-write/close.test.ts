@@ -171,6 +171,25 @@ describe("IssueWriteApi state resolution", () => {
     expect(requestOf(recorder, "mutation CreateComment")).toBeUndefined()
   })
 
+  test("close dry run reports the same status as the write on a completed issue", async () => {
+    const recorder = makeRecorder((request) =>
+      request.query.includes("query IssueSummary")
+        ? jsonResponse({ data: { issue: summaryWith("completed") } })
+        : jsonResponse({ errors: [{ message: `Unexpected query: ${request.query}` }] }, 400),
+    )
+    const plan = await run(
+      recorder.handler,
+      Effect.gen(function* closeDryRunCompleted() {
+        const api = yield* IssueWriteApi
+        return yield* api.close("RAT-1", "Done", { dryRun: true })
+      }),
+    )
+    expect(plan.status).toBe("updated")
+    expect(plan.actions[0]?.status).toBe("skipped")
+    expect(requestOf(recorder, "mutation CreateComment")).toBeUndefined()
+    expect(requestOf(recorder, "mutation UpdateIssue")).toBeUndefined()
+  })
+
   test("reopen dry run plans the state without writing", async () => {
     const recorder = stateHandler(states)
     const result = await run(
