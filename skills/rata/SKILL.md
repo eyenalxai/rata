@@ -68,10 +68,10 @@ at the end; `--level` sets its level. Add `--dry-run` to preview the unified
 diff. `issue update --body-file - --append` appends to the whole body.
 
 A comment or a child that a write just created can be missing from the next
-read. `issue comment` and `issue create --parent` check for up to 5 seconds.
-`--wait <seconds>` changes the bound and `--wait 0` skips the check. JSON reports
-`visible`: `null` means unchecked, `false` means not seen. The write itself still
-succeeded.
+read. `issue comment create` and `issue create --parent` check for up to 5
+seconds. `--wait <seconds>` changes the bound and `--wait 0` skips the check.
+JSON reports `visible`: `null` means unchecked, `false` means not seen. The
+write itself still succeeded.
 
 ## Paging lists
 
@@ -140,11 +140,29 @@ Post the reasoning as a comment. `--body-file -` reads markdown from stdin, so
 long bodies never touch the command line:
 
 ```bash
-rata issue comment ABC-42 --body-file - <<'EOF'
+rata issue comment create ABC-42 --body-file - <<'EOF'
 ## Triage
 
 ...
 EOF
+```
+
+`issue comment create` is retry-safe with `--dedupe-key`. The key is scoped to
+the issue, so a retried handoff comment returns the one already posted with
+`status: "skipped"`:
+
+```bash
+rata issue comment create ABC-42 --body "Handoff." --dedupe-key mission-42-handoff
+```
+
+Use the mission and ticket in the key, for example
+`mission-<spec>-<ticket>-handoff`, so a retry reuses the comment and a new
+ticket gets its own. Rewrite or remove a comment with
+`issue comment update <comment-id>` and `issue comment delete <comment-id> --yes`.
+To change the issue and comment in one call, add `--comment` to `issue update`:
+
+```bash
+rata issue update ABC-42 --state Done --comment "Shipped in PR #12."
 ```
 
 Close a `wontfix` with `rata issue close ABC-42 --comment "..."`.
@@ -211,7 +229,7 @@ Claim a ticket by assigning yourself. Resolve it with a comment, then close it:
 
 ```bash
 rata issue assign ABC-51 --assignee me
-rata issue comment ABC-51 --body-file - <<'EOF'
+rata issue comment create ABC-51 --body-file - <<'EOF'
 ## Answer
 
 ...

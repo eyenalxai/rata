@@ -109,7 +109,9 @@ recorded `workspace`.
 | `rata issue section get <ref> <heading>`             | Print one section of the body. `--with-heading` adds the heading line.        |
 | `rata issue section append <ref> <heading>`          | Append to a section, or create it at the end. `--level` sets a new heading.   |
 | `rata issue section replace <ref> <heading>`         | Replace a section and keep its heading.                                       |
-| `rata issue comment <ref> --body <text>`             | Comment on an issue. `--wait` bounds the visibility check.                    |
+| `rata issue comment create <ref> [--body <text>]`    | Comment on an issue. `--dedupe-key` makes a retry idempotent.                 |
+| `rata issue comment update <comment-id>`             | Replace one comment body. `--dry-run` prints the diff.                        |
+| `rata issue comment delete <comment-id> [--yes]`     | Move one comment to the trash. JSON mode needs `--yes`.                       |
 | `rata issue label add [<ref>] <label...>`            | Add labels. `--parent` targets every child; then every positional is a label. |
 | `rata issue label remove [<ref>] <label...>`         | Remove labels. The same `--parent` rule.                                      |
 | `rata issue assign [<ref>] --assignee <value>`       | Assign an issue, or every child with `--parent`. `me`, a user id, or `none`.  |
@@ -201,11 +203,28 @@ The priority sort fetches every matching issue across all pages before
 ### `issue update` flags
 
 `--title`, `--body` / `--body-file -`, `--state`, `--assignee`, `--project`,
-`--parent`, `--priority`, `--append`, `--dry-run`, `--if-unchanged`. The
-priority values are the same as `issue create`, and `none` clears the priority.
-`--append` adds the body to the end of the description with a blank separator.
-`--if-unchanged <updatedAt>` fails with `conflict` when the issue changed since
-that read.
+`--parent`, `--priority`, `--append`, `--comment` / `--comment-file -`,
+`--dry-run`, `--if-unchanged`. The priority values are the same as
+`issue create`, and `none` clears the priority. `--append` adds the body to the
+end of the description with a blank separator. `--if-unchanged <updatedAt>`
+fails with `conflict` when the issue changed since that read. `--comment`
+validates first, applies the issue update, then creates the comment; when the
+comment fails, the issue update stays, the JSON carries `"comment": null` and
+the `error` object, and the command exits 1. `--dry-run` prints the update
+action, the diff for `--append`, and the comment action.
+
+### `issue comment` flags
+
+`create` takes `--body` or `--body-file -`, `--dedupe-key`, `--wait` and
+`--dry-run`. The key is scoped to the issue: rata derives a UUIDv4 from
+`sha256(issueId + "\0" + key)` and skips an existing comment. JSON is
+`{ "status": "created" | "skipped", "comment": ..., "visible": ... }`. The dedupe
+check runs in a dry run, so a dry run can report `skipped`.
+
+`update <comment-id>` takes `--body` or `--body-file -` and `--dry-run`; a
+missing comment is `not_found`, and JSON is `{ "comment": ... }`.
+`delete <comment-id>` takes `--yes` and `--dry-run`; JSON mode requires `--yes`
+and prints `{ "deleted": true, "id": ... }`.
 
 ### `issue section` flags
 
@@ -229,8 +248,10 @@ a write returns `{ "issue": { "identifier", "updatedAt" }, "section": { "heading
 ### Writes
 
 `issue create`, `issue update`, `issue section append`, `issue section replace`,
-`issue link`, `issue unlink`, `issue assign`, `issue unassign`, `issue label
-add`, `issue label remove`, `config set` and `config unset` accept `--dry-run`.
+`issue comment create`, `issue comment update`, `issue comment delete`,
+`issue link`, `issue unlink`, `issue assign`, `issue unassign`, `issue label add`,
+`issue label remove`, `issue close`, `issue reopen`, `config set` and
+`config unset` accept `--dry-run`.
 It resolves the targets and prints the actions; no mutation runs. The body
 writes print a unified diff.
 JSON is `{ "dryRun": true, "actions": [...] }` for the single-issue forms. The
@@ -239,7 +260,7 @@ parent**.
 
 ### Read-after-write
 
-Linear documents no read-after-write guarantee. `issue comment` and
+Linear documents no read-after-write guarantee. `issue comment create` and
 `issue create --parent` check that the new comment or child appears on a bounded
 re-read. The default bound is 5 seconds. `--wait <seconds>` changes it and
 `--wait 0` disables the check.

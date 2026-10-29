@@ -124,3 +124,20 @@ they explore the codebase. Use these terms; do not drift to synonyms.
 - **Page info**: the `pageInfo` object on every list result:
   `{ hasNextPage, endCursor }`. `hasNextPage` says whether a next page exists.
   With `--all`, `pageInfo` is `{ hasNextPage: false, endCursor: null }`.
+- **Section**: one heading line of an issue body and the content under it. An
+  ATX heading (`#` to `######`) opens a section. It ends at the next heading of
+  the same or a higher level. A heading inside a fenced code block opens no
+  section. The heading match is exact and case-sensitive. A repeated heading is
+  **ambiguous**. Avoid: block, chunk.
+- **Dedupe key**: a stable string that makes a comment retry-safe. It is scoped
+  to one issue: rata derives a comment UUIDv4 from the issue id and the key.
+  The same key on the same issue returns the existing comment with
+  `skipped`; a different issue gets its own comment. Avoid: idempotency key.
+- **Snapshot**: the `updatedAt` value of an issue, as read at one moment. Pass
+  it to `--if-unchanged` to make a best-effort conditional write. Linear has no
+  compare-and-swap, so a concurrent write between the read and the write is not
+  detected. Avoid: version, revision.
+- **Summary** (or **issue summary**): the lean read of one issue: identifier,
+  title, state, priority, labels, assignee, project, parent, url and
+  `updatedAt`. It carries no description, children, relations, attachments or
+  comments. Avoid: header, metadata.

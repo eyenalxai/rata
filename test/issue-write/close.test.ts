@@ -156,6 +156,48 @@ describe("IssueWriteApi state resolution", () => {
     })
   })
 
+  test("close dry run plans the state and the comment without writing", async () => {
+    const recorder = closeCommentHandler()
+    const result = await run(
+      recorder.handler,
+      Effect.gen(function* closeDryRun() {
+        const api = yield* IssueWriteApi
+        return yield* api.close("RAT-1", "Done", { dryRun: true })
+      }),
+    )
+    expect(result.status).toBe("updated")
+    expect(result.actions.map((action) => action.action)).toEqual(["close", "comment-create"])
+    expect(requestOf(recorder, "mutation UpdateIssue")).toBeUndefined()
+    expect(requestOf(recorder, "mutation CreateComment")).toBeUndefined()
+  })
+
+  test("reopen dry run plans the state without writing", async () => {
+    const recorder = stateHandler(states)
+    const result = await run(
+      recorder.handler,
+      Effect.gen(function* reopenDryRun() {
+        const api = yield* IssueWriteApi
+        return yield* api.reopen("RAT-1", { dryRun: true })
+      }),
+    )
+    expect(result.actions[0]?.action).toBe("reopen")
+    expect(result.actions[0]?.status).toBe("updated")
+    expect(requestOf(recorder, "mutation UpdateIssue")).toBeUndefined()
+  })
+
+  test("skips a reopen when the issue is already unstarted", async () => {
+    const recorder = stateHandler(states, "unstarted")
+    const result = await run(
+      recorder.handler,
+      Effect.gen(function* reopenOpen() {
+        const api = yield* IssueWriteApi
+        return yield* api.reopen("RAT-1")
+      }),
+    )
+    expect(result.status).toBe("skipped")
+    expect(requestOf(recorder, "mutation UpdateIssue")).toBeUndefined()
+  })
+
   test("posts the comment even when the issue is already completed", async () => {
     const recorder = makeRecorder((request) => {
       if (request.query.includes("query IssueSummary")) {

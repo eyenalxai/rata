@@ -60,7 +60,6 @@ const errorRules: Record<string, ErrorRule> = {
   BodyInputError: { code: "validation", hint: null },
   ColorInputError: { code: "validation", hint: null },
   PriorityInputError: { code: "validation", hint: null },
-  FieldSelectionError: { code: "validation", hint: null },
   LinkError: { code: "validation", hint: null },
   AuthStoreError: { code: "auth", hint: "Run `rata auth login --with-token`." },
 }
@@ -82,6 +81,10 @@ const classifyError = (error: ReportedError): ErrorReport => {
           ? "The issue body has no headings."
           : `Available headings: ${headings.map((heading) => `"${heading}"`).join(", ")}.`,
     }
+  }
+  if (tag === "FieldSelectionError") {
+    const hint: unknown = Reflect.get(error, "hint")
+    return { code: "validation", message, hint: typeof hint === "string" ? hint : null }
   }
   if (tag === "ConflictError") {
     const current: unknown = Reflect.get(error, "current")

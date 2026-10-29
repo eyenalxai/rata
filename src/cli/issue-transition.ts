@@ -57,6 +57,11 @@ const assignLine =
     return `Assigned ${result.identifier} to ${name}.`
   }
 
+const closeLine = (action: WriteAction): string =>
+  action.action === "comment-create"
+    ? `Would comment on ${action.target}.`
+    : `Would close ${action.target}.${noChange(action)}`
+
 const closeCommand = Command.make(
   "close",
   {
@@ -66,6 +71,7 @@ const closeCommand = Command.make(
       "comment-file",
       "Read the comment from a file. Use - for standard input",
     ),
+    dryRun: dryRunFlag,
   },
   (config) =>
     Effect.gen(function* closeIssue() {
@@ -81,7 +87,10 @@ const closeCommand = Command.make(
       }
       const comment = Option.getOrUndefined(body)
       const api = yield* IssueWriteApi
-      const result = yield* api.close(config.ref, comment)
+      const result = yield* api.close(config.ref, comment, { dryRun: config.dryRun })
+      if (config.dryRun) {
+        return yield* writeDryRun(json, result.actions, closeLine)
+      }
       if (json) {
         return yield* writeJson({ dryRun: false, status: result.status, issue: result.issue })
       }
@@ -108,16 +117,26 @@ const closeCommand = Command.make(
   ]),
 )
 
-const reopenCommand = Command.make("reopen", { ref: refArgument }, (config) =>
+const reopenLine = (action: WriteAction): string =>
+  `Would reopen ${action.target}.${noChange(action)}`
+
+const reopenCommand = Command.make("reopen", { ref: refArgument, dryRun: dryRunFlag }, (config) =>
   Effect.gen(function* reopenIssue() {
     const json = yield* JsonOutput
     yield* rejectFields(yield* OutputFields)
     const api = yield* IssueWriteApi
-    const issue = yield* api.reopen(config.ref)
-    if (json) {
-      return yield* writeJson({ issue })
+    const result = yield* api.reopen(config.ref, { dryRun: config.dryRun })
+    if (config.dryRun) {
+      return yield* writeDryRun(json, result.actions, reopenLine)
     }
-    return yield* writeLine(`Reopened ${issue.identifier}.`)
+    if (json) {
+      return yield* writeJson({ issue: result.issue })
+    }
+    return yield* writeLine(
+      result.status === "skipped"
+        ? `${result.issue.identifier} is already open.`
+        : `Reopened ${result.issue.identifier}.`,
+    )
   }).pipe(Effect.catch(reportFailure)),
 ).pipe(
   Command.withDescription("Reopen an issue and move it to an unstarted state"),

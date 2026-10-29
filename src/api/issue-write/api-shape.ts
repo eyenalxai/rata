@@ -111,8 +111,12 @@ type IssueWriteApiShape = {
   readonly close: (
     ref: string,
     body?: string,
+    options?: WriteOptions,
   ) => Effect.Effect<IssueWriteResult, IssueWriteApiError>
-  readonly reopen: (ref: string) => Effect.Effect<IssueSummary, IssueWriteApiError>
+  readonly reopen: (
+    ref: string,
+    options?: WriteOptions,
+  ) => Effect.Effect<IssueWriteResult, IssueWriteApiError>
   readonly assign: (
     ref: string,
     assignee: string,

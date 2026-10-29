@@ -41,6 +41,8 @@ const writeActionNames = [
   "assign",
   "unassign",
   "close",
+  "reopen",
+  "comment-create",
   "add-label",
   "remove-label",
   "link",

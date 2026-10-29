@@ -38,11 +38,12 @@ operations.
   makes them the defaults for every new issue in this repository.
   `rata config show --json` reads them. `rata config unset --label` clears one
   field.
-- **Preview a write**: add `--dry-run` to `issue create`, `issue update`,
-  `issue section append`, `issue section replace`, `issue comment create`,
-  `issue comment update`, `issue comment delete`, `issue link`, `unlink`,
-  `assign`, `unassign`, `label add`, `label remove`, `config set` or
-  `config unset`. A repeated idempotent write exits 0 and reports `skipped`.
+- **Preview a write**: add `--dry-run` to any issue write: `issue create`,
+  `issue update`, `issue section append`, `issue section replace`,
+  `issue comment create`, `issue comment update`, `issue comment delete`,
+  `issue link`, `unlink`, `assign`, `unassign`, `label add`, `label remove`,
+  `close` or `reopen`, or to `config set` and `config unset`. A repeated
+  idempotent write exits 0 and reports `skipped`.
 - **Read an issue**: `rata issue show <ref> --json`. One call returns the issue,
   its comments, children, relations and attachments. Add `--no-comments` to
   skip the comment fetch; `--comments` and `--no-comments` are mutually
@@ -161,5 +162,9 @@ with **child** issues as tickets.
 - **Claim**: `rata issue assign <ref> --assignee me`, the session's first write. The
   assignee is the claim; this is what assigns a wayfinder child.
 - **Resolve**: `rata issue comment create <ref> --body-file -`, then
-  `rata issue close <ref>`, then append a context pointer (gist plus link) to
-  the map's Decisions-so-far with `rata issue update <map-ref> --body-file -`.
+  `rata issue close <ref>`, then append the context pointer (gist plus link) to
+  the map's `Decisions so far` section with
+  `rata issue section append <map-ref> "Decisions so far" --body-file -`. Add
+  `--dry-run` to preview the unified diff, or `--if-unchanged <updatedAt>` to
+  fail with `conflict` when the map changed since the read. A missing heading is
+  created at the end of the body; `--level` sets its level.

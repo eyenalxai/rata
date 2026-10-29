@@ -92,44 +92,66 @@ const makeIssueWrites = (resolvers: WriteResolvers) => {
     return { status: combineStatus(actions), issue, actions }
   })
 
-  const close = Effect.fn("IssueWriteApi.close")(function* close(ref: string, body?: string) {
+  const close = Effect.fn("IssueWriteApi.close")(function* close(
+    ref: string,
+    body?: string,
+    options: WriteOptions = {},
+  ) {
     const summary = yield* resolvers.readIssueSummary(ref)
     const commented = body !== undefined
+    const alreadyCompleted = summary.state.type === "completed"
+    const status = alreadyCompleted ? ("skipped" as const) : ("updated" as const)
+    const actions: readonly WriteAction[] = [
+      {
+        action: "close" as const,
+        target: ref,
+        status,
+        changes: { state: "completed" },
+      },
+      ...(commented
+        ? [
+            {
+              action: "comment-create" as const,
+              target: ref,
+              status: "updated" as const,
+              changes: { body },
+            },
+          ]
+        : []),
+    ]
+    if (options.dryRun === true) {
+      return { status, issue: summary, actions }
+    }
     if (commented) {
       yield* resolvers.postComment(summary.id, body)
     }
-    if (summary.state.type === "completed") {
-      return {
-        status: commented ? ("updated" as const) : ("skipped" as const),
-        issue: summary,
-        actions: [
-          {
-            action: "close" as const,
-            target: ref,
-            status: "skipped" as const,
-            changes: { state: "completed" },
-          },
-        ],
-      }
+    if (alreadyCompleted) {
+      return { status: commented ? ("updated" as const) : status, issue: summary, actions }
     }
     const issue = yield* resolvers.setStateByType(summary.id, "completed")
-    return {
-      status: "updated" as const,
-      issue,
-      actions: [
-        {
-          action: "close" as const,
-          target: ref,
-          status: "updated" as const,
-          changes: { state: "completed" },
-        },
-      ],
-    }
+    return { status, issue, actions }
   })
 
-  const reopen = Effect.fn("IssueWriteApi.reopen")(function* reopen(ref: string) {
-    const issueId = yield* resolvers.resolveIssueId(ref)
-    return yield* resolvers.setStateByType(issueId, "unstarted")
+  const reopen = Effect.fn("IssueWriteApi.reopen")(function* reopen(
+    ref: string,
+    options: WriteOptions = {},
+  ) {
+    const summary = yield* resolvers.readIssueSummary(ref)
+    const alreadyOpen = summary.state.type === "unstarted"
+    const status = alreadyOpen ? ("skipped" as const) : ("updated" as const)
+    const actions: readonly WriteAction[] = [
+      {
+        action: "reopen" as const,
+        target: ref,
+        status,
+        changes: { state: "unstarted" },
+      },
+    ]
+    if (alreadyOpen || options.dryRun === true) {
+      return { status, issue: summary, actions }
+    }
+    const issue = yield* resolvers.setStateByType(summary.id, "unstarted")
+    return { status, issue, actions }
   })
 
   const assign = Effect.fn("IssueWriteApi.assign")(function* assign(

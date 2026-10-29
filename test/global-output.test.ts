@@ -60,6 +60,15 @@ describe("global output flags", () => {
     })
   })
 
+  test("lists the valid paths in the hint of an unknown field path", async () => {
+    const fake = makeFakeLinear({ teams: [team], labels: [] })
+    const lines: string[] = []
+    await runTeam(fake.handler, ["list", "--json", "--fields", "nope"], lines)
+    expect(JSON.parse(lines[0] ?? "")).toMatchObject({
+      error: { hint: "Valid paths: id, key, name, timezone." },
+    })
+  })
+
   test("rejects --fields without --json", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
