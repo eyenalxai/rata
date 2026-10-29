@@ -161,7 +161,9 @@ and `none` clears the priority.
 `issue create`, `issue link`, `issue unlink`, `issue assign`, `issue unassign`,
 `issue label add`, `issue label remove`, `config set` and `config unset` accept
 `--dry-run`. It resolves the targets and prints the actions; no mutation runs.
-JSON is `{ "dryRun": true, "actions": [...] }`.
+JSON is `{ "dryRun": true, "actions": [...] }` for the single-issue forms. The
+bulk forms return `{ "dryRun": true, "results": [...] }`; see **Bulk writes by
+parent**.
 
 ### Bulk writes by parent
 

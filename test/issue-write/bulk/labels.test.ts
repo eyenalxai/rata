@@ -98,6 +98,28 @@ describe("bulk labels by parent", () => {
     expect(process.exitCode).toBe(1)
   })
 
+  test("dry-run reports the labels without writing", async () => {
+    const recorder = recorderFor([seed("RAT-3")])
+    const lines: string[] = []
+    await runIssue(
+      recorder.handler,
+      ["label", "add", "--parent", "RAT-1", "bug", "--dry-run", "--json"],
+      lines,
+    )
+    expect(lastJson(lines)).toMatchObject({
+      dryRun: true,
+      results: [{ identifier: "RAT-3", status: "updated" }],
+    })
+    expect(mutations(recorder, "mutation AddLabel")).toHaveLength(0)
+  })
+
+  test("prints one human line per child", async () => {
+    const recorder = recorderFor([seed("RAT-3", { labels: [labels.bug] }), seed("RAT-4")])
+    const lines: string[] = []
+    await runIssue(recorder.handler, ["label", "add", "--parent", "RAT-1", "bug"], lines)
+    expect(lines).toEqual(["RAT-3 already has bug.", "Added bug to RAT-4."])
+  })
+
   test("removes a label from every child", async () => {
     const recorder = recorderFor([
       seed("RAT-3", { labels: [labels.ready] }),

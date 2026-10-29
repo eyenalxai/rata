@@ -80,11 +80,11 @@ Repair every child of a spec in one call. `--parent` targets all children, open
 and closed, and makes every positional of a label command a label:
 
 ```bash
-rata issue label add --parent ABC-50 ready-for-agent
-rata issue assign --parent ABC-50 --assignee me
+rata issue label add --parent ABC-60 ready-for-agent
+rata issue assign --parent ABC-60 --assignee me
 ```
 
-Maps stay unassigned until the claim step, so label a map's children in bulk but
+Maps stay unassigned until the claim step: label a map's children in bulk, but
 claim them one by one. A bad reference or a missing label aborts the batch before
 any write. Add `--dry-run` to preview.
 
