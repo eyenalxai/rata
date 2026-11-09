@@ -116,6 +116,24 @@ describe("issue show output modes", () => {
     expect(error.error.hint).toBe("Valid paths: name, type.")
   })
 
+  test("rejects a prototype key in --fields", async () => {
+    const lines: string[] = []
+    await runShow(
+      summaryHandler,
+      ["show", "RAT-1", "--summary", "--json", "--fields", "constructor"],
+      lines,
+    )
+    const error = Option.getOrThrow(
+      Schema.decodeUnknownOption(
+        Schema.Struct({ error: Schema.Struct({ code: Schema.String, hint: Schema.String }) }),
+      )(lastJson(lines)),
+    )
+    expect(error.error.code).toBe("validation")
+    expect(error.error.hint).toBe(
+      "Valid paths: assignee, createdAt, id, identifier, labels, parent, priority, project, state, title, updatedAt, url.",
+    )
+  })
+
   test("returns null when a field path crosses a null object", async () => {
     const lines: string[] = []
     await runShow(

@@ -1,7 +1,7 @@
 import type { Handler } from "@test/fake-linear/model"
 
-import { lastJson, runRoot } from "@test/cli-harness"
-import { baseDetail, jsonResponse, pageInfo } from "@test/issue-fixtures"
+import { lastJson, lastJsonRecord, runRoot } from "@test/cli-harness"
+import { baseDetail, jsonResponse, pageInfo, summaryKeys } from "@test/issue-fixtures"
 import { afterEach, describe, expect, test } from "bun:test"
 import { Option, Schema } from "effect"
 
@@ -63,6 +63,9 @@ describe("rata why", () => {
     )
 
     const document = whyDocument(lines)
+    expect(Object.keys(lastJsonRecord(lines)).toSorted()).toEqual(
+      [...summaryKeys, "blocked", "blockedBy"].toSorted(),
+    )
     expect(document.identifier).toBe("RAT-1")
     expect(document.title).toBe("The issue")
     expect(document.blocked).toBe(true)

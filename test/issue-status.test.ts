@@ -1,11 +1,12 @@
 import type { Handler } from "@test/fake-linear/model"
 
-import { lastJson, runRoot } from "@test/cli-harness"
+import { lastJson, lastJsonRecord, runRoot } from "@test/cli-harness"
 import {
   baseDetail,
   jsonResponse,
   pageInfo,
   readBody,
+  summaryKeys,
   summaryNode,
   uuid,
   withTeamLookup,
@@ -174,6 +175,9 @@ describe("rata issue status", () => {
     )
 
     const document = statusDocument(lines)
+    expect(Object.keys(lastJsonRecord(lines)).toSorted()).toEqual(
+      [...summaryKeys, "blocked", "blockedBy", "nextChild", "prs"].toSorted(),
+    )
     expect(document.identifier).toBe("RAT-1")
     expect(document.blocked).toBe(true)
     expect(document.blockedBy).toEqual([

@@ -76,7 +76,7 @@ const selectFields = (
     let target: Record<string, unknown> = selected
     for (let index = 0; index < path.length; index += 1) {
       const key = path[index]
-      if (key === undefined || !isRecord(source) || !(key in source)) {
+      if (key === undefined || !isRecord(source) || !Object.hasOwn(source, key)) {
         return Result.fail(unknownPath(source, path))
       }
       const next = source[key]

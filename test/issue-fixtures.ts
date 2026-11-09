@@ -167,6 +167,21 @@ const run = <A, E>(
     Effect.runPromise,
   )
 
+const summaryKeys = [
+  "assignee",
+  "createdAt",
+  "id",
+  "identifier",
+  "labels",
+  "parent",
+  "priority",
+  "project",
+  "state",
+  "title",
+  "updatedAt",
+  "url",
+] as const
+
 export {
   attachment,
   baseDetail,
@@ -174,6 +189,7 @@ export {
   pageInfo,
   readBody,
   run,
+  summaryKeys,
   summaryNode,
   user,
   uuid,
