@@ -168,13 +168,13 @@ const assignCommand = Command.make(
     Effect.gen(function* assignIssue() {
       const json = yield* JsonOutput
       yield* rejectFields(yield* OutputFields)
-      const [ref, legacyAssignee] = config.ref
+      const [ref, positionalAssignee] = config.ref
       const parent = Option.getOrUndefined(config.parent)
-      if (legacyAssignee !== undefined) {
+      if (positionalAssignee !== undefined) {
         return yield* errorLine(
           "validation",
-          "The issue reference comes before the assignee.",
-          `rata issue assign ${legacyAssignee} --assignee ${ref}`,
+          "The --assignee flag replaces the positional assignee.",
+          `rata issue assign ${ref} --assignee ${positionalAssignee}`,
         )
       }
       const assignee = Option.getOrUndefined(config.assignee)

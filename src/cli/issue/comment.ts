@@ -1,5 +1,5 @@
 import { Effect, Option } from "effect"
-import { Argument, Command, Flag } from "effect/cli"
+import { Argument, CliError, Command, Flag, Param } from "effect/cli"
 
 import { IssueWriteApi } from "@/api/issue-write"
 import { confirm } from "@/cli/confirm"
@@ -231,7 +231,23 @@ const deleteCommand = Command.make(
   ]),
 )
 
-const commentCommand = Command.make("comment").pipe(
+const strayRefArgument = Argument.String("ref").pipe(Param.withHidden, Argument.optional)
+
+const rejectStrayRef = (ref: Option.Option<string>) =>
+  Option.match(ref, {
+    onNone: () =>
+      Effect.fail(new CliError.ShowHelp({ commandPath: ["rata", "issue", "comment"], errors: [] })),
+    onSome: (value) =>
+      errorLine(
+        "validation",
+        "The comment group needs a subcommand.",
+        `rata issue comment create ${value}`,
+      ),
+  })
+
+const commentCommand = Command.make("comment", { ref: strayRefArgument }, (config) =>
+  rejectStrayRef(config.ref),
+).pipe(
   Command.withDescription("Create, update and delete comments"),
   Command.withSubcommands([createCommand, updateCommand, deleteCommand]),
 )

@@ -136,11 +136,11 @@ describe("rata issue assign grammar", () => {
     ).toBe(true)
   })
 
-  test("rejects the old assignee-first grammar with a hint", async () => {
+  test("rejects a positional assignee with the canonical hint", async () => {
     const recorder = recorderFor(state)
     const lines: string[] = []
-    await runIssue(recorder.handler, ["assign", "me", "RAT-1"], lines)
-    expect(lines).toContain("error: The issue reference comes before the assignee.")
+    await runIssue(recorder.handler, ["assign", "RAT-1", "me"], lines)
+    expect(lines).toContain("error: The --assignee flag replaces the positional assignee.")
     expect(lines).toContain("hint: rata issue assign RAT-1 --assignee me")
     expect(recorder.requests).toHaveLength(0)
     expect(process.exitCode).toBe(2)
