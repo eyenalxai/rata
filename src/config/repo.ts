@@ -202,6 +202,22 @@ class RepoConfigService extends Context.Service<RepoConfigService, RepoConfigSha
         return Option.none<string>()
       })
 
+      const removeLegacy = Effect.fn("RepoConfig.removeLegacy")(function* removeLegacyFile(
+        file: string,
+      ) {
+        yield* fs
+          .remove(file)
+          .pipe(
+            Effect.catchTag("PlatformError", (error) =>
+              error.reason._tag === "NotFound"
+                ? Effect.void
+                : Console.error(
+                    `warning: Could not remove the legacy repository config at ${file}. Delete it to finish the migration.`,
+                  ),
+            ),
+          )
+      })
+
       const importLegacy = Effect.fn("RepoConfig.importLegacy")(function* importLegacyFile(
         key: string,
         file: string,
@@ -216,7 +232,7 @@ class RepoConfigService extends Context.Service<RepoConfigService, RepoConfigSha
           })
         }
         yield* upsert(key, decoded.success)
-        yield* fs.remove(file).pipe(Effect.mapError(describeStoreFailure("remove")(file)))
+        yield* removeLegacy(file)
         yield* Console.error(`Migrated repository config from ${file}.`)
         return Option.some(decoded.success)
       })

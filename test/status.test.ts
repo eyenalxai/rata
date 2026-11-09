@@ -3,7 +3,7 @@ import type { Handler } from "@test/fake-linear/model"
 
 import { apiLayer, makeFakeLinear } from "@test/fake-linear"
 import { defaultViewer } from "@test/fake-linear/model"
-import { recordingConsole } from "@test/recording-console"
+import { recordingConsoleWithErrors } from "@test/recording-console"
 import { afterEach, describe, expect, test } from "bun:test"
 import { Console, Effect, FileSystem, Layer, Option, Path, Schema, Stdio, Terminal } from "effect"
 import { Command } from "effect/cli"
@@ -28,6 +28,7 @@ const runStatus = (
   args: readonly string[],
   lines: string[],
   options: ApiLayerOptions = {},
+  errors: string[] = lines,
 ) =>
   Command.run(statusCommand, { version: "test" }).pipe(
     Effect.provide(
@@ -41,7 +42,7 @@ const runStatus = (
           ChildProcessSpawner.ChildProcessSpawner,
           ChildProcessSpawner.make(() => Effect.die("unused")),
         ),
-        Layer.succeed(Console.Console, recordingConsole(lines)),
+        Layer.succeed(Console.Console, recordingConsoleWithErrors(lines, errors)),
       ),
     ),
     Effect.runPromise,
@@ -95,6 +96,7 @@ describe("status", () => {
       team: { id: "team-1", key: "RAT", name: "Rata" },
       project: null,
       defaults: { assignee: null, labels: [], priority: null },
+      warning: null,
     })
   })
 
@@ -114,7 +116,57 @@ describe("status", () => {
       team: { id: "team-1", key: "RAT", name: "Rata" },
       project: "rata",
       defaults: { assignee: null, labels: [], priority: null },
+      warning: null,
     })
+  })
+
+  test("keeps the context when the stored team key is stale", async () => {
+    const fake = makeFakeLinear({ teams: [team], labels: [] })
+    const lines: string[] = []
+    await runStatus(fake.handler, ["--json"], lines, {
+      env: { HOME: "/home/test" },
+      profiles,
+      repositories: [{ key: process.cwd(), team: "GONE", project: "rata", workspace: "work" }],
+    })
+
+    expect(lastJson(lines)).toEqual({
+      repository: { root: process.cwd(), linked: true },
+      workspace: { name: "work", keySource: "repo" },
+      viewer: statusViewer,
+      team: null,
+      project: "rata",
+      defaults: null,
+      warning:
+        "The stored team key GONE no longer exists. Run `rata team list` to see the team keys, then run `rata link --team <key>` to repair the link.",
+    })
+    expect(process.exitCode).toBe(0)
+  })
+
+  test("prints the stale team warning on standard error only", async () => {
+    const fake = makeFakeLinear({ teams: [team], labels: [] })
+    const stdout: string[] = []
+    const stderr: string[] = []
+    await runStatus(
+      fake.handler,
+      [],
+      stdout,
+      {
+        env: { HOME: "/home/test" },
+        profiles,
+        repositories: [{ key: process.cwd(), team: "GONE", project: "rata" }],
+      },
+      stderr,
+    )
+
+    expect(stderr).toEqual([
+      "warning: The stored team key GONE no longer exists. Run `rata team list` to see the team keys, then run `rata link --team <key>` to repair the link.",
+    ])
+    const output = stdout.join("\n")
+    expect(output).toContain("repo:")
+    expect(output).toContain("team:      missing key GONE (run rata link)")
+    expect(output).toContain("project:   rata")
+    expect(output).toContain("defaults:  none")
+    expect(output).not.toContain("warning:")
   })
 
   test("falls back to the default profile", async () => {

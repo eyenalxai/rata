@@ -150,6 +150,11 @@ project, the issue defaults, the viewer and the organization. It works without a
 link: the team line then reads `not linked (run rata link)` and the command
 exits 0. Without an API key it fails with an `auth` error.
 
+When the stored team key no longer exists, `status` still reports the rest of
+the context. It exits 0, sets `team` and `defaults` to `null`, and adds a
+`warning` that names the stale key and the repair: run `rata team list`, then
+`rata link --team <key>`. Human output prints the warning on stderr.
+
 ```bash
 rata status
 rata status --json
@@ -177,6 +182,7 @@ org:       Acme (acme)
   "team": { "id": "t1", "key": "JYO", "name": "Jyoti" },
   "project": null,
   "defaults": { "assignee": "me", "labels": ["enhancement"], "priority": "medium" },
+  "warning": null,
   "viewer": {
     "id": "u1",
     "name": "Ada",
@@ -190,7 +196,8 @@ org:       Acme (acme)
 `keySource` is `env` for `LINEAR_API_KEY`, `repo` for the `workspace` in the
 repository config, and `default` for the default profile. `team` and `project`
 are `null` when unset. `defaults` holds the repository issue defaults; each
-field is `null` or empty when it is unset.
+field is `null` or empty when it is unset. `warning` is `null` unless the
+stored team key is stale.
 
 ## Paging lists
 
@@ -603,7 +610,8 @@ directory, so the main checkout and every worktree share it. Outside Git it
 belongs to the directory where `link` ran, and its subdirectories find it. rata
 never writes a configuration file into a repository. On first use, rata imports
 an existing `.rata.json` into the database, deletes the file and prints one
-notice on stderr.
+notice on stderr. If the delete fails, rata prints a warning and keeps the
+imported config. A file that is already gone is not an error.
 
 | Flag          | Meaning                                                                |
 | ------------- | ---------------------------------------------------------------------- |

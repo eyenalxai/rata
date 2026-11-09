@@ -1,8 +1,9 @@
-import { ByteSize, Effect, FileSystem, Option } from "effect"
+import { ByteSize, Effect, FileSystem, Option, PlatformError } from "effect"
 
 type MemoryTree = {
   readonly directories: readonly string[]
   readonly files: Map<string, string>
+  readonly removeFailure?: "NotFound" | "PermissionDenied" | undefined
 }
 
 const fileInfo = (type: FileSystem.File.Type): FileSystem.File.Info => ({
@@ -27,9 +28,18 @@ const memoryFileSystem = (tree: MemoryTree) =>
     exists: (target) => Effect.succeed(tree.directories.includes(target) || tree.files.has(target)),
     readFileString: (target) => Effect.succeed(tree.files.get(target) ?? ""),
     remove: (target) =>
-      Effect.sync(() => {
-        tree.files.delete(target)
-      }),
+      tree.removeFailure === undefined
+        ? Effect.sync(() => {
+            tree.files.delete(target)
+          })
+        : Effect.fail(
+            PlatformError.systemError({
+              _tag: tree.removeFailure,
+              module: "FileSystem",
+              method: "remove",
+              pathOrDescriptor: target,
+            }),
+          ),
     stat: (target) => {
       if (tree.directories.includes(target)) {
         return Effect.succeed(fileInfo("Directory"))

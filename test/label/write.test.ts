@@ -187,7 +187,10 @@ describe("rata label edit", () => {
     const recorder = editHandler()
     const lines: string[] = []
     await runLabel(recorder.handler, ["edit", ref, "--color", "#ffffff", "--team", "NOPE"], lines)
-    expect(lines.join("\n")).toContain("No team with key NOPE")
+    const output = lines.join("\n")
+    expect(output).toContain("No team with key NOPE")
+    expect(output).toContain("A team key and an issue identifier prefix can differ after a rename.")
+    expect(output).toContain("`rata team list`")
     expect(requestOf(recorder, "mutation UpdateLabel")).toBeUndefined()
     expect(process.exitCode).toBe(3)
   })
