@@ -116,10 +116,11 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
           )
         }
         const filter = composeFilter(parts)
+        const query = listQuery(options.include === "relations")
 
         if (!collectsAllPages(options)) {
           const data = yield* client.execute(
-            listQuery,
+            query,
             { filter, first: options.limit, after: options.after },
             ListResponse,
           )
@@ -128,13 +129,13 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
 
         const size = options.all === true ? options.limit : pageSize
         const firstPage = yield* client.execute(
-          listQuery,
+          query,
           { filter, first: size, after: options.after },
           ListResponse,
         )
         const nodes = yield* collectPages(firstPage.issues, (after) =>
           client
-            .execute(listQuery, { filter, first: size, after }, ListResponse)
+            .execute(query, { filter, first: size, after }, ListResponse)
             .pipe(Effect.map((page) => page.issues)),
         )
         return {

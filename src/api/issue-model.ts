@@ -25,6 +25,9 @@ type StateType = (typeof stateTypes)[number]
 const sortFields = ["priority"] as const
 type SortField = (typeof sortFields)[number]
 
+const listIncludes = ["relations"] as const
+type ListInclude = (typeof listIncludes)[number]
+
 type IssueSummary = {
   readonly id: string
   readonly identifier: string
@@ -38,6 +41,7 @@ type IssueSummary = {
   readonly project: IssueProject | null
   readonly parent: IssueParent | null
   readonly labels: readonly IssueLabel[]
+  readonly relations?: IssueRelations | undefined
 }
 
 type IssueRelations = {
@@ -102,6 +106,7 @@ type IssueListOptions = PageOptions & {
   readonly text?: string | undefined
   readonly unblocked?: boolean | undefined
   readonly unassigned?: boolean | undefined
+  readonly include?: ListInclude | undefined
   readonly sort?: SortField | undefined
 }
 
@@ -115,21 +120,6 @@ type IssueShowOptions = {
   readonly children?: boolean | undefined
   readonly attachments?: boolean | undefined
 }
-
-const toSummary = (node: IssueSummaryNode): IssueSummary => ({
-  id: node.id,
-  identifier: node.identifier,
-  title: node.title,
-  url: node.url,
-  state: node.state,
-  priority: toPriority(node.priority),
-  createdAt: node.createdAt,
-  updatedAt: node.updatedAt,
-  assignee: node.assignee,
-  project: node.project,
-  parent: node.parent,
-  labels: node.labels.nodes,
-})
 
 const relationTargets = (
   outgoing: readonly IssueRelation[],
@@ -160,6 +150,30 @@ const relationTargets = (
     ...incoming.filter((relation) => relation.type === "similar").map((relation) => relation.issue),
   ],
 })
+
+const summaryRelations = (node: IssueSummaryNode): IssueRelations | undefined =>
+  node.relations === undefined || node.inverseRelations === undefined
+    ? undefined
+    : relationTargets(node.relations.nodes, node.inverseRelations.nodes)
+
+const toSummary = (node: IssueSummaryNode): IssueSummary => {
+  const relations = summaryRelations(node)
+  return {
+    id: node.id,
+    identifier: node.identifier,
+    title: node.title,
+    url: node.url,
+    state: node.state,
+    priority: toPriority(node.priority),
+    createdAt: node.createdAt,
+    updatedAt: node.updatedAt,
+    assignee: node.assignee,
+    project: node.project,
+    parent: node.parent,
+    labels: node.labels.nodes,
+    ...(relations === undefined ? {} : { relations }),
+  }
+}
 
 const toBlockers = (relations: IssueRelations): readonly IssueBlocker[] =>
   relations.blockedBy.map((blocker) => ({
@@ -220,6 +234,8 @@ export {
   type IssueStatus,
   type IssueSummary,
   isBlocked,
+  type ListInclude,
+  listIncludes,
   relationTargets,
   sortAndLimitNodes,
   type SortField,

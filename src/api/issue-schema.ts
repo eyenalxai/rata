@@ -50,7 +50,6 @@ const IssueChild = Schema.Struct({
 type IssueChild = typeof IssueChild.Type
 
 const IssueLabelNodes = Schema.Struct({ nodes: Schema.Array(IssueLabel) })
-
 const IssueLabelConnection = Schema.Struct({
   nodes: Schema.Array(IssueLabel),
   pageInfo: PageInfo,
@@ -79,7 +78,6 @@ const IssueRelationConnection = Schema.Struct({
   nodes: Schema.Array(IssueRelation),
   pageInfo: PageInfo,
 })
-
 const IssueInverseRelationConnection = Schema.Struct({
   nodes: Schema.Array(IssueInverseRelation),
   pageInfo: PageInfo,
@@ -124,6 +122,8 @@ const IssueSummaryNode = Schema.Struct({
   project: Schema.NullOr(IssueProject),
   parent: Schema.NullOr(IssueParent),
   labels: IssueLabelNodes,
+  relations: Schema.optional(IssueRelationConnection),
+  inverseRelations: Schema.optional(IssueInverseRelationConnection),
 })
 type IssueSummaryNode = typeof IssueSummaryNode.Type
 

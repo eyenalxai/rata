@@ -14,9 +14,20 @@ const summaryFields = `
       parent { id identifier title }
       labels { nodes { id name } }`
 
-const listQuery = `query IssueList($filter: IssueFilter, $first: Int!, $after: String) {
+const attachmentFields = "id title subtitle url sourceType createdAt metadata"
+const showFields = {
+  labels: `    labels(first: ${pageSize}) { nodes { id name } pageInfo { hasNextPage endCursor } }`,
+  children: `    children(first: ${pageSize}) { nodes { id identifier title state { name type } } pageInfo { hasNextPage endCursor } }`,
+  relations: `    relations(first: ${pageSize}) { nodes { id type relatedIssue { id identifier title state { name type } } } pageInfo { hasNextPage endCursor } }`,
+  inverseRelations: `    inverseRelations(first: ${pageSize}) { nodes { id type issue { id identifier title state { name type } } } pageInfo { hasNextPage endCursor } }`,
+  attachments: `    attachments(first: ${pageSize}) { nodes { ${attachmentFields} } pageInfo { hasNextPage endCursor } }`,
+}
+
+const listQuery = (
+  relations: boolean,
+): string => `query IssueList($filter: IssueFilter, $first: Int!, $after: String) {
   issues(filter: $filter, first: $first, after: $after, orderBy: createdAt) {
-    nodes {${summaryFields}
+    nodes {${summaryFields}${relations ? `\n  ${showFields.relations}\n  ${showFields.inverseRelations}` : ""}
     }
     pageInfo { hasNextPage endCursor }
   }
@@ -29,16 +40,6 @@ const searchQuery = `query IssueSearch($term: String!, $filter: IssueFilter, $fi
     pageInfo { hasNextPage endCursor }
   }
 }`
-
-const attachmentFields = "id title subtitle url sourceType createdAt metadata"
-
-const showFields = {
-  labels: `    labels(first: ${pageSize}) { nodes { id name } pageInfo { hasNextPage endCursor } }`,
-  children: `    children(first: ${pageSize}) { nodes { id identifier title state { name type } } pageInfo { hasNextPage endCursor } }`,
-  relations: `    relations(first: ${pageSize}) { nodes { id type relatedIssue { id identifier title state { name type } } } pageInfo { hasNextPage endCursor } }`,
-  inverseRelations: `    inverseRelations(first: ${pageSize}) { nodes { id type issue { id identifier title state { name type } } } pageInfo { hasNextPage endCursor } }`,
-  attachments: `    attachments(first: ${pageSize}) { nodes { ${attachmentFields} } pageInfo { hasNextPage endCursor } }`,
-}
 
 type ShowQueryOptions = {
   readonly children: boolean
