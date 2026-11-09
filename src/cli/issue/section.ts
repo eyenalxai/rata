@@ -99,7 +99,7 @@ const getCommand = Command.make(
         content: result.content,
       }
       if (json) {
-        return yield* writeJson({ section: yield* selectObject(fields, section) })
+        return yield* writeJson(yield* selectObject(fields, section))
       }
       const headingLine = `${"#".repeat(section.level)} ${section.heading}`
       if (config.withHeading) {

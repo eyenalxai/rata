@@ -2,7 +2,7 @@ import { Effect, Option } from "effect"
 import { Command, Flag } from "effect/cli"
 
 import { IssueApi } from "@/api/issue"
-import { OutputFields, rejectFields } from "@/cli/fields"
+import { OutputFields, readFields, selectObject } from "@/cli/fields"
 import { formatIssueLine } from "@/cli/issue/line"
 import { JsonOutput, errorLine, reportFailure, writeJson, writeLine } from "@/cli/output"
 
@@ -14,7 +14,7 @@ const parentFlag = Flag.String("parent").pipe(
 const nextCommand = Command.make("next", { parent: parentFlag }, (config) =>
   Effect.gen(function* next() {
     const json = yield* JsonOutput
-    yield* rejectFields(yield* OutputFields)
+    const fields = yield* readFields(json, yield* OutputFields)
     const parent = Option.getOrUndefined(config.parent)
     if (parent === undefined || parent.trim().length === 0) {
       return yield* errorLine(
@@ -34,7 +34,8 @@ const nextCommand = Command.make("next", { parent: parentFlag }, (config) =>
     })
     const issue = page.issues[0] ?? null
     if (json) {
-      return yield* writeJson({ issue })
+      const selected = issue === null ? null : yield* selectObject(fields, issue)
+      return yield* writeJson(selected)
     }
     return yield* writeLine(issue === null ? "No ready ticket." : formatIssueLine(issue))
   }).pipe(Effect.catch(reportFailure)),
@@ -48,6 +49,10 @@ const nextCommand = Command.make("next", { parent: parentFlag }, (config) =>
     {
       command: "rata next --parent RAT-1 --json",
       description: "Read the ready child as JSON, or null when none is ready",
+    },
+    {
+      command: "rata next --parent RAT-1 --json --fields identifier,title",
+      description: "Select fields from the ready child",
     },
   ]),
 )

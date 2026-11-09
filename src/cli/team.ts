@@ -185,7 +185,7 @@ const showCommand = Command.make(
       const teams = yield* TeamService
       const detail = yield* teams.details(ref)
       if (json) {
-        return yield* writeJson({ team: yield* selectObject(fields, detail) })
+        return yield* writeJson(yield* selectObject(fields, detail))
       }
       return yield* writeLine(showTeamText(detail))
     }).pipe(Effect.catch(reportFailure)),

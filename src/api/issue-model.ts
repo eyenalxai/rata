@@ -89,8 +89,7 @@ type IssueBlocker = {
   readonly closed: boolean
 }
 
-type IssueStatus = {
-  readonly issue: IssueSummary
+type IssueStatus = IssueSummary & {
   readonly blocked: boolean
   readonly blockedBy: readonly IssueBlocker[]
   readonly prs: readonly PullRequest[]
@@ -122,6 +121,19 @@ type IssueShowOptions = {
   readonly relations?: boolean | undefined
   readonly children?: boolean | undefined
   readonly attachments?: boolean | undefined
+}
+
+const toIssueSummary = (issue: IssueDetail): IssueSummary => {
+  const {
+    description: _description,
+    team: _team,
+    children: _children,
+    relations: _relations,
+    attachments: _attachments,
+    comments: _comments,
+    ...summary
+  } = issue
+  return summary
 }
 
 const relationTargets = (
@@ -247,5 +259,6 @@ export {
   type StateType,
   stateTypes,
   toBlockers,
+  toIssueSummary,
   toSummary,
 }

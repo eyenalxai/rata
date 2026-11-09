@@ -2,8 +2,8 @@ import { Effect } from "effect"
 import { Argument, Command } from "effect/cli"
 
 import { IssueApi } from "@/api/issue"
-import { isBlocked, toBlockers } from "@/api/issue-model"
-import { OutputFields, rejectFields } from "@/cli/fields"
+import { isBlocked, toBlockers, toIssueSummary } from "@/api/issue-model"
+import { OutputFields, readFields, selectObject } from "@/cli/fields"
 import { JsonOutput, reportFailure, writeJson, writeLine } from "@/cli/output"
 
 const refArgument = Argument.String("ref").pipe(
@@ -13,17 +13,18 @@ const refArgument = Argument.String("ref").pipe(
 const whyCommand = Command.make("why", { ref: refArgument }, (config) =>
   Effect.gen(function* why() {
     const json = yield* JsonOutput
-    yield* rejectFields(yield* OutputFields)
+    const fields = yield* readFields(json, yield* OutputFields)
     const api = yield* IssueApi
     const issue = yield* api.show(config.ref, { comments: false })
     const blockedBy = toBlockers(issue.relations)
     const blocked = isBlocked(blockedBy)
     if (json) {
-      return yield* writeJson({
-        issue: { identifier: issue.identifier, title: issue.title },
+      const document = {
+        ...toIssueSummary(issue),
         blocked,
         blockedBy,
-      })
+      }
+      return yield* writeJson(yield* selectObject(fields, document))
     }
     if (!blocked) {
       return yield* writeLine(`${issue.identifier} is ready.`)
@@ -45,6 +46,10 @@ const whyCommand = Command.make("why", { ref: refArgument }, (config) =>
     {
       command: "rata why RAT-42 --json",
       description: "Read the blockers, their states and the blocked flag as JSON",
+    },
+    {
+      command: "rata why RAT-42 --json --fields identifier,blocked,blockedBy",
+      description: "Select the summary and the blockers",
     },
   ]),
 )

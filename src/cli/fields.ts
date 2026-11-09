@@ -53,6 +53,14 @@ const unknownPath = (scope: unknown, path: FieldPath): FieldSelectionError => {
   })
 }
 
+const arrayPath = (path: FieldPath, index: number): FieldSelectionError => {
+  const array = path.slice(0, index + 1).join(".")
+  return new FieldSelectionError({
+    message: `The field path enters the array ${array}.`,
+    hint: `Select ${array} as a whole.`,
+  })
+}
+
 const selectFields = (
   value: unknown,
   paths: readonly FieldPath[],
@@ -74,10 +82,12 @@ const selectFields = (
       const next = source[key]
       if (index === path.length - 1) {
         target[key] = next
-      } else {
-        if (!isRecord(next)) {
-          return Result.fail(unknownPath(source, path))
-        }
+      } else if (next === null) {
+        target[key] = null
+        break
+      } else if (Array.isArray(next)) {
+        return Result.fail(arrayPath(path, index))
+      } else if (isRecord(next)) {
         const existing = target[key]
         if (isRecord(existing)) {
           target = existing
@@ -86,6 +96,8 @@ const selectFields = (
           target[key] = child
           target = child
         }
+      } else {
+        return Result.fail(unknownPath(source, path))
       }
       source = next
     }

@@ -48,15 +48,18 @@ const showHandler =
 
 const summaryHandler = (): Response => jsonResponse({ data: { issue: summaryNode("RAT-1") } })
 
+const rootSummaryHandler = (): Response =>
+  jsonResponse({
+    data: { issue: { ...summaryNode("RAT-1"), assignee: null, parent: null } },
+  })
+
 const runShow = (handler: Handler, args: readonly string[], lines: string[]) =>
   Command.run(issueCommand, { version: "test" }).pipe(
     Effect.provide(cliLayer(handler, args, lines)),
     Effect.runPromise,
   )
 
-const AnyShowDocument = Schema.Struct({
-  issue: Schema.Record(Schema.String, Schema.Unknown),
-})
+const AnyShowDocument = Schema.Record(Schema.String, Schema.Unknown)
 
 const ErrorEnvelope = Schema.Struct({ error: Schema.Struct({ code: Schema.String }) })
 
@@ -79,7 +82,7 @@ describe("issue show output modes", () => {
     await runShow(handler, ["show", "RAT-1", "--summary", "--json"], lines)
 
     const document = documentOf(lines)
-    expect(Object.keys(document.issue).toSorted()).toEqual([
+    expect(Object.keys(document).toSorted()).toEqual([
       "assignee",
       "createdAt",
       "id",
@@ -113,14 +116,54 @@ describe("issue show output modes", () => {
     expect(error.error.hint).toBe("Valid paths: name, type.")
   })
 
+  test("returns null when a field path crosses a null object", async () => {
+    const lines: string[] = []
+    await runShow(
+      rootSummaryHandler,
+      ["show", "RAT-1", "--summary", "--json", "--fields", "assignee.name,parent.identifier"],
+      lines,
+    )
+
+    expect(lastJson(lines)).toEqual({ assignee: null, parent: null })
+  })
+
+  test("selects an array leaf as a whole", async () => {
+    const lines: string[] = []
+    await runShow(
+      summaryHandler,
+      ["show", "RAT-1", "--summary", "--json", "--fields", "labels"],
+      lines,
+    )
+
+    expect(lastJson(lines)).toEqual({ labels: [{ id: "l1", name: "ready-for-agent" }] })
+  })
+
+  test("rejects a path into an array and names the array", async () => {
+    const lines: string[] = []
+    await runShow(
+      summaryHandler,
+      ["show", "RAT-1", "--summary", "--json", "--fields", "labels.name"],
+      lines,
+    )
+
+    const error = Option.getOrThrow(
+      Schema.decodeUnknownOption(
+        Schema.Struct({ error: Schema.Struct({ code: Schema.String, hint: Schema.String }) }),
+      )(lastJson(lines)),
+    )
+    expect(error.error.code).toBe("validation")
+    expect(error.error.hint).toContain("labels")
+    expect(process.exitCode).toBe(2)
+  })
+
   test("--no-body omits the description but keeps the full read", async () => {
     const requests: ReturnType<typeof readBody>[] = []
     const lines: string[] = []
     await runShow(showHandler(requests), ["show", "RAT-1", "--json", "--no-body"], lines)
 
     const document = documentOf(lines)
-    expect(document.issue).not.toHaveProperty("description")
-    expect(document.issue).toHaveProperty("children")
+    expect(document).not.toHaveProperty("description")
+    expect(document).toHaveProperty("children")
     expect(requests.some((request) => request.query.includes("query IssueShow"))).toBe(true)
   })
 
@@ -155,10 +198,10 @@ describe("issue show output modes", () => {
     )
 
     const document = documentOf(lines)
-    expect(document.issue).not.toHaveProperty("relations")
-    expect(document.issue).toHaveProperty("children")
-    expect(document.issue).toHaveProperty("attachments")
-    expect(document.issue).toHaveProperty("comments")
+    expect(document).not.toHaveProperty("relations")
+    expect(document).toHaveProperty("children")
+    expect(document).toHaveProperty("attachments")
+    expect(document).toHaveProperty("comments")
     expect(requests.some((request) => request.query.includes("query IssueRelations"))).toBe(false)
     expect(requests.some((request) => request.query.includes("query IssueInverseRelations"))).toBe(
       false,
@@ -178,8 +221,8 @@ describe("issue show output modes", () => {
     )
 
     const document = documentOf(lines)
-    expect(document.issue).not.toHaveProperty("children")
-    expect(document.issue).not.toHaveProperty("attachments")
+    expect(document).not.toHaveProperty("children")
+    expect(document).not.toHaveProperty("attachments")
     expect(requests.some((request) => request.query.includes("query IssueChildren"))).toBe(false)
     expect(requests.some((request) => request.query.includes("query IssueAttachments"))).toBe(false)
     const showRequest = requests.find((request) => request.query.includes("query IssueShow"))
@@ -208,7 +251,7 @@ describe("issue show output modes", () => {
     const lines: string[] = []
     await runShow(showHandler(requests), ["view", "RAT-1", "--json"], lines)
 
-    expect(documentOf(lines).issue.identifier).toBe("RAT-1")
+    expect(documentOf(lines).identifier).toBe("RAT-1")
   })
 
   test("help lists the view alias", async () => {

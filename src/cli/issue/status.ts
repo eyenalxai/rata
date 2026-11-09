@@ -32,7 +32,7 @@ const statusCommand = Command.make("status", { ref: refArgument }, (config) =>
       description: "Read the same object as JSON",
     },
     {
-      command: "rata issue status RAT-42 --json --fields issue.identifier,blocked,prs",
+      command: "rata issue status RAT-42 --json --fields identifier,blocked,prs",
       description: "Select fields from the JSON object",
     },
   ]),

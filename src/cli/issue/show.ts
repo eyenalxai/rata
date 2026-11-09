@@ -102,7 +102,7 @@ const showCommand = Command.make(
       if (config.summary) {
         const summary = yield* api.summary(config.ref)
         return json
-          ? yield* writeJson({ issue: yield* selectObject(fields, summary) })
+          ? yield* writeJson(yield* selectObject(fields, summary))
           : yield* writeLine(formatIssueSummary(summary))
       }
       const issue = yield* api.show(config.ref, {
@@ -112,7 +112,7 @@ const showCommand = Command.make(
         attachments: !config.noAttachments,
       })
       return json
-        ? yield* writeJson({ issue: yield* selectObject(fields, detailOutput(issue, config)) })
+        ? yield* writeJson(yield* selectObject(fields, detailOutput(issue, config)))
         : yield* writeLine(formatIssueDetail(issue, !config.noBody))
     }).pipe(Effect.catch(reportFailure)),
 ).pipe(
