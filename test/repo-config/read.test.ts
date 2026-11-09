@@ -144,7 +144,7 @@ describe("RepoConfigService.read", () => {
     ])
   })
 
-  test("treats a missing legacy file as a successful cleanup", async () => {
+  test("treats a legacy file that is already gone as a successful cleanup", async () => {
     const tree: MemoryTree = {
       directories: ["/repo", "/repo/.git"],
       files: new Map([["/repo/.rata.json", JSON.stringify({ team: "RAT" })]]),

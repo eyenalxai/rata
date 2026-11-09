@@ -163,7 +163,7 @@ describe("status", () => {
     ])
     const output = stdout.join("\n")
     expect(output).toContain("repo:")
-    expect(output).toContain("team:      missing key GONE (run rata link)")
+    expect(output).toContain("team:      missing key GONE (run rata link --team GONE)")
     expect(output).toContain("project:   rata")
     expect(output).toContain("defaults:  none")
     expect(output).not.toContain("warning:")

@@ -116,7 +116,7 @@ const statusCommand = Command.make("status", {}, () =>
       team === null
         ? storedTeamKey === undefined
           ? "not linked (run rata link)"
-          : `missing key ${storedTeamKey} (run rata link)`
+          : `missing key ${storedTeamKey} (run rata link --team ${storedTeamKey})`
         : `${team.key} (${team.name})`
     return yield* writeLine(
       [
