@@ -2,7 +2,7 @@ import { Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 
 import { IssueApi } from "@/api/issue"
-import { sortFields, stateTypes } from "@/api/issue-model"
+import { isListInclude, listIncludes, sortFields, stateTypes } from "@/api/issue-model"
 import { OutputFields, readFields } from "@/cli/fields"
 import { issueLabelCommand } from "@/cli/issue-label"
 import { linkCommand, unlinkCommand } from "@/cli/issue-link"
@@ -15,7 +15,7 @@ import { sectionCommand } from "@/cli/issue/section"
 import { showCommand } from "@/cli/issue/show"
 import { statusCommand } from "@/cli/issue/status"
 import { afterFlag, allFlag, limitFlag } from "@/cli/list-flags"
-import { JsonOutput, reportFailure, validatePageSize } from "@/cli/output"
+import { JsonOutput, errorLine, reportFailure, validatePageSize } from "@/cli/output"
 import { resolvePriority } from "@/cli/priority"
 
 const optionalText = (name: string, description: string) =>
@@ -44,6 +44,10 @@ const listCommand = Command.make(
       Flag.withDescription("Keep only issues with no assignee"),
       Flag.withDefault(false),
     ),
+    include: optionalText(
+      "include",
+      "Include extra row data (valid value: `relations` adds every relation group, up to 250 per direction; read a larger row with `issue show`)",
+    ),
     sort: Flag.Literals("sort", sortFields).pipe(
       Flag.withDescription("Sort order: `priority` orders urgent first and none last"),
       Flag.optional,
@@ -56,6 +60,15 @@ const listCommand = Command.make(
     Effect.gen(function* list() {
       const json = yield* JsonOutput
       const fields = yield* readFields(json, yield* OutputFields)
+      const include = Option.getOrUndefined(config.include)
+      if (include !== undefined && !isListInclude(include)) {
+        yield* errorLine(
+          "validation",
+          "The --include flag accepts relations only.",
+          `Valid values: ${listIncludes.join(", ")}.`,
+        )
+        return
+      }
       const valid = yield* validatePageSize(config.limit)
       if (!valid) {
         return
@@ -74,6 +87,7 @@ const listCommand = Command.make(
         text: Option.getOrUndefined(config.text),
         unblocked: config.unblocked,
         unassigned: config.unassigned,
+        include,
         after: Option.getOrNull(config.after),
         sort: Option.getOrUndefined(config.sort),
         limit: config.limit,
@@ -91,6 +105,10 @@ const listCommand = Command.make(
     {
       command: "rata issue list --parent RAT-1 --unblocked --unassigned --sort priority",
       description: "List the frontier of a map",
+    },
+    {
+      command: "rata issue list --parent RAT-1 --include relations --json",
+      description: "List a map with the blocking edges of each child",
     },
     {
       command: "rata issue list --all --json",
