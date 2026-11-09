@@ -161,6 +161,21 @@ describe("issue list --include relations", () => {
     expect(listRequests[0]?.query).toContain("inverseRelations(")
   })
 
+  test("caps each relation direction at the maximum page size", async () => {
+    const requests: ReturnType<typeof readBody>[] = []
+    const lines: string[] = []
+
+    await runIssue(
+      relationHandler([rowWithRelations], requests),
+      ["list", "--include", "relations", "--json"],
+      lines,
+    )
+
+    expect(requests).toHaveLength(1)
+    expect(requests[0]?.query).toContain("relations(first: 250)")
+    expect(requests[0]?.query).toContain("inverseRelations(first: 250)")
+  })
+
   test("omits the relations key without the flag", async () => {
     const requests: ReturnType<typeof readBody>[] = []
     const lines: string[] = []

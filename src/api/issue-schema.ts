@@ -50,6 +50,7 @@ const IssueChild = Schema.Struct({
 type IssueChild = typeof IssueChild.Type
 
 const IssueLabelNodes = Schema.Struct({ nodes: Schema.Array(IssueLabel) })
+
 const IssueLabelConnection = Schema.Struct({
   nodes: Schema.Array(IssueLabel),
   pageInfo: PageInfo,
@@ -78,6 +79,7 @@ const IssueRelationConnection = Schema.Struct({
   nodes: Schema.Array(IssueRelation),
   pageInfo: PageInfo,
 })
+
 const IssueInverseRelationConnection = Schema.Struct({
   nodes: Schema.Array(IssueInverseRelation),
   pageInfo: PageInfo,
@@ -153,14 +155,6 @@ const IssueDetailNode = Schema.Struct({
   attachments: Schema.optional(IssueAttachmentConnection),
 })
 type IssueDetailNode = typeof IssueDetailNode.Type
-
-const ListResponse = Schema.Struct({
-  issues: Schema.Struct({ nodes: Schema.Array(IssueSummaryNode), pageInfo: PageInfo }),
-})
-
-const SearchResponse = Schema.Struct({
-  searchIssues: Schema.Struct({ nodes: Schema.Array(IssueSummaryNode), pageInfo: PageInfo }),
-})
 
 const ShowResponse = Schema.Struct({ issue: IssueDetailNode })
 
@@ -282,16 +276,14 @@ export {
   type IssueRelation,
   type IssueState,
   IssueStatesResponse,
-  type IssueSummaryNode,
+  IssueSummaryNode,
   IssueSummaryResponse,
   type IssueTeam,
   IssueTeamResponse,
   type IssueUser,
   LabelsResponse,
-  ListResponse,
   RelationsResponse,
   RemoveLabelResponse,
-  SearchResponse,
   ShowResponse,
   TeamStatesResponse,
   UpdateCommentResponse,

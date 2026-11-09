@@ -2,7 +2,7 @@ import { Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 
 import { IssueApi } from "@/api/issue"
-import { listIncludes, sortFields, stateTypes } from "@/api/issue-model"
+import { isListInclude, listIncludes, sortFields, stateTypes } from "@/api/issue-model"
 import { OutputFields, readFields } from "@/cli/fields"
 import { issueLabelCommand } from "@/cli/issue-label"
 import { linkCommand, unlinkCommand } from "@/cli/issue-link"
@@ -46,7 +46,7 @@ const listCommand = Command.make(
     ),
     include: optionalText(
       "include",
-      "Include extra row data (valid value: `relations` adds every relation group)",
+      "Include extra row data (valid value: `relations` adds every relation group, up to 250 per direction; read a larger row with `issue show`)",
     ),
     sort: Flag.Literals("sort", sortFields).pipe(
       Flag.withDescription("Sort order: `priority` orders urgent first and none last"),
@@ -61,7 +61,7 @@ const listCommand = Command.make(
       const json = yield* JsonOutput
       const fields = yield* readFields(json, yield* OutputFields)
       const include = Option.getOrUndefined(config.include)
-      if (include !== undefined && include !== "relations") {
+      if (include !== undefined && !isListInclude(include)) {
         yield* errorLine(
           "validation",
           "The --include flag accepts relations only.",

@@ -28,6 +28,9 @@ type SortField = (typeof sortFields)[number]
 const listIncludes = ["relations"] as const
 type ListInclude = (typeof listIncludes)[number]
 
+const isListInclude = (value: string): value is ListInclude =>
+  listIncludes.some((include) => include === value)
+
 type IssueSummary = {
   readonly id: string
   readonly identifier: string
@@ -234,6 +237,7 @@ export {
   type IssueStatus,
   type IssueSummary,
   isBlocked,
+  isListInclude,
   type ListInclude,
   listIncludes,
   relationTargets,
