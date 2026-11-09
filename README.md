@@ -862,9 +862,10 @@ rata issue show RAT-42 --json --no-relations --comments
 ```
 
 Each issue carries `createdAt` and `updatedAt`, the Linear creation and
-modification timestamps. They appear in `issue list`, `issue show`, `search`
-and every write result that returns an issue. Pass `updatedAt` to
-`--if-unchanged` to make a best-effort conditional write before a body change.
+modification timestamps. They appear in every issue read (`issue list`,
+`issue show`, `issue status`, `search`, `next`) and every write result that
+returns an issue. Pass `updatedAt` to `--if-unchanged` to make a best-effort
+conditional write before a body change.
 
 Every read command accepts the global `--json` and prints one stable JSON
 document. The list and search commands print one page by default and every page

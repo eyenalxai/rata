@@ -143,7 +143,7 @@ describe("IssueApi show", () => {
     const issue = await run(handler, showRef("RAT-1"))
 
     expect(issue.createdAt).toBe("2026-01-01T08:00:00.000Z")
-    expect(queries[0]).toContain("createdAt")
+    expect(queries[0]).toMatch(/priority\s+createdAt\s+updatedAt/u)
   })
 
   test("includes comments in chronological order when requested", async () => {

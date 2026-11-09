@@ -126,11 +126,11 @@ const IssueSummaryNode = Schema.Struct({
   labels: IssueLabelNodes,
 })
 type IssueSummaryNode = typeof IssueSummaryNode.Type
+
 const BulkTargetNode = Schema.Struct({
   ...IssueSummaryNode.fields,
   team: Schema.Struct({ id: Schema.String }),
 })
-type BulkTargetNode = typeof BulkTargetNode.Type
 
 const IssueDetailNode = Schema.Struct({
   id: Schema.String,
