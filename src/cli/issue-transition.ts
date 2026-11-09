@@ -5,6 +5,7 @@ import type { BulkWriteSuccess, WriteAction } from "@/api/issue-write/model"
 
 import { IssueWriteApi } from "@/api/issue-write"
 import { isNoneValue } from "@/api/issue-write/model"
+import { assignHint } from "@/cli/assign-hint"
 import { resolveBody } from "@/cli/body"
 import { OutputFields, rejectFields } from "@/cli/fields"
 import {
@@ -168,13 +169,13 @@ const assignCommand = Command.make(
     Effect.gen(function* assignIssue() {
       const json = yield* JsonOutput
       yield* rejectFields(yield* OutputFields)
-      const [ref, legacyAssignee] = config.ref
+      const [ref, positionalAssignee] = config.ref
       const parent = Option.getOrUndefined(config.parent)
-      if (legacyAssignee !== undefined) {
+      if (ref !== undefined && positionalAssignee !== undefined) {
         return yield* errorLine(
           "validation",
-          "The issue reference comes before the assignee.",
-          `rata issue assign ${legacyAssignee} --assignee ${ref}`,
+          "The --assignee flag replaces the positional assignee.",
+          assignHint(ref, positionalAssignee),
         )
       }
       const assignee = Option.getOrUndefined(config.assignee)

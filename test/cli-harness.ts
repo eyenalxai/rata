@@ -8,7 +8,7 @@ import { Command } from "effect/cli"
 import { ChildProcessSpawner } from "effect/process"
 
 import { issueCommand } from "@/cli/issue"
-import { root } from "@/cli/root"
+import { runCli } from "@/cli/run"
 
 const terminal = Terminal.make({
   columns: Effect.succeed(80),
@@ -65,7 +65,7 @@ const runRoot = (
   repositories: ApiLayerOptions["repositories"] = defaultRepositories,
   options: Omit<ApiLayerOptions, "repositories" | "stdio"> = {},
 ) =>
-  Command.run(root, { version: "test" }).pipe(
+  runCli("test").pipe(
     Effect.provide(cliLayer(handler, args, lines, repositories, options)),
     Effect.runPromise,
   )
