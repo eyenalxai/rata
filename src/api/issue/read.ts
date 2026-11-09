@@ -110,6 +110,7 @@ const makeReadOperations = (execute: LinearClient["Service"]["execute"]): ReadOp
       url: issue.url,
       state: issue.state,
       priority: toPriority(issue.priority),
+      createdAt: issue.createdAt,
       updatedAt: issue.updatedAt,
       assignee: issue.assignee,
       project: issue.project,

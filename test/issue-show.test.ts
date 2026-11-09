@@ -132,6 +132,20 @@ describe("IssueApi show", () => {
     expect(queries[0]).toContain("priority")
   })
 
+  test("decodes the creation time and selects it in the detail query", async () => {
+    const queries: string[] = []
+    const handler = (request: HttpClientRequest.HttpClientRequest): Response => {
+      const body = readBody(request)
+      queries.push(body.query)
+      return jsonResponse({ data: { issue: baseDetail } })
+    }
+
+    const issue = await run(handler, showRef("RAT-1"))
+
+    expect(issue.createdAt).toBe("2026-01-01T08:00:00.000Z")
+    expect(queries[0]).toContain("createdAt")
+  })
+
   test("includes comments in chronological order when requested", async () => {
     const early = comment
     const late = { id: "c2", body: "Second", createdAt: "2026-01-02T10:00:00.000Z", user }
@@ -199,6 +213,18 @@ describe("issue show", () => {
     expect(document.issue.relations.blocks.map((item) => item.identifier)).toEqual(["RAT-8"])
     expect(document.issue.attachments.map((item) => item.id)).toEqual(["a1"])
     expect(requests.filter((request) => request.query.includes("query IssueShow"))).toHaveLength(1)
+  })
+
+  test("--fields createdAt selects the creation time from the detail", async () => {
+    const requests: ReturnType<typeof readBody>[] = []
+    const lines: string[] = []
+    await runShow(
+      showHandler(requests),
+      ["show", "RAT-1", "--json", "--fields", "createdAt"],
+      lines,
+    )
+
+    expect(lastJson(lines)).toEqual({ issue: { createdAt: "2026-01-01T08:00:00.000Z" } })
   })
 
   test("--no-comments omits the comments and skips the fetch", async () => {

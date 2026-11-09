@@ -62,6 +62,7 @@ const showQuery = (options: ShowQueryOptions): string => {
     url
     state { name type }
     priority
+    createdAt
     updatedAt
     assignee { id name displayName }
     project { id name }

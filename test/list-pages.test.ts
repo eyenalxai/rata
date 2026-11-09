@@ -250,4 +250,13 @@ describe("issue list pages", () => {
       pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
     })
   })
+
+  test("selects the creation time with --fields createdAt", async () => {
+    const lines: string[] = []
+    await runIssue(issuePageHandler, ["list", "--json", "--fields", "createdAt"], lines)
+    expect(lastJson(lines)).toEqual({
+      issues: [{ createdAt: "2026-01-01T08:00:00.000Z" }],
+      pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
+    })
+  })
 })
