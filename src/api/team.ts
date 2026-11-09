@@ -179,9 +179,7 @@ const makeTeamOperations = (execute: LinearClient["Service"]["execute"]): TeamOp
     if (team === undefined) {
       return yield* new TeamNotFoundError({
         key: ref,
-        message: byId
-          ? `No team with id ${ref}. Run \`rata team list\` to see the teams.`
-          : `No team with key ${ref}. Run \`rata team list\` to see the team keys.`,
+        message: byId ? `No team with id ${ref}.` : `No team with key ${ref}.`,
       })
     }
     return team
@@ -192,7 +190,7 @@ const makeTeamOperations = (execute: LinearClient["Service"]["execute"]): TeamOp
     if (team === undefined) {
       return yield* new TeamNotFoundError({
         key: id,
-        message: `No team with id ${id}. Run \`rata team list\` to see the teams.`,
+        message: `No team with id ${id}.`,
       })
     }
     return team

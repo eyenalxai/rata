@@ -8,7 +8,7 @@ import type { DefaultsDocument } from "@/config/defaults"
 import { LinearClient } from "@/api/client"
 import { TeamService } from "@/api/team"
 import { OutputFields, readFields, selectObject } from "@/cli/fields"
-import { JsonOutput, reportFailure, writeJson, writeLine } from "@/cli/output"
+import { JsonOutput, reportFailure, warningLine, writeJson, writeLine } from "@/cli/output"
 import { Auth } from "@/config/auth"
 import { defaultsDocument, formatDefaults, issueDefaults } from "@/config/defaults"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
@@ -43,6 +43,7 @@ type StatusDocument = {
   } | null
   readonly project: string | null
   readonly defaults: DefaultsDocument | null
+  readonly warning: string | null
 }
 
 const labelWidth = 11
@@ -65,10 +66,23 @@ const statusCommand = Command.make("status", {}, () =>
     const config = Option.getOrUndefined(yield* repoConfig.read(directory))
     const resolved = yield* auth.require
     const viewer = yield* client.viewer
-    const linked = config?.team !== undefined
-    const team = linked ? yield* teams.byKey(config.team) : null
+    const storedTeamKey = config?.team
+    const linked = storedTeamKey !== undefined
+    const team =
+      storedTeamKey === undefined
+        ? null
+        : yield* teams
+            .byKey(storedTeamKey)
+            .pipe(Effect.catchTag("TeamNotFoundError", () => Effect.succeed(null)))
+    const warning =
+      storedTeamKey === undefined || team !== null
+        ? null
+        : `The stored team key ${storedTeamKey} no longer exists. Run \`rata team list\` to see the team keys, then run \`rata link --team <key>\` to repair the link.`
     const defaults =
-      config === undefined || !linked ? null : defaultsDocument(issueDefaults(config))
+      config === undefined || storedTeamKey === undefined || team === null
+        ? null
+        : defaultsDocument(issueDefaults(config))
+    const project = linked ? (config?.project ?? null) : null
     const document: StatusDocument = {
       repository: { root: location.root, linked },
       workspace: {
@@ -83,24 +97,34 @@ const statusCommand = Command.make("status", {}, () =>
         organization: viewer.organization,
       },
       team: team === null ? null : { id: team.id, key: team.key, name: team.name },
-      project: linked ? (config.project ?? null) : null,
+      project,
       defaults,
+      warning,
     }
     if (json) {
       return yield* writeJson(yield* selectObject(fields, document))
+    }
+    if (warning !== null) {
+      yield* warningLine(warning)
     }
     const workspace = Option.getOrElse(resolved.profile, () => "none")
     const key =
       resolved.keySource === "env"
         ? "env LINEAR_API_KEY"
         : `profile ${workspace} (${resolved.keySource})`
+    const teamLine =
+      team === null
+        ? storedTeamKey === undefined
+          ? "not linked (run rata link)"
+          : `missing key ${storedTeamKey} (run rata link --team ${storedTeamKey})`
+        : `${team.key} (${team.name})`
     return yield* writeLine(
       [
         row("repo:", location.root),
         row("workspace:", workspace),
         row("api key:", key),
-        row("team:", team === null ? "not linked (run rata link)" : `${team.key} (${team.name})`),
-        row("project:", linked ? (config.project ?? "none") : "none"),
+        row("team:", teamLine),
+        row("project:", project ?? "none"),
         row("defaults:", defaults === null ? "none" : formatDefaults(defaults)),
         row("viewer:", `${viewer.name} <${viewer.email}>`),
         row("org:", `${viewer.organization.name} (${viewer.organization.urlKey})`),

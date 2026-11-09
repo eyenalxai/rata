@@ -2,10 +2,14 @@ import type { Console } from "effect"
 
 const ignore = (): undefined => undefined
 
-const recordingConsole = (lines: string[]): Console.Console => {
-  const record = (...args: readonly unknown[]): void => {
-    lines.push(args.map(String).join(" "))
+const recordInto =
+  (target: string[]) =>
+  (...args: readonly unknown[]): void => {
+    target.push(args.map(String).join(" "))
   }
+
+const recordingConsoleWithErrors = (output: string[], errors: string[]): Console.Console => {
+  const record = recordInto(output)
   return {
     assert: ignore,
     clear: ignore,
@@ -14,7 +18,7 @@ const recordingConsole = (lines: string[]): Console.Console => {
     debug: ignore,
     dir: ignore,
     dirxml: ignore,
-    error: record,
+    error: recordInto(errors),
     group: ignore,
     groupCollapsed: ignore,
     groupEnd: ignore,
@@ -29,4 +33,7 @@ const recordingConsole = (lines: string[]): Console.Console => {
   }
 }
 
-export { recordingConsole }
+const recordingConsole = (lines: string[]): Console.Console =>
+  recordingConsoleWithErrors(lines, lines)
+
+export { recordingConsole, recordingConsoleWithErrors }

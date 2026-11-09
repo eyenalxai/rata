@@ -35,7 +35,10 @@ const errorRules: Record<string, ErrorRule> = {
   LinearAuthError: { code: "auth", hint: "Run `rata auth login --with-token`." },
   LinearNetworkError: { code: "network", hint: "Check the connection and retry." },
   TeamResolutionError: { code: "not_linked", hint: null },
-  TeamNotFoundError: { code: "not_found", hint: null },
+  TeamNotFoundError: {
+    code: "not_found",
+    hint: "A team key and an issue identifier prefix can differ after a rename. Run `rata team list` to see the team keys.",
+  },
   LabelNotFoundError: { code: "not_found", hint: null },
   LabelCreateError: {
     code: "conflict",
