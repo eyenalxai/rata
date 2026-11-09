@@ -63,6 +63,20 @@ describe("explicit action flags bypass the invalid-form detection", () => {
     expect(script).not.toContain("The issue group needs a subcommand.")
     expect(process.exitCode).toBe(0)
   })
+
+  test("an inline action value prints the issue help", async () => {
+    const lines: string[] = []
+    await run(["issue", "RAT-1", "--help=true"], lines)
+    expect(lines.join("\n")).toContain("USAGE\n  rata issue <subcommand> [flags]")
+    expect(process.exitCode).toBe(0)
+  })
+
+  test("a bundled short action flag prints the issue help", async () => {
+    const lines: string[] = []
+    await run(["issue", "RAT-1", "-hv"], lines)
+    expect(lines.join("\n")).toContain("USAGE\n  rata issue <subcommand> [flags]")
+    expect(process.exitCode).toBe(0)
+  })
 })
 
 describe("invalid group forms teach the canonical command", () => {

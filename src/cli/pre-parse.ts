@@ -49,12 +49,30 @@ const skipFlags = (args: readonly string[], start: number): number => {
   return index
 }
 
+const inlineAction = (arg: string): boolean => {
+  const [name, value] = arg.split("=", 2)
+  if (name === undefined || value === undefined) {
+    return false
+  }
+  if (name === "--help" || name === "-h" || name === "--version" || name === "-v") {
+    return isTrueLiteral(value)
+  }
+  return name === "--wizard" || name === "--completions"
+}
+
+const bundledAction = (arg: string): boolean =>
+  arg.startsWith("-") &&
+  !arg.startsWith("--") &&
+  arg.length > 2 &&
+  !arg.includes("=") &&
+  (arg.slice(1).includes("h") || arg.slice(1).includes("v"))
+
 const hasActionFlag = (args: readonly string[]): boolean => {
   for (const arg of args) {
     if (arg === "--") {
       return false
     }
-    if (actionFlags.has(arg) || arg.startsWith("--completions=")) {
+    if (actionFlags.has(arg) || inlineAction(arg) || bundledAction(arg)) {
       return true
     }
   }
