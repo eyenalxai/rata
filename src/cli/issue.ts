@@ -1,5 +1,5 @@
 import { Effect, Option } from "effect"
-import { Argument, CliError, Command, Flag, Param } from "effect/cli"
+import { Argument, Command, Flag } from "effect/cli"
 
 import { IssueApi } from "@/api/issue"
 import { sortFields, stateTypes } from "@/api/issue-model"
@@ -15,7 +15,7 @@ import { sectionCommand } from "@/cli/issue/section"
 import { showCommand } from "@/cli/issue/show"
 import { statusCommand } from "@/cli/issue/status"
 import { afterFlag, allFlag, limitFlag } from "@/cli/list-flags"
-import { JsonOutput, errorLine, reportFailure, validatePageSize } from "@/cli/output"
+import { JsonOutput, reportFailure, validatePageSize } from "@/cli/output"
 import { resolvePriority } from "@/cli/priority"
 
 const optionalText = (name: string, description: string) =>
@@ -148,19 +148,7 @@ const searchCommand = Command.make(
   Command.withGlobalFlags([JsonOutput, OutputFields]),
 )
 
-const strayRefArgument = Argument.String("ref").pipe(Param.withHidden, Argument.optional)
-
-const rejectStrayRef = (ref: Option.Option<string>) =>
-  Option.match(ref, {
-    onNone: () =>
-      Effect.fail(new CliError.ShowHelp({ commandPath: ["rata", "issue"], errors: [] })),
-    onSome: (value) =>
-      errorLine("validation", "The issue group needs a subcommand.", `rata issue show ${value}`),
-  })
-
-const issueCommand = Command.make("issue", { ref: strayRefArgument }, (config) =>
-  rejectStrayRef(config.ref),
-).pipe(
+const issueCommand = Command.make("issue").pipe(
   Command.withDescription("Read and write Linear issues"),
   Command.withSubcommands([
     listCommand,

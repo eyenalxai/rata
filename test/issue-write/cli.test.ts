@@ -140,8 +140,22 @@ describe("rata issue assign grammar", () => {
     const recorder = recorderFor(state)
     const lines: string[] = []
     await runIssue(recorder.handler, ["assign", "RAT-1", "me"], lines)
-    expect(lines).toContain("error: The --assignee flag replaces the positional assignee.")
-    expect(lines).toContain("hint: rata issue assign RAT-1 --assignee me")
+    expect(lines).toEqual([
+      "error: The --assignee flag replaces the positional assignee.",
+      "hint: rata issue assign RAT-1 --assignee me",
+    ])
+    expect(recorder.requests).toHaveLength(0)
+    expect(process.exitCode).toBe(2)
+  })
+
+  test("rejects the old assignee-first form with the canonical hint", async () => {
+    const recorder = recorderFor(state)
+    const lines: string[] = []
+    await runIssue(recorder.handler, ["assign", "me", "RAT-1"], lines)
+    expect(lines).toEqual([
+      "error: The --assignee flag replaces the positional assignee.",
+      "hint: rata issue assign RAT-1 --assignee me",
+    ])
     expect(recorder.requests).toHaveLength(0)
     expect(process.exitCode).toBe(2)
   })
@@ -150,8 +164,11 @@ describe("rata issue assign grammar", () => {
     const recorder = recorderFor(state)
     const lines: string[] = []
     await runIssue(recorder.handler, ["assign", "RAT-1"], lines)
-    expect(lines).toContain("error: The --assignee flag is required.")
-    expect(lines).toContain("hint: rata issue assign <ref> --assignee <me|user-id|none>")
+    expect(lines).toEqual([
+      "error: The --assignee flag is required.",
+      "hint: rata issue assign <ref> --assignee <me|user-id|none>",
+    ])
+    expect(recorder.requests).toHaveLength(0)
     expect(process.exitCode).toBe(2)
   })
 })

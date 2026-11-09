@@ -5,6 +5,7 @@ import type { BulkWriteSuccess, WriteAction } from "@/api/issue-write/model"
 
 import { IssueWriteApi } from "@/api/issue-write"
 import { isNoneValue } from "@/api/issue-write/model"
+import { assignHint } from "@/cli/assign-hint"
 import { resolveBody } from "@/cli/body"
 import { OutputFields, rejectFields } from "@/cli/fields"
 import {
@@ -170,11 +171,11 @@ const assignCommand = Command.make(
       yield* rejectFields(yield* OutputFields)
       const [ref, positionalAssignee] = config.ref
       const parent = Option.getOrUndefined(config.parent)
-      if (positionalAssignee !== undefined) {
+      if (ref !== undefined && positionalAssignee !== undefined) {
         return yield* errorLine(
           "validation",
           "The --assignee flag replaces the positional assignee.",
-          `rata issue assign ${ref} --assignee ${positionalAssignee}`,
+          assignHint(ref, positionalAssignee),
         )
       }
       const assignee = Option.getOrUndefined(config.assignee)
