@@ -140,9 +140,9 @@ they explore the codebase. Use these terms; do not drift to synonyms.
   The same key on the same issue returns the existing comment with `skipped`; a
   different issue gets its own comment. Avoid: idempotency key.
 - **Summary** (or **issue summary**): the lean read of one issue: identifier,
-  title, state, priority, labels, assignee, project, parent, url and
-  `updatedAt`. It carries no description, children, relations, attachments or
-  comments. Avoid: header, metadata.
+  title, state, priority, labels, assignee, project, parent, url, `createdAt`
+  and `updatedAt`. It carries no description, children, relations, attachments
+  or comments. Avoid: header, metadata.
 - **Error code**: the class of a failure, carried by the `code` field of the JSON
   error object: `validation`, `not_linked`, `not_found`, `ambiguous`, `auth`,
   `forbidden`, `conflict`, `rate_limited`, `network` or `internal`.

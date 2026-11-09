@@ -81,6 +81,7 @@ describe("issue show output modes", () => {
     const document = documentOf(lines)
     expect(Object.keys(document.issue).toSorted()).toEqual([
       "assignee",
+      "createdAt",
       "id",
       "identifier",
       "labels",

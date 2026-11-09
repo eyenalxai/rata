@@ -77,6 +77,7 @@ const baseDetail = {
   url: "https://linear.app/eyenalx/issue/RAT-1/the-issue",
   state,
   priority: 0,
+  createdAt: "2026-01-01T08:00:00.000Z",
   updatedAt: "2026-01-01T09:00:00.000Z",
   assignee: user,
   project,

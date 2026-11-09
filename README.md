@@ -803,6 +803,7 @@ rata issue status RAT-42 --json
     "parent": null,
     "labels": [],
     "url": "https://linear.app/eyenalx/issue/RAT-42/add-the-issue-read-path",
+    "createdAt": "2025-12-30T10:00:00.000Z",
     "updatedAt": "2026-01-01T10:00:00.000Z",
     "id": "b2c3..."
   },
@@ -844,7 +845,7 @@ comment fetch and omits the key. `--comments` and `--no-comments` are mutually
 exclusive. Every collection drains every page.
 
 `--summary` reads the lean summary: identifier, title, state, priority, labels,
-assignee, project, parent, url and `updatedAt`. It skips the description,
+assignee, project, parent, url, `createdAt` and `updatedAt`. It skips the description,
 children, relations, attachments and comments. JSON is `{ "issue": <summary> }`.
 `--summary` with `--comments` is a `validation` error.
 
@@ -860,10 +861,11 @@ rata issue show RAT-42 --json --no-body
 rata issue show RAT-42 --json --no-relations --comments
 ```
 
-Each issue carries `updatedAt`, the Linear modification timestamp. It appears
-in `issue list`, `issue show`, `search` and every write result that returns an
-issue. Pass it to `--if-unchanged` to make a best-effort conditional write
-before a body change.
+Each issue carries `createdAt` and `updatedAt`, the Linear creation and
+modification timestamps. They appear in every issue read (`issue list`,
+`issue show`, `issue status`, `search`, `next`) and every write result that
+returns an issue. Pass `updatedAt` to `--if-unchanged` to make a best-effort
+conditional write before a body change.
 
 Every read command accepts the global `--json` and prints one stable JSON
 document. The list and search commands print one page by default and every page
@@ -891,6 +893,7 @@ It accepts `--team`, `--limit`, `--after`, `--all` and `--json`.
       "project": { "id": "p1", "name": "rata" },
       "parent": { "id": "i0", "identifier": "RAT-1", "title": "Map" },
       "labels": [{ "id": "l1", "name": "ready-for-agent" }],
+      "createdAt": "2025-12-30T10:00:00.000Z",
       "updatedAt": "2026-01-01T10:00:00.000Z"
     }
   ],
@@ -910,6 +913,7 @@ is set.
     "title": "Add the issue read path",
     "description": "...",
     "url": "https://linear.app/eyenalx/issue/RAT-42/add-the-issue-read-path",
+    "createdAt": "2025-12-30T10:00:00.000Z",
     "updatedAt": "2026-01-01T10:00:00.000Z",
     "state": { "name": "In Progress", "type": "started" },
     "priority": "high",
@@ -1297,6 +1301,7 @@ print the summary shape:
     "project": null,
     "parent": null,
     "labels": [],
+    "createdAt": "2025-12-30T10:00:00.000Z",
     "updatedAt": "2026-01-01T10:00:00.000Z"
   }
 }
