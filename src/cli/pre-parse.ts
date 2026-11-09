@@ -1,4 +1,4 @@
-import { Effect, Result } from "effect"
+import { Effect, Result, Schema } from "effect"
 
 import { JsonOutput, errorLine } from "@/cli/output"
 import { parseIssueRef } from "@/domain/ref"
@@ -8,7 +8,17 @@ type InvalidForm = {
   readonly hint: string
 }
 
+// The published Effect CLI types omit its internal boolean literal helpers.
+const trueLiterals = Schema.Literals(["true", "yes", "on", "1", "y"])
+const falseLiterals = Schema.Literals(["false", "no", "off", "0", "n"])
+const isTrueLiteral = Schema.is(trueLiterals)
+const isFalseLiteral = Schema.is(falseLiterals)
+
 const valueFlags = new Set(["--fields", "--log-level", "--completions"])
+const booleanFlags = new Set(["--json", "--help", "-h", "--version", "-v", "--wizard"])
+const actionFlags = new Set(["--help", "-h", "--version", "-v", "--wizard", "--completions"])
+
+const isBooleanLiteral = (value: string): boolean => isTrueLiteral(value) || isFalseLiteral(value)
 
 const skipFlag = (args: readonly string[], index: number): number => {
   const token = args[index]
@@ -18,7 +28,14 @@ const skipFlag = (args: readonly string[], index: number): number => {
   if (token === "--") {
     return index + 1
   }
-  if (!token.includes("=") && valueFlags.has(token)) {
+  if (token.includes("=")) {
+    return index + 1
+  }
+  if (valueFlags.has(token)) {
+    return index + 2
+  }
+  const next = args[index + 1]
+  if (booleanFlags.has(token) && next !== undefined && isBooleanLiteral(next)) {
     return index + 2
   }
   return index + 1
@@ -30,6 +47,18 @@ const skipFlags = (args: readonly string[], start: number): number => {
     index = skipFlag(args, index)
   }
   return index
+}
+
+const hasActionFlag = (args: readonly string[]): boolean => {
+  for (const arg of args) {
+    if (arg === "--") {
+      return false
+    }
+    if (actionFlags.has(arg) || arg.startsWith("--completions=")) {
+      return true
+    }
+  }
+  return false
 }
 
 const findIssue = (args: readonly string[]): number | undefined => {
@@ -49,6 +78,10 @@ const findIssue = (args: readonly string[]): number | undefined => {
 }
 
 const detectInvalidForm = (args: readonly string[]): InvalidForm | undefined => {
+  if (hasActionFlag(args)) {
+    return undefined
+  }
+
   const issue = findIssue(args)
   if (issue === undefined) {
     return undefined
@@ -80,10 +113,27 @@ const detectInvalidForm = (args: readonly string[]): InvalidForm | undefined => 
   }
 }
 
-const hasJsonFlag = (args: readonly string[]): boolean =>
-  args.some((arg) => arg === "--json" || arg === "--json=true")
+const jsonEnabled = (args: readonly string[]): boolean => {
+  for (let index = 0; index < args.length; index += 1) {
+    const token = args[index]
+    if (token === undefined || token === "--") {
+      break
+    }
+    if (token === "--no-json") {
+      return false
+    }
+    if (token === "--json") {
+      const next = args[index + 1]
+      return next === undefined || !isFalseLiteral(next)
+    }
+    if (token.startsWith("--json=")) {
+      return isTrueLiteral(token.slice("--json=".length))
+    }
+  }
+  return false
+}
 
 const reportInvalidForm = (form: InvalidForm, json: boolean): Effect.Effect<void> =>
   errorLine("validation", form.message, form.hint).pipe(Effect.provideService(JsonOutput, json))
 
-export { detectInvalidForm, hasJsonFlag, reportInvalidForm }
+export { detectInvalidForm, jsonEnabled, reportInvalidForm }
