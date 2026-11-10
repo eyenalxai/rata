@@ -18,7 +18,8 @@ and keep in step, and a hint that reconstructs the form must pick one order.
 
 An alias is easy to add and hard to remove. The failure is the one moment when
 the caller is certain to read the correction, so the failure is the right place
-to teach the form.
+to teach the form. The alternative to one canonical form was to accept both
+spellings or aliases.
 
 ## Decision
 

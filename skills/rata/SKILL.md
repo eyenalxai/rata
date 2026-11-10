@@ -66,8 +66,8 @@ valid paths. The flag needs `--json`, and it is valid on `status`, `issue show`,
 
 `issue list --include relations` adds the six relation groups to every row:
 `blocks`, `blockedBy`, `duplicates`, `duplicatedBy`, `related` and `similar`.
-The flag sends one request. Each direction holds up to 250 relations; read a
-larger row with `issue show`. The flag accepts `relations` only, and another
+The flag sends one list request per page and no per-child read. Each direction
+holds up to 250 relations; read a larger row with `issue show`. The flag accepts `relations` only, and another
 value fails with a hint that lists it.
 
 ## Set up a repository
@@ -300,11 +300,12 @@ rata issue create --title "Switch billing to Stripe" --label ready-for-agent --p
 rata issue create --title "Add the Stripe client" --parent ABC-50 --label ready-for-agent --priority medium --body-file -
 rata issue create --title "Switch the webhooks" --parent ABC-50 --label ready-for-agent --priority medium --body-file -
 rata issue link ABC-52 --blocked-by ABC-51
-rata issue list --parent ABC-50 --all --json
+rata issue list --parent ABC-50 --all --json --include relations
 ```
 
-`issue show <spec-ref> --json` also lists the child issues. A wayfinding map
-stays an issue with child issues; a map is not a spec.
+Each list row then carries its blocking edges, so the frontier needs no
+per-child read. `issue show <spec-ref> --json` also lists the child issues. A
+wayfinding map stays an issue with child issues; a map is not a spec.
 
 ## Wayfinding
 

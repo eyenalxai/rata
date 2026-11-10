@@ -98,8 +98,8 @@ operations.
   `--assignee`, `--parent`, `--text`, `--unblocked`, `--unassigned`. Add
   `--include relations` to put the six relation groups on every row:
   `blocks`, `blockedBy`, `duplicates`, `duplicatedBy`, `related` and `similar`.
-  It is one request, and each direction holds up to 250 relations. The flag
-  accepts `relations` only. Every list command returns one page: `--limit` is
+  It is one list request per page with no per-child read, and each direction
+  holds up to 250 relations. The flag accepts `relations` only. Every list command returns one page: `--limit` is
   the page size (default 50, maximum 250), and `--after <cursor>` continues a
   list. Add `--all` to drain every page. See **Paging lists**.
 - **Comment on an issue**: `rata issue comment create <ref> --body-file -`. The

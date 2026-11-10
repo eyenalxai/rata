@@ -152,7 +152,8 @@ they explore the codebase. Use these terms; do not drift to synonyms.
 - **Read shape**: the JSON shape of a read. A resource with an identifier is the
   object itself. A collection is `{ <plural>, pageInfo }`. A context document,
   such as `status`, keeps its named sections. `--fields` starts at the resource
-  for a read and at each row for a list.
+  for a read, at each row for a list, and at the `defaults` object for
+  `config show`.
 - **Error code**: the class of a failure, carried by the `code` field of the JSON
   error object: `validation`, `not_linked`, `not_found`, `ambiguous`, `auth`,
   `forbidden`, `conflict`, `rate_limited`, `network` or `internal`.

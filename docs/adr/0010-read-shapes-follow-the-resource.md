@@ -21,14 +21,16 @@ documents with named sections. A write reports the result of the write, not the
 resource it changed.
 
 Backwards compatibility is not a constraint. There are no older callers to keep.
+The alternative to the flat reads was to keep the wrappers and document them.
 
 ## Decision
 
 The read shape follows the resource.
 
-- A resource with an identifier is the object at the top level. This covers
-  `issue show` (summary and detail), `issue status`, `next`, `why`,
-  `team show` and `issue section get`.
+- A resource is the object at the top level, whether it carries an identifier
+  or is addressed by its heading. This covers `issue show` (summary and detail),
+  `issue status`, `next`, `why`, `team show` and the section of
+  `issue section get`.
 - A collection is `{ <plural>, pageInfo }`. This covers `issue list`, `search`,
   `team list`, `project list` and `label list`.
 - A multi-section context document keeps its named sections. This covers

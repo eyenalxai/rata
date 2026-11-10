@@ -12,8 +12,10 @@ the output is deterministic.
 The project is in early development. This repository is the first user: its own
 work is tracked in Linear and driven with `rata`. The 0.8.0 release adds heading
 section edits, the comment lifecycle with retry-safe dedupe, the `next` and
-`why` frontier commands, selectable reads, and `--all` paging. See **Breaking
-changes in 0.8.0** for the surface that moved.
+`why` frontier commands, selectable reads, and `--all` paging. The unreleased
+surface adds the one-way command forms, `--include relations`, the flat read
+shapes and `createdAt`. See **Breaking changes in 0.8.0** and **Unreleased** for
+the surface that moved.
 
 ## Install
 
@@ -588,7 +590,9 @@ issues of the spec, so the set stays together:
    `rata issue create --title "Add the Stripe client" --parent ABC-42 --label ready-for-agent --priority medium --body-file -`.
    Wire the blocking edges between the tickets with
    `rata issue link ABC-44 --blocked-by ABC-43`.
-3. `/implement-spec` fetches the whole set: `rata issue list --parent ABC-42 --all --json`.
+3. `/implement-spec` fetches the whole set:
+   `rata issue list --parent ABC-42 --all --json --include relations`. Each row
+   then carries its blocking edges, so the frontier needs no per-child read.
 
 `issue show <spec-ref> --json` also lists the child issues.
 
@@ -775,31 +779,32 @@ rata issue list --limit 100 --after <cursor>
 rata issue list --priority urgent --sort priority --limit 10
 ```
 
-| Flag           | Meaning                                                                                                                                           |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--team`       | Team key or id. Default: the team from `rata link`.                                                                                               |
-| `--state`      | Workflow state name, for example `In Progress`.                                                                                                   |
-| `--state-type` | One of `triage`, `backlog`, `unstarted`, `started`, `completed`, `canceled`.                                                                      |
-| `--priority`   | `none`, `urgent`, `high`, `medium`, `low`, or `0`-`4`.                                                                                            |
-| `--label`      | Label name.                                                                                                                                       |
-| `--assignee`   | `me`, or a user id.                                                                                                                               |
-| `--project`    | Project id or name.                                                                                                                               |
-| `--parent`     | Parent issue reference.                                                                                                                           |
-| `--text`       | Text that appears in the title or the description.                                                                                                |
-| `--unblocked`  | Keep only open issues with no open blocker.                                                                                                       |
-| `--unassigned` | Keep only issues with no assignee.                                                                                                                |
-| `--include`    | `relations` adds `blocks`, `blockedBy`, `duplicates`, `duplicatedBy`, `related` and `similar` to every row. One request, up to 250 per direction. |
-| `--sort`       | `priority` orders urgent first and none last.                                                                                                     |
-| `--limit`      | Page size. Default: 50, maximum: 250.                                                                                                             |
-| `--after`      | Continue after a cursor from a previous page.                                                                                                     |
-| `--all`        | Drain every page. `--limit` stays the page size.                                                                                                  |
+| Flag           | Meaning                                                                                                                                                                               |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--team`       | Team key or id. Default: the team from `rata link`.                                                                                                                                   |
+| `--state`      | Workflow state name, for example `In Progress`.                                                                                                                                       |
+| `--state-type` | One of `triage`, `backlog`, `unstarted`, `started`, `completed`, `canceled`.                                                                                                          |
+| `--priority`   | `none`, `urgent`, `high`, `medium`, `low`, or `0`-`4`.                                                                                                                                |
+| `--label`      | Label name.                                                                                                                                                                           |
+| `--assignee`   | `me`, or a user id.                                                                                                                                                                   |
+| `--project`    | Project id or name.                                                                                                                                                                   |
+| `--parent`     | Parent issue reference.                                                                                                                                                               |
+| `--text`       | Text that appears in the title or the description.                                                                                                                                    |
+| `--unblocked`  | Keep only open issues with no open blocker.                                                                                                                                           |
+| `--unassigned` | Keep only issues with no assignee.                                                                                                                                                    |
+| `--include`    | `relations` adds `blocks`, `blockedBy`, `duplicates`, `duplicatedBy`, `related` and `similar` to every row. One list request per page and no per-child read; up to 250 per direction. |
+| `--sort`       | `priority` orders urgent first and none last.                                                                                                                                         |
+| `--limit`      | Page size. Default: 50, maximum: 250.                                                                                                                                                 |
+| `--after`      | Continue after a cursor from a previous page.                                                                                                                                         |
+| `--all`        | Drain every page. `--limit` stays the page size.                                                                                                                                      |
 
 `--include relations` is the one-call path to the blocking edges of a parent's
 children. It adds the same `relations` object that `issue show` returns, with the
 six groups `blocks`, `blockedBy`, `duplicates`, `duplicatedBy`, `related` and
-`similar`. The flag sends one `IssueList` request, composes with every filter,
-`--all` and `--fields`, and caps each direction at 250 relations. Read a row with
-more relations with `issue show`. Without the flag, a row has no `relations` key.
+`similar`. The flag sends one list request per page and no per-child read,
+composes with every filter, `--all` and `--fields`, and caps each direction at
+250 relations. Read a row with more relations with `issue show`. Without the
+flag, a row has no `relations` key.
 Another value is `validation`, and the hint lists `relations`.
 
 `--priority` keeps issues with exactly one priority value. `none` and `0`
@@ -1409,13 +1414,30 @@ The link and unlink commands print the relations they changed, with a
 }
 ```
 
+## Unreleased
+
+- `issue <ref>` and a positional assignee are rejected. Read with
+  `issue show <ref>` and assign with `issue assign <ref> --assignee <value>`.
+  The error hint names the canonical form.
+- `issue list` gains `--include relations`, which adds the six relation groups
+  to every row with one list request per page and no per-child read.
+- Single-resource reads print the resource object: `issue show` (summary and
+  detail), `issue status`, `next`, `why`, `team show` and `issue section get`.
+  `issue list` and `search` keep `{ "issues", "pageInfo" }`.
+- `--fields` starts at the resource, returns `null` for a path through a null
+  object, and rejects a path into an array. `next` and `why` accept it.
+- `IssueSummary` and `IssueDetail` gain `createdAt`. Every issue in every read
+  and write result carries it.
+- `rata status` reports the rest of the context when the stored team key is
+  stale: `team` and `defaults` are `null` and `warning` names the repair. It
+  exits 0.
+- A failed legacy `.rata.json` cleanup prints a warning instead of failing the
+  command.
+
 ## Breaking changes in 0.8.0
 
 - `issue comment <ref>` becomes `issue comment create <ref>`. The group also
   gains `update` and `delete`.
-- `issue <ref>` and a positional assignee are rejected. Read with
-  `issue show <ref>` and assign with `issue assign <ref> --assignee <value>`.
-  The error hint names the canonical form.
 - `issue section` is new: `get`, `append` and `replace`.
 - `issue update` gains `--append`, `--dry-run`, `--if-unchanged`, `--comment`
   and `--comment-file`.
@@ -1423,21 +1445,9 @@ The link and unlink commands print the relations they changed, with a
   and `--no-attachments`.
 - `issue list`, `search`, `team list`, `project list` and `label list` gain
   `--all`.
-- `issue list` gains `--include relations`, which adds the six relation groups
-  to every row in one request.
 - `issue show` gains the `view` alias.
-- Single-resource reads print the resource object: `issue show` (summary and
-  detail), `issue status`, `next`, `why`, `team show` and `issue section get`.
-  `issue list` and `search` keep `{ "issues", "pageInfo" }`.
-- `--fields` starts at the resource, returns `null` for a path through a null
-  object, and rejects a path into an array. `next` and `why` accept it.
-- `IssueSummary` and `IssueDetail` gain `createdAt` and `updatedAt`. Every issue
-  in every read and write result carries them.
-- `rata status` reports the rest of the context when the stored team key is
-  stale: `team` and `defaults` are `null` and `warning` names the repair. It
-  exits 0.
-- A failed legacy `.rata.json` cleanup prints a warning instead of failing the
-  command.
+- `IssueSummary` and `IssueDetail` gain `updatedAt`. Every issue in every read
+  and write result carries it.
 - `--dry-run` now covers every issue write, including `issue comment create`,
   `issue comment update`, `issue comment delete`, `issue close` and
   `issue reopen`.
