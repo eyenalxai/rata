@@ -10,12 +10,12 @@ machine-readable form, issue references accept identifiers, UUIDs and URLs, and
 the output is deterministic.
 
 The project is in early development. This repository is the first user: its own
-work is tracked in Linear and driven with `rata`. The 0.8.0 release adds heading
-section edits, the comment lifecycle with retry-safe dedupe, the `next` and
-`why` frontier commands, selectable reads, and `--all` paging. The unreleased
-surface adds the one-way command forms, `--include relations`, the flat read
-shapes and `createdAt`. See **Breaking changes in 0.8.0** and **Unreleased** for
-the surface that moved.
+work is tracked in Linear and driven with `rata`. The 0.9.0 release adds the
+one-way command forms, `--include relations`, the flat read shapes and
+`createdAt`. The 0.8.0 release added heading section edits, the comment
+lifecycle with retry-safe dedupe, the `next` and `why` frontier commands,
+selectable reads, and `--all` paging. See **Breaking changes in 0.9.0** and
+**Breaking changes in 0.8.0** for the surface that moved.
 
 ## Install
 
@@ -1420,7 +1420,7 @@ The link and unlink commands print the relations they changed, with a
 }
 ```
 
-## Unreleased
+## Breaking changes in 0.9.0
 
 - `issue <ref>` and a positional assignee are rejected. Read with
   `issue show <ref>` and assign with `issue assign <ref> --assignee <value>`.
