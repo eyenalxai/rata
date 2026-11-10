@@ -19,7 +19,7 @@
   team; without a link they fail and ask for `--team` or `rata link`.
 - Exit code 0 on success; a failure exits with the code of its class, from 1 to 6. With `--json`, a failure writes one JSON object to stderr. A bulk write
   reports its results on stdout and exits with the first failed result's code.
-  `issue update --comment` also writes its partial result to stdout when the
+  `issue update --comment` writes its partial result only to stdout when the
   comment fails.
 
 ## One way per operation
@@ -51,8 +51,8 @@ rata issue list --json --fields identifier,title,state.name
 ```
 
 With `--json`, a failure writes one object to stderr and exits with the code of
-its class. Two cases also write to stdout: a bulk write reports one result per
-issue and exits with the first failed result's code, and a failed
+its class. Two cases write only to stdout instead: a bulk write reports one
+result per issue and exits with the first failed result's code, and a failed
 `issue update --comment` reports the issue update, `"comment": null` and the
 `error` object and exits with the error's code.
 

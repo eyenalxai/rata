@@ -1068,7 +1068,7 @@ names the array.
 `issue section get`, `issue list`, `search`, `team show`, `team list`,
 `label list`, `project list` and `config show`. Write commands reject it with
 `validation`. An unknown path is a `validation` error whose hint lists the valid
-paths.
+keys at the failing level.
 
 For any other shape, use `--json` and `jq`. There is no `--format` template
 language.
@@ -1251,9 +1251,10 @@ JSON on success prints the issue and the comment:
 
 Without `--comment` or `--comment-file`, the output stays `{ "issue": ... }`. A
 comment failure prints the issue update, `"comment": null` and the `error`
-object, and exits with the code of that error. This is the one command that
-writes a partial result to stdout on failure, because the issue update already
-landed. Human mode prints the issue result and the error on stderr.
+object, and exits with the code of that error. This is the one single-issue
+command that writes a partial result to stdout on failure, because the issue
+update already landed. Human mode prints the issue result and the error on
+stderr.
 
 `--dry-run` prints `{ "dryRun": true, "actions": [...] }` with the issue update
 action and the comment action, and writes nothing.
