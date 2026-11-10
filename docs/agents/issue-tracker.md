@@ -98,10 +98,11 @@ operations.
   `--assignee`, `--parent`, `--text`, `--unblocked`, `--unassigned`. Add
   `--include relations` to put the six relation groups on every row:
   `blocks`, `blockedBy`, `duplicates`, `duplicatedBy`, `related` and `similar`.
-  It is one list request per page with no per-child read, and each direction
-  holds up to 250 relations. The flag accepts `relations` only. Every list command returns one page: `--limit` is
-  the page size (default 50, maximum 250), and `--after <cursor>` continues a
-  list. Add `--all` to drain every page. See **Paging lists**.
+  It is one list request per page with no per-child read. Each outgoing or
+  inverse connection holds up to 250 relations; `related` and `similar` merge
+  both. The flag accepts `relations` only. Every list command returns one page:
+  `--limit` is the page size (default 50, maximum 250), and `--after <cursor>`
+  continues a list. Add `--all` to drain every page. See **Paging lists**.
 - **Comment on an issue**: `rata issue comment create <ref> --body-file -`. The
   form `rata issue comment <ref>` exits 2 and its hint names
   `issue comment create`. The command waits up to 5 seconds for the comment to
@@ -205,7 +206,8 @@ with **child** issues as tickets.
   no child is ready; the command exits 0. It reads every matching page before it
   picks. `--fields` selects from the summary. To read the whole frontier in one
   call, use
-  `rata issue list --parent <map-ref> --unblocked --unassigned --include relations --json`.
+  `rata issue list --parent <map-ref> --unblocked --unassigned --include relations --all --json`;
+  `--all` drains every page.
 - **Why blocked**: `rata why <ref>` prints one level of `blockedBy`. The JSON is
   the issue summary plus `blocked` and `blockedBy`. Each blocker carries its
   state and a `closed` flag; `blocked` is true when any blocker is open. A

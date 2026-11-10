@@ -19,6 +19,8 @@
   team; without a link they fail and ask for `--team` or `rata link`.
 - Exit code 0 on success; a failure exits with the code of its class, from 1 to 6. With `--json`, a failure writes one JSON object to stderr. A bulk write
   reports its results on stdout and exits with the first failed result's code.
+  `issue update --comment` also writes its partial result to stdout when the
+  comment fails.
 
 ## One way per operation
 
@@ -49,8 +51,10 @@ rata issue list --json --fields identifier,title,state.name
 ```
 
 With `--json`, a failure writes one object to stderr and exits with the code of
-its class. A bulk write is the exception: it reports one result per issue on
-stdout and exits with the first failed result's code.
+its class. Two cases also write to stdout: a bulk write reports one result per
+issue and exits with the first failed result's code, and a failed
+`issue update --comment` reports the issue update, `"comment": null` and the
+`error` object and exits with the error's code.
 
 ```json
 {
@@ -75,7 +79,7 @@ the section object of `issue section get`, each item of `issues`, `teams`,
 object returns `null`; for example `assignee.name` on an unassigned issue gives
 `{"assignee": null}`. An array is selectable as a whole, such as `labels`, but a
 path into an array is `validation` with a hint that names the array. An unknown
-path is `validation` and the hint lists the valid paths.
+path is `validation` and the hint lists the valid keys at the failing level.
 
 `--fields` is valid on `status`, `issue show`, `issue status`, `next`, `why`,
 `issue section get`, `issue list`, `search`, `team show`, `team list`,
@@ -196,28 +200,29 @@ summary object at the top level.
 
 ### `issue list` flags
 
-| Flag           | Meaning                                                                                                                                                                               |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--team`       | Team key or id.                                                                                                                                                                       |
-| `--state`      | Workflow state name, for example `In Progress`.                                                                                                                                       |
-| `--state-type` | `triage`, `backlog`, `unstarted`, `started`, `completed`, or `canceled`.                                                                                                              |
-| `--priority`   | `none`, `urgent`, `high`, `medium`, `low`, or `0`-`4`.                                                                                                                                |
-| `--label`      | Label name.                                                                                                                                                                           |
-| `--assignee`   | `me`, or a user id.                                                                                                                                                                   |
-| `--project`    | Project id or name.                                                                                                                                                                   |
-| `--parent`     | Parent issue reference.                                                                                                                                                               |
-| `--text`       | Text in the title or the description.                                                                                                                                                 |
-| `--unblocked`  | Only open issues with no open blocker.                                                                                                                                                |
-| `--unassigned` | Only issues with no assignee.                                                                                                                                                         |
-| `--sort`       | `priority`: urgent first and none last; ties go to the oldest.                                                                                                                        |
-| `--include`    | `relations` adds `blocks`, `blockedBy`, `duplicates`, `duplicatedBy`, `related` and `similar` to every row. One list request per page and no per-child read; up to 250 per direction. |
-| `--limit`      | Page size. Default: 50, maximum: 250.                                                                                                                                                 |
-| `--after`      | Continue after a cursor from a previous page.                                                                                                                                         |
-| `--all`        | Drain every page. `--limit` stays the page size.                                                                                                                                      |
+| Flag           | Meaning                                                                                                                                                                                                                                            |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--team`       | Team key or id.                                                                                                                                                                                                                                    |
+| `--state`      | Workflow state name, for example `In Progress`.                                                                                                                                                                                                    |
+| `--state-type` | `triage`, `backlog`, `unstarted`, `started`, `completed`, or `canceled`.                                                                                                                                                                           |
+| `--priority`   | `none`, `urgent`, `high`, `medium`, `low`, or `0`-`4`.                                                                                                                                                                                             |
+| `--label`      | Label name.                                                                                                                                                                                                                                        |
+| `--assignee`   | `me`, or a user id.                                                                                                                                                                                                                                |
+| `--project`    | Project id or name.                                                                                                                                                                                                                                |
+| `--parent`     | Parent issue reference.                                                                                                                                                                                                                            |
+| `--text`       | Text in the title or the description.                                                                                                                                                                                                              |
+| `--unblocked`  | Only open issues with no open blocker.                                                                                                                                                                                                             |
+| `--unassigned` | Only issues with no assignee.                                                                                                                                                                                                                      |
+| `--sort`       | `priority`: urgent first and none last; ties go to the oldest.                                                                                                                                                                                     |
+| `--include`    | `relations` adds `blocks`, `blockedBy`, `duplicates`, `duplicatedBy`, `related` and `similar` to every row. One list request per page and no per-child read; up to 250 per outgoing or inverse connection, and `related` and `similar` merge both. |
+| `--limit`      | Page size. Default: 50, maximum: 250.                                                                                                                                                                                                              |
+| `--after`      | Continue after a cursor from a previous page.                                                                                                                                                                                                      |
+| `--all`        | Drain every page. `--limit` stays the page size.                                                                                                                                                                                                   |
 
 `--include` accepts `relations` only. Another value is `validation` and the hint
-lists the valid value. Without the flag, a row has no `relations` key. Read a
-row with more than 250 relations per direction with `issue show`.
+lists the valid value. Without the flag, a row has no `relations` key. Each
+outgoing or inverse connection holds up to 250 relations; `related` and
+`similar` merge both. Read a row with more relations with `issue show`.
 
 ### `next` and `why` flags
 
@@ -287,8 +292,8 @@ end of the description with a blank separator. `--if-unchanged <updatedAt>`
 fails with `conflict` when the issue changed since that read. `--comment`
 validates first, applies the issue update, then creates the comment; when the
 comment fails, the issue update stays, the JSON carries `"comment": null` and
-the `error` object, and the command exits 1. `--dry-run` prints the update
-action, the diff for `--append`, and the comment action.
+the `error` object, and the command exits with the error's code. `--dry-run`
+prints the update action, the diff for `--append`, and the comment action.
 
 ### `issue comment` flags
 
@@ -374,7 +379,7 @@ targets every child of the parent, open and closed, in creation order.
 
 Rata validates every target and label before the first write: a bad reference or
 a missing label aborts the batch with zero changes. The writes then run
-best-effort and the command exits 1 when any result failed. JSON is:
+best-effort and the command exits with the first failed result's code. JSON is:
 
 ```json
 {

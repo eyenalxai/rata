@@ -60,15 +60,17 @@ flag. `pageInfo` stays in a list result. A path through a null object returns
 `null`; `assignee.name` on an unassigned issue gives `{"assignee": null}`. An
 array is selectable as a whole, such as `labels`, but a path into an array is a
 validation error. An unknown path is a validation error whose hint lists the
-valid paths. The flag needs `--json`, and it is valid on `status`, `issue show`,
-`issue status`, `next`, `why`, `issue section get`, `issue list`, `search`,
-`team show`, `team list`, `label list`, `project list` and `config show`.
+valid keys at the failing level. The flag needs `--json`, and it is valid on
+`status`, `issue show`, `issue status`, `next`, `why`, `issue section get`,
+`issue list`, `search`, `team show`, `team list`, `label list`, `project list`
+and `config show`.
 
 `issue list --include relations` adds the six relation groups to every row:
 `blocks`, `blockedBy`, `duplicates`, `duplicatedBy`, `related` and `similar`.
-The flag sends one list request per page and no per-child read. Each direction
-holds up to 250 relations; read a larger row with `issue show`. The flag accepts `relations` only, and another
-value fails with a hint that lists it.
+The flag sends one list request per page and no per-child read. Each outgoing or
+inverse connection holds up to 250 relations; `related` and `similar` merge
+both. Read a larger row with `issue show`. The flag accepts `relations` only,
+and another value fails with a hint that lists it.
 
 ## Set up a repository
 

@@ -33,16 +33,18 @@ The read shape follows the resource.
   `issue section get`.
 - A collection is `{ <plural>, pageInfo }`. This covers `issue list`, `search`,
   `team list`, `project list` and `label list`.
-- A multi-section context document keeps its named sections. This covers
-  `status`, `config show` and `auth status`.
+- A context document keeps its named sections. This covers `status`,
+  `config show` and `auth status`.
 - A write keeps its result object, such as `{ "issue": ... }`,
   `{ "status", "comment", "visible" }` or `{ "results": [...] }`.
 
-`--fields` starts at the resource for a read and at each item for a list. Write
-commands reject the flag. A list result keeps `pageInfo`. A path through a null
-object returns `null` for that path and does not fail. An array is selectable as
-a whole; a path into an array is a `validation` error whose hint names the array.
-An unknown path is a `validation` error whose hint lists the valid paths.
+`--fields` starts at the resource for a read and at each item for a list. For
+`config show` it starts at the `defaults` object, and for `status` it starts at
+the whole document. Write commands reject the flag. A list result keeps
+`pageInfo`. A path through a null object returns `null` for that path and does
+not fail. An array is selectable as a whole; a path into an array is a
+`validation` error whose hint names the array. An unknown path is a `validation`
+error whose hint lists the valid keys at the failing level.
 
 `issue status` carries the summary fields plus `blocked`, `blockedBy`, `prs` and
 `nextChild`. `why` carries the summary fields plus `blocked` and `blockedBy`.
