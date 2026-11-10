@@ -68,7 +68,13 @@ they explore the codebase. Use these terms; do not drift to synonyms.
   pull request. It has a title, an optional subtitle, a url and a source type.
 - **Relation**: a directional link between two issues. Linear types: `blocks`,
   `duplicate`, `related`, `similar`. "Blocked by" is the inverse of `blocks`; it
-  is not a separate relation type.
+  is not a separate relation type. A read groups relations as `blocks`,
+  `blockedBy`, `duplicates`, `duplicatedBy`, `related` and `similar`.
+- **List row**: one item of a list result. It is the **summary**. With
+  `issue list --include relations` it also carries a `relations` object with the
+  six relation groups. Each outgoing or inverse connection holds up to 250
+  relations; `related` and `similar` merge both. Read a larger row with
+  `issue show`.
 - **Bulk write**: one command that writes to every child of a **parent**. It
   reports one result per child: `updated`, `skipped` or `failed`. Only
   `issue assign`, `issue label add` and `issue label remove` treat `--parent` as
@@ -142,7 +148,13 @@ they explore the codebase. Use these terms; do not drift to synonyms.
 - **Summary** (or **issue summary**): the lean read of one issue: identifier,
   title, state, priority, labels, assignee, project, parent, url, `createdAt`
   and `updatedAt`. It carries no description, children, relations, attachments
-  or comments. Avoid: header, metadata.
+  or comments. `issue show --summary` prints it, `next` returns it, and
+  `issue status` starts from it. Avoid: header, metadata.
+- **Read shape**: the JSON shape of a read. A resource is the object itself,
+  whether it has an identifier or is addressed by its heading. A collection is
+  `{ <plural>, pageInfo }`. A context document, such as `status`, keeps its named
+  sections. `--fields` starts at the resource for a read, at each row for a
+  list, and at the `defaults` object for `config show`.
 - **Error code**: the class of a failure, carried by the `code` field of the JSON
   error object: `validation`, `not_linked`, `not_found`, `ambiguous`, `auth`,
   `forbidden`, `conflict`, `rate_limited`, `network` or `internal`.
