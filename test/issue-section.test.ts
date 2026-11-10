@@ -5,11 +5,9 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { Option, Schema } from "effect"
 
 const SectionDocument = Schema.Struct({
-  section: Schema.Struct({
-    heading: Schema.String,
-    level: Schema.Finite,
-    content: Schema.String,
-  }),
+  heading: Schema.String,
+  level: Schema.Finite,
+  content: Schema.String,
 })
 
 const ErrorEnvelope = Schema.Struct({
@@ -49,12 +47,12 @@ describe("issue section get", () => {
 
     await runIssue(recorder.handler, ["section", "get", "RAT-1", "Handoff log", "--json"], lines)
 
-    expect(decodeSection(lastJson(lines)).section).toEqual({
+    expect(decodeSection(lastJson(lines))).toEqual({
       heading: "Handoff log",
       level: 2,
       content: "Line one.",
     })
-    expect(Object.keys(decodeSection(lastJson(lines)).section).toSorted()).toEqual([
+    expect(Object.keys(decodeSection(lastJson(lines))).toSorted()).toEqual([
       "content",
       "heading",
       "level",
@@ -71,7 +69,7 @@ describe("issue section get", () => {
       lines,
     )
 
-    expect(lastJson(lines)).toEqual({ section: { content: "Line one." } })
+    expect(lastJson(lines)).toEqual({ content: "Line one." })
   })
 
   test("prints the heading line with --with-heading", async () => {

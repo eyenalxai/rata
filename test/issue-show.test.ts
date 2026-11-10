@@ -79,19 +79,15 @@ const showHandler =
 const relatedHandler = (): Response => jsonResponse({ data: { issue: relatedDetail } })
 
 const ShowDocument = Schema.Struct({
-  issue: Schema.Struct({
-    comments: Schema.Array(Schema.Struct({ id: Schema.String })),
-    children: Schema.Array(Schema.Struct({ identifier: Schema.String })),
-    relations: Schema.Struct({
-      blocks: Schema.Array(Schema.Struct({ identifier: Schema.String })),
-    }),
-    attachments: Schema.Array(Schema.Struct({ id: Schema.String })),
+  comments: Schema.Array(Schema.Struct({ id: Schema.String })),
+  children: Schema.Array(Schema.Struct({ identifier: Schema.String })),
+  relations: Schema.Struct({
+    blocks: Schema.Array(Schema.Struct({ identifier: Schema.String })),
   }),
+  attachments: Schema.Array(Schema.Struct({ id: Schema.String })),
 })
 
-const AnyShowDocument = Schema.Struct({
-  issue: Schema.Record(Schema.String, Schema.Unknown),
-})
+const AnyShowDocument = Schema.Record(Schema.String, Schema.Unknown)
 
 const ErrorEnvelope = Schema.Struct({ error: Schema.Struct({ code: Schema.String }) })
 
@@ -208,10 +204,10 @@ describe("issue show", () => {
 
     const document = Option.getOrThrow(Schema.decodeUnknownOption(ShowDocument)(lastJson(lines)))
 
-    expect(document.issue.comments.map((item) => item.id)).toEqual(["c1"])
-    expect(document.issue.children.map((item) => item.identifier)).toEqual(["RAT-2"])
-    expect(document.issue.relations.blocks.map((item) => item.identifier)).toEqual(["RAT-8"])
-    expect(document.issue.attachments.map((item) => item.id)).toEqual(["a1"])
+    expect(document.comments.map((item) => item.id)).toEqual(["c1"])
+    expect(document.children.map((item) => item.identifier)).toEqual(["RAT-2"])
+    expect(document.relations.blocks.map((item) => item.identifier)).toEqual(["RAT-8"])
+    expect(document.attachments.map((item) => item.id)).toEqual(["a1"])
     expect(requests.filter((request) => request.query.includes("query IssueShow"))).toHaveLength(1)
   })
 
@@ -224,7 +220,7 @@ describe("issue show", () => {
       lines,
     )
 
-    expect(lastJson(lines)).toEqual({ issue: { createdAt: "2026-01-01T08:00:00.000Z" } })
+    expect(lastJson(lines)).toEqual({ createdAt: "2026-01-01T08:00:00.000Z" })
   })
 
   test("--no-comments omits the comments and skips the fetch", async () => {
@@ -233,7 +229,7 @@ describe("issue show", () => {
     await runShow(showHandler(requests), ["show", "RAT-1", "--json", "--no-comments"], lines)
 
     const document = Option.getOrThrow(Schema.decodeUnknownOption(AnyShowDocument)(lastJson(lines)))
-    expect(document.issue).not.toHaveProperty("comments")
+    expect(document).not.toHaveProperty("comments")
     expect(requests.some((request) => request.query.includes("query IssueComments"))).toBe(false)
   })
 

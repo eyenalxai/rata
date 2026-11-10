@@ -67,13 +67,11 @@ const priorities = [
 const seed = { teams: [team], labels, priorities }
 
 const TeamDocument = Schema.Struct({
-  team: Schema.Struct({
-    key: Schema.String,
-    states: Schema.Array(Schema.Unknown),
-    labels: Schema.Array(Schema.Unknown),
-    members: Schema.Array(Schema.Unknown),
-    priorities: Schema.Array(Schema.Unknown),
-  }),
+  key: Schema.String,
+  states: Schema.Array(Schema.Unknown),
+  labels: Schema.Array(Schema.Unknown),
+  members: Schema.Array(Schema.Unknown),
+  priorities: Schema.Array(Schema.Unknown),
 })
 
 const ErrorEnvelope = Schema.Struct({
@@ -122,11 +120,11 @@ describe("team show", () => {
     await runShow(fake.handler, ["show", "--json"], lines, true)
 
     const document = Option.getOrThrow(Schema.decodeUnknownOption(TeamDocument)(lastJson(lines)))
-    expect(document.team.key).toBe("RAT")
-    expect(document.team.states).toHaveLength(60)
-    expect(document.team.labels).toHaveLength(61)
-    expect(document.team.members).toHaveLength(60)
-    expect(document.team.priorities).toHaveLength(2)
+    expect(document.key).toBe("RAT")
+    expect(document.states).toHaveLength(60)
+    expect(document.labels).toHaveLength(61)
+    expect(document.members).toHaveLength(60)
+    expect(document.priorities).toHaveLength(2)
   })
 
   test("fails with not_linked without a reference or a link", async () => {

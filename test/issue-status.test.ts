@@ -1,11 +1,12 @@
 import type { Handler } from "@test/fake-linear/model"
 
-import { lastJson, runRoot } from "@test/cli-harness"
+import { lastJson, lastJsonRecord, runRoot } from "@test/cli-harness"
 import {
   baseDetail,
   jsonResponse,
   pageInfo,
   readBody,
+  summaryKeys,
   summaryNode,
   uuid,
   withTeamLookup,
@@ -25,11 +26,11 @@ const PullRequest = Schema.Struct({
 })
 
 const StatusDocument = Schema.Struct({
-  issue: Schema.Struct({
-    identifier: Schema.String,
-    state: Schema.Struct({ name: Schema.String, type: Schema.String }),
-    priority: Schema.String,
-  }),
+  identifier: Schema.String,
+  title: Schema.String,
+  createdAt: Schema.String,
+  state: Schema.Struct({ name: Schema.String, type: Schema.String }),
+  priority: Schema.String,
   blocked: Schema.Boolean,
   blockedBy: Schema.Array(
     Schema.Struct({
@@ -174,7 +175,10 @@ describe("rata issue status", () => {
     )
 
     const document = statusDocument(lines)
-    expect(document.issue.identifier).toBe("RAT-1")
+    expect(Object.keys(lastJsonRecord(lines)).toSorted()).toEqual(
+      [...summaryKeys, "blocked", "blockedBy", "nextChild", "prs"].toSorted(),
+    )
+    expect(document.identifier).toBe("RAT-1")
     expect(document.blocked).toBe(true)
     expect(document.blockedBy).toEqual([
       { identifier: "RAT-9", state: { name: "Todo", type: "unstarted" }, closed: false },
@@ -227,6 +231,21 @@ describe("rata issue status", () => {
     )
 
     expect(lines.join("\n")).toContain("prs: none")
+  })
+
+  test("selects fields from the flat status object", async () => {
+    const lines: string[] = []
+    await runRoot(
+      statusHandler(statusDetail([]), summaryNode("RAT-114"), []),
+      ["issue", "status", "RAT-1", "--json", "--fields", "identifier,blocked,nextChild.identifier"],
+      lines,
+    )
+
+    expect(lastJson(lines)).toEqual({
+      identifier: "RAT-1",
+      blocked: true,
+      nextChild: { identifier: "RAT-114" },
+    })
   })
 
   test("picks the next child without the assignee filter", async () => {

@@ -95,12 +95,11 @@ const formatPullRequest = (pull: PullRequest): string =>
     .join("  ")}`
 
 const formatIssueStatus = (status: IssueStatus): string => {
-  const { issue } = status
   const lines: string[] = [
-    `${issue.identifier}: ${issue.title}`,
-    `state: ${issue.state.name} (${issue.state.type})`,
-    `priority: ${issue.priority}`,
-    `assignee: ${issue.assignee?.name ?? "unassigned"}`,
+    `${status.identifier}: ${status.title}`,
+    `state: ${status.state.name} (${status.state.type})`,
+    `priority: ${status.priority}`,
+    `assignee: ${status.assignee?.name ?? "unassigned"}`,
     `blocked: ${status.blocked ? "yes" : "no"}`,
   ]
   const openBlockers = status.blockedBy.filter((blocker) => !blocker.closed)

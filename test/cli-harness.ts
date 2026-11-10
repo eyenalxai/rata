@@ -3,7 +3,7 @@ import type { Handler } from "@test/fake-linear/model"
 
 import { apiLayer } from "@test/fake-linear"
 import { recordingConsole } from "@test/recording-console"
-import { Console, Effect, FileSystem, Layer, Path, Stdio, Terminal } from "effect"
+import { Console, Effect, FileSystem, Layer, Option, Path, Schema, Stdio, Terminal } from "effect"
 import { Command } from "effect/cli"
 import { ChildProcessSpawner } from "effect/process"
 
@@ -44,6 +44,11 @@ const cliLayer = (
 
 const lastJson = (lines: readonly string[]): unknown => JSON.parse(lines.at(-1) ?? "")
 
+const lastJsonRecord = (lines: readonly string[]): Record<string, unknown> =>
+  Option.getOrThrow(
+    Schema.decodeUnknownOption(Schema.Record(Schema.String, Schema.Unknown))(lastJson(lines)),
+  )
+
 const defaultRepositories: ApiLayerOptions["repositories"] = [{ key: process.cwd(), team: "RAT" }]
 
 const runIssue = (
@@ -70,4 +75,4 @@ const runRoot = (
     Effect.runPromise,
   )
 
-export { cliLayer, lastJson, runIssue, runRoot }
+export { cliLayer, lastJson, lastJsonRecord, runIssue, runRoot }
