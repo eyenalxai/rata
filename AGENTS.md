@@ -162,9 +162,9 @@ are the exception: they stay unassigned until the claim step. See
 
 ### Triage labels
 
-Default five-role vocabulary: `needs-triage`, `needs-info`,
-`ready-for-agent`, `ready-for-human`, `wontfix`. See
-`docs/agents/triage-labels.md`.
+Two category roles (`bug`, `enhancement`) and five state roles:
+`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`.
+See `docs/agents/triage-labels.md`.
 
 ### Domain docs
 
