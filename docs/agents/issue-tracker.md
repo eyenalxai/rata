@@ -206,8 +206,8 @@ with **child** issues as tickets.
   no child is ready; the command exits 0. It reads every matching page before it
   picks. `--fields` selects from the summary. To read the whole frontier in one
   call, use
-  `rata issue list --parent <map-ref> --unblocked --unassigned --include relations --all --json`;
-  `--all` drains every page.
+  `rata issue list --parent <map-ref> --unblocked --unassigned --include relations --sort priority --all --json`;
+  `--all` drains every page, and `--sort priority` gives the same order as `next`.
 - **Why blocked**: `rata why <ref>` prints one level of `blockedBy`. The JSON is
   the issue summary plus `blocked` and `blockedBy`. Each blocker carries its
   state and a `closed` flag; `blocked` is true when any blocker is open. A
