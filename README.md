@@ -17,6 +17,15 @@ lifecycle with retry-safe dedupe, the `next` and `why` frontier commands,
 selectable reads, and `--all` paging. See **Breaking changes in 0.9.0** and
 **Breaking changes in 0.8.0** for the surface that moved.
 
+## For agents
+
+Load the `rata` skill before the first tracker command:
+`skills/rata/SKILL.md`. It covers the first command, the canonical forms and the
+read and write loops. The repository facts, including the labels and the priority
+and assignee rules, are in `docs/agents/issue-tracker.md`. For every command,
+flag and JSON shape, read `skills/rata/reference.md`. This README is the human
+manual: install, authentication, the full catalog and examples.
+
 ## Install
 
 From a checkout:
@@ -66,7 +75,7 @@ rata issue view RAT-42 --summary         # lean read; `view` is an alias for `sh
 rata why RAT-42                          # the blockers of one issue
 rata issue status RAT-42                 # state, blockers, pull requests and the next child
 rata search "rate limit"                 # search issues by text
-rata issue create --title "Fix login" --team RAT   # create an issue
+rata issue create --title "Fix login" --team RAT --assignee me  # create an issue
 rata issue link RAT-43 --blocked-by RAT-42         # RAT-43 waits for RAT-42
 rata issue comment create RAT-42 --body "..."      # comment on an issue
 rata issue section append RAT-42 "Handoff log" --body "Started."  # edit one section
@@ -78,10 +87,10 @@ repository `workspace` of the repository config, the `default` profile.
 
 `rata --help` lists every command.
 
-## One form per operation
+## One spelling per operation
 
-Each operation has one canonical form. The other spellings fail with a
-`validation` error and one hint that names the canonical form.
+Each operation has one spelling. The other spellings fail with a `validation`
+error and one hint that names the canonical one.
 
 | Operation           | Canonical form                                               | Rejected form                |
 | ------------------- | ------------------------------------------------------------ | ---------------------------- |
@@ -96,7 +105,9 @@ Each operation has one canonical form. The other spellings fail with a
 
 `issue view` is the only alias, and it means `issue show`. There is no positional
 assignee, no direct `issue comment <ref>` form, and no bare `issue <ref>`
-execution. A rejected form exits 2 and writes no data.
+execution. A rejected form exits 2 and writes no data. `issue update` also sets
+`--assignee` and `--state`: these are fields of one compound update, not a second
+spelling of `issue assign`.
 
 ## Read shapes
 
@@ -587,9 +598,9 @@ A spec is an issue. Do not prefix the title with `Spec:`. Its tickets are child
 issues of the spec, so the set stays together:
 
 1. `/to-spec` creates the spec issue:
-   `rata issue create --title "Switch billing to Stripe" --label ready-for-agent --priority medium --body-file -`.
+   `rata issue create --title "Switch billing to Stripe" --label ready-for-agent --priority medium --assignee me --body-file -`.
 2. `/to-tickets` creates each ticket as a child of the spec:
-   `rata issue create --title "Add the Stripe client" --parent ABC-42 --label ready-for-agent --priority medium --body-file -`.
+   `rata issue create --title "Add the Stripe client" --parent ABC-42 --label ready-for-agent --priority medium --assignee me --body-file -`.
    Wire the blocking edges between the tickets with
    `rata issue link ABC-44 --blocked-by ABC-43`.
 3. `/implement-spec` fetches the whole set:
@@ -1113,15 +1124,15 @@ repository issue defaults fill the assignee, the labels and the priority. A team
 value is a key or a UUID. A project value is a name or a UUID.
 
 ```bash
-rata issue create --title "Fix login" --team RAT --label ready-for-agent --priority high
-rata issue create --title "Add the client" --parent RAT-1 --wait 10
+rata issue create --title "Fix login" --team RAT --label ready-for-agent --priority high --assignee me
+rata issue create --title "Add the client" --parent RAT-1 --assignee me --wait 10
 rata issue comment create RAT-42 --body "Looks good."
 rata issue comment create RAT-42 --body "Handoff." --dedupe-key mission-42-handoff
 printf 'From a pipe' | rata issue update RAT-42 --body-file -
 printf '\nUpdate.' | rata issue update RAT-42 --body-file - --append
 rata issue update RAT-42 --state "In Progress" --assignee me
 rata issue update RAT-42 --priority high --if-unchanged 2026-01-01T10:00:00.000Z
-rata issue update RAT-42 --state Done --comment "Shipped in PR #12."
+rata issue update RAT-42 --assignee me --comment "Claimed."
 rata issue section append RAT-42 "Handoff log" --body "Started."
 rata issue section replace RAT-42 "Handoff log" --body-file -
 rata issue label add RAT-42 ready-for-agent bug
@@ -1229,7 +1240,7 @@ and the comment compose with the other flags, so one call changes the body, the
 state and the comment:
 
 ```bash
-rata issue update RAT-42 --state Done --comment "Shipped in PR #12."
+rata issue update RAT-42 --state "In Progress" --comment "Started work."
 printf 'Handoff note.' | rata issue update RAT-42 --comment-file -
 ```
 
@@ -1330,7 +1341,7 @@ warning to stderr. `"visible"` is `null` when the check is disabled and on
 
 ```bash
 rata issue comment create RAT-42 --body "Looks good." --wait 10
-rata issue create --title "Add the client" --parent RAT-1 --wait 0
+rata issue create --title "Add the client" --parent RAT-1 --assignee me --wait 0
 ```
 
 ### Dry runs
@@ -1343,15 +1354,16 @@ mutation. Every issue write accepts it: `issue create`, `issue update`,
 `issue close` and `issue reopen`. It stays on `config set` and `config unset`.
 
 ```bash
-rata issue create --title "Fix login" --dry-run
+rata issue create --title "Fix login" --assignee me --dry-run
 rata issue assign RAT-42 --assignee me --dry-run
 rata issue close RAT-42 --comment "Done." --dry-run
 rata config set --label enhancement --dry-run --json
 ```
 
-`--json` prints `{ "dryRun": true, "actions": [...] }`. Each action carries the
-command action, the target and the changes. The issue writes also carry the
-status they would reach.
+`--json` prints `{ "dryRun": true, "actions": [...] }` for most writes. Each
+action carries the command action, the target and the changes. Comment and
+section writes print one `action` with their own fields; **Dry runs** in
+`skills/rata/reference.md` lists the shape by command.
 
 The body writes print a unified diff: `issue update --append`,
 `issue section append`, `issue section replace` and `issue comment update`.
@@ -1367,9 +1379,10 @@ No mutation runs.
 `issue close` moves the issue to a state of type `completed`; `issue reopen`
 moves it to a state of type `unstarted`. The CLI never hard-codes a state id.
 
-The triage roles are label names. `issue label add RAT-42 ready-for-agent` adds
-the `ready-for-agent` label. A label name resolves against the team labels and
-the workspace labels, ignoring case. `issue label remove` resolves the same way.
+The triage roles map to label strings in `docs/agents/triage-labels.md`; the
+role name is not always the label string. `issue label add RAT-42 <label>` adds
+one. A label name resolves against the team labels and the workspace labels,
+ignoring case. `issue label remove` resolves the same way.
 
 Every write command accepts the global `--json`. The update and reopen commands
 print the summary shape:
@@ -1467,6 +1480,8 @@ The link and unlink commands print the relations they changed, with a
 - `docs/agents/issue-tracker.md`: how the ask-matt skills use this tracker.
 - `docs/agents/triage-labels.md`: the triage roles and their label strings.
 - `docs/agents/domain.md`: how the skills consume the domain documentation.
+- `skills/rata/SKILL.md`: the agent entry point for the CLI.
+- `skills/rata/reference.md`: every command, flag and JSON shape.
 - `AGENTS.md`: how to work in this repository.
 
 ## License

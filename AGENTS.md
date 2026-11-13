@@ -121,8 +121,9 @@ then delete them. Never commit a wizard to this repository. They follow the
   composition, idempotency, string surgery. Never test wiring, pass-through, or
   trivial behavior. Delete a test that stops earning its keep.
 - **Keep the docs in step.** A change to commands, flags or behaviour updates
-  `README.md`, the CLI help text, and `docs/agents/issue-tracker.md` when the
-  tracker workflow changes.
+  `README.md`, the CLI help text, `skills/rata/reference.md`, and
+  `skills/rata/SKILL.md` and `docs/agents/issue-tracker.md` when the tracker
+  workflow changes.
 - **All database migrations go through Drizzle, including custom ones.** Create
   every migration with `drizzle-kit generate`. Write hand-written SQL migrations
   with `drizzle-kit generate --custom`. Apply migrations only through Drizzle's
@@ -149,16 +150,19 @@ for the exact API.
 
 The repository ships agent skills under `skills/`. Install them into an agent
 with `npx skills add eyenalxai/rata`. Keep them in step with the command
-surface.
+surface. `skills/rata/SKILL.md` is the agent entry point;
+`skills/rata/reference.md` is the command and shape lookup.
 
 ## Agent skills
 
 ### Issue tracker
 
-Issues live in Linear, driven with the `rata` CLI. Every issue must carry a
-priority and be assigned to the authenticated user. Wayfinder maps and children
-are the exception: they stay unassigned until the claim step. See
-`docs/agents/issue-tracker.md`.
+Load the `rata` skill before the first tracker command. Issues live in Linear,
+driven with the `rata` CLI. Every issue that leaves triage for
+`ready-for-agent` or `ready-for-human` carries a priority; `needs-triage`,
+`needs-info` and `wontfix` issues may have `none`. Every issue is assigned to
+the authenticated user. Wayfinder maps and children are the exception: they
+stay unassigned until the claim step. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
