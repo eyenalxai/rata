@@ -792,24 +792,24 @@ rata issue list --limit 100 --after <cursor>
 rata issue list --priority urgent --sort priority --limit 10
 ```
 
-| Flag           | Meaning                                                                                                                                                                                                                                            |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--team`       | Team key or id. Default: the team from `rata link`.                                                                                                                                                                                                |
-| `--state`      | Workflow state name, for example `In Progress`.                                                                                                                                                                                                    |
-| `--state-type` | One of `triage`, `backlog`, `unstarted`, `started`, `completed`, `canceled`.                                                                                                                                                                       |
-| `--priority`   | `none`, `urgent`, `high`, `medium`, `low`, or `0`-`4`.                                                                                                                                                                                             |
-| `--label`      | Label name.                                                                                                                                                                                                                                        |
-| `--assignee`   | `me`, or a user id.                                                                                                                                                                                                                                |
-| `--project`    | Project id or name.                                                                                                                                                                                                                                |
-| `--parent`     | Parent issue reference.                                                                                                                                                                                                                            |
-| `--text`       | Text that appears in the title or the description.                                                                                                                                                                                                 |
-| `--unblocked`  | Keep only open issues with no open blocker.                                                                                                                                                                                                        |
-| `--unassigned` | Keep only issues with no assignee.                                                                                                                                                                                                                 |
-| `--include`    | `relations` adds `blocks`, `blockedBy`, `duplicates`, `duplicatedBy`, `related` and `similar` to every row. One list request per page and no per-child read; up to 250 per outgoing or inverse connection, and `related` and `similar` merge both. |
-| `--sort`       | `priority` orders urgent first and none last.                                                                                                                                                                                                      |
-| `--limit`      | Page size. Default: 50, maximum: 250.                                                                                                                                                                                                              |
-| `--after`      | Continue after a cursor from a previous page.                                                                                                                                                                                                      |
-| `--all`        | Drain every page. `--limit` stays the page size.                                                                                                                                                                                                   |
+| Flag           | Meaning                                                                                                                                                                                                                                                                                                                                                  |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--team`       | Team key or id. Default: the team from `rata link`.                                                                                                                                                                                                                                                                                                      |
+| `--state`      | Workflow state name, for example `In Progress`.                                                                                                                                                                                                                                                                                                          |
+| `--state-type` | One of `triage`, `backlog`, `unstarted`, `started`, `completed`, `canceled`.                                                                                                                                                                                                                                                                             |
+| `--priority`   | `none`, `urgent`, `high`, `medium`, `low`, or `0`-`4`.                                                                                                                                                                                                                                                                                                   |
+| `--label`      | Label name.                                                                                                                                                                                                                                                                                                                                              |
+| `--assignee`   | `me`, or a user id.                                                                                                                                                                                                                                                                                                                                      |
+| `--project`    | Project id or name.                                                                                                                                                                                                                                                                                                                                      |
+| `--parent`     | Parent issue reference.                                                                                                                                                                                                                                                                                                                                  |
+| `--text`       | Text that appears in the title or the description.                                                                                                                                                                                                                                                                                                       |
+| `--unblocked`  | Keep only open issues with no open blocker.                                                                                                                                                                                                                                                                                                              |
+| `--unassigned` | Keep only issues with no assignee.                                                                                                                                                                                                                                                                                                                       |
+| `--include`    | `relations` adds `blocks`, `blockedBy`, `duplicates`, `duplicatedBy`, `related` and `similar` to every row. One list request per page and no per-child read; up to 250 per outgoing or inverse connection, and `related` and `similar` merge both. A full page measures 2,462 complexity points at page sizes 10, 25 and 50, under the 10,000-point cap. |
+| `--sort`       | `priority` orders urgent first and none last.                                                                                                                                                                                                                                                                                                            |
+| `--limit`      | Page size. Default: 50, maximum: 250.                                                                                                                                                                                                                                                                                                                    |
+| `--after`      | Continue after a cursor from a previous page.                                                                                                                                                                                                                                                                                                            |
+| `--all`        | Drain every page. `--limit` stays the page size.                                                                                                                                                                                                                                                                                                         |
 
 `--include relations` is the one-call path to the blocking edges of a parent's
 children. It adds the same `relations` object that `issue show` returns, with the
@@ -817,9 +817,11 @@ six groups `blocks`, `blockedBy`, `duplicates`, `duplicatedBy`, `related` and
 `similar`. The flag sends one list request per page and no per-child read,
 composes with every filter, `--all` and `--fields`, and caps each outgoing and
 inverse connection at 250 relations. `related` and `similar` merge both, so
-those groups can hold up to 500. Read a row with more relations with
-`issue show`. Without the flag, a row has no `relations` key. Another value is
-`validation`, and the hint lists `relations`.
+those groups can hold up to 500. Linear scores a full page at 2,462 complexity
+points at page sizes 10, 25 and 50, under the 10,000-point single-query cap.
+Read a row with more relations with `issue show`. Without the flag, a row has
+no `relations` key. Another value is `validation`, and the hint lists
+`relations`.
 
 `--priority` keeps issues with exactly one priority value. `none` and `0`
 select the issues with no priority. `--sort priority` orders the results
@@ -1420,7 +1422,10 @@ summary shape `{ "issue": { ... } }`; its status shows only in the dry run.
 **Comment lifecycle** for the shape and the meaning of `visible`.
 
 The link and unlink commands print the relations they changed, with a
-`skipped` entry for a relation that already held the desired state:
+`skipped` entry for a relation that already held the desired state. The command
+resolves the source and every target in one id query, reads both relation
+directions in one query, and needs no id query for a UUID reference. One target
+and three targets each cost two read requests in the common case:
 
 ```json
 {

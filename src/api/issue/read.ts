@@ -11,22 +11,20 @@ import {
   attachmentsQuery,
   childrenQuery,
   commentsQuery,
-  inverseRelationsQuery,
   issueSummaryQuery,
   labelsQuery,
-  relationsQuery,
   showQuery,
 } from "@/api/issue-query"
+import { inverseRelationsQuery, relationsQuery } from "@/api/issue-query/relation"
 import {
   AttachmentsResponse,
   ChildrenResponse,
   CommentsResponse,
-  InverseRelationsResponse,
   IssueSummaryResponse,
   LabelsResponse,
-  RelationsResponse,
   ShowResponse,
 } from "@/api/issue-schema"
+import { InverseRelationsResponse, RelationsResponse } from "@/api/issue-schema/relation"
 import { collectPages, pageSize } from "@/api/pagination"
 import { toPriority } from "@/domain/priority"
 import { parseRefOrFail } from "@/domain/ref"

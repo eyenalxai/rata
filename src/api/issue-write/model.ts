@@ -3,6 +3,7 @@ import { Effect, Schema } from "effect"
 import type { LinearApiError } from "@/api/errors"
 import type { IssueSummary } from "@/api/issue-model"
 import type { IssueComment, IssueSummaryNode, WorkflowState } from "@/api/issue-schema"
+import type { IssueRefNotFoundError } from "@/api/issue/batch"
 import type { LabelNotFoundError } from "@/api/label"
 import type { ProjectNotFoundError } from "@/api/project/errors"
 import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
@@ -139,6 +140,7 @@ type RelationWriteResult = {
 type IssueWriteApiError =
   | CommentNotFoundError
   | InvalidIssueRef
+  | IssueRefNotFoundError
   | IssueWriteError
   | ConflictError
   | LabelNotFoundError

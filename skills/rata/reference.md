@@ -133,9 +133,10 @@ fetches every matching issue across all pages before `--limit` applies. With
 `--include relations` adds `blocks`, `blockedBy`, `duplicates`, `duplicatedBy`,
 `related` and `similar` to every row. It sends one list request per page and no
 per-child read; each outgoing or inverse connection holds up to 250 relations,
-and `related` and `similar` merge both. Read a row with more relations with
-`issue show`. Without the flag, a row has no `relations` key. Another value is
-`validation` and the hint lists `relations`.
+and `related` and `similar` merge both. A full page measures 2,462 complexity
+points at page sizes 10, 25 and 50, under the 10,000-point single-query cap.
+Read a row with more relations with `issue show`. Without the flag, a row has no
+`relations` key. Another value is `validation` and the hint lists `relations`.
 
 ### `next`, `why` and `search`
 
@@ -218,7 +219,10 @@ and prints `{ "deleted": true, "id": ... }`.
 `--blocks`, `--blocked-by`, `--related` and `--duplicate` are repeatable.
 `--blocks X` records that the issue blocks X; `--blocked-by X` records that X
 blocks the issue; `--duplicate X` means the issue duplicates X; `--related X`
-links the two with no direction. A missing relation on `unlink` is a skipped
+links the two with no direction. The command resolves the source and every
+target in one id query, reads both relation directions in one query, and needs
+no id query for a UUID reference. One target and three targets each cost two
+read requests in the common case. A missing relation on `unlink` is a skipped
 success. Both commands are idempotent.
 
 ## Dry runs

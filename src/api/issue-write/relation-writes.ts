@@ -25,10 +25,14 @@ const makeRelationWrites = ({ client, resolvers }: RelationWriteDependencies) =>
     changes: IssueRelationChanges,
     options: WriteOptions = {},
   ) {
-    const issueId = yield* resolvers.resolveIssueId(ref)
-    const targets = yield* resolvers.resolveRelationTargets(changes)
-    const relations = yield* resolvers.collectRelations(issueId)
-    const plans = linkRelationPlans(issueId, targets, relations.outgoing, relations.incoming)
+    const resolved = yield* resolvers.resolveRelations(ref, changes)
+    const relations = yield* resolvers.collectRelations(resolved.issueId)
+    const plans = linkRelationPlans(
+      resolved.issueId,
+      resolved.targets,
+      relations.outgoing,
+      relations.incoming,
+    )
     const actions: readonly WriteAction[] = plans.map((plan) => ({
       action: "link",
       target: ref,
@@ -58,10 +62,9 @@ const makeRelationWrites = ({ client, resolvers }: RelationWriteDependencies) =>
     changes: IssueRelationChanges,
     options: WriteOptions = {},
   ) {
-    const issueId = yield* resolvers.resolveIssueId(ref)
-    const targets = yield* resolvers.resolveRelationTargets(changes)
-    const relations = yield* resolvers.collectRelations(issueId)
-    const plans = planRelationUnlinks(targets, relations.outgoing, relations.incoming)
+    const resolved = yield* resolvers.resolveRelations(ref, changes)
+    const relations = yield* resolvers.collectRelations(resolved.issueId)
+    const plans = planRelationUnlinks(resolved.targets, relations.outgoing, relations.incoming)
     const actions: readonly WriteAction[] = plans.map((plan) => ({
       action: "unlink",
       target: ref,
