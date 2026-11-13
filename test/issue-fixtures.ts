@@ -119,7 +119,9 @@ const configLayer = () =>
     ConfigProvider.fromEnvRecord({ HOME: "/home/test", LINEAR_API_KEY: "test-key" }),
   )
 
-const repositorySeed: readonly RepositorySeed[] = [{ key: process.cwd(), team: "RAT" }]
+const repositorySeed: readonly RepositorySeed[] = [
+  { key: process.cwd(), team: "RAT", teamId: "team-1" },
+]
 
 const withTeamLookup =
   (handler: (request: HttpClientRequest.HttpClientRequest) => Response) =>
@@ -128,6 +130,19 @@ const withTeamLookup =
     if (body.query.includes("query TeamByKey")) {
       const key = body.variables.key
       const nodes = typeof key === "string" ? teams.filter((team) => team.key === key) : []
+      return jsonResponse({ data: { teams: { nodes, pageInfo } } })
+    }
+    if (body.query.includes("query TeamById")) {
+      const id = body.variables.id
+      const nodes = typeof id === "string" ? teams.filter((team) => team.id === id) : []
+      return jsonResponse({ data: { teams: { nodes, pageInfo } } })
+    }
+    if (body.query.includes("query TeamByName")) {
+      const name = body.variables.name
+      const nodes =
+        typeof name === "string"
+          ? teams.filter((team) => team.name.toLowerCase() === name.toLowerCase())
+          : []
       return jsonResponse({ data: { teams: { nodes, pageInfo } } })
     }
     return handler(request)

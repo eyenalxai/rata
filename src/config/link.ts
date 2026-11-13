@@ -63,7 +63,7 @@ class LinkService extends Context.Service<LinkService, LinkServiceShape>()(
       const stdio = yield* Stdio.Stdio
 
       const writeConfig = Effect.fn("LinkService.writeConfig")(function* writeConfig(
-        team: string,
+        team: Team,
         project: Option.Option<string>,
         workspace: Option.Option<string>,
       ) {
@@ -75,7 +75,8 @@ class LinkService extends Context.Service<LinkService, LinkServiceShape>()(
         )
         const config: RepoConfig = {
           ...Option.getOrUndefined(existing),
-          team,
+          team: team.key,
+          teamId: team.id,
           ...(Option.isSome(resolvedProject) ? { project: resolvedProject.value } : {}),
           ...(Option.isSome(resolvedWorkspace) ? { workspace: resolvedWorkspace.value } : {}),
         }
@@ -95,7 +96,7 @@ class LinkService extends Context.Service<LinkService, LinkServiceShape>()(
           }
           const stored = config.value
           if (
-            stored.team === team.key &&
+            (stored.teamId === team.id || stored.team === team.key) &&
             (stored.workspace ?? undefined) === Option.getOrUndefined(workspace)
           ) {
             return yield* Effect.void
@@ -139,7 +140,7 @@ class LinkService extends Context.Service<LinkService, LinkServiceShape>()(
           options.timezone,
           teams.withKey(target.apiKey),
         )
-        const setup = yield* writeConfig(updated.team.key, options.project, target.workspace)
+        const setup = yield* writeConfig(updated.team, options.project, target.workspace)
         return {
           team: updated.team,
           project: setup.project,

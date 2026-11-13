@@ -11,6 +11,7 @@ import { storedPriority } from "@/domain/priority"
 type RepositorySeed = {
   readonly key: string
   readonly team?: string | undefined
+  readonly teamId?: string | undefined
   readonly project?: string | undefined
   readonly workspace?: string | undefined
   readonly defaultAssignee?: string | undefined
@@ -41,6 +42,7 @@ const databaseLayer = (
           .values({
             key: row.key,
             team: row.team ?? null,
+            teamId: row.teamId ?? null,
             project: row.project ?? null,
             workspace: row.workspace ?? null,
             defaultAssignee: row.defaultAssignee ?? null,

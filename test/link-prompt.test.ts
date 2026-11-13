@@ -23,7 +23,7 @@ describe("LinkService.link prompt", () => {
     )
 
     expect(result.team).toEqual(scratch)
-    expect(stored).toEqual(Option.some({ team: "SCR" }))
+    expect(stored).toEqual(Option.some({ team: "SCR", teamId: "team-2" }))
     expect(harness.output.some((frame) => frame.includes("RAT  Rata"))).toBe(true)
     expect(harness.output.some((frame) => frame.includes("SCR  Scratch"))).toBe(true)
   })

@@ -10,6 +10,11 @@ import type {
   IssueStatus,
   IssueSummary,
 } from "@/api/issue-model"
+import type {
+  AssigneeInputError,
+  AssigneeNotFoundError,
+  FilterNameNotFoundError,
+} from "@/api/issue/filter-check"
 import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
 import type { InvalidIssueRef } from "@/domain/ref"
@@ -20,6 +25,7 @@ import { collectsAllPages, sortAndLimitNodes, toSummary } from "@/api/issue-mode
 import { issueIdQuery, listQuery, searchQuery } from "@/api/issue-query"
 import { IssueIdResponse } from "@/api/issue-schema"
 import { ListResponse, SearchResponse } from "@/api/issue-schema/collection"
+import { resolveAssignee, validateNamedFilters } from "@/api/issue/filter-check"
 import { makeReadOperations } from "@/api/issue/read"
 import { toIssueStatus } from "@/api/issue/status"
 import { collectPages, lastPageInfo, pageOrDrain, pageSize } from "@/api/pagination"
@@ -32,7 +38,14 @@ type IssueApiShape = {
     options: IssueListOptions,
   ) => Effect.Effect<
     IssuePage,
-    LinearApiError | InvalidIssueRef | RepoConfigError | TeamNotFoundError | TeamResolutionError
+    | LinearApiError
+    | InvalidIssueRef
+    | RepoConfigError
+    | TeamNotFoundError
+    | TeamResolutionError
+    | FilterNameNotFoundError
+    | AssigneeInputError
+    | AssigneeNotFoundError
   >
   readonly search: (
     term: string,
@@ -50,7 +63,14 @@ type IssueApiShape = {
     ref: string,
   ) => Effect.Effect<
     IssueStatus,
-    LinearApiError | InvalidIssueRef | RepoConfigError | TeamNotFoundError | TeamResolutionError
+    | LinearApiError
+    | InvalidIssueRef
+    | RepoConfigError
+    | TeamNotFoundError
+    | TeamResolutionError
+    | FilterNameNotFoundError
+    | AssigneeInputError
+    | AssigneeNotFoundError
   >
 }
 
@@ -65,10 +85,12 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
       const repoTeam = yield* RepoTeam
       const { show, summary } = makeReadOperations(client.execute)
 
-      const resolveAssignee = (value: string): Effect.Effect<string, LinearApiError> =>
+      const resolveAssigneeId = (
+        value: string,
+      ): Effect.Effect<string, LinearApiError | AssigneeInputError | AssigneeNotFoundError> =>
         value.toLowerCase() === "me"
           ? client.viewer.pipe(Effect.map((viewer) => viewer.id))
-          : Effect.succeed(value)
+          : resolveAssignee(client.execute, value)
 
       const resolveIssueId = Effect.fn("IssueApi.resolveIssueId")(function* resolveIssueId(
         input: string,
@@ -94,7 +116,7 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
           parts.push({ labels: { some: { name: { eqIgnoreCase: options.label } } } })
         }
         if (options.assignee !== undefined) {
-          const assigneeId = yield* resolveAssignee(options.assignee)
+          const assigneeId = yield* resolveAssigneeId(options.assignee)
           parts.push({ assignee: { id: { eq: assigneeId } } })
         }
         if (options.unassigned === true) {
@@ -118,6 +140,10 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
         }
         const filter = composeFilter(parts)
         const query = listQuery(options.include === "relations")
+        const complete = (page: IssuePage) =>
+          page.issues.length === 0
+            ? validateNamedFilters(client.execute, teamId, options).pipe(Effect.map(() => page))
+            : Effect.succeed(page)
 
         if (!collectsAllPages(options)) {
           const data = yield* client.execute(
@@ -125,7 +151,10 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
             { filter, first: options.limit, after: options.after },
             ListResponse,
           )
-          return { issues: data.issues.nodes.map(toSummary), pageInfo: data.issues.pageInfo }
+          return yield* complete({
+            issues: data.issues.nodes.map(toSummary),
+            pageInfo: data.issues.pageInfo,
+          })
         }
 
         const size = options.all === true ? options.limit : pageSize
@@ -139,10 +168,10 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
             .execute(query, { filter, first: size, after }, ListResponse)
             .pipe(Effect.map((page) => page.issues)),
         )
-        return {
+        return yield* complete({
           issues: sortAndLimitNodes(nodes, options).map(toSummary),
           pageInfo: lastPageInfo,
-        }
+        })
       })
 
       const search = Effect.fn("IssueApi.search")(function* search(

@@ -51,6 +51,7 @@ describe("IssueDefaultsService.set", () => {
     expect(result.stored).toEqual(
       Option.some({
         team: "RAT",
+        teamId: "team-1",
         defaultAssignee: "me",
         defaultLabels: ["enhancement"],
         defaultPriority: 3,
@@ -83,7 +84,7 @@ describe("IssueDefaultsService.set", () => {
     )
 
     expect(result.error._tag).toBe("LabelNotFoundError")
-    expect(result.stored).toEqual(Option.some({ team: "RAT" }))
+    expect(result.stored).toEqual(Option.some({ team: "RAT", teamId: "team-1" }))
   })
 
   test("fails with not_linked without a repository link", async () => {
@@ -112,7 +113,7 @@ describe("IssueDefaultsService.set", () => {
 
     expect(result.plan).toEqual({ assignee: null, labels: [], priority: null })
     expect(result.stored).toEqual(
-      Option.some({ team: "RAT", defaultAssignee: "me", defaultPriority: 3 }),
+      Option.some({ team: "RAT", teamId: "team-1", defaultAssignee: "me", defaultPriority: 3 }),
     )
   })
 })

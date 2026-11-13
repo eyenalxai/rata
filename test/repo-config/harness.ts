@@ -30,6 +30,7 @@ const withRepoConfig = <A, E>(
 }
 
 const emptyDefaults = {
+  teamId: null,
   defaultAssignee: null,
   defaultLabels: null,
   defaultPriority: null,

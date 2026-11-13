@@ -66,6 +66,7 @@ describe("Drizzle stack", () => {
       {
         key: "/repo",
         team: "RAT",
+        teamId: null,
         project: null,
         workspace: "work",
         defaultAssignee: null,
@@ -75,6 +76,7 @@ describe("Drizzle stack", () => {
       {
         key: "/other",
         team: null,
+        teamId: null,
         project: null,
         workspace: null,
         defaultAssignee: null,
@@ -131,6 +133,7 @@ describe("Database", () => {
       {
         key: "/repo",
         team: "RAT",
+        teamId: null,
         project: null,
         workspace: "work",
         defaultAssignee: null,
@@ -205,6 +208,7 @@ describe("Database", () => {
       {
         key: "/repo",
         team: null,
+        teamId: null,
         project: null,
         workspace: null,
         defaultAssignee: null,

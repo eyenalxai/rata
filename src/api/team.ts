@@ -9,6 +9,15 @@ import type { TeamDetail } from "@/api/team/details"
 import { LinearClient } from "@/api/client"
 import { collectConnection, pageOrDrain, PageInfo, pageSize } from "@/api/pagination"
 import { fetchTeamDetail } from "@/api/team/details"
+import {
+  teamByIdQuery,
+  teamByKeyQuery,
+  teamByNameQuery,
+  teamCreateMutation,
+  teamDeleteMutation,
+  teamsQuery,
+  teamUpdateMutation,
+} from "@/api/team/queries"
 import { isUuid } from "@/domain/ref"
 
 const Team = Schema.Struct({
@@ -34,59 +43,6 @@ const DeletePayload = Schema.Struct({
   success: Schema.Boolean,
   entityId: Schema.String,
 })
-
-const teamFields = `
-      id
-      key
-      name
-      timezone`
-
-const teamsQuery = `query Teams($first: Int!, $after: String) {
-  teams(first: $first, after: $after, orderBy: createdAt) {
-    nodes {${teamFields}
-    }
-    pageInfo { hasNextPage endCursor }
-  }
-}`
-
-const teamByKeyQuery = `query TeamByKey($key: String!, $first: Int!, $after: String) {
-  teams(first: $first, after: $after, orderBy: createdAt, filter: { key: { eq: $key } }) {
-    nodes {${teamFields}
-    }
-    pageInfo { hasNextPage endCursor }
-  }
-}`
-
-const teamByIdQuery = `query TeamById($id: ID!, $first: Int!, $after: String) {
-  teams(first: $first, after: $after, orderBy: createdAt, filter: { id: { eq: $id } }) {
-    nodes {${teamFields}
-    }
-    pageInfo { hasNextPage endCursor }
-  }
-}`
-
-const teamCreateMutation = `mutation TeamCreate($input: TeamCreateInput!, $copySettingsFromTeamId: String) {
-  teamCreate(input: $input, copySettingsFromTeamId: $copySettingsFromTeamId) {
-    success
-    team {${teamFields}
-    }
-  }
-}`
-
-const teamUpdateMutation = `mutation TeamUpdate($id: String!, $input: TeamUpdateInput!) {
-  teamUpdate(id: $id, input: $input) {
-    success
-    team {${teamFields}
-    }
-  }
-}`
-
-const teamDeleteMutation = `mutation TeamDelete($id: String!) {
-  teamDelete(id: $id) {
-    success
-    entityId
-  }
-}`
 
 class TeamNotFoundError extends Schema.TaggedError<TeamNotFoundError>()("TeamNotFoundError", {
   key: Schema.String,
@@ -129,6 +85,7 @@ type DeletedTeam = {
 type TeamOperations = {
   readonly list: (options: PageOptions) => Effect.Effect<Connection<Team>, LinearApiError>
   readonly byKey: (ref: string) => Effect.Effect<Team, LinearApiError | TeamNotFoundError>
+  readonly byName: (name: string) => Effect.Effect<Team, LinearApiError | TeamNotFoundError>
   readonly byId: (id: string) => Effect.Effect<Team, LinearApiError | TeamNotFoundError>
   readonly details: (ref: string) => Effect.Effect<TeamDetail, LinearApiError | TeamNotFoundError>
   readonly create: (
@@ -180,6 +137,17 @@ const makeTeamOperations = (execute: LinearClient["Service"]["execute"]): TeamOp
       return yield* new TeamNotFoundError({
         key: ref,
         message: byId ? `No team with id ${ref}.` : `No team with key ${ref}.`,
+      })
+    }
+    return team
+  })
+
+  const byName = Effect.fn("TeamService.byName")(function* findTeamByName(name: string) {
+    const team = yield* lookupTeam(teamByNameQuery, { name })
+    if (team === undefined) {
+      return yield* new TeamNotFoundError({
+        key: name,
+        message: `No team named ${name}.`,
       })
     }
     return team
@@ -265,7 +233,7 @@ const makeTeamOperations = (execute: LinearClient["Service"]["execute"]): TeamOp
     return { id: data.teamDelete.entityId, key: team.key, name: team.name }
   })
 
-  return { byId, byKey, create, delete: deleteTeam, details, list, updateTimezone }
+  return { byId, byKey, byName, create, delete: deleteTeam, details, list, updateTimezone }
 }
 
 class TeamService extends Context.Service<TeamService, TeamServiceShape>()(
