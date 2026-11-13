@@ -14,7 +14,7 @@ describe("LinkService.link", () => {
       options({ team: Option.some(ratId) }),
     )
     expect(result.team).toEqual({ ...rat, id: ratId })
-    expect(stored).toEqual(Option.some({ team: "RAT" }))
+    expect(stored).toEqual(Option.some({ team: "RAT", teamId: ratId }))
     expect(fake.requests.some((request) => request.query.includes("query TeamById"))).toBe(true)
   })
 
@@ -124,7 +124,7 @@ describe("LinkService.link", () => {
       harness,
       options({ project: Option.some("rata") }),
     )
-    expect(stored).toEqual(Option.some({ team: "RAT", project: "rata" }))
+    expect(stored).toEqual(Option.some({ team: "RAT", teamId: "team-1", project: "rata" }))
     expect(result.project).toEqual(Option.some("rata"))
   })
 
@@ -133,7 +133,7 @@ describe("LinkService.link", () => {
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
     const { result, stored } = await linkTeam(fake.handler, harness, options({}))
     expect(result.project).toEqual(Option.some("rata"))
-    expect(stored).toEqual(Option.some({ team: "RAT", project: "rata" }))
+    expect(stored).toEqual(Option.some({ team: "RAT", teamId: "team-1", project: "rata" }))
   })
 
   test("keeps the workspace of an existing config when --workspace is absent", async () => {
@@ -141,7 +141,7 @@ describe("LinkService.link", () => {
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
     const { result, stored } = await linkTeam(fake.handler, harness, options({}))
     expect(result.workspace).toEqual(Option.some("work"))
-    expect(stored).toEqual(Option.some({ team: "RAT", workspace: "work" }))
+    expect(stored).toEqual(Option.some({ team: "RAT", teamId: "team-1", workspace: "work" }))
   })
 
   test("records --project over an existing config", async () => {
@@ -153,7 +153,7 @@ describe("LinkService.link", () => {
       options({ project: Option.some("rata") }),
     )
     expect(result.project).toEqual(Option.some("rata"))
-    expect(stored).toEqual(Option.some({ team: "RAT", project: "rata" }))
+    expect(stored).toEqual(Option.some({ team: "RAT", teamId: "team-1", project: "rata" }))
   })
 })
 
@@ -170,7 +170,9 @@ describe("LinkService default labels", () => {
     const fake = makeFakeLinear({ teams: [rat], labels: [enhancement] })
     const { result, stored } = await linkTeam(fake.handler, harness, options({}))
     expect(result.team.key).toBe("RAT")
-    expect(stored).toEqual(Option.some({ team: "RAT", defaultLabels: ["enhancement"] }))
+    expect(stored).toEqual(
+      Option.some({ team: "RAT", teamId: "team-1", defaultLabels: ["enhancement"] }),
+    )
   })
 
   test("fails and keeps the old link when a stored label is missing", async () => {
@@ -189,7 +191,9 @@ describe("LinkService default labels", () => {
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
     const { result, stored } = await linkTeam(fake.handler, harness, options({}))
     expect(result.team.key).toBe("RAT")
-    expect(stored).toEqual(Option.some({ team: "RAT", defaultLabels: ["missing"] }))
+    expect(stored).toEqual(
+      Option.some({ team: "RAT", teamId: "team-1", defaultLabels: ["missing"] }),
+    )
   })
 
   test("keeps the defaults across a link to the same team", async () => {
@@ -198,7 +202,9 @@ describe("LinkService default labels", () => {
     })
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
     const { stored } = await linkTeam(fake.handler, harness, options({}))
-    expect(stored).toEqual(Option.some({ team: "RAT", defaultAssignee: "me", defaultPriority: 3 }))
+    expect(stored).toEqual(
+      Option.some({ team: "RAT", teamId: "team-1", defaultAssignee: "me", defaultPriority: 3 }),
+    )
   })
 
   test("validates the labels when the workspace changes with the same team key", async () => {

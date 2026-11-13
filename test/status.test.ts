@@ -8,6 +8,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { Console, Effect, FileSystem, Layer, Option, Path, Schema, Stdio, Terminal } from "effect"
 import { Command } from "effect/cli"
 import { ChildProcessSpawner } from "effect/process"
+import path from "node:path"
 
 import { statusCommand } from "@/cli/status"
 
@@ -34,7 +35,10 @@ const runStatus = (
     Effect.provide(
       Layer.mergeAll(
         apiLayer(handler, { ...options, stdio: { args: Effect.succeed(args) } }),
-        FileSystem.layerNoop({}),
+        FileSystem.layerNoop({
+          exists: (file) => Effect.succeed((options.files ?? new Map()).has(file)),
+          readFileString: (file) => Effect.succeed((options.files ?? new Map()).get(file) ?? ""),
+        }),
         Path.layer,
         Stdio.layerTest({ args: Effect.succeed(args) }),
         Layer.succeed(Terminal.Terminal, terminal),
@@ -216,5 +220,51 @@ describe("status", () => {
       repository: { root: process.cwd() },
       team: { key: "RAT" },
     })
+  })
+
+  test("warns when the tracker document does not name the rata skill", async () => {
+    const fake = makeFakeLinear({ teams: [team], labels: [] })
+    const lines: string[] = []
+    const document = path.join(process.cwd(), "docs", "agents", "issue-tracker.md")
+    await runStatus(fake.handler, ["--json"], lines, {
+      profiles,
+      repositories: [{ key: process.cwd(), team: "RAT", teamId: "team-1" }],
+      files: new Map([[document, "# Issue tracker\n\nUse the rata CLI for tracker work."]]),
+    })
+
+    expect(process.exitCode).toBe(0)
+    expect(lastJson(lines)).toMatchObject({
+      warning: `The tracker document at ${document} does not name the rata skill. Add a line that tells agents to load \`rata\` before the first tracker command.`,
+    })
+  })
+
+  test("stays quiet when the tracker document names the rata skill", async () => {
+    const fake = makeFakeLinear({ teams: [team], labels: [] })
+    const lines: string[] = []
+    const document = path.join(process.cwd(), "docs", "agents", "issue-tracker.md")
+    await runStatus(fake.handler, ["--json"], lines, {
+      profiles,
+      repositories: [{ key: process.cwd(), team: "RAT", teamId: "team-1" }],
+      files: new Map([
+        [document, "# Issue tracker\n\nLoad the `rata` skill before the first tracker command."],
+      ]),
+    })
+
+    expect(lastJson(lines)).toMatchObject({ warning: null })
+  })
+
+  test("repairs a stale team key and reports the repair", async () => {
+    const fake = makeFakeLinear({ teams: [team], labels: [] })
+    const lines: string[] = []
+    await runStatus(fake.handler, ["--json"], lines, {
+      profiles,
+      repositories: [{ key: process.cwd(), team: "OLD", teamId: "team-1" }],
+    })
+
+    expect(lastJson(lines)).toMatchObject({
+      team: { id: "team-1", key: "RAT", name: "Rata" },
+      warning: "The stored team key OLD is stale. Repaired the link to RAT.",
+    })
+    expect(process.exitCode).toBe(0)
   })
 })

@@ -9,6 +9,7 @@ const profiles = sqliteTable("profiles", {
 const repositories = sqliteTable("repositories", {
   key: text("key").primaryKey(),
   team: text("team"),
+  teamId: text("team_id"),
   project: text("project"),
   workspace: text("workspace"),
   defaultAssignee: text("default_assignee"),

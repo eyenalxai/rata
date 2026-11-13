@@ -12,6 +12,7 @@ import { storedPriority } from "@/domain/priority"
 
 const RepoConfig = Schema.Struct({
   team: Schema.optional(Schema.String),
+  teamId: Schema.optional(Schema.String),
   project: Schema.optional(Schema.String),
   workspace: Schema.optional(Schema.String),
   defaultAssignee: Schema.optional(Schema.String),
@@ -68,6 +69,7 @@ const toConfig = (row: StoredRepository): Result.Result<RepoConfig, RepoConfigEr
   const priority = storedPriority(row.defaultPriority)
   return Result.succeed({
     ...(row.team === null ? {} : { team: row.team }),
+    ...(row.teamId === null ? {} : { teamId: row.teamId }),
     ...(row.project === null ? {} : { project: row.project }),
     ...(row.workspace === null ? {} : { workspace: row.workspace }),
     ...(row.defaultAssignee === null ? {} : { defaultAssignee: row.defaultAssignee }),
@@ -138,6 +140,7 @@ class RepoConfigService extends Context.Service<RepoConfigService, RepoConfigSha
               )
         const columns = {
           team: config.team ?? null,
+          teamId: config.teamId ?? null,
           project: config.project ?? null,
           workspace: config.workspace ?? null,
           defaultAssignee: config.defaultAssignee ?? null,

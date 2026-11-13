@@ -130,8 +130,9 @@ class IssueDefaultsService extends Context.Service<
             message: "No repository link. Run `rata link --team <key>` first.",
           })
         }
-        const teamId = yield* repoTeam.resolve(config.team)
-        return { config, teamId }
+        const teamId = yield* repoTeam.resolve()
+        const refreshed = yield* readConfig()
+        return { config: refreshed ?? config, teamId }
       })
 
       const resolveLabels = Effect.fn("IssueDefaults.resolveLabels")(function* resolveLabelNames(

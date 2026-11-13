@@ -38,7 +38,7 @@ const errorRules: Record<string, ErrorRule> = {
   TeamResolutionError: { code: "not_linked", hint: null },
   TeamNotFoundError: {
     code: "not_found",
-    hint: "A team key and an issue identifier prefix can differ after a rename. Run `rata team list` to see the team keys.",
+    hint: "A team key and an issue identifier prefix can differ after a rename. Run `rata team list` to see the team keys, then run `rata link --team <key>` to repair the link.",
   },
   LabelNotFoundError: { code: "not_found", hint: null },
   LabelCreateError: {
@@ -52,6 +52,14 @@ const errorRules: Record<string, ErrorRule> = {
   ProjectNotFoundError: { code: "not_found", hint: null },
   ProjectNameAmbiguousError: { code: "ambiguous", hint: null },
   CommentNotFoundError: { code: "not_found", hint: "Check the comment id." },
+  AssigneeInputError: {
+    code: "validation",
+    hint: "Use `me` or a user UUID. Run `rata team show --json` to see the members.",
+  },
+  AssigneeNotFoundError: {
+    code: "not_found",
+    hint: "Run `rata team show --json` to see the members.",
+  },
   ProjectAlreadyDeletedError: { code: "conflict", hint: null },
   ProjectNotDeletedError: { code: "conflict", hint: null },
   StateNotFoundError: { code: "not_found", hint: null },
@@ -101,23 +109,51 @@ const fieldSelectionReport = (error: ReportedError, message: string): ErrorRepor
   }
 }
 
+const filterSubjects = {
+  state: { subject: "states", command: "rata team show --json" },
+  label: { subject: "labels", command: "rata label list" },
+  project: { subject: "projects", command: "rata project list" },
+} as const
+
+const isFilterName = (value: unknown): value is keyof typeof filterSubjects =>
+  typeof value === "string" && Object.hasOwn(filterSubjects, value)
+
+const filterNameReport = (error: ReportedError): ErrorReport => {
+  const filter: unknown = Reflect.get(error, "filter")
+  const valid: unknown = Reflect.get(error, "valid")
+  const names = Array.isArray(valid) && valid.every((item) => typeof item === "string") ? valid : []
+  const subject = isFilterName(filter) ? filterSubjects[filter] : undefined
+  const label = subject?.subject ?? "values"
+  const command = subject?.command ?? "rata team show --json"
+  return {
+    code: "not_found",
+    message: error.message,
+    hint:
+      names.length === 0
+        ? `Run \`${command}\` to see the ${label}.`
+        : `Valid ${label}: ${names.join(", ")}.`,
+  }
+}
+
+const sectionReport = (error: ReportedError): ErrorReport => {
+  const available: unknown = Reflect.get(error, "available")
+  const headings =
+    Array.isArray(available) && available.every((item) => typeof item === "string") ? available : []
+  return {
+    code: "not_found",
+    message: error.message,
+    hint:
+      headings.length === 0
+        ? "The issue body has no headings."
+        : `Available headings: ${headings.map((heading) => `"${heading}"`).join(", ")}.`,
+  }
+}
+
 const classifyError = (error: ReportedError): ErrorReport => {
   const message = error.message
   const tag = tagOf(error)
   if (tag === "SectionNotFoundError") {
-    const available: unknown = Reflect.get(error, "available")
-    const headings =
-      Array.isArray(available) && available.every((item) => typeof item === "string")
-        ? available
-        : []
-    return {
-      code: "not_found",
-      message,
-      hint:
-        headings.length === 0
-          ? "The issue body has no headings."
-          : `Available headings: ${headings.map((heading) => `"${heading}"`).join(", ")}.`,
-    }
+    return sectionReport(error)
   }
   if (tag === "FieldSelectionError") {
     return fieldSelectionReport(error, message)
@@ -132,6 +168,9 @@ const classifyError = (error: ReportedError): ErrorReport => {
           ? `The current updatedAt is ${current}. Re-read the issue and retry.`
           : null,
     }
+  }
+  if (tag === "FilterNameNotFoundError") {
+    return filterNameReport(error)
   }
   if (tag === "LabelExistsError") {
     const existing: unknown = Reflect.get(error, "existingName")

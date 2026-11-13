@@ -1,18 +1,19 @@
-import { Effect, Option } from "effect"
+import { Effect, FileSystem, Option, Path } from "effect"
 import { Command } from "effect/cli"
 import { EOL } from "node:os"
 
+import type { ResolvedRepoTeam } from "@/api/repo-team"
 import type { KeySource } from "@/config/auth"
 import type { DefaultsDocument } from "@/config/defaults"
 
 import { LinearClient } from "@/api/client"
-import { TeamService } from "@/api/team"
+import { RepoTeam } from "@/api/repo-team"
 import { arrayField, objectField, scalarField } from "@/cli/field/shape"
 import { OutputFields, readFields, selectObject } from "@/cli/fields"
 import { JsonOutput, reportFailure, warningLine, writeJson, writeLine } from "@/cli/output"
 import { Auth } from "@/config/auth"
 import { defaultsDocument, formatDefaults, issueDefaults } from "@/config/defaults"
-import { currentDirectory, RepoConfigService } from "@/config/repo"
+import { currentDirectory, RepoConfigError, RepoConfigService } from "@/config/repo"
 import { RepositoryIdentity } from "@/config/repo-identity"
 
 type StatusViewer = {
@@ -88,6 +89,47 @@ const statusShape = objectField({
 const row = (label: string, value: string): string =>
   `${label}${" ".repeat(labelWidth - label.length)}${value}`
 
+const namesRataSkill = (content: string): boolean =>
+  /\brata\b[^.\n]{0,40}\bskill\b|\bskill\b[^.\n]{0,40}\brata\b/iu.test(content)
+
+const trackerDocWarning = Effect.fn("Status.trackerDocWarning")(function* trackerWarning(
+  root: string,
+) {
+  const fs = yield* FileSystem.FileSystem
+  const path = yield* Path.Path
+  const file = path.join(root, "docs", "agents", "issue-tracker.md")
+  const describe = (cause: unknown) =>
+    new RepoConfigError({ message: `Could not read the tracker document at ${file}.`, cause })
+  const exists = yield* fs.exists(file).pipe(Effect.mapError(describe))
+  if (!exists) {
+    return null
+  }
+  const content = yield* fs.readFileString(file).pipe(Effect.mapError(describe))
+  return namesRataSkill(content)
+    ? null
+    : `The tracker document at ${file} does not name the rata skill. Add a line that tells agents to load \`rata\` before the first tracker command.`
+})
+
+const resolveStatusTeam = Effect.fn("Status.resolveTeam")(function* resolveTeam(
+  repoTeam: RepoTeam["Service"],
+  linked: boolean,
+  storedTeam: string | undefined,
+) {
+  if (!linked) {
+    return { team: null, warning: null }
+  }
+  const resolved = yield* repoTeam.linkedTeam.pipe(
+    Effect.catchTag("TeamNotFoundError", () => Effect.succeed(Option.none<ResolvedRepoTeam>())),
+  )
+  if (Option.isNone(resolved)) {
+    return {
+      team: null,
+      warning: `The stored team key ${storedTeam} no longer exists. Run \`rata team list\` to see the team keys, then run \`rata link --team <key>\` to repair the link.`,
+    }
+  }
+  return { team: resolved.value.team, warning: resolved.value.warning }
+})
+
 const statusCommand = Command.make("status", {}, () =>
   Effect.gen(function* status() {
     const json = yield* JsonOutput
@@ -96,27 +138,23 @@ const statusCommand = Command.make("status", {}, () =>
     const repoConfig = yield* RepoConfigService
     const identity = yield* RepositoryIdentity
     const client = yield* LinearClient
-    const teams = yield* TeamService
+    const repoTeam = yield* RepoTeam
 
     const directory = yield* currentDirectory
     const location = yield* identity.locate(directory)
     const config = Option.getOrUndefined(yield* repoConfig.read(directory))
     const resolved = yield* auth.require
     const viewer = yield* client.viewer
-    const storedTeamKey = config?.team
-    const linked = storedTeamKey !== undefined
-    const team =
-      storedTeamKey === undefined
-        ? null
-        : yield* teams
-            .byKey(storedTeamKey)
-            .pipe(Effect.catchTag("TeamNotFoundError", () => Effect.succeed(null)))
-    const warning =
-      storedTeamKey === undefined || team !== null
-        ? null
-        : `The stored team key ${storedTeamKey} no longer exists. Run \`rata team list\` to see the team keys, then run \`rata link --team <key>\` to repair the link.`
+    const storedTeam = config?.team ?? config?.teamId
+    const linked = storedTeam !== undefined
+    const { team, warning: teamWarning } = yield* resolveStatusTeam(repoTeam, linked, storedTeam)
+    const docWarning = yield* trackerDocWarning(location.root)
+    const warnings = [teamWarning, docWarning].filter(
+      (warning): warning is string => warning !== null,
+    )
+    const warning = warnings.length === 0 ? null : warnings.join(" ")
     const defaults =
-      config === undefined || storedTeamKey === undefined || team === null
+      config === undefined || storedTeam === undefined || team === null
         ? null
         : defaultsDocument(issueDefaults(config))
     const project = linked ? (config?.project ?? null) : null
@@ -151,9 +189,9 @@ const statusCommand = Command.make("status", {}, () =>
         : `profile ${workspace} (${resolved.keySource})`
     const teamLine =
       team === null
-        ? storedTeamKey === undefined
+        ? storedTeam === undefined
           ? "not linked (run rata link)"
-          : `missing key ${storedTeamKey} (run rata link --team ${storedTeamKey})`
+          : `missing key ${storedTeam} (run rata link --team ${storedTeam})`
         : `${team.key} (${team.name})`
     return yield* writeLine(
       [
