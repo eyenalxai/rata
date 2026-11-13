@@ -17,6 +17,17 @@ const nextDocument = (lines: readonly string[]) =>
 const errorEnvelope = (lines: readonly string[]) =>
   Option.getOrThrow(Schema.decodeUnknownOption(ErrorEnvelope)(lastJson(lines)))
 
+const prioritySort = [
+  {
+    priority: {
+      order: "Ascending",
+      noPriorityFirst: false,
+      usePrioritySortOrderTiebreaker: false,
+    },
+  },
+  { createdAt: { order: "Ascending" } },
+]
+
 const nextHandler = (nodes: readonly unknown[], captured: Record<string, unknown>[]): Handler =>
   withTeamLookup((request) => {
     const body = readBody(request)
@@ -59,6 +70,7 @@ describe("rata next", () => {
       ],
     })
     expect(captured[0]?.after).toBeNull()
+    expect(captured[0]?.sort).toEqual(prioritySort)
   })
 
   test("breaks a priority tie by the oldest createdAt", async () => {
@@ -79,7 +91,8 @@ describe("rata next", () => {
     expect(nextDocument(lines)?.identifier).toBe("RAT-1")
   })
 
-  test("drains every matching page before it picks one", async () => {
+  test("fetches one page with the server sort before it picks one", async () => {
+    const queries: string[] = []
     const requests: Record<string, unknown>[] = []
     const lines: string[] = []
     const handler = withTeamLookup((request) => {
@@ -87,27 +100,29 @@ describe("rata next", () => {
       if (body.query.includes("query IssueId")) {
         return jsonResponse({ data: { issue: { id: "parent-1" } } })
       }
+      queries.push(body.query)
       requests.push(body.variables)
-      if (body.variables.after === null) {
-        return jsonResponse({
-          data: {
-            issues: {
-              nodes: [{ ...summaryNode("RAT-1"), priority: 4 }],
-              pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
-            },
-          },
-        })
-      }
       return jsonResponse({
-        data: { issues: { nodes: [{ ...summaryNode("RAT-2"), priority: 1 }], pageInfo } },
+        data: {
+          issues: {
+            nodes: [
+              { ...summaryNode("RAT-1"), priority: 4 },
+              { ...summaryNode("RAT-2"), priority: 1 },
+            ],
+            pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
+          },
+        },
       })
     })
 
     await runRoot(handler, ["next", "--parent", "RAT-7", "--json"], lines)
 
     expect(nextDocument(lines)?.identifier).toBe("RAT-2")
-    expect(requests).toHaveLength(2)
-    expect(requests[1]?.after).toBe("cursor-1")
+    expect(requests).toHaveLength(1)
+    expect(requests[0]?.after).toBeNull()
+    expect(requests[0]?.sort).toEqual(prioritySort)
+    expect(queries[0]).toContain("sort: $sort")
+    expect(queries[0]).not.toContain("orderBy: createdAt")
   })
 
   test("prints No ready ticket. and exits 0 when none is ready", async () => {

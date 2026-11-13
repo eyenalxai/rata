@@ -24,14 +24,14 @@ import type { InvalidIssueRef } from "@/domain/ref"
 import { LinearClient } from "@/api/client"
 import { composeFilter, projectFilter, teamIdFilter, textFilter } from "@/api/issue-filter"
 import { collectsAllPages, sortAndLimitNodes, toSummary } from "@/api/issue-model"
-import { issueIdQuery, listQuery, searchQuery } from "@/api/issue-query"
+import { issueIdQuery, listQuery, prioritySort, searchQuery } from "@/api/issue-query"
 import { IssueIdResponse } from "@/api/issue-schema"
 import { ListResponse, SearchResponse } from "@/api/issue-schema/collection"
 import { parseBatchRefs, requireBatchRefs } from "@/api/issue/batch"
 import { resolveAssignee, validateNamedFilters } from "@/api/issue/filter-check"
 import { makeReadOperations } from "@/api/issue/read"
 import { toIssueStatus } from "@/api/issue/status"
-import { collectPages, lastPageInfo, maxPageSize, pageOrDrain, pageSize } from "@/api/pagination"
+import { collectPages, lastPageInfo, maxPageSize, pageOrDrain } from "@/api/pagination"
 import { RepoTeam } from "@/api/repo-team"
 import { isUuid, parseRefOrFail } from "@/domain/ref"
 import { closedStateTypes } from "@/domain/state"
@@ -145,7 +145,17 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
           parts.push({ id: { in: requested } })
         }
         const filter = composeFilter(parts)
-        const query = listQuery(options.include === "relations")
+        const sort = options.sort === undefined ? undefined : prioritySort
+        const query = listQuery({
+          relations: options.include === "relations",
+          sort: sort !== undefined,
+        })
+        const variables = (first: number, after: string | null) => ({
+          filter,
+          first,
+          after,
+          ...(sort === undefined ? {} : { sort }),
+        })
         const checkNames = (page: IssuePage) =>
           page.issues.length === 0 && teamId !== undefined
             ? validateNamedFilters(client.execute, teamId, options).pipe(Effect.map(() => page))
@@ -158,10 +168,10 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
         if (!collectsAllPages(options)) {
           const data = yield* client.execute(
             query,
-            { filter, first: options.limit, after: options.after },
+            variables(options.limit, options.after),
             ListResponse,
           )
-          const issues = data.issues.nodes.map(toSummary)
+          const issues = sortAndLimitNodes(data.issues.nodes, options).map(toSummary)
           return yield* complete(
             { issues, pageInfo: data.issues.pageInfo },
             issues,
@@ -169,15 +179,14 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
           )
         }
 
-        const size = options.all === true ? options.limit : pageSize
         const firstPage = yield* client.execute(
           query,
-          { filter, first: size, after: options.after },
+          variables(options.limit, options.after),
           ListResponse,
         )
         const nodes = yield* collectPages(firstPage.issues, (after) =>
           client
-            .execute(query, { filter, first: size, after }, ListResponse)
+            .execute(query, variables(options.limit, after), ListResponse)
             .pipe(Effect.map((page) => page.issues)),
         )
         return yield* complete(

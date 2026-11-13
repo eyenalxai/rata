@@ -5,10 +5,25 @@ import {
   summaryFields,
 } from "@/api/issue-query/fields"
 
-const listQuery = (
-  relations: boolean,
-): string => `query IssueList($filter: IssueFilter, $first: Int!, $after: String) {
-  issues(filter: $filter, first: $first, after: $after, orderBy: createdAt) {
+const prioritySort = [
+  {
+    priority: {
+      order: "Ascending",
+      noPriorityFirst: false,
+      usePrioritySortOrderTiebreaker: false,
+    },
+  },
+  { createdAt: { order: "Ascending" } },
+]
+
+type ListQueryOptions = {
+  readonly relations: boolean
+  readonly sort: boolean
+}
+
+const listQuery = ({ relations, sort }: ListQueryOptions): string =>
+  `query IssueList($filter: IssueFilter, $first: Int!, $after: String${sort ? ", $sort: [IssueSortInput!]" : ""}) {
+  issues(filter: $filter, first: $first, after: $after, ${sort ? "sort: $sort" : "orderBy: createdAt"}) {
     nodes {${summaryFields}${relations ? `\n  ${listRelationFields.relations}\n  ${listRelationFields.inverseRelations}` : ""}
     }
     pageInfo { hasNextPage endCursor }
@@ -253,6 +268,7 @@ export {
   issueTeamQuery,
   labelsQuery,
   listQuery,
+  prioritySort,
   removeLabelMutation,
   searchQuery,
   showQuery,

@@ -63,7 +63,9 @@ const listCommand = Command.make(
       "Include extra row data (valid value: `relations` adds every relation group, up to 250 per outgoing or inverse connection, with `related` and `similar` merged; read a larger row with `issue show`)",
     ),
     sort: Flag.Literals("sort", sortFields).pipe(
-      Flag.withDescription("Sort order: `priority` orders urgent first and none last"),
+      Flag.withDescription(
+        "Sort order: `priority` orders urgent first and none last; ties go to the oldest",
+      ),
       Flag.optional,
     ),
     limit: limitFlag,
