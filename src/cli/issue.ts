@@ -7,7 +7,7 @@ import { OutputFields, readFields } from "@/cli/fields"
 import { withAgentNotes } from "@/cli/help"
 import { issueLabelCommand } from "@/cli/issue-label"
 import { linkCommand, unlinkCommand } from "@/cli/issue-link"
-import { writeIssuePage } from "@/cli/issue-page"
+import { writeIssueCount, writeIssueIdentifiers, writeIssuePage } from "@/cli/issue-page"
 import { assignCommand, closeCommand, reopenCommand, unassignCommand } from "@/cli/issue-transition"
 import { createCommand } from "@/cli/issue-write/create"
 import { updateCommand } from "@/cli/issue-write/update"
@@ -16,7 +16,14 @@ import { sectionCommand } from "@/cli/issue/section"
 import { issueSummaryRelationsShape, issueSummaryShape } from "@/cli/issue/shape"
 import { showCommand } from "@/cli/issue/show"
 import { statusCommand } from "@/cli/issue/status"
-import { afterFlag, allFlag, limitFlag } from "@/cli/list-flags"
+import {
+  afterFlag,
+  allFlag,
+  countFlag,
+  idsOnlyFlag,
+  limitFlag,
+  validateListOutput,
+} from "@/cli/list-flags"
 import { JsonOutput, errorLine, reportFailure, validatePageSize } from "@/cli/output"
 import { resolvePriority } from "@/cli/priority"
 
@@ -62,11 +69,23 @@ const listCommand = Command.make(
     limit: limitFlag,
     after: afterFlag,
     all: allFlag,
+    count: countFlag,
+    idsOnly: idsOnlyFlag,
   },
   (config) =>
     Effect.gen(function* list() {
       const json = yield* JsonOutput
-      const fields = yield* readFields(json, yield* OutputFields)
+      const fieldsOption = yield* OutputFields
+      const validOutput = yield* validateListOutput({
+        json,
+        fields: fieldsOption,
+        count: config.count,
+        idsOnly: config.idsOnly,
+      })
+      if (!validOutput) {
+        return
+      }
+      const fields = yield* readFields(json, fieldsOption)
       const include = Option.getOrUndefined(config.include)
       if (include !== undefined && !isListInclude(include)) {
         yield* errorLine(
@@ -99,8 +118,16 @@ const listCommand = Command.make(
         after: Option.getOrNull(config.after),
         sort: Option.getOrUndefined(config.sort),
         limit: config.limit,
-        all: config.all,
+        all: config.all || config.count,
       })
+      if (config.count) {
+        yield* writeIssueCount(json, page.issues.length)
+        return
+      }
+      if (config.idsOnly) {
+        yield* writeIssueIdentifiers(page)
+        return
+      }
       yield* writeIssuePage(
         json,
         fields,
@@ -135,6 +162,14 @@ const listCommand = Command.make(
       command: "rata issue list --limit 100 --after <cursor>",
       description: "Read the next page from the endCursor of the previous call",
     },
+    {
+      command: "rata issue list --parent RAT-1 --unblocked --count",
+      description: "Count every matching issue across all pages",
+    },
+    {
+      command: "rata issue list --parent RAT-1 --unblocked --all --ids-only",
+      description: "Print every matching identifier, one per line",
+    },
   ]),
 )
 
@@ -146,11 +181,23 @@ const searchCommand = Command.make(
     limit: limitFlag,
     after: afterFlag,
     all: allFlag,
+    count: countFlag,
+    idsOnly: idsOnlyFlag,
   },
   (config) =>
     Effect.gen(function* search() {
       const json = yield* JsonOutput
-      const fields = yield* readFields(json, yield* OutputFields)
+      const fieldsOption = yield* OutputFields
+      const validOutput = yield* validateListOutput({
+        json,
+        fields: fieldsOption,
+        count: config.count,
+        idsOnly: config.idsOnly,
+      })
+      if (!validOutput) {
+        return
+      }
+      const fields = yield* readFields(json, fieldsOption)
       const valid = yield* validatePageSize(config.limit)
       if (!valid) {
         return
@@ -160,8 +207,16 @@ const searchCommand = Command.make(
         team: Option.getOrUndefined(config.team),
         after: Option.getOrNull(config.after),
         limit: config.limit,
-        all: config.all,
+        all: config.all || config.count,
       })
+      if (config.count) {
+        yield* writeIssueCount(json, page.issues.length)
+        return
+      }
+      if (config.idsOnly) {
+        yield* writeIssueIdentifiers(page)
+        return
+      }
       yield* writeIssuePage(json, fields, issueSummaryShape, page)
     }).pipe(Effect.catch(reportFailure)),
 ).pipe(
@@ -178,6 +233,14 @@ const searchCommand = Command.make(
     {
       command: 'rata search "rate limit" --after <cursor>',
       description: "Read the next page of results",
+    },
+    {
+      command: 'rata search "rate limit" --count',
+      description: "Count every matching issue across all pages",
+    },
+    {
+      command: 'rata search "rate limit" --all --ids-only',
+      description: "Print every matching identifier, one per line",
     },
   ]),
   Command.withGlobalFlags([JsonOutput, OutputFields]),
