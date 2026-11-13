@@ -3,6 +3,7 @@ import { Command, Flag } from "effect/cli"
 
 import type { PlanAction } from "@/cli/output"
 
+import { arrayField, objectField, scalarField } from "@/cli/field/shape"
 import { OutputFields, readFields, rejectFields, selectObject } from "@/cli/fields"
 import {
   JsonOutput,
@@ -20,6 +21,12 @@ import { RepositoryIdentity } from "@/config/repo-identity"
 
 const optionalText = (name: string, description: string) =>
   Flag.String(name).pipe(Flag.withDescription(description), Flag.optional)
+
+const defaultsShape = objectField({
+  assignee: scalarField,
+  labels: arrayField(scalarField),
+  priority: scalarField,
+})
 
 const assigneeFlag = optionalText("assignee", "Default assignee: `me`, a user id, or `none`")
 const labelFlag = Flag.String("label").pipe(
@@ -55,7 +62,7 @@ const showCommand = Command.make("show", {}, () =>
     const service = yield* IssueDefaultsService
     const document = defaultsDocument(yield* service.show)
     if (json) {
-      return yield* writeJson({ defaults: yield* selectObject(fields, document) })
+      return yield* writeJson({ defaults: yield* selectObject(fields, defaultsShape, document) })
     }
     return yield* writeLine(`defaults: ${formatDefaults(document)}`)
   }).pipe(Effect.catch(reportFailure)),

@@ -12,6 +12,7 @@ import { createCommand } from "@/cli/issue-write/create"
 import { updateCommand } from "@/cli/issue-write/update"
 import { commentCommand } from "@/cli/issue/comment"
 import { sectionCommand } from "@/cli/issue/section"
+import { issueSummaryRelationsShape, issueSummaryShape } from "@/cli/issue/shape"
 import { showCommand } from "@/cli/issue/show"
 import { statusCommand } from "@/cli/issue/status"
 import { afterFlag, allFlag, limitFlag } from "@/cli/list-flags"
@@ -93,7 +94,12 @@ const listCommand = Command.make(
         limit: config.limit,
         all: config.all,
       })
-      yield* writeIssuePage(json, fields, page)
+      yield* writeIssuePage(
+        json,
+        fields,
+        include === "relations" ? issueSummaryRelationsShape : issueSummaryShape,
+        page,
+      )
     }).pipe(Effect.catch(reportFailure)),
 ).pipe(
   Command.withDescription("List issues"),
@@ -145,7 +151,7 @@ const searchCommand = Command.make(
         limit: config.limit,
         all: config.all,
       })
-      yield* writeIssuePage(json, fields, page)
+      yield* writeIssuePage(json, fields, issueSummaryShape, page)
     }).pipe(Effect.catch(reportFailure)),
 ).pipe(
   Command.withDescription("Search issues by text"),

@@ -19,6 +19,7 @@ type ErrorReport = {
   readonly code: ErrorCode
   readonly message: string
   readonly hint: string | null
+  readonly details?: Readonly<Record<string, unknown>>
 }
 
 type ErrorRule = {
@@ -82,6 +83,24 @@ const exitCodes: Record<ErrorCode, number> = {
 
 const exitCodeOf = (code: ErrorCode): number => exitCodes[code]
 
+const fieldSelectionReport = (error: ReportedError, message: string): ErrorReport => {
+  const hint: unknown = Reflect.get(error, "hint")
+  const path: unknown = Reflect.get(error, "path")
+  const validPaths: unknown = Reflect.get(error, "validPaths")
+  const details =
+    typeof path === "string" &&
+    Array.isArray(validPaths) &&
+    validPaths.every((item) => typeof item === "string")
+      ? { path, validPaths }
+      : undefined
+  return {
+    code: "validation",
+    message,
+    hint: typeof hint === "string" ? hint : null,
+    ...(details === undefined ? {} : { details }),
+  }
+}
+
 const classifyError = (error: ReportedError): ErrorReport => {
   const message = error.message
   const tag = tagOf(error)
@@ -101,8 +120,7 @@ const classifyError = (error: ReportedError): ErrorReport => {
     }
   }
   if (tag === "FieldSelectionError") {
-    const hint: unknown = Reflect.get(error, "hint")
-    return { code: "validation", message, hint: typeof hint === "string" ? hint : null }
+    return fieldSelectionReport(error, message)
   }
   if (tag === "ConflictError") {
     const current: unknown = Reflect.get(error, "current")

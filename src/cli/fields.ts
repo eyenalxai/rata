@@ -1,12 +1,10 @@
-import { Effect, Option, Result, Schema } from "effect"
+import { Effect, Option, Result } from "effect"
 import { Flag, GlobalFlag } from "effect/cli"
 
-class FieldSelectionError extends Schema.TaggedError<FieldSelectionError>()("FieldSelectionError", {
-  message: Schema.String,
-  hint: Schema.optional(Schema.String),
-}) {}
+import type { FieldPath, FieldShape } from "@/cli/field/shape"
 
-type FieldPath = readonly string[]
+import { FieldSelectionError } from "@/cli/field/error"
+import { selectFields, selectValues } from "@/cli/field/select"
 
 const OutputFields = GlobalFlag.Setting("fields")({
   flag: Flag.String("fields").pipe(
@@ -34,77 +32,6 @@ const parseFieldPaths = (
   return Result.succeed(paths)
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value)
-
-const validPathHint = (scope: unknown): string | undefined => {
-  if (!isRecord(scope)) {
-    return undefined
-  }
-  const keys = Object.keys(scope).toSorted()
-  return keys.length === 0 ? undefined : `Valid paths: ${keys.join(", ")}.`
-}
-
-const unknownPath = (scope: unknown, path: FieldPath): FieldSelectionError => {
-  const hint = validPathHint(scope)
-  return new FieldSelectionError({
-    message: `Unknown field path: ${path.join(".")}.`,
-    ...(hint === undefined ? {} : { hint }),
-  })
-}
-
-const arrayPath = (path: FieldPath, index: number): FieldSelectionError => {
-  const array = path.slice(0, index + 1).join(".")
-  return new FieldSelectionError({
-    message: `The field path enters the array ${array}.`,
-    hint: `Select ${array} as a whole.`,
-  })
-}
-
-const selectFields = (
-  value: unknown,
-  paths: readonly FieldPath[],
-): Result.Result<unknown, FieldSelectionError> => {
-  if (!isRecord(value)) {
-    return Result.fail(
-      new FieldSelectionError({ message: "The selected output is not an object." }),
-    )
-  }
-  const selected: Record<string, unknown> = {}
-  for (const path of paths) {
-    let source: unknown = value
-    let target: Record<string, unknown> = selected
-    for (let index = 0; index < path.length; index += 1) {
-      const key = path[index]
-      if (key === undefined || !isRecord(source) || !Object.hasOwn(source, key)) {
-        return Result.fail(unknownPath(source, path))
-      }
-      const next = source[key]
-      if (index === path.length - 1) {
-        target[key] = next
-      } else if (next === null) {
-        target[key] = null
-        break
-      } else if (Array.isArray(next)) {
-        return Result.fail(arrayPath(path, index))
-      } else if (isRecord(next)) {
-        const existing = target[key]
-        if (isRecord(existing)) {
-          target = existing
-        } else {
-          const child: Record<string, unknown> = {}
-          target[key] = child
-          target = child
-        }
-      } else {
-        return Result.fail(unknownPath(source, path))
-      }
-      source = next
-    }
-  }
-  return Result.succeed(selected)
-}
-
 const readFields = Effect.fn("Cli.Fields.read")(function* readFields(
   json: boolean,
   fields: Option.Option<string>,
@@ -128,6 +55,7 @@ const rejectFields = Effect.fn("Cli.Fields.reject")(function* rejectFields(
   if (Option.isSome(fields)) {
     return yield* new FieldSelectionError({
       message: "--fields is not supported by this command.",
+      hint: "--fields applies to reads only. Use --json and jq on the write result.",
     })
   }
   return yield* Effect.void
@@ -135,12 +63,13 @@ const rejectFields = Effect.fn("Cli.Fields.reject")(function* rejectFields(
 
 const selectObject = Effect.fn("Cli.Fields.object")(function* selectObject(
   fields: Option.Option<readonly FieldPath[]>,
+  shape: FieldShape,
   value: unknown,
 ) {
   if (Option.isNone(fields)) {
     return value
   }
-  const selected = selectFields(value, fields.value)
+  const selected = selectFields(shape, value, fields.value)
   if (Result.isFailure(selected)) {
     return yield* selected.failure
   }
@@ -149,30 +78,17 @@ const selectObject = Effect.fn("Cli.Fields.object")(function* selectObject(
 
 const selectItems = Effect.fn("Cli.Fields.items")(function* selectItems(
   fields: Option.Option<readonly FieldPath[]>,
+  shape: FieldShape,
   values: readonly unknown[],
 ) {
   if (Option.isNone(fields)) {
     return values
   }
-  const selected: unknown[] = []
-  for (const value of values) {
-    const item = selectFields(value, fields.value)
-    if (Result.isFailure(item)) {
-      return yield* item.failure
-    }
-    selected.push(item.success)
+  const selected = selectValues(shape, values, fields.value)
+  if (Result.isFailure(selected)) {
+    return yield* selected.failure
   }
-  return selected
+  return selected.success
 })
 
-export {
-  FieldSelectionError,
-  type FieldPath,
-  OutputFields,
-  parseFieldPaths,
-  readFields,
-  rejectFields,
-  selectFields,
-  selectItems,
-  selectObject,
-}
+export { OutputFields, parseFieldPaths, readFields, rejectFields, selectItems, selectObject }

@@ -5,6 +5,7 @@ import { EOL } from "node:os"
 import { LabelService } from "@/api/label"
 import { RepoTeam } from "@/api/repo-team"
 import { resolveColor } from "@/cli/color"
+import { objectField, scalarField } from "@/cli/field/shape"
 import { OutputFields, readFields, rejectFields, selectItems } from "@/cli/fields"
 import { afterFlag, allFlag, limitFlag } from "@/cli/list-flags"
 import {
@@ -21,6 +22,12 @@ const teamFlag = Flag.String("team").pipe(
   Flag.withDescription("Team key or id. Defaults to the team from `rata link`"),
   Flag.optional,
 )
+
+const labelShape = objectField({
+  id: scalarField,
+  name: scalarField,
+  color: scalarField,
+})
 
 const listCommand = Command.make(
   "list",
@@ -43,7 +50,7 @@ const listCommand = Command.make(
       })
       if (json) {
         yield* writeJson({
-          labels: yield* selectItems(fields, page.nodes),
+          labels: yield* selectItems(fields, labelShape, page.nodes),
           pageInfo: page.pageInfo,
         })
         return

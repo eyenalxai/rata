@@ -4,6 +4,7 @@ import { Command, Flag } from "effect/cli"
 import { IssueApi } from "@/api/issue"
 import { OutputFields, readFields, selectObject } from "@/cli/fields"
 import { formatIssueLine } from "@/cli/issue/line"
+import { issueSummaryShape } from "@/cli/issue/shape"
 import { JsonOutput, errorLine, reportFailure, writeJson, writeLine } from "@/cli/output"
 
 const parentFlag = Flag.String("parent").pipe(
@@ -34,7 +35,7 @@ const nextCommand = Command.make("next", { parent: parentFlag }, (config) =>
     })
     const issue = page.issues[0] ?? null
     if (json) {
-      const selected = issue === null ? null : yield* selectObject(fields, issue)
+      const selected = yield* selectObject(fields, issueSummaryShape, issue)
       return yield* writeJson(selected)
     }
     return yield* writeLine(issue === null ? "No ready ticket." : formatIssueLine(issue))

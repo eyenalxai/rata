@@ -5,6 +5,7 @@ import type { SectionWriteResult } from "@/api/issue-write/write-types"
 
 import { IssueWriteApi } from "@/api/issue-write"
 import { resolveBody } from "@/cli/body"
+import { objectField, scalarField } from "@/cli/field/shape"
 import { OutputFields, readFields, rejectFields, selectObject } from "@/cli/fields"
 import { bodyFileFlag, bodyFlag, optionalText, refArgument } from "@/cli/issue-write/flags"
 import {
@@ -19,6 +20,12 @@ import {
 const headingArgument = Argument.String("heading").pipe(
   Argument.withDescription('Heading text without the # marks, for example "Handoff log"'),
 )
+
+const sectionShape = objectField({
+  heading: scalarField,
+  level: scalarField,
+  content: scalarField,
+})
 
 const levelFlag = Flag.Int("level").pipe(
   Flag.withDescription("Heading level for a new section, 1 to 6. Default 2"),
@@ -99,7 +106,7 @@ const getCommand = Command.make(
         content: result.content,
       }
       if (json) {
-        return yield* writeJson(yield* selectObject(fields, section))
+        return yield* writeJson(yield* selectObject(fields, sectionShape, section))
       }
       const headingLine = `${"#".repeat(section.level)} ${section.heading}`
       if (config.withHeading) {

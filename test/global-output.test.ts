@@ -85,7 +85,10 @@ describe("global output flags", () => {
       lines,
     )
     expect(JSON.parse(lines[0] ?? "")).toMatchObject({
-      error: { code: "validation" },
+      error: {
+        code: "validation",
+        hint: "--fields applies to reads only. Use --json and jq on the write result.",
+      },
     })
   })
 })
