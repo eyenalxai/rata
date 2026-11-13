@@ -7,6 +7,7 @@ import { IssueWriteApi } from "@/api/issue-write"
 import { resolveBody } from "@/cli/body"
 import { objectField, scalarField } from "@/cli/field/shape"
 import { OutputFields, readFields, rejectFields, selectObject } from "@/cli/fields"
+import { withAgentNotes } from "@/cli/help"
 import { bodyFileFlag, bodyFlag, optionalText, refArgument } from "@/cli/issue-write/flags"
 import {
   JsonOutput,
@@ -173,6 +174,7 @@ const appendCommand = Command.make(
       description: "Create a missing level-3 section from a file",
     },
   ]),
+  withAgentNotes,
 )
 
 const replaceCommand = Command.make(
@@ -212,11 +214,13 @@ const replaceCommand = Command.make(
       description: "Preview the change as a unified diff",
     },
   ]),
+  withAgentNotes,
 )
 
 const sectionCommand = Command.make("section").pipe(
   Command.withDescription("Read and edit a section of an issue body"),
   Command.withSubcommands([getCommand, appendCommand, replaceCommand]),
+  withAgentNotes,
 )
 
 export { sectionCommand }

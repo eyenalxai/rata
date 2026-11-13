@@ -12,6 +12,7 @@ import { ProjectService } from "@/api/project"
 import { RepoTeam } from "@/api/repo-team"
 import { TeamService } from "@/api/team"
 import { reportCliError } from "@/cli/exit"
+import { helpLayer } from "@/cli/help"
 import { runCli } from "@/cli/run"
 import { Auth } from "@/config/auth"
 import { IssueDefaultsService } from "@/config/defaults"
@@ -72,6 +73,7 @@ const appLayer = Layer.mergeAll(
   linkLayer,
   issueWriteLayer,
   platformLayer,
+  helpLayer,
 )
 
 const program = runCli("0.9.0").pipe(

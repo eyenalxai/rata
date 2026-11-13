@@ -4,6 +4,7 @@ import { Argument, Command, Flag } from "effect/cli"
 import { IssueApi } from "@/api/issue"
 import { isListInclude, listIncludes, sortFields, stateTypes } from "@/api/issue-model"
 import { OutputFields, readFields } from "@/cli/fields"
+import { withAgentNotes } from "@/cli/help"
 import { issueLabelCommand } from "@/cli/issue-label"
 import { linkCommand, unlinkCommand } from "@/cli/issue-link"
 import { writeIssuePage } from "@/cli/issue-page"
@@ -183,14 +184,15 @@ const issueCommand = Command.make("issue").pipe(
     updateCommand,
     sectionCommand,
     issueLabelCommand,
-    closeCommand,
-    reopenCommand,
-    assignCommand,
-    unassignCommand,
+    withAgentNotes(closeCommand),
+    withAgentNotes(reopenCommand),
+    withAgentNotes(assignCommand),
+    withAgentNotes(unassignCommand),
     linkCommand,
     unlinkCommand,
   ]),
   Command.withGlobalFlags([JsonOutput, OutputFields]),
+  withAgentNotes,
 )
 
 export { issueCommand, searchCommand }
