@@ -262,6 +262,9 @@ describe("issue list --all", () => {
 
     const document = pageDocumentOf(lines)
     expect(document.issues.map((issue) => issue.identifier)).toEqual(["RAT-2", "RAT-1"])
+    const pages = requests.filter((variables) => "filter" in variables)
+    expect(pages).toHaveLength(2)
+    expect(pages.every((variables) => variables.sort !== undefined)).toBe(true)
   })
 })
 

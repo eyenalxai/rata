@@ -240,8 +240,7 @@ const sortComparators: Readonly<
   priority: byPriority,
 }
 
-const collectsAllPages = (options: IssueListOptions): boolean =>
-  options.sort !== undefined || options.all === true
+const collectsAllPages = (options: IssueListOptions): boolean => options.all === true
 
 const sortAndLimitNodes = (
   nodes: readonly IssueSummaryNode[],
