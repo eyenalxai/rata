@@ -63,13 +63,16 @@ class RepoTeam extends Context.Service<RepoTeam, RepoTeamShape>()(
         if (config.teamId !== undefined) {
           const byId = yield* foundOrNull(teams.byId(config.teamId))
           if (byId !== null) {
+            if (config.team === undefined) {
+              return yield* repair(config, byId, null)
+            }
             if (config.team === byId.key) {
               return { team: byId, warning: null }
             }
             return yield* repair(
               config,
               byId,
-              `The stored team key ${stored} is stale. Repaired the link to ${byId.key}.`,
+              `The stored team key ${config.team} is stale. Repaired the link to ${byId.key}.`,
             )
           }
         }
