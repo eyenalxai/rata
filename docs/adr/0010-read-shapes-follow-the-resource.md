@@ -2,8 +2,7 @@
 
 ## Status
 
-Accepted. Amended by RATA-133 to record the array contract and the corrected read
-rule.
+Accepted. This record carries the array contract and the corrected read rule.
 
 ## Context
 
