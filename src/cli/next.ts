@@ -5,6 +5,7 @@ import { IssueApi } from "@/api/issue"
 import { OutputFields, readFields, selectObject } from "@/cli/fields"
 import { formatIssueLine } from "@/cli/issue/line"
 import { issueSummaryShape } from "@/cli/issue/shape"
+import { idsOnlyFlag, validateListOutput } from "@/cli/list-flags"
 import { JsonOutput, errorLine, reportFailure, writeJson, writeLine } from "@/cli/output"
 
 const parentFlag = Flag.String("parent").pipe(
@@ -12,17 +13,24 @@ const parentFlag = Flag.String("parent").pipe(
   Flag.optional,
 )
 
-const nextCommand = Command.make("next", { parent: parentFlag }, (config) =>
+const nextCommand = Command.make("next", { parent: parentFlag, idsOnly: idsOnlyFlag }, (config) =>
   Effect.gen(function* next() {
     const json = yield* JsonOutput
-    const fields = yield* readFields(json, yield* OutputFields)
+    const fieldsOption = yield* OutputFields
+    const validOutput = yield* validateListOutput({
+      json,
+      fields: fieldsOption,
+      count: false,
+      idsOnly: config.idsOnly,
+    })
+    if (!validOutput) {
+      return
+    }
+    const fields = yield* readFields(json, fieldsOption)
     const parent = Option.getOrUndefined(config.parent)
     if (parent === undefined || parent.trim().length === 0) {
-      return yield* errorLine(
-        "validation",
-        "The --parent flag is required.",
-        "Pass --parent <ref>.",
-      )
+      yield* errorLine("validation", "The --parent flag is required.", "Pass --parent <ref>.")
+      return
     }
     const api = yield* IssueApi
     const page = yield* api.list({
@@ -34,11 +42,18 @@ const nextCommand = Command.make("next", { parent: parentFlag }, (config) =>
       limit: 1,
     })
     const issue = page.issues[0] ?? null
+    if (config.idsOnly) {
+      if (issue !== null) {
+        yield* writeLine(issue.identifier)
+      }
+      return
+    }
     if (json) {
       const selected = yield* selectObject(fields, issueSummaryShape, issue)
-      return yield* writeJson(selected)
+      yield* writeJson(selected)
+      return
     }
-    return yield* writeLine(issue === null ? "No ready ticket." : formatIssueLine(issue))
+    yield* writeLine(issue === null ? "No ready ticket." : formatIssueLine(issue))
   }).pipe(Effect.catch(reportFailure)),
 ).pipe(
   Command.withDescription("Show the next ready child of a parent issue"),
@@ -54,6 +69,10 @@ const nextCommand = Command.make("next", { parent: parentFlag }, (config) =>
     {
       command: "rata next --parent RAT-1 --json --fields identifier,title",
       description: "Select fields from the ready child",
+    },
+    {
+      command: "rata next --parent RAT-1 --ids-only",
+      description: "Print only the ready identifier, or nothing when none is ready",
     },
   ]),
 )

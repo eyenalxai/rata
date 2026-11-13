@@ -47,4 +47,10 @@ const writeIssuePage = (
     }
   })
 
-export { writeIssuePage }
+const writeIssueIdentifiers = (page: IssuePage): Effect.Effect<void> =>
+  Effect.forEach(page.issues, (issue) => writeLine(issue.identifier), { discard: true })
+
+const writeIssueCount = (json: boolean, count: number): Effect.Effect<void> =>
+  json ? writeJson({ count }) : writeLine(String(count))
+
+export { writeIssueCount, writeIssueIdentifiers, writeIssuePage }
