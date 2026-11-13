@@ -90,12 +90,12 @@ describe("invalid group forms teach the canonical command", () => {
     expect(process.exitCode).toBe(2)
   })
 
-  test("the bare comment form names issue comment create", async () => {
+  test("the bare comment form names issue comment create with the body flag", async () => {
     const lines: string[] = []
     await run(["issue", "comment", "RAT-1"], lines)
     expect(lines).toEqual([
       "error: The comment group needs a subcommand.",
-      "hint: rata issue comment create RAT-1",
+      "hint: rata issue comment create RAT-1 --body-file -",
     ])
     expect(process.exitCode).toBe(2)
   })
@@ -120,12 +120,22 @@ describe("invalid group forms teach the canonical command", () => {
     expect(process.exitCode).toBe(2)
   })
 
-  test("a flag-bearing comment form names issue comment create", async () => {
+  test("a flag-bearing comment form keeps the body flag", async () => {
     const lines: string[] = []
     await run(["issue", "comment", "RAT-1", "--body-file", "-"], lines)
     expect(lines).toEqual([
       "error: The comment group needs a subcommand.",
-      "hint: rata issue comment create RAT-1",
+      "hint: rata issue comment create RAT-1 --body-file -",
+    ])
+    expect(process.exitCode).toBe(2)
+  })
+
+  test("a body flag keeps its value in the comment hint", async () => {
+    const lines: string[] = []
+    await run(["issue", "comment", "RAT-1", "--body", "Looks good."], lines)
+    expect(lines).toEqual([
+      "error: The comment group needs a subcommand.",
+      'hint: rata issue comment create RAT-1 --body "Looks good."',
     ])
     expect(process.exitCode).toBe(2)
   })
@@ -152,7 +162,7 @@ describe("invalid group forms teach the canonical command", () => {
       error: {
         code: "validation",
         message: "The comment group needs a subcommand.",
-        hint: "rata issue comment create RAT-1",
+        hint: "rata issue comment create RAT-1 --body-file -",
       },
     })
     expect(process.exitCode).toBe(2)

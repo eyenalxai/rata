@@ -5,6 +5,7 @@ import type { BulkWriteSuccess, WriteAction } from "@/api/issue-write/model"
 
 import { IssueWriteApi } from "@/api/issue-write"
 import { OutputFields, rejectFields } from "@/cli/fields"
+import { withAgentNotes } from "@/cli/help"
 import {
   JsonOutput,
   dryRunFlag,
@@ -161,6 +162,7 @@ const addCommand = Command.make(
       description: "Preview the labels without writing",
     },
   ]),
+  withAgentNotes,
 )
 
 const removeCommand = Command.make(
@@ -226,12 +228,14 @@ const removeCommand = Command.make(
       description: "Remove a label from every child of an issue",
     },
   ]),
+  withAgentNotes,
 )
 
 const issueLabelCommand = Command.make("label").pipe(
   Command.withDescription("Add or remove the labels of an issue"),
   Command.withSubcommands([addCommand, removeCommand]),
   Command.withGlobalFlags([JsonOutput, OutputFields]),
+  withAgentNotes,
 )
 
 export { issueLabelCommand, parseLabelTarget }

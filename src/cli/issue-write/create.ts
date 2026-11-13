@@ -7,6 +7,7 @@ import type { PlanAction } from "@/cli/output"
 import { IssueWriteApi } from "@/api/issue-write"
 import { resolveBody } from "@/cli/body"
 import { OutputFields, rejectFields } from "@/cli/fields"
+import { withAgentNotes } from "@/cli/help"
 import {
   bodyFileFlag,
   bodyFlag,
@@ -128,6 +129,7 @@ const createCommand = Command.make(
       description: "Read the body from standard input",
     },
   ]),
+  withAgentNotes,
 )
 
 export { createCommand }

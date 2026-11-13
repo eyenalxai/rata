@@ -7,6 +7,7 @@ import { Console, Effect, FileSystem, Layer, Option, Path, Schema, Stdio, Termin
 import { Command } from "effect/cli"
 import { ChildProcessSpawner } from "effect/process"
 
+import { helpLayer } from "@/cli/help"
 import { issueCommand } from "@/cli/issue"
 import { runCli } from "@/cli/run"
 
@@ -46,6 +47,7 @@ const cliLayer = (
       ChildProcessSpawner.make(() => Effect.die("unused")),
     ),
     Layer.succeed(Console.Console, recordingConsole(lines)),
+    helpLayer,
   )
 }
 

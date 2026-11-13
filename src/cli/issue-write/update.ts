@@ -11,6 +11,7 @@ import type { PlanAction } from "@/cli/output"
 import { IssueWriteApi } from "@/api/issue-write"
 import { resolveBody } from "@/cli/body"
 import { OutputFields, rejectFields } from "@/cli/fields"
+import { withAgentNotes } from "@/cli/help"
 import { postUpdateComment } from "@/cli/issue-write/comment"
 import {
   bodyFileFlag,
@@ -235,6 +236,7 @@ const updateCommand = Command.make(
       description: "Change the state and post the comment in one call",
     },
   ]),
+  withAgentNotes,
 )
 
 export { updateCommand }

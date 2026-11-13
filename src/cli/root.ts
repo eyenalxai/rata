@@ -3,6 +3,7 @@ import { Command } from "effect/cli"
 import { authCommand, whoamiCommand } from "@/cli/auth"
 import { configCommand } from "@/cli/config"
 import { OutputFields } from "@/cli/fields"
+import { withAgentNotes } from "@/cli/help"
 import { issueCommand, searchCommand } from "@/cli/issue"
 import { labelCommand } from "@/cli/label"
 import { linkCommand } from "@/cli/link"
@@ -34,6 +35,7 @@ const root = Command.make("rata").pipe(
     labelCommand,
   ]),
   Command.withGlobalFlags([JsonOutput, OutputFields]),
+  withAgentNotes,
 )
 
 export { root }

@@ -4,6 +4,7 @@ import { Argument, Command, Flag } from "effect/cli"
 import { IssueWriteApi } from "@/api/issue-write"
 import { confirm } from "@/cli/confirm"
 import { OutputFields, rejectFields } from "@/cli/fields"
+import { withAgentNotes } from "@/cli/help"
 import {
   bodyFileFlag,
   bodyFlag,
@@ -117,6 +118,7 @@ const createCommand = Command.make(
       description: "Skip the read-after-write check",
     },
   ]),
+  withAgentNotes,
 )
 
 const updateCommand = Command.make(
@@ -170,6 +172,7 @@ const updateCommand = Command.make(
       description: "Preview the change as a unified diff",
     },
   ]),
+  withAgentNotes,
 )
 
 const deleteCommand = Command.make(
@@ -229,11 +232,13 @@ const deleteCommand = Command.make(
       description: "Check that the comment exists without deleting it",
     },
   ]),
+  withAgentNotes,
 )
 
 const commentCommand = Command.make("comment").pipe(
   Command.withDescription("Create, update and delete comments"),
   Command.withSubcommands([createCommand, updateCommand, deleteCommand]),
+  withAgentNotes,
 )
 
 export { commentCommand }

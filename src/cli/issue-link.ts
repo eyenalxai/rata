@@ -11,6 +11,7 @@ import type {
 import { IssueWriteApi } from "@/api/issue-write"
 import { relationKindInfo } from "@/api/issue-write/model"
 import { OutputFields, rejectFields } from "@/cli/fields"
+import { withAgentNotes } from "@/cli/help"
 import {
   JsonOutput,
   dryRunFlag,
@@ -81,6 +82,7 @@ const linkCommand = Command.make(
         return yield* errorLine(
           "validation",
           "Pass at least one of --blocks, --blocked-by, --related or --duplicate.",
+          `rata issue link ${config.ref} --blocked-by <blocker>`,
         )
       }
       const api = yield* IssueWriteApi
@@ -122,6 +124,7 @@ const linkCommand = Command.make(
       description: "Record that RAT-42 blocks RAT-43 and is related to RAT-44",
     },
   ]),
+  withAgentNotes,
 )
 
 const unlinkCommand = Command.make(
@@ -173,6 +176,7 @@ const unlinkCommand = Command.make(
       description: "Remove the blocking edge between two issues",
     },
   ]),
+  withAgentNotes,
 )
 
 export { linkCommand, unlinkCommand }
