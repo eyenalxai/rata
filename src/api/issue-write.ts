@@ -10,6 +10,7 @@ import { makeCreateWrites } from "@/api/issue-write/create"
 import { makeIssueWrites } from "@/api/issue-write/issue-writes"
 import { makeRelationWrites } from "@/api/issue-write/relation-writes"
 import { makeIssueWriteResolvers } from "@/api/issue-write/resolvers"
+import { makeSectionWrites } from "@/api/issue-write/sections"
 import { makeVisibilityChecks } from "@/api/issue-write/visibility"
 import { LabelService } from "@/api/label"
 import { ProjectService } from "@/api/project"
@@ -33,6 +34,7 @@ class IssueWriteApi extends Context.Service<IssueWriteApi, IssueWriteApiShape>()
       const bulkWrites = makeBulkWrites(resolvers)
       const relationWrites = makeRelationWrites({ client, resolvers })
       const bodyWrites = makeBodyWrites({ client, resolvers })
+      const sectionWrites = makeSectionWrites({ client, resolvers })
       const commentWrites = makeCommentWrites({ client, resolvers, visibility })
       const createWrites = makeCreateWrites({
         client,
@@ -48,6 +50,7 @@ class IssueWriteApi extends Context.Service<IssueWriteApi, IssueWriteApiShape>()
         ...relationWrites,
         ...createWrites,
         ...bodyWrites,
+        ...sectionWrites,
         ...commentWrites,
       })
     }),

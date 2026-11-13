@@ -46,6 +46,32 @@ type IssueUpdatePlan = {
   readonly diff: string | null
 }
 
+type IssueSectionReplacement = {
+  readonly heading: string
+  readonly content: string
+}
+
+type IssueSectionAction = {
+  readonly heading: string
+  readonly action: "replaced" | "skipped"
+}
+
+type IssueUpdateSectionsOptions = Omit<IssueUpdateOptions, "body" | "append">
+
+type IssueUpdateSectionsPlan = {
+  readonly status: "updated" | "skipped"
+  readonly updatedAt: string
+  readonly sections: readonly IssueSectionAction[]
+  readonly diff: string
+}
+
+type IssueUpdateSectionsResult = {
+  readonly status: "updated" | "skipped"
+  readonly updatedAt: string
+  readonly issue: IssueSummary
+  readonly sections: readonly IssueSectionAction[]
+}
+
 type CommentCreateOptions = VisibilityOptions & {
   readonly id?: string | undefined
   readonly dedupeKey?: string | undefined
@@ -130,8 +156,13 @@ export {
   type CommentUpdateResult,
   type IssueCreateOptions,
   type IssueCreateResult,
+  type IssueSectionAction,
+  type IssueSectionReplacement,
   type IssueUpdateOptions,
   type IssueUpdatePlan,
+  type IssueUpdateSectionsOptions,
+  type IssueUpdateSectionsPlan,
+  type IssueUpdateSectionsResult,
   type IssueUpdateWriteOptions,
   type SectionWriteOptions,
   type SectionWriteResult,

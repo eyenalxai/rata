@@ -1,7 +1,6 @@
-import { Effect, Option, Result } from "effect"
+import { Effect, Option } from "effect"
 import { Command, Flag } from "effect/cli"
 
-import type { IssueSummary } from "@/api/issue-model"
 import type {
   IssueUpdateOptions,
   IssueUpdatePlan,
@@ -11,8 +10,8 @@ import type { PlanAction } from "@/cli/output"
 
 import { IssueWriteApi } from "@/api/issue-write"
 import { resolveBody } from "@/cli/body"
-import { classifyError, exitCodeOf } from "@/cli/error-report"
 import { OutputFields, rejectFields } from "@/cli/fields"
+import { postUpdateComment } from "@/cli/issue-write/comment"
 import {
   bodyFileFlag,
   bodyFlag,
@@ -20,6 +19,11 @@ import {
   refArgument,
   resolveCommentBody,
 } from "@/cli/issue-write/flags"
+import {
+  resolveSectionsInput,
+  runSectionsUpdate,
+  sectionsFileFlag,
+} from "@/cli/issue-write/sections"
 import {
   JsonOutput,
   dryRunFlag,
@@ -72,31 +76,34 @@ const previewUpdate = Effect.fn("Cli.IssueWrite.previewUpdate")(function* previe
   }
 })
 
-const postUpdateComment = Effect.fn("Cli.IssueWrite.postUpdateComment")(function* postUpdateComment(
-  api: IssueWriteApi["Service"],
-  json: boolean,
-  ref: string,
-  issue: IssueSummary,
-  body: string,
+const resolveWriteInput = Effect.fn("Cli.IssueWrite.resolveWriteInput")(function* resolveWriteInput(
+  bodyFlagValue: Option.Option<string>,
+  bodyFileValue: Option.Option<string>,
+  append: boolean,
+  commentFlagValue: Option.Option<string>,
+  commentFileValue: Option.Option<string>,
 ) {
-  const created = yield* Effect.result(api.commentCreate(ref, body, { waitSeconds: 0 }))
-  if (Result.isFailure(created)) {
-    const report = classifyError(created.failure)
-    if (!json) {
-      yield* writeLine(`Updated ${issue.identifier}.`)
-      return yield* errorLine(report.code, report.message, report.hint ?? undefined)
-    }
-    yield* writeJson({ issue, comment: null, error: report })
-    yield* Effect.sync(() => {
-      process.exitCode = exitCodeOf(report.code)
-    })
-    return yield* Effect.void
+  const body = yield* resolveBody({ body: "body", file: "body-file" }, bodyFlagValue, bodyFileValue)
+  const comment = yield* resolveCommentBody(
+    { body: "comment", file: "comment-file" },
+    commentFlagValue,
+    commentFileValue,
+  )
+  if (
+    Option.isNone(comment) &&
+    (Option.isSome(commentFlagValue) || Option.isSome(commentFileValue))
+  ) {
+    return Option.none()
   }
-  if (json) {
-    return yield* writeJson({ issue, comment: created.success.comment })
+  if (append && Option.isNone(body)) {
+    yield* errorLine("validation", "The --append flag needs --body or --body-file.")
+    return Option.none()
   }
-  yield* writeLine(`Updated ${issue.identifier}.`)
-  return yield* writeLine(`Commented on ${issue.identifier}.`)
+  if (append && Option.isSome(body) && body.value.trim().length === 0) {
+    yield* errorLine("validation", "The body to append is empty.")
+    return Option.none()
+  }
+  return Option.some({ body, comment })
 })
 
 const updateCommand = Command.make(
@@ -115,6 +122,7 @@ const updateCommand = Command.make(
       Flag.withDescription("Append the body to the end of the description"),
       Flag.withDefault(false),
     ),
+    sectionsFile: sectionsFileFlag,
     comment: optionalText("comment", "Comment to post after the update"),
     commentFile: optionalText(
       "comment-file",
@@ -130,47 +138,67 @@ const updateCommand = Command.make(
     Effect.gen(function* updateIssue() {
       const json = yield* JsonOutput
       yield* rejectFields(yield* OutputFields)
-      const body = yield* resolveBody(
-        { body: "body", file: "body-file" },
+      const requested = yield* resolveSectionsInput(
+        config.sectionsFile,
         config.body,
         config.bodyFile,
+        config.append,
       )
-      const comment = yield* resolveCommentBody(
-        { body: "comment", file: "comment-file" },
+      const sections = Option.flatMap(requested, (value) => value)
+      if (Option.isSome(requested) && Option.isNone(sections)) {
+        return yield* Effect.void
+      }
+      const input = yield* resolveWriteInput(
+        config.body,
+        config.bodyFile,
+        config.append,
         config.comment,
         config.commentFile,
       )
-      if (
-        Option.isNone(comment) &&
-        (Option.isSome(config.comment) || Option.isSome(config.commentFile))
-      ) {
+      if (Option.isNone(input)) {
         return yield* Effect.void
       }
-      if (config.append && Option.isNone(body)) {
-        return yield* errorLine("validation", "The --append flag needs --body or --body-file.")
-      }
-      if (config.append && Option.isSome(body) && body.value.trim().length === 0) {
-        return yield* errorLine("validation", "The body to append is empty.")
-      }
+      const body = input.value.body
+      const comment = input.value.comment
       const priority = Option.getOrUndefined(yield* resolvePriority(config.priority))
-      const options = {
+      const fields = {
         title: Option.getOrUndefined(config.title),
-        body: Option.getOrUndefined(body),
         state: Option.getOrUndefined(config.state),
         assignee: Option.getOrUndefined(config.assignee),
         project: Option.getOrUndefined(config.project),
         parent: Option.getOrUndefined(config.parent),
         priority,
+      }
+      const options: IssueUpdateOptions = {
+        ...fields,
+        body: Option.getOrUndefined(body),
         ...(config.append ? { append: true } : {}),
       }
-      if (Object.values(options).every((value) => value === undefined) && Option.isNone(comment)) {
+      if (
+        Option.isNone(sections) &&
+        Object.values(fields).every((value) => value === undefined) &&
+        Option.isNone(body) &&
+        Option.isNone(comment)
+      ) {
         return yield* errorLine(
           "validation",
-          "Pass at least one of --title, --body, --state, --assignee, --project, --parent, --priority or --comment.",
+          "Pass at least one of --title, --body, --state, --assignee, --project, --parent, --priority, --comment or --sections-file.",
         )
       }
       const api = yield* IssueWriteApi
       const writeOptions = { ifUnchanged: Option.getOrUndefined(config.ifUnchanged) }
+      if (Option.isSome(sections)) {
+        return yield* runSectionsUpdate(
+          api,
+          json,
+          config.ref,
+          fields,
+          sections.value,
+          writeOptions,
+          comment,
+          config.dryRun,
+        )
+      }
       if (config.dryRun) {
         return yield* previewUpdate(api, json, config.ref, options, writeOptions, comment)
       }
@@ -197,6 +225,10 @@ const updateCommand = Command.make(
     {
       command: 'printf "\\nUpdate." | rata issue update RAT-42 --body-file - --append',
       description: "Append to the description",
+    },
+    {
+      command: "rata issue update RAT-42 --sections-file - --dry-run",
+      description: "Preview several section replacements as one diff",
     },
     {
       command: 'rata issue update RAT-42 --state Done --comment "Shipped in PR #12."',
