@@ -1,5 +1,5 @@
 import type { IssueDetail, IssueRelations, IssueStatus, IssueSummary } from "@/api/issue-model"
-import type { IssueChild } from "@/api/issue-schema"
+import type { IssueChild, IssueComment } from "@/api/issue-schema"
 import type { PullRequest } from "@/domain/pr"
 
 import { formatIssueLine } from "@/cli/issue/line"
@@ -43,6 +43,14 @@ const formatIssueHeader = (issue: IssueSummary): string[] => {
   return lines
 }
 
+const formatComment = (comment: IssueComment): string[] => {
+  const author = comment.user?.name ?? "unknown"
+  return [
+    `  ${comment.createdAt} ${author}:`,
+    ...comment.body.split(/\r?\n/u).map((bodyLine) => `    ${bodyLine}`),
+  ]
+}
+
 const formatIssueDetail = (issue: IssueDetail, showBody: boolean): string => {
   const lines = formatIssueHeader(issue)
   if (showBody && issue.description !== null && issue.description.trim().length > 0) {
@@ -69,11 +77,7 @@ const formatIssueDetail = (issue: IssueDetail, showBody: boolean): string => {
   if (issue.comments !== undefined && issue.comments.length > 0) {
     lines.push("comments:")
     for (const comment of issue.comments) {
-      const author = comment.user?.name ?? "unknown"
-      lines.push(`  ${comment.createdAt} ${author}:`)
-      for (const bodyLine of comment.body.split(/\r?\n/u)) {
-        lines.push(`    ${bodyLine}`)
-      }
+      lines.push(...formatComment(comment))
     }
   }
   return lines.join("\n")
@@ -102,6 +106,13 @@ const formatIssueStatus = (status: IssueStatus): string => {
     `assignee: ${status.assignee?.name ?? "unassigned"}`,
     `blocked: ${status.blocked ? "yes" : "no"}`,
   ]
+  if (
+    status.description !== undefined &&
+    status.description !== null &&
+    status.description.trim().length > 0
+  ) {
+    lines.push("", status.description)
+  }
   const openBlockers = status.blockedBy.filter((blocker) => !blocker.closed)
   if (openBlockers.length > 0) {
     lines.push("open blockers:")
@@ -122,6 +133,18 @@ const formatIssueStatus = (status: IssueStatus): string => {
       ? "next child: none"
       : `next child: ${formatIssueLine(status.nextChild)}`,
   )
+  if (status.children !== undefined && status.children.length > 0) {
+    lines.push("children:")
+    for (const child of status.children) {
+      lines.push(`  ${child.identifier}  [${child.state.name}]  ${child.title}`)
+    }
+  }
+  if (status.comments !== undefined && status.comments.length > 0) {
+    lines.push("comments:")
+    for (const comment of status.comments) {
+      lines.push(...formatComment(comment))
+    }
+  }
   return lines.join("\n")
 }
 

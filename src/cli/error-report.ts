@@ -52,6 +52,7 @@ const errorRules: Record<string, ErrorRule> = {
   ProjectNotFoundError: { code: "not_found", hint: null },
   ProjectNameAmbiguousError: { code: "ambiguous", hint: null },
   CommentNotFoundError: { code: "not_found", hint: "Check the comment id." },
+  IssueRefNotFoundError: { code: "not_found", hint: "Check the reference and retry." },
   AssigneeInputError: {
     code: "validation",
     hint: "Use `me` or a user UUID. Run `rata team show --json` to see the members.",

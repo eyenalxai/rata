@@ -8,8 +8,10 @@ import type {
   IssueSearchOptions,
   IssueShowOptions,
   IssueStatus,
+  IssueStatusOptions,
   IssueSummary,
 } from "@/api/issue-model"
+import type { IssueRefNotFoundError } from "@/api/issue/batch"
 import type {
   AssigneeInputError,
   AssigneeNotFoundError,
@@ -25,28 +27,28 @@ import { collectsAllPages, sortAndLimitNodes, toSummary } from "@/api/issue-mode
 import { issueIdQuery, listQuery, searchQuery } from "@/api/issue-query"
 import { IssueIdResponse } from "@/api/issue-schema"
 import { ListResponse, SearchResponse } from "@/api/issue-schema/collection"
+import { parseBatchRefs, requireBatchRefs } from "@/api/issue/batch"
 import { resolveAssignee, validateNamedFilters } from "@/api/issue/filter-check"
 import { makeReadOperations } from "@/api/issue/read"
 import { toIssueStatus } from "@/api/issue/status"
-import { collectPages, lastPageInfo, pageOrDrain, pageSize } from "@/api/pagination"
+import { collectPages, lastPageInfo, maxPageSize, pageOrDrain, pageSize } from "@/api/pagination"
 import { RepoTeam } from "@/api/repo-team"
 import { isUuid, parseRefOrFail } from "@/domain/ref"
 import { closedStateTypes } from "@/domain/state"
 
+type IssueListError =
+  | LinearApiError
+  | InvalidIssueRef
+  | RepoConfigError
+  | TeamNotFoundError
+  | TeamResolutionError
+  | FilterNameNotFoundError
+  | AssigneeInputError
+  | AssigneeNotFoundError
+  | IssueRefNotFoundError
+
 type IssueApiShape = {
-  readonly list: (
-    options: IssueListOptions,
-  ) => Effect.Effect<
-    IssuePage,
-    | LinearApiError
-    | InvalidIssueRef
-    | RepoConfigError
-    | TeamNotFoundError
-    | TeamResolutionError
-    | FilterNameNotFoundError
-    | AssigneeInputError
-    | AssigneeNotFoundError
-  >
+  readonly list: (options: IssueListOptions) => Effect.Effect<IssuePage, IssueListError>
   readonly search: (
     term: string,
     options: IssueSearchOptions,
@@ -61,17 +63,8 @@ type IssueApiShape = {
   readonly summary: (ref: string) => Effect.Effect<IssueSummary, LinearApiError | InvalidIssueRef>
   readonly status: (
     ref: string,
-  ) => Effect.Effect<
-    IssueStatus,
-    | LinearApiError
-    | InvalidIssueRef
-    | RepoConfigError
-    | TeamNotFoundError
-    | TeamResolutionError
-    | FilterNameNotFoundError
-    | AssigneeInputError
-    | AssigneeNotFoundError
-  >
+    options: IssueStatusOptions,
+  ) => Effect.Effect<IssueStatus, IssueListError>
 }
 
 const projectRefFilter = (value: string): Record<string, unknown> =>
@@ -96,13 +89,23 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
         input: string,
       ) {
         const ref = yield* parseRefOrFail(input)
+        if (isUuid(ref)) {
+          return ref
+        }
         const data = yield* client.execute(issueIdQuery, { id: ref }, IssueIdResponse)
         return data.issue.id
       })
 
       const list = Effect.fn("IssueApi.list")(function* list(options: IssueListOptions) {
-        const teamId = yield* repoTeam.resolve(options.team)
-        const parts: Record<string, unknown>[] = [teamIdFilter(teamId)]
+        const requested = options.ids === undefined ? undefined : yield* parseBatchRefs(options.ids)
+        const teamId =
+          requested !== undefined && options.team === undefined
+            ? undefined
+            : yield* repoTeam.resolve(options.team)
+        const parts: Record<string, unknown>[] = []
+        if (teamId !== undefined) {
+          parts.push(teamIdFilter(teamId))
+        }
         if (options.state !== undefined) {
           parts.push({ state: { name: { eqIgnoreCase: options.state } } })
         }
@@ -138,12 +141,19 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
             { state: { type: { nin: closedStateTypes } } },
           )
         }
+        if (requested !== undefined) {
+          parts.push({ id: { in: requested } })
+        }
         const filter = composeFilter(parts)
         const query = listQuery(options.include === "relations")
-        const complete = (page: IssuePage) =>
-          page.issues.length === 0
+        const checkNames = (page: IssuePage) =>
+          page.issues.length === 0 && teamId !== undefined
             ? validateNamedFilters(client.execute, teamId, options).pipe(Effect.map(() => page))
             : Effect.succeed(page)
+        const complete = (page: IssuePage, nodes: readonly IssueSummary[], whole: boolean) =>
+          requested === undefined || !whole
+            ? checkNames(page)
+            : requireBatchRefs(requested, nodes).pipe(Effect.andThen(checkNames(page)))
 
         if (!collectsAllPages(options)) {
           const data = yield* client.execute(
@@ -151,10 +161,12 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
             { filter, first: options.limit, after: options.after },
             ListResponse,
           )
-          return yield* complete({
-            issues: data.issues.nodes.map(toSummary),
-            pageInfo: data.issues.pageInfo,
-          })
+          const issues = data.issues.nodes.map(toSummary)
+          return yield* complete(
+            { issues, pageInfo: data.issues.pageInfo },
+            issues,
+            options.after === null && !data.issues.pageInfo.hasNextPage,
+          )
         }
 
         const size = options.all === true ? options.limit : pageSize
@@ -168,10 +180,14 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
             .execute(query, { filter, first: size, after }, ListResponse)
             .pipe(Effect.map((page) => page.issues)),
         )
-        return yield* complete({
-          issues: sortAndLimitNodes(nodes, options).map(toSummary),
-          pageInfo: lastPageInfo,
-        })
+        return yield* complete(
+          {
+            issues: sortAndLimitNodes(nodes, options).map(toSummary),
+            pageInfo: lastPageInfo,
+          },
+          nodes.map(toSummary),
+          options.after === null,
+        )
       })
 
       const search = Effect.fn("IssueApi.search")(function* search(
@@ -199,17 +215,34 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
         }
       })
 
-      const status = Effect.fn("IssueApi.status")(function* status(input: string) {
-        const issue = yield* show(input, { comments: false, children: false })
-        const children = yield* list({
-          team: issue.team.id,
-          parent: input,
-          unblocked: true,
-          sort: "priority",
-          after: null,
-          limit: 1,
+      const status = Effect.fn("IssueApi.status")(function* status(
+        input: string,
+        options: IssueStatusOptions,
+      ) {
+        const issue = yield* show(input, {
+          comments: options.comments === true,
+          children: false,
         })
-        return toIssueStatus(issue, children.issues[0] ?? null)
+        const children =
+          options.children === true
+            ? yield* list({
+                team: issue.team.id,
+                parent: issue.id,
+                include: "relations",
+                sort: "priority",
+                after: null,
+                limit: maxPageSize,
+                all: true,
+              })
+            : yield* list({
+                team: issue.team.id,
+                parent: issue.id,
+                unblocked: true,
+                sort: "priority",
+                after: null,
+                limit: 1,
+              })
+        return toIssueStatus(issue, children.issues, options)
       })
 
       return IssueApi.of({ list, search, show, status, summary })
