@@ -161,19 +161,28 @@ describe("issue list --include relations", () => {
     expect(listRequests[0]?.query).toContain("inverseRelations(")
   })
 
-  test("caps each relation direction at the maximum page size", async () => {
-    const requests: ReturnType<typeof readBody>[] = []
-    const lines: string[] = []
+  test("keeps each relation direction at the measured safe bound on every documented page size", async () => {
+    const pages = await Promise.all(
+      [10, 25, 50].map(async (limit) => {
+        const requests: ReturnType<typeof readBody>[] = []
+        const lines: string[] = []
 
-    await runIssue(
-      relationHandler([rowWithRelations], requests),
-      ["list", "--include", "relations", "--json"],
-      lines,
+        await runIssue(
+          relationHandler([rowWithRelations], requests),
+          ["list", "--include", "relations", "--limit", String(limit), "--json"],
+          lines,
+        )
+
+        return { limit, requests }
+      }),
     )
 
-    expect(requests).toHaveLength(1)
-    expect(requests[0]?.query).toContain("relations(first: 250)")
-    expect(requests[0]?.query).toContain("inverseRelations(first: 250)")
+    for (const { limit, requests } of pages) {
+      expect(requests).toHaveLength(1)
+      expect(requests[0]?.variables.first).toBe(limit)
+      expect(requests[0]?.query).toContain("relations(first: 250)")
+      expect(requests[0]?.query).toContain("inverseRelations(first: 250)")
+    }
   })
 
   test("omits the relations key without the flag", async () => {

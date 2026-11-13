@@ -179,14 +179,6 @@ const LabelsResponse = Schema.Struct({
   issue: Schema.Struct({ labels: IssueLabelConnection }),
 })
 
-const RelationsResponse = Schema.Struct({
-  issue: Schema.Struct({ relations: IssueRelationConnection }),
-})
-
-const InverseRelationsResponse = Schema.Struct({
-  issue: Schema.Struct({ inverseRelations: IssueInverseRelationConnection }),
-})
-
 const CommentsResponse = Schema.Struct({
   issue: Schema.Struct({ comments: IssueCommentConnection }),
 })
@@ -264,16 +256,17 @@ export {
   CreateRelationResponse,
   DeleteCommentResponse,
   DeleteRelationResponse,
-  InverseRelationsResponse,
   type IssueAttachment,
   type IssueChild,
   type IssueComment,
   IssueIdResponse,
   type IssueInverseRelation,
+  IssueInverseRelationConnection,
   type IssueLabel,
   type IssueParent,
   type IssueProject,
   type IssueRelation,
+  IssueRelationConnection,
   type IssueState,
   IssueStatesResponse,
   IssueSummaryNode,
@@ -282,7 +275,6 @@ export {
   IssueTeamResponse,
   type IssueUser,
   LabelsResponse,
-  RelationsResponse,
   RemoveLabelResponse,
   ShowResponse,
   TeamStatesResponse,

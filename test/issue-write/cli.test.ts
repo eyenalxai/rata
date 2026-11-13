@@ -37,6 +37,8 @@ const issueIds: Readonly<Record<string, string>> = {
   "RAT-9": "i9",
 }
 
+const refNodes = Object.entries(issueIds).map(([identifier, id]) => ({ id, identifier }))
+
 const recorderFor = (current: WriteState) =>
   makeRecorder((request) => {
     if (request.query.includes("query IssueSummary")) {
@@ -57,6 +59,9 @@ const recorderFor = (current: WriteState) =>
       return jsonResponse({
         data: { issue: { id: issueIds[String(request.variables.id)] ?? "i9" } },
       })
+    }
+    if (request.query.includes("query IssueRefs")) {
+      return jsonResponse({ data: { issues: { nodes: refNodes, pageInfo } } })
     }
     if (request.query.includes("query IssueTeam")) {
       return jsonResponse({ data: { issue: { team: { id: "team-1" } } } })
@@ -79,15 +84,10 @@ const recorderFor = (current: WriteState) =>
         },
       })
     }
-    if (request.query.includes("query IssueRelations")) {
-      return jsonResponse({
-        data: { issue: { relations: { nodes: current.outgoing, pageInfo } } },
-      })
-    }
-    if (request.query.includes("query IssueInverseRelations")) {
-      return jsonResponse({
-        data: { issue: { inverseRelations: { nodes: current.incoming, pageInfo } } },
-      })
+    if (request.query.includes("query IssueRelationsWithInverse")) {
+      const relations = { nodes: current.outgoing, pageInfo }
+      const inverseRelations = { nodes: current.incoming, pageInfo }
+      return jsonResponse({ data: { issue: { relations, inverseRelations } } })
     }
     if (request.query.includes("mutation UpdateIssue")) {
       return jsonResponse({

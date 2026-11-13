@@ -58,6 +58,9 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
     input: string,
   ) {
     const ref = yield* parseRefOrFail(input)
+    if (isUuid(ref)) {
+      return ref
+    }
     const data = yield* client.execute(issueIdQuery, { id: ref }, IssueIdResponse)
     return data.issue.id
   })
@@ -268,7 +271,7 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
     },
   )
 
-  const relationResolvers = makeRelationResolvers({ client, resolveIssueId })
+  const relationResolvers = makeRelationResolvers({ client })
 
   return {
     ...relationResolvers,

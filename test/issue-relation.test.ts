@@ -8,11 +8,9 @@ import type { IssueInverseRelation, IssueRelation } from "@/api/issue-schema"
 
 import { IssueWriteApi } from "@/api/issue-write"
 
-const issueIds =
-  (ids: Readonly<Record<string, string>>) => (request: { variables: Record<string, unknown> }) =>
-    jsonResponse({ data: { issue: { id: ids[String(request.variables.id)] } } })
+const relationIds = { "RAT-5": "i5", "RAT-6": "i6", "RAT-7": "i7", "RAT-8": "i8" }
 
-const relationIds = { "RAT-5": "i5", "RAT-6": "i6", "RAT-7": "i7" }
+const refNodes = Object.entries(relationIds).map(([identifier, id]) => ({ id, identifier }))
 
 const outgoingRelation: IssueRelation = {
   id: "rel-out",
@@ -43,8 +41,18 @@ const handlerFor = (
   } = {},
 ) =>
   makeRecorder((request) => {
-    if (request.query.includes("query IssueId")) {
-      return issueIds(relationIds)(request)
+    if (request.query.includes("query IssueRefs")) {
+      return jsonResponse({ data: { issues: { nodes: refNodes, pageInfo } } })
+    }
+    if (request.query.includes("query IssueRelationsWithInverse")) {
+      return jsonResponse({
+        data: {
+          issue: {
+            relations: { nodes: relations.outgoing ?? [], pageInfo },
+            inverseRelations: { nodes: relations.incoming ?? [], pageInfo },
+          },
+        },
+      })
     }
     if (request.query.includes("query IssueRelations")) {
       return jsonResponse({

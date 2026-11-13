@@ -96,24 +96,6 @@ const labelsQuery = `query IssueLabels($id: String!, $first: Int!, $after: Strin
   }
 }`
 
-const relationsQuery = `query IssueRelations($id: String!, $first: Int!, $after: String) {
-  issue(id: $id) {
-    relations(first: $first, after: $after) {
-      nodes { id type relatedIssue { id identifier title state { name type } } }
-      pageInfo { hasNextPage endCursor }
-    }
-  }
-}`
-
-const inverseRelationsQuery = `query IssueInverseRelations($id: String!, $first: Int!, $after: String) {
-  issue(id: $id) {
-    inverseRelations(first: $first, after: $after) {
-      nodes { id type issue { id identifier title state { name type } } }
-      pageInfo { hasNextPage endCursor }
-    }
-  }
-}`
-
 const commentFields = `id body createdAt user { id name displayName }`
 
 const commentsQuery = `query IssueComments($id: String!, $first: Int!, $after: String) {
@@ -265,14 +247,12 @@ export {
   createRelationMutation,
   deleteCommentMutation,
   deleteRelationMutation,
-  inverseRelationsQuery,
   issueIdQuery,
   issueStatesQuery,
   issueSummaryQuery,
   issueTeamQuery,
   labelsQuery,
   listQuery,
-  relationsQuery,
   removeLabelMutation,
   searchQuery,
   showQuery,
