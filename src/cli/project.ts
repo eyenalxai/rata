@@ -5,6 +5,7 @@ import { EOL } from "node:os"
 import { ProjectService } from "@/api/project"
 import { RepoTeam } from "@/api/repo-team"
 import { confirm } from "@/cli/confirm"
+import { objectField, scalarField } from "@/cli/field/shape"
 import { OutputFields, readFields, rejectFields, selectItems } from "@/cli/fields"
 import { afterFlag, allFlag, limitFlag } from "@/cli/list-flags"
 import {
@@ -18,6 +19,14 @@ import {
 
 const optionalText = (name: string, description: string) =>
   Flag.String(name).pipe(Flag.withDescription(description), Flag.optional)
+
+const projectShape = objectField({
+  id: scalarField,
+  name: scalarField,
+  progress: scalarField,
+  status: objectField({ name: scalarField }),
+  trashed: scalarField,
+})
 
 const includeArchivedFlag = Flag.Boolean("include-archived").pipe(
   Flag.withDescription("Include trashed and archived projects"),
@@ -55,7 +64,7 @@ const listCommand = Command.make(
       })
       if (json) {
         yield* writeJson({
-          projects: yield* selectItems(fields, page.nodes),
+          projects: yield* selectItems(fields, projectShape, page.nodes),
           pageInfo: page.pageInfo,
         })
         return

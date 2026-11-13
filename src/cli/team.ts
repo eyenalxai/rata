@@ -6,6 +6,7 @@ import type { TeamDetail } from "@/api/team/details"
 
 import { TeamResolutionError, TeamService } from "@/api/team"
 import { confirm } from "@/cli/confirm"
+import { arrayField, objectField, scalarField } from "@/cli/field/shape"
 import { OutputFields, readFields, rejectFields, selectItems, selectObject } from "@/cli/fields"
 import { afterFlag, allFlag, limitFlag } from "@/cli/list-flags"
 import {
@@ -21,6 +22,50 @@ import { machineTimezone } from "@/domain/timezone"
 
 const optionalText = (name: string, description: string) =>
   Flag.String(name).pipe(Flag.withDescription(description), Flag.optional)
+
+const teamSummaryShape = objectField({
+  id: scalarField,
+  key: scalarField,
+  name: scalarField,
+  timezone: scalarField,
+})
+
+const teamDetailShape = objectField({
+  id: scalarField,
+  key: scalarField,
+  name: scalarField,
+  timezone: scalarField,
+  states: arrayField(
+    objectField({
+      id: scalarField,
+      name: scalarField,
+      type: scalarField,
+      position: scalarField,
+    }),
+  ),
+  labels: arrayField(
+    objectField({
+      id: scalarField,
+      name: scalarField,
+      color: scalarField,
+      scope: scalarField,
+    }),
+  ),
+  members: arrayField(
+    objectField({
+      id: scalarField,
+      name: scalarField,
+      displayName: scalarField,
+      email: scalarField,
+    }),
+  ),
+  priorities: arrayField(
+    objectField({
+      priority: scalarField,
+      label: scalarField,
+    }),
+  ),
+})
 
 const listCommand = Command.make(
   "list",
@@ -41,7 +86,7 @@ const listCommand = Command.make(
       })
       if (json) {
         yield* writeJson({
-          teams: yield* selectItems(fields, page.nodes),
+          teams: yield* selectItems(fields, teamSummaryShape, page.nodes),
           pageInfo: page.pageInfo,
         })
         return
@@ -185,7 +230,7 @@ const showCommand = Command.make(
       const teams = yield* TeamService
       const detail = yield* teams.details(ref)
       if (json) {
-        return yield* writeJson(yield* selectObject(fields, detail))
+        return yield* writeJson(yield* selectObject(fields, teamDetailShape, detail))
       }
       return yield* writeLine(showTeamText(detail))
     }).pipe(Effect.catch(reportFailure)),

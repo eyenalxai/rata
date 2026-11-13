@@ -3,7 +3,7 @@ import type { Option } from "effect"
 import { Effect } from "effect"
 
 import type { IssuePage, IssueSummary } from "@/api/issue-model"
-import type { FieldPath } from "@/cli/fields"
+import type { FieldPath, FieldShape } from "@/cli/field/shape"
 
 import { selectItems } from "@/cli/fields"
 import { nextPageHint, writeJson, writeLine } from "@/cli/output"
@@ -30,12 +30,13 @@ const writeHumanPage = (page: IssuePage): Effect.Effect<void> =>
 const writeIssuePage = (
   json: boolean,
   fields: Option.Option<readonly FieldPath[]>,
+  shape: FieldShape,
   page: IssuePage,
 ) =>
   Effect.gen(function* writePage() {
     if (json) {
       yield* writeJson({
-        issues: yield* selectItems(fields, page.issues),
+        issues: yield* selectItems(fields, shape, page.issues),
         pageInfo: page.pageInfo,
       })
       return

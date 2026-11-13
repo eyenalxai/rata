@@ -183,12 +183,16 @@ const reportFailure = (error: ReportedError) =>
     const classified = classifyError(error)
     const debug = yield* debugEnabled
     if (json) {
+      const details = {
+        ...classified.details,
+        ...(debug ? { cause: encodeCause(error.cause ?? error) } : {}),
+      }
       yield* writeJsonError({
         error: {
           code: classified.code,
           message: classified.message,
           hint: classified.hint,
-          ...(debug ? { details: encodeCause(error.cause ?? error) } : {}),
+          ...(Object.keys(details).length === 0 ? {} : { details }),
         },
       })
     } else {

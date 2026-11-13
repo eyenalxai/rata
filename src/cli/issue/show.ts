@@ -6,6 +6,7 @@ import type { IssueDetail } from "@/api/issue-model"
 import { IssueApi } from "@/api/issue"
 import { OutputFields, readFields, selectObject } from "@/cli/fields"
 import { formatIssueDetail, formatIssueSummary } from "@/cli/issue/format"
+import { issueDetailShape, issueSummaryShape } from "@/cli/issue/shape"
 import { JsonOutput, errorLine, reportFailure, writeJson, writeLine } from "@/cli/output"
 
 const refArgument = Argument.String("ref").pipe(
@@ -102,7 +103,7 @@ const showCommand = Command.make(
       if (config.summary) {
         const summary = yield* api.summary(config.ref)
         return json
-          ? yield* writeJson(yield* selectObject(fields, summary))
+          ? yield* writeJson(yield* selectObject(fields, issueSummaryShape, summary))
           : yield* writeLine(formatIssueSummary(summary))
       }
       const issue = yield* api.show(config.ref, {
@@ -111,9 +112,17 @@ const showCommand = Command.make(
         children: !config.noChildren,
         attachments: !config.noAttachments,
       })
-      return json
-        ? yield* writeJson(yield* selectObject(fields, detailOutput(issue, config)))
-        : yield* writeLine(formatIssueDetail(issue, !config.noBody))
+      if (!json) {
+        return yield* writeLine(formatIssueDetail(issue, !config.noBody))
+      }
+      const shape = issueDetailShape({
+        body: !config.noBody,
+        children: !config.noChildren,
+        relations: !config.noRelations,
+        attachments: !config.noAttachments,
+        comments: !skipsComments,
+      })
+      return yield* writeJson(yield* selectObject(fields, shape, detailOutput(issue, config)))
     }).pipe(Effect.catch(reportFailure)),
 ).pipe(
   Command.withDescription("Show one issue"),

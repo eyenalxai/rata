@@ -7,6 +7,7 @@ import type { DefaultsDocument } from "@/config/defaults"
 
 import { LinearClient } from "@/api/client"
 import { TeamService } from "@/api/team"
+import { arrayField, objectField, scalarField } from "@/cli/field/shape"
 import { OutputFields, readFields, selectObject } from "@/cli/fields"
 import { JsonOutput, reportFailure, warningLine, writeJson, writeLine } from "@/cli/output"
 import { Auth } from "@/config/auth"
@@ -47,6 +48,42 @@ type StatusDocument = {
 }
 
 const labelWidth = 11
+
+const defaultsShape = objectField({
+  assignee: scalarField,
+  labels: arrayField(scalarField),
+  priority: scalarField,
+})
+
+const statusShape = objectField({
+  repository: objectField({
+    root: scalarField,
+    linked: scalarField,
+  }),
+  workspace: objectField({
+    name: scalarField,
+    keySource: scalarField,
+  }),
+  viewer: objectField({
+    id: scalarField,
+    name: scalarField,
+    displayName: scalarField,
+    email: scalarField,
+    organization: objectField({
+      id: scalarField,
+      name: scalarField,
+      urlKey: scalarField,
+    }),
+  }),
+  team: objectField({
+    id: scalarField,
+    key: scalarField,
+    name: scalarField,
+  }),
+  project: scalarField,
+  defaults: defaultsShape,
+  warning: scalarField,
+})
 
 const row = (label: string, value: string): string =>
   `${label}${" ".repeat(labelWidth - label.length)}${value}`
@@ -102,7 +139,7 @@ const statusCommand = Command.make("status", {}, () =>
       warning,
     }
     if (json) {
-      return yield* writeJson(yield* selectObject(fields, document))
+      return yield* writeJson(yield* selectObject(fields, statusShape, document))
     }
     if (warning !== null) {
       yield* warningLine(warning)

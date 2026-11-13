@@ -156,7 +156,7 @@ describe("issue show output modes", () => {
     expect(lastJson(lines)).toEqual({ labels: [{ id: "l1", name: "ready-for-agent" }] })
   })
 
-  test("rejects a path into an array and names the array", async () => {
+  test("projects a scalar leaf through an array", async () => {
     const lines: string[] = []
     await runShow(
       summaryHandler,
@@ -164,14 +164,7 @@ describe("issue show output modes", () => {
       lines,
     )
 
-    const error = Option.getOrThrow(
-      Schema.decodeUnknownOption(
-        Schema.Struct({ error: Schema.Struct({ code: Schema.String, hint: Schema.String }) }),
-      )(lastJson(lines)),
-    )
-    expect(error.error.code).toBe("validation")
-    expect(error.error.hint).toContain("labels")
-    expect(process.exitCode).toBe(2)
+    expect(lastJson(lines)).toEqual({ labels: ["ready-for-agent"] })
   })
 
   test("--no-body omits the description but keeps the full read", async () => {

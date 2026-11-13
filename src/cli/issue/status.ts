@@ -4,6 +4,7 @@ import { Argument, Command } from "effect/cli"
 import { IssueApi } from "@/api/issue"
 import { OutputFields, readFields, selectObject } from "@/cli/fields"
 import { formatIssueStatus } from "@/cli/issue/format"
+import { issueStatusShape } from "@/cli/issue/shape"
 import { JsonOutput, reportFailure, writeJson, writeLine } from "@/cli/output"
 
 const refArgument = Argument.String("ref").pipe(
@@ -17,7 +18,7 @@ const statusCommand = Command.make("status", { ref: refArgument }, (config) =>
     const api = yield* IssueApi
     const result = yield* api.status(config.ref)
     return json
-      ? yield* writeJson(yield* selectObject(fields, result))
+      ? yield* writeJson(yield* selectObject(fields, issueStatusShape, result))
       : yield* writeLine(formatIssueStatus(result))
   }).pipe(Effect.catch(reportFailure)),
 ).pipe(

@@ -4,6 +4,7 @@ import { Argument, Command } from "effect/cli"
 import { IssueApi } from "@/api/issue"
 import { isBlocked, toBlockers, toIssueSummary } from "@/api/issue-model"
 import { OutputFields, readFields, selectObject } from "@/cli/fields"
+import { issueWhyShape } from "@/cli/issue/shape"
 import { JsonOutput, reportFailure, writeJson, writeLine } from "@/cli/output"
 
 const refArgument = Argument.String("ref").pipe(
@@ -24,7 +25,7 @@ const whyCommand = Command.make("why", { ref: refArgument }, (config) =>
         blocked,
         blockedBy,
       }
-      return yield* writeJson(yield* selectObject(fields, document))
+      return yield* writeJson(yield* selectObject(fields, issueWhyShape, document))
     }
     if (!blocked) {
       return yield* writeLine(`${issue.identifier} is ready.`)
