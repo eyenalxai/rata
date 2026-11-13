@@ -15,8 +15,9 @@ import type { Section } from "@/domain/body/section/model"
 
 import { updateIssueMutation } from "@/api/issue-query"
 import { UpdateIssueResponse } from "@/api/issue-schema"
-import { IssueBodyResponse, issueBodyQuery } from "@/api/issue-write/body/query"
+import { ensureUnchanged, makeReadIssueBody } from "@/api/issue-write/body/snapshot"
 import { unwrapIssue } from "@/api/issue-write/model"
+import { makeUpdateFields } from "@/api/issue-write/update-fields"
 import { unifiedDiff } from "@/domain/body/diff"
 import { readSection as readSectionText } from "@/domain/body/section"
 import {
@@ -24,9 +25,7 @@ import {
   replaceSection as replaceInText,
 } from "@/domain/body/section/edit"
 import { normalizeLineEndings } from "@/domain/body/text"
-import { ConflictError } from "@/domain/conflict"
 import { toPriority } from "@/domain/priority"
-import { parseRefOrFail } from "@/domain/ref"
 
 type BodyDependencies = {
   readonly client: LinearClient["Service"]
@@ -38,21 +37,6 @@ type SectionTransform = (
   heading: string,
   content: string,
 ) => ReturnType<typeof replaceInText>
-
-const ensureUnchanged = (
-  identifier: string,
-  current: string,
-  expected: string | undefined,
-): Effect.Effect<void, ConflictError> =>
-  expected === undefined || current === expected
-    ? Effect.void
-    : Effect.fail(
-        new ConflictError({
-          expected,
-          current,
-          message: `${identifier} changed since you read it.`,
-        }),
-      )
 
 const appendBody = (current: string, addition: string): string => {
   const base = normalizeLineEndings(current).trimEnd()
@@ -87,13 +71,8 @@ const updateChanges = (options: IssueUpdateOptions): Readonly<Record<string, unk
 }
 
 const makeBodyWrites = ({ client, resolvers }: BodyDependencies) => {
-  const readIssueBody = Effect.fn("IssueWriteApi.readIssueBody")(function* readIssueBody(
-    input: string,
-  ) {
-    const ref = yield* parseRefOrFail(input)
-    const data = yield* client.execute(issueBodyQuery, { id: ref }, IssueBodyResponse)
-    return data.issue
-  })
+  const readIssueBody = makeReadIssueBody(client)
+  const resolveUpdateFields = makeUpdateFields(resolvers)
 
   const writeBody = Effect.fn("IssueWriteApi.writeBody")(function* writeBody(
     issueId: string,
@@ -186,30 +165,12 @@ const makeBodyWrites = ({ client, resolvers }: BodyDependencies) => {
     if (issueBody !== undefined) {
       yield* ensureUnchanged(issueBody.identifier, issueBody.updatedAt, writeOptions.ifUnchanged)
     }
-    const input: Record<string, unknown> = {}
-    if (options.title !== undefined) {
-      input.title = options.title
-    }
+    const input = yield* resolveUpdateFields(issueId, options)
     if (options.body !== undefined) {
       input.description =
         options.append === true
           ? appendBody(issueBody?.description ?? "", options.body)
           : options.body
-    }
-    if (options.state !== undefined) {
-      input.stateId = yield* resolvers.issueStateIdByName(issueId, options.state)
-    }
-    if (options.assignee !== undefined) {
-      input.assigneeId = yield* resolvers.resolveAssignee(options.assignee)
-    }
-    if (options.project !== undefined) {
-      input.projectId = yield* resolvers.resolveProjectId(options.project)
-    }
-    if (options.parent !== undefined) {
-      input.parentId = yield* resolvers.resolveIssueId(options.parent)
-    }
-    if (options.priority !== undefined) {
-      input.priority = options.priority
     }
     return { issueId, input, issueBody }
   })

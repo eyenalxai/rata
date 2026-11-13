@@ -18,22 +18,28 @@ const terminal = Terminal.make({
   display: () => Effect.void,
 })
 
+type CliOptions = Omit<ApiLayerOptions, "repositories" | "stdio"> & {
+  readonly stdio?: Partial<Stdio.Stdio> | undefined
+}
+
 const cliLayer = (
   handler: Handler,
   args: readonly string[],
   lines: string[],
   repositories?: ApiLayerOptions["repositories"],
-  options: Omit<ApiLayerOptions, "repositories" | "stdio"> = {},
-) =>
-  Layer.mergeAll(
+  options: CliOptions = {},
+) => {
+  const { stdio, ...rest } = options
+  const stdioOptions = { ...stdio, args: Effect.succeed(args) }
+  return Layer.mergeAll(
     apiLayer(handler, {
-      ...options,
-      stdio: { args: Effect.succeed(args) },
+      ...rest,
+      stdio: stdioOptions,
       ...(repositories === undefined ? {} : { repositories }),
     }),
     FileSystem.layerNoop({}),
     Path.layer,
-    Stdio.layerTest({ args: Effect.succeed(args) }),
+    Stdio.layerTest(stdioOptions),
     Layer.succeed(Terminal.Terminal, terminal),
     Layer.succeed(
       ChildProcessSpawner.ChildProcessSpawner,
@@ -41,6 +47,7 @@ const cliLayer = (
     ),
     Layer.succeed(Console.Console, recordingConsole(lines)),
   )
+}
 
 const lastJson = (lines: readonly string[]): unknown => JSON.parse(lines.at(-1) ?? "")
 
@@ -56,7 +63,7 @@ const runIssue = (
   args: readonly string[],
   lines: string[],
   repositories: ApiLayerOptions["repositories"] = defaultRepositories,
-  options: Omit<ApiLayerOptions, "repositories" | "stdio"> = {},
+  options: CliOptions = {},
 ) =>
   Command.run(issueCommand, { version: "test" }).pipe(
     Effect.provide(cliLayer(handler, args, lines, repositories, options)),
@@ -68,7 +75,7 @@ const runRoot = (
   args: readonly string[],
   lines: string[],
   repositories: ApiLayerOptions["repositories"] = defaultRepositories,
-  options: Omit<ApiLayerOptions, "repositories" | "stdio"> = {},
+  options: CliOptions = {},
 ) =>
   runCli("test").pipe(
     Effect.provide(cliLayer(handler, args, lines, repositories, options)),

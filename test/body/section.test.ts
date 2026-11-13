@@ -2,7 +2,12 @@ import { describe, expect, test } from "bun:test"
 import { Result } from "effect"
 
 import { parseSections, readSection } from "@/domain/body/section"
-import { appendSection, replaceSection } from "@/domain/body/section/edit"
+import {
+  appendSection,
+  replaceSection,
+  replaceSections,
+  SectionBatchError,
+} from "@/domain/body/section/edit"
 import { SectionAmbiguousError, SectionNotFoundError } from "@/domain/body/section/model"
 
 const success = (result: Result.Result<string, unknown>): string => {
@@ -218,5 +223,75 @@ describe("replaceSection", () => {
 
   test("keeps the body trailing newline", () => {
     expect(success(replaceSection("## A\n\nOld.\n", "A", "New."))).toBe("## A\n\nNew.\n")
+  })
+})
+
+describe("replaceSections", () => {
+  test("replaces several sections in one pass", () => {
+    const result = Result.getOrThrow(
+      replaceSections("## A\n\nOld A.\n\n## B\n\nOld B.\n", [
+        { heading: "A", content: "New A." },
+        { heading: "B", content: "New B." },
+      ]),
+    )
+
+    expect(result.body).toBe("## A\n\nNew A.\n\n## B\n\nNew B.\n")
+    expect(result.sections).toEqual([
+      { heading: "A", action: "replaced" },
+      { heading: "B", action: "replaced" },
+    ])
+  })
+
+  test("reports an unchanged section as skipped", () => {
+    const result = Result.getOrThrow(
+      replaceSections("## A\n\nSame.\n\n## B\n\nOld.\n", [
+        { heading: "A", content: "Same." },
+        { heading: "B", content: "New." },
+      ]),
+    )
+
+    expect(result.sections).toEqual([
+      { heading: "A", action: "skipped" },
+      { heading: "B", action: "replaced" },
+    ])
+    expect(result.body).toBe("## A\n\nSame.\n\n## B\n\nNew.\n")
+  })
+
+  test("fails on a missing heading with the available headings", () => {
+    const error = failure(
+      replaceSections("## A\n\nx\n\n## B\n\ny\n", [{ heading: "C", content: "z" }]),
+    )
+
+    expect(error).toBeInstanceOf(SectionBatchError)
+    expect(error).toMatchObject({
+      reason: "missing",
+      heading: "C",
+      available: ["A", "B"],
+    })
+  })
+
+  test("fails on a duplicate heading in the input", () => {
+    const error = failure(
+      replaceSections("## A\n\nx\n", [
+        { heading: "A", content: "one" },
+        { heading: "A", content: "two" },
+      ]),
+    )
+
+    expect(error).toMatchObject({ reason: "duplicate", heading: "A" })
+  })
+
+  test("fails on a duplicate heading in the body", () => {
+    const error = failure(
+      replaceSections("## A\n\nx\n\n## A\n\ny\n", [{ heading: "A", content: "z" }]),
+    )
+
+    expect(error).toMatchObject({ reason: "duplicate", heading: "A" })
+  })
+
+  test("fails on an empty heading", () => {
+    const error = failure(replaceSections("## A\n\nx\n", [{ heading: "  ", content: "z" }]))
+
+    expect(error).toMatchObject({ reason: "empty" })
   })
 })

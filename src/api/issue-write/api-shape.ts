@@ -21,8 +21,12 @@ import type {
   CommentUpdateResult,
   IssueCreateOptions,
   IssueCreateResult,
+  IssueSectionReplacement,
   IssueUpdateOptions,
   IssueUpdatePlan,
+  IssueUpdateSectionsOptions,
+  IssueUpdateSectionsPlan,
+  IssueUpdateSectionsResult,
   IssueUpdateWriteOptions,
   SectionWriteOptions,
   SectionWriteResult,
@@ -70,6 +74,18 @@ type IssueWriteApiShape = {
     options: IssueUpdateOptions,
     writeOptions?: IssueUpdateWriteOptions,
   ) => Effect.Effect<IssueUpdatePlan, IssueWriteApiError>
+  readonly updateSections: (
+    ref: string,
+    options: IssueUpdateSectionsOptions,
+    sections: readonly IssueSectionReplacement[],
+    writeOptions?: IssueUpdateWriteOptions,
+  ) => Effect.Effect<IssueUpdateSectionsResult, IssueWriteApiError>
+  readonly planUpdateSections: (
+    ref: string,
+    options: IssueUpdateSectionsOptions,
+    sections: readonly IssueSectionReplacement[],
+    writeOptions?: IssueUpdateWriteOptions,
+  ) => Effect.Effect<IssueUpdateSectionsPlan, IssueWriteApiError>
   readonly readSection: (ref: string, heading: string) => Effect.Effect<Section, IssueWriteApiError>
   readonly appendSection: (
     ref: string,

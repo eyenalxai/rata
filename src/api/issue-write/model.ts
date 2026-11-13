@@ -7,6 +7,7 @@ import type { LabelNotFoundError } from "@/api/label"
 import type { ProjectNotFoundError } from "@/api/project/errors"
 import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
+import type { SectionBatchError } from "@/domain/body/section/edit"
 import type { SectionLookupError } from "@/domain/body/section/model"
 import type { ConflictError } from "@/domain/conflict"
 import type { InvalidIssueRef } from "@/domain/ref"
@@ -144,6 +145,7 @@ type IssueWriteApiError =
   | LinearApiError
   | ProjectNotFoundError
   | RepoConfigError
+  | SectionBatchError
   | SectionLookupError
   | StateNotFoundError
   | TeamNotFoundError

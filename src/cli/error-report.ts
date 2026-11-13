@@ -135,25 +135,32 @@ const filterNameReport = (error: ReportedError): ErrorReport => {
   }
 }
 
-const sectionReport = (error: ReportedError): ErrorReport => {
-  const available: unknown = Reflect.get(error, "available")
+const availableHeadingsHint = (available: unknown): string => {
   const headings =
     Array.isArray(available) && available.every((item) => typeof item === "string") ? available : []
-  return {
-    code: "not_found",
-    message: error.message,
-    hint:
-      headings.length === 0
-        ? "The issue body has no headings."
-        : `Available headings: ${headings.map((heading) => `"${heading}"`).join(", ")}.`,
-  }
+  return headings.length === 0
+    ? "The issue body has no headings."
+    : `Available headings: ${headings.map((heading) => `"${heading}"`).join(", ")}.`
 }
 
 const classifyError = (error: ReportedError): ErrorReport => {
   const message = error.message
   const tag = tagOf(error)
   if (tag === "SectionNotFoundError") {
-    return sectionReport(error)
+    return {
+      code: "not_found",
+      message,
+      hint: availableHeadingsHint(Reflect.get(error, "available")),
+    }
+  }
+  if (tag === "SectionBatchError") {
+    const reason: unknown = Reflect.get(error, "reason")
+    return {
+      code:
+        reason === "missing" ? "not_found" : reason === "duplicate" ? "ambiguous" : "validation",
+      message,
+      hint: availableHeadingsHint(Reflect.get(error, "available")),
+    }
   }
   if (tag === "FieldSelectionError") {
     return fieldSelectionReport(error, message)

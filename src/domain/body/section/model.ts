@@ -186,6 +186,7 @@ const publicSection = (section: ParsedSection): Section => ({
 
 export {
   ambiguousError,
+  availableHeadings,
   findMatches,
   isBlank,
   type ParsedBody,
