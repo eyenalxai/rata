@@ -76,7 +76,7 @@ const appLayer = Layer.mergeAll(
   helpLayer,
 )
 
-const program = runCli("0.9.0").pipe(
+const program = runCli("0.10.0").pipe(
   Effect.catchIf(CliError.isCliError, reportCliError),
   // oxlint-disable-next-line effecttsgo/strict-effect-provide -- This is the application entry point; it owns the layer graph.
   Effect.provide(appLayer),

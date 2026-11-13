@@ -5,8 +5,10 @@ first command, the canonical forms, the read loop, the write loop and the
 errors. This file covers this repository's facts.
 
 - **Team**: the repository link stores the team and the default project;
-  `rata status --json` prints them. Do not pass `--team` for work in this
-  repository, which does not use Linear projects: a spec is an issue.
+  `rata status --json` prints them. A read repairs a renamed team key and warns;
+  if the team is gone, the error or `status` names the repair. Do not pass
+  `--team` for work in this repository, which does not use Linear projects: a
+  spec is an issue.
 - **Labels**: the triage roles map to label strings in
   `docs/agents/triage-labels.md`. Read that file before you apply a label; the
   role name is not always the label string.
@@ -29,6 +31,8 @@ tickets are child issues.
 - **Publish the spec**: `rata issue create --title "<title>" --label ready-for-agent --priority medium --assignee me --body-file -`
 - **Publish a ticket**: `rata issue create --title "<title>" --parent <spec-ref> --label ready-for-agent --priority medium --assignee me --body-file -`
 - **Wire blocking**: `rata issue link <ticket-ref> --blocked-by <blocker-ref>`.
+- **Start a ticket**: `rata issue status <ticket-ref> --json --with-body`. The read carries the description, blockers, pull requests and next child.
+- **Read a known set**: `rata issue list --id <ref> --id <ref> --json`.
 - **Implement**: `rata issue list --parent <spec-ref> --all --json --include relations`. Each row carries its blocking edges.
 - **Close the spec**: `rata issue close <spec-ref> --comment "<result>"`.
 
