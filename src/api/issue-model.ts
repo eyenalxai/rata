@@ -89,11 +89,25 @@ type IssueBlocker = {
   readonly closed: boolean
 }
 
+type IssueStatusChild = IssueSummary & {
+  readonly blocked: boolean
+  readonly blockedBy: readonly IssueBlocker[]
+}
+
 type IssueStatus = IssueSummary & {
   readonly blocked: boolean
   readonly blockedBy: readonly IssueBlocker[]
   readonly prs: readonly PullRequest[]
   readonly nextChild: IssueSummary | null
+  readonly description?: string | null | undefined
+  readonly comments?: readonly IssueComment[] | undefined
+  readonly children?: readonly IssueStatusChild[] | undefined
+}
+
+type IssueStatusOptions = {
+  readonly withBody?: boolean | undefined
+  readonly comments?: boolean | undefined
+  readonly children?: boolean | undefined
 }
 
 type IssueListOptions = PageOptions & {
@@ -108,6 +122,7 @@ type IssueListOptions = PageOptions & {
   readonly text?: string | undefined
   readonly unblocked?: boolean | undefined
   readonly unassigned?: boolean | undefined
+  readonly ids?: readonly string[] | undefined
   readonly include?: ListInclude | undefined
   readonly sort?: SortField | undefined
 }
@@ -247,6 +262,8 @@ export {
   type IssueSearchOptions,
   type IssueShowOptions,
   type IssueStatus,
+  type IssueStatusChild,
+  type IssueStatusOptions,
   type IssueSummary,
   isBlocked,
   isListInclude,

@@ -37,6 +37,11 @@ const listCommand = Command.make(
     assignee: optionalText("assignee", "Filter by assignee: `me` or a user id"),
     project: optionalText("project", "Filter by project id or name"),
     parent: optionalText("parent", "Filter by parent issue reference"),
+    id: Flag.atLeast(Flag.String("id"), 0).pipe(
+      Flag.withDescription(
+        "Read exact issue references. Repeat for a batch; exact refs bypass the linked team",
+      ),
+    ),
     text: optionalText("text", "Filter by text in the title or the description"),
     unblocked: Flag.Boolean("unblocked").pipe(
       Flag.withDescription("Keep only open issues with no open blocker"),
@@ -86,6 +91,7 @@ const listCommand = Command.make(
         assignee: Option.getOrUndefined(config.assignee),
         project: Option.getOrUndefined(config.project),
         parent: Option.getOrUndefined(config.parent),
+        ids: config.id.length === 0 ? undefined : config.id,
         text: Option.getOrUndefined(config.text),
         unblocked: config.unblocked,
         unassigned: config.unassigned,
@@ -116,6 +122,10 @@ const listCommand = Command.make(
     {
       command: "rata issue list --parent RAT-1 --include relations --json",
       description: "List a map with the blocking edges of each child",
+    },
+    {
+      command: "rata issue list --id RAT-42 --id RAT-43 --json",
+      description: "Read a known set of issues in one list call",
     },
     {
       command: "rata issue list --all --json",

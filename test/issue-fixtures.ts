@@ -70,7 +70,7 @@ const attachment = {
 }
 
 const baseDetail = {
-  id: "i1",
+  id: "6f1c2a3b-4d5e-4f60-8a9b-0c1d2e3f4a5b",
   identifier: "RAT-1",
   title: "The issue",
   description: "Body",

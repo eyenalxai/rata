@@ -132,13 +132,29 @@ const issuePullRequestShape = objectField({
   mergeCommit: scalarField,
 })
 
-const issueStatusShape = objectField({
+const issueStatusChildShape = objectField({
   ...issueSummaryFields,
   blocked: scalarField,
   blockedBy: arrayField(issueBlockerShape),
-  prs: arrayField(issuePullRequestShape),
-  nextChild: issueSummaryShape,
 })
+
+type IssueStatusShapeOptions = {
+  readonly body: boolean
+  readonly comments: boolean
+  readonly children: boolean
+}
+
+const issueStatusShape = (options: IssueStatusShapeOptions): FieldShape =>
+  objectField({
+    ...issueSummaryFields,
+    blocked: scalarField,
+    blockedBy: arrayField(issueBlockerShape),
+    prs: arrayField(issuePullRequestShape),
+    nextChild: issueSummaryShape,
+    ...(options.body ? { description: scalarField } : {}),
+    ...(options.comments ? { comments: arrayField(issueCommentShape) } : {}),
+    ...(options.children ? { children: arrayField(issueStatusChildShape) } : {}),
+  })
 
 const issueWhyShape = objectField({
   ...issueSummaryFields,
@@ -151,6 +167,7 @@ export {
   issueDetailShape,
   type IssueDetailShapeOptions,
   issueStatusShape,
+  type IssueStatusShapeOptions,
   issueSummaryRelationsShape,
   issueSummaryShape,
   issueWhyShape,
