@@ -23,6 +23,7 @@ import {
   writeJson,
   writeLine,
 } from "@/cli/output"
+import { commentId } from "@/domain/id"
 
 const commentIdArgument = Argument.String("comment-id").pipe(Argument.withDescription("Comment id"))
 
@@ -142,7 +143,7 @@ const updateCommand = Command.make(
         return yield* requireCommentFlag(config.body, config.bodyFile)
       }
       const api = yield* IssueWriteApi
-      const result = yield* api.commentUpdate(config.commentId, body.value, {
+      const result = yield* api.commentUpdate(commentId(config.commentId), body.value, {
         dryRun: config.dryRun,
       })
       if (result.dryRun) {
@@ -197,7 +198,7 @@ const deleteCommand = Command.make(
         )
       }
       const api = yield* IssueWriteApi
-      const plan = yield* api.planCommentDelete(config.commentId)
+      const plan = yield* api.planCommentDelete(commentId(config.commentId))
       if (config.dryRun) {
         return yield* json
           ? writeJson({
@@ -214,7 +215,7 @@ const deleteCommand = Command.make(
           return yield* writeLine("Aborted.")
         }
       }
-      const result = yield* api.commentDelete(config.commentId)
+      const result = yield* api.commentDelete(commentId(config.commentId))
       if (json) {
         return yield* writeJson({ deleted: true, id: result.commentId })
       }

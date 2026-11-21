@@ -44,13 +44,4 @@ const PlanStep = Schema.Struct({
 })
 type PlanStep = typeof PlanStep.Type
 
-export {
-  type PlanActionName,
-  type PlanStatus,
-  PlanAction,
-  PlanActionNameSchema,
-  planActionNames,
-  PlanStatusSchema,
-  planStatuses,
-  PlanStep,
-}
+export { type PlanActionName, type PlanStatus, PlanAction, PlanStep }

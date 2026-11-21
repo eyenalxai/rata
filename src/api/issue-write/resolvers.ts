@@ -7,7 +7,7 @@ import type {
   IssueWriteDependencies,
   ResolvedLabel,
 } from "@/api/issue-write/model"
-import type { LabelId, ProjectId, TeamId, UserId, WorkflowStateId } from "@/domain/id"
+import type { IssueId, LabelId, ProjectId, TeamId, UserId, WorkflowStateId } from "@/domain/id"
 import type { StateType, WorkflowStateNode } from "@/domain/workflow-state"
 
 import { toSummary } from "@/api/issue-model"
@@ -73,7 +73,7 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
   })
 
   const collectIssueLabels = Effect.fn("IssueWriteApi.collectIssueLabels")(
-    function* collectIssueLabels(issueId: string) {
+    function* collectIssueLabels(issueId: IssueId) {
       return yield* collectConnection((after) =>
         client
           .execute(labelsQuery, { id: issueId, first: pageSize, after }, LabelsResponse)
@@ -95,7 +95,7 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
   )
 
   const setAssignee = Effect.fn("IssueWriteApi.setAssignee")(function* setAssignee(
-    issueId: string,
+    issueId: IssueId,
     assigneeId: UserId | null,
   ) {
     const data = yield* client.execute(
@@ -107,7 +107,7 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
   })
 
   const addLabel = Effect.fn("IssueWriteApi.addLabel")(function* addLabel(
-    issueId: string,
+    issueId: IssueId,
     labelId: LabelId,
   ) {
     const data = yield* client.execute(addLabelMutation, { id: issueId, labelId }, AddLabelResponse)
@@ -115,7 +115,7 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
   })
 
   const removeLabel = Effect.fn("IssueWriteApi.removeLabel")(function* removeLabel(
-    issueId: string,
+    issueId: IssueId,
     labelId: LabelId,
   ) {
     const data = yield* client.execute(
@@ -130,7 +130,7 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
     value: string,
   ): Effect.fn.Return<UserId, LinearApiError> {
     if (value.toLowerCase() === "me") {
-      return asUserId((yield* client.viewer).id)
+      return (yield* client.viewer).id
     }
     return asUserId(value)
   })
@@ -139,7 +139,7 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
     UserId,
     LinearApiError
   > {
-    return asUserId((yield* client.viewer).id)
+    return (yield* client.viewer).id
   })
 
   const resolveProjectId = Effect.fn("IssueWriteApi.resolveProjectId")(function* resolveProjectId(
@@ -203,7 +203,7 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
   )
 
   const issueStates = Effect.fn("IssueWriteApi.issueStates")(function* issueStates(
-    issueId: string,
+    issueId: IssueId,
   ) {
     const first = yield* client.execute(
       issueStatesQuery,
@@ -220,14 +220,14 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
   })
 
   const issueStateIdByName = Effect.fn("IssueWriteApi.issueStateIdByName")(
-    function* issueStateIdByName(issueId: string, name: string) {
+    function* issueStateIdByName(issueId: IssueId, name: string) {
       const team = yield* issueStates(issueId)
       return yield* stateIdByName(team.states, team.teamId, name)
     },
   )
 
   const setStateByType = Effect.fn("IssueWriteApi.setStateByType")(function* setStateByType(
-    issueId: string,
+    issueId: IssueId,
     type: StateType,
   ) {
     const team = yield* issueStates(issueId)
@@ -258,7 +258,7 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
   })
 
   const postComment = Effect.fn("IssueWriteApi.postComment")(function* postComment(
-    issueId: string,
+    issueId: IssueId,
     body: string,
   ) {
     const data = yield* client.execute(
@@ -270,7 +270,7 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
   })
 
   const resolveIssueTeamId = Effect.fn("IssueWriteApi.resolveIssueTeamId")(
-    function* resolveIssueTeamId(issueId: string) {
+    function* resolveIssueTeamId(issueId: IssueId) {
       const data = yield* client.execute(issueTeamQuery, { id: issueId }, IssueTeamResponse)
       return data.issue.team.id
     },

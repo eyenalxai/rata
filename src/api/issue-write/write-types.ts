@@ -1,7 +1,8 @@
 import type { IssueSummary } from "@/api/issue-model"
 import type { IssueComment } from "@/api/issue-schema"
+import type { CommentId } from "@/domain/id"
 import type { Priority } from "@/domain/priority"
-import type { SectionReplacement, SectionReplacementAction } from "@/domain/section"
+import type { SectionReplacementAction } from "@/domain/section"
 
 type VisibilityOptions = {
   readonly waitSeconds?: number | undefined
@@ -65,7 +66,7 @@ type IssueUpdateSectionsResult = {
 }
 
 type CommentCreateOptions = VisibilityOptions & {
-  readonly id?: string | undefined
+  readonly id?: CommentId | undefined
   readonly dedupeKey?: string | undefined
 }
 
@@ -76,7 +77,7 @@ type CommentCreatePlan = {
   readonly changes: {
     readonly body: string
     readonly dedupeKey?: string | undefined
-    readonly commentId?: string | undefined
+    readonly commentId?: CommentId | undefined
   }
 }
 
@@ -111,7 +112,7 @@ type CommentDeletePlan = {
 
 type CommentDeleteResult = {
   readonly status: "deleted"
-  readonly commentId: string
+  readonly commentId: CommentId
 }
 
 type SectionWriteOptions = {
@@ -156,8 +157,6 @@ export {
   type IssueUpdateWriteOptions,
   type SectionWriteOptions,
   type SectionWriteResult,
-  type SectionReplacement,
-  type SectionReplacementAction,
   type VisibilityOptions,
   type WriteVisibility,
 }

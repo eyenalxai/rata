@@ -19,6 +19,7 @@ import type {
 } from "@/api/issue/filter-check"
 import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
+import type { UserId } from "@/domain/id"
 import type { InvalidIssueRef } from "@/domain/issue-ref"
 
 import { LinearClient } from "@/api/client"
@@ -33,7 +34,7 @@ import { makeReadOperations } from "@/api/issue/read"
 import { toIssueStatus } from "@/api/issue/status"
 import { collectPages, lastPageInfo, maxPageSize, pageOrDrain } from "@/api/pagination"
 import { RepoTeam } from "@/api/repo-team"
-import { isUuid } from "@/domain/id"
+import { isUuid, issueId } from "@/domain/id"
 import { parseRefOrFail } from "@/domain/issue-ref"
 import { priorityValue } from "@/domain/priority"
 import { closedStateTypes } from "@/domain/workflow-state"
@@ -82,7 +83,7 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
 
       const resolveAssigneeId = (
         value: string,
-      ): Effect.Effect<string, LinearApiError | AssigneeInputError | AssigneeNotFoundError> =>
+      ): Effect.Effect<UserId, LinearApiError | AssigneeInputError | AssigneeNotFoundError> =>
         value.toLowerCase() === "me"
           ? client.viewer.pipe(Effect.map((viewer) => viewer.id))
           : resolveAssignee(client.execute, value)
@@ -92,7 +93,7 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
       ) {
         const ref = yield* parseRefOrFail(input)
         if (isUuid(ref)) {
-          return ref
+          return issueId(ref)
         }
         const data = yield* client.execute(issueIdQuery, { id: ref }, IssueIdResponse)
         return data.issue.id

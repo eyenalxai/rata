@@ -6,7 +6,7 @@ import type { IssueListOptions } from "@/api/issue-model"
 import type { TeamId } from "@/domain/id"
 
 import { collectConnection, PageInfo, pageSize } from "@/api/pagination"
-import { isUuid } from "@/domain/id"
+import { isUuid, UserId, userId } from "@/domain/id"
 
 const filterNames = ["state", "label", "project"] as const
 type FilterName = (typeof filterNames)[number]
@@ -30,7 +30,7 @@ const ProjectConnection = Schema.Struct({
 })
 
 const UserConnection = Schema.Struct({
-  nodes: Schema.Array(Schema.Struct({ id: Schema.String })),
+  nodes: Schema.Array(Schema.Struct({ id: UserId })),
 })
 const UserResponse = Schema.Struct({ users: UserConnection })
 
@@ -80,7 +80,7 @@ class AssigneeInputError extends Schema.TaggedError<AssigneeInputError>()("Assig
 class AssigneeNotFoundError extends Schema.TaggedError<AssigneeNotFoundError>()(
   "AssigneeNotFoundError",
   {
-    id: Schema.String,
+    id: UserId,
     message: Schema.String,
   },
 ) {}
@@ -185,7 +185,7 @@ const resolveAssignee = Effect.fn("IssueFilters.resolveAssignee")(function* reso
   const user = data.users.nodes[0]
   if (user === undefined) {
     return yield* new AssigneeNotFoundError({
-      id: value,
+      id: userId(value),
       message: `No user with id ${value}.`,
     })
   }

@@ -8,6 +8,7 @@ import type { IssueCreateOptions } from "@/api/issue-write/write-types"
 import type { RepoTeam } from "@/api/repo-team"
 import type { IssueDefaults } from "@/config/defaults"
 import type { RepoConfigService } from "@/config/repo"
+import type { IssueId } from "@/domain/id"
 import type { Priority } from "@/domain/priority"
 
 import { createIssueMutation } from "@/api/issue-query"
@@ -76,7 +77,7 @@ const makeCreateWrites = ({
     if (options.state !== undefined) {
       input.stateId = yield* resolvers.teamStateIdByName(teamId, options.state)
     }
-    let parentId: string | null = null
+    let parentId: IssueId | null = null
     if (options.parent !== undefined) {
       parentId = yield* resolvers.resolveIssueId(options.parent)
       input.parentId = parentId

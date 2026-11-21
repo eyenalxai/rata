@@ -13,13 +13,14 @@ import type { RepoConfigError } from "@/config/repo"
 import type { SectionBatchError } from "@/domain/body/section/edit"
 import type { SectionLookupError } from "@/domain/body/section/model"
 import type { ConflictError } from "@/domain/conflict"
-import type { IssueId, LabelId, TeamId } from "@/domain/id"
+import type { IssueId, LabelId } from "@/domain/id"
 import type { InvalidIssueRef } from "@/domain/issue-ref"
 import type { PlanActionName, PlanStatus, PlanStep } from "@/domain/plan"
 import type { Priority } from "@/domain/priority"
 import type { RelationKind } from "@/domain/relation"
 
 import { toSummary } from "@/api/issue-model"
+import { CommentId, TeamId } from "@/domain/id"
 
 class IssueWriteError extends Schema.TaggedError<IssueWriteError>()("IssueWriteError", {
   message: Schema.String,
@@ -27,14 +28,14 @@ class IssueWriteError extends Schema.TaggedError<IssueWriteError>()("IssueWriteE
 
 class StateNotFoundError extends Schema.TaggedError<StateNotFoundError>()("StateNotFoundError", {
   state: Schema.String,
-  teamId: Schema.String,
+  teamId: TeamId,
   message: Schema.String,
 }) {}
 
 class CommentNotFoundError extends Schema.TaggedError<CommentNotFoundError>()(
   "CommentNotFoundError",
   {
-    id: Schema.String,
+    id: CommentId,
     message: Schema.String,
   },
 ) {}

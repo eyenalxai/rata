@@ -2,12 +2,30 @@ import { Predicate, Schema } from "effect"
 
 import type { ErrorCode } from "@/domain/error"
 
-import { TrackerError } from "@/domain/error"
+import { ErrorCodeSchema, TrackerError } from "@/domain/error"
 
 type ErrorRule = {
   readonly code: ErrorCode
   readonly hint: string | null
 }
+
+class CommandError extends Schema.TaggedError<CommandError>()("CommandError", {
+  code: ErrorCodeSchema,
+  message: Schema.String,
+  hint: Schema.NullOr(Schema.String),
+  details: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+  cause: Schema.optional(Schema.Defect()),
+}) {}
+
+type CommandErrorInput = {
+  readonly code: ErrorCode
+  readonly message: string
+  readonly hint: string | null
+  readonly details?: Readonly<Record<string, unknown>> | undefined
+  readonly cause?: unknown
+}
+
+const commandError = (input: CommandErrorInput): CommandError => new CommandError(input)
 
 const fieldOf = (error: unknown, key: string): unknown =>
   Predicate.isObject(error) ? Reflect.get(error, key) : undefined
@@ -182,7 +200,7 @@ const classifyTagged = (error: unknown): TrackerError | undefined => {
   return rule === undefined ? undefined : report(error, rule.code, rule.hint)
 }
 
-const classifyLinear = (error: unknown): TrackerError => {
+const classifyUnclassified = (error: unknown): TrackerError => {
   const tag = tagOf(error)
   const message = messageOf(error)
   if (tag === "LinearRateLimitError") {
@@ -204,11 +222,20 @@ const toTrackerError = (error: unknown): TrackerError => {
   if (Schema.is(TrackerError)(error)) {
     return error
   }
+  if (Schema.is(CommandError)(error)) {
+    return new TrackerError({
+      code: error.code,
+      message: error.message,
+      hint: error.hint,
+      ...(error.details === undefined ? {} : { details: error.details }),
+      ...(error.cause === undefined ? {} : { cause: error.cause }),
+    })
+  }
   const tagged = classifyTagged(error)
   if (tagged !== undefined) {
     return tagged
   }
-  return classifyLinear(error)
+  return classifyUnclassified(error)
 }
 
-export { exitCodeOf, toTrackerError }
+export { commandError, exitCodeOf, toTrackerError }

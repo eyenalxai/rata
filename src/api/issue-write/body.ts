@@ -11,6 +11,7 @@ import type {
   SectionWriteOptions,
   SectionWriteResult,
 } from "@/api/issue-write/write-types"
+import type { IssueId } from "@/domain/id"
 import type { Section } from "@/domain/section"
 
 import { updateIssueMutation } from "@/api/issue-query"
@@ -74,7 +75,7 @@ const makeBodyWrites = ({ client, resolvers }: BodyDependencies) => {
   const resolveUpdateFields = makeUpdateFields(resolvers)
 
   const writeBody = Effect.fn("IssueWriteApi.writeBody")(function* writeBody(
-    issueId: string,
+    issueId: IssueId,
     body: string,
   ) {
     const data = yield* client.execute(

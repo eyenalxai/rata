@@ -11,11 +11,11 @@ const Label = Schema.Struct({
 })
 type Label = typeof Label.Type
 
-const LabelRef = Schema.Struct({
+const LabelValue = Schema.Struct({
   id: LabelId,
   name: Schema.String,
 })
-type LabelRef = typeof LabelRef.Type
+type LabelValue = typeof LabelValue.Type
 
 const parseLabelColor = (value: string): Result.Result<string, string> => {
   if (!labelColorPattern.test(value)) {
@@ -54,4 +54,4 @@ const labelChanges = <A extends { readonly id: LabelId }>(
   return changes
 }
 
-export { findLabelByName, Label, labelChanges, type LabelMode, LabelRef, parseLabelColor }
+export { findLabelByName, Label, labelChanges, type LabelMode, LabelValue, parseLabelColor }

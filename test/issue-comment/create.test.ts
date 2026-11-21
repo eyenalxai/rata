@@ -5,6 +5,7 @@ import { makeRecorder } from "@test/issue-write/fixtures"
 import { afterEach, describe, expect, test } from "bun:test"
 
 import { dedupeCommentId } from "@/domain/comment"
+import { issueId } from "@/domain/id"
 
 afterEach(() => {
   process.exitCode = 0
@@ -56,7 +57,7 @@ describe("issue comment create dedupe", () => {
     expect(lastJson(first)).toMatchObject({ status: "created" })
     expect(lastJson(second)).toMatchObject({
       status: "skipped",
-      comment: { id: dedupeCommentId("i1", "mission-1") },
+      comment: { id: dedupeCommentId(issueId("i1"), "mission-1") },
       visible: null,
     })
   })
@@ -96,12 +97,12 @@ describe("issue comment create dedupe", () => {
       [],
     )
     expect(state.creates).toBe(2)
-    expect(state.comments.has(dedupeCommentId("i1", "k"))).toBe(true)
-    expect(state.comments.has(dedupeCommentId("i2", "k"))).toBe(true)
+    expect(state.comments.has(dedupeCommentId(issueId("i1"), "k"))).toBe(true)
+    expect(state.comments.has(dedupeCommentId(issueId("i2"), "k"))).toBe(true)
   })
 
   test("a duplicate create error re-reads and returns the existing comment", async () => {
-    const id = dedupeCommentId("i1", "race")
+    const id = dedupeCommentId(issueId("i1"), "race")
     const seed = commentNode(id, "Handoff.")
     let reads = 0
     const recorder = makeRecorder((request) => {
@@ -143,7 +144,7 @@ describe("issue comment create dedupe", () => {
 
   test("a dry run resolves the dedupe key and writes nothing", async () => {
     const { recorder, state } = commentHandler({
-      seeds: [commentNode(dedupeCommentId("i1", "k"), "Handoff.")],
+      seeds: [commentNode(dedupeCommentId(issueId("i1"), "k"), "Handoff.")],
     })
     const lines: string[] = []
     await runIssue(

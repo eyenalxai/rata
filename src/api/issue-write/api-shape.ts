@@ -30,6 +30,7 @@ import type {
   SectionWriteOptions,
   SectionWriteResult,
 } from "@/api/issue-write/write-types"
+import type { CommentId } from "@/domain/id"
 import type { Section, SectionReplacement } from "@/domain/section"
 
 type IssueWriteApiShape = {
@@ -50,18 +51,18 @@ type IssueWriteApiShape = {
     options?: CommentCreateOptions,
   ) => Effect.Effect<CommentCreatePlan, IssueWriteApiError>
   readonly commentUpdate: (
-    commentId: string,
+    commentId: CommentId,
     body: string,
     options?: CommentUpdateOptions,
   ) => Effect.Effect<CommentUpdateResult, IssueWriteApiError>
   readonly commentDelete: (
-    commentId: string,
+    commentId: CommentId,
   ) => Effect.Effect<CommentDeleteResult, IssueWriteApiError>
   readonly planCommentDelete: (
-    commentId: string,
+    commentId: CommentId,
   ) => Effect.Effect<CommentDeletePlan, IssueWriteApiError>
   readonly findComment: (
-    commentId: string,
+    commentId: CommentId,
   ) => Effect.Effect<Option.Option<IssueComment>, IssueWriteApiError>
   readonly update: (
     ref: string,

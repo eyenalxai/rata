@@ -10,7 +10,7 @@ import {
   TeamId,
   UserId,
 } from "@/domain/id"
-import { LabelRef } from "@/domain/label"
+import { LabelValue } from "@/domain/label"
 import { PriorityFromValue } from "@/domain/priority"
 import { RelationTypeSchema } from "@/domain/relation"
 import { WorkflowState as WorkflowStateSchema, WorkflowStateNode } from "@/domain/workflow-state"
@@ -25,7 +25,7 @@ const IssueUser = Schema.Struct({
 })
 type IssueUser = typeof IssueUser.Type
 
-const IssueLabel = LabelRef
+const IssueLabel = LabelValue
 type IssueLabel = typeof IssueLabel.Type
 
 const IssueProject = Schema.Struct({

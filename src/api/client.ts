@@ -11,20 +11,21 @@ import {
   LinearRateLimitError,
 } from "@/api/errors"
 import { Auth } from "@/config/auth"
+import { UserId, WorkspaceId } from "@/domain/id"
 
 const endpoint = "https://api.linear.app/graphql"
 
 const GraphQLErrorPayload = Schema.Struct({ message: Schema.String })
 
 const Viewer = Schema.Struct({
-  id: Schema.String,
+  id: UserId,
   name: Schema.String,
   displayName: Schema.String,
   email: Schema.String,
   active: Schema.Boolean,
   admin: Schema.Boolean,
   organization: Schema.Struct({
-    id: Schema.String,
+    id: WorkspaceId,
     name: Schema.String,
     urlKey: Schema.String,
   }),

@@ -3,7 +3,7 @@ import { Effect, Result, Schema } from "effect"
 
 import type { ProjectId } from "@/domain/id"
 
-import { projectId, teamId } from "@/domain/id"
+import { teamId } from "@/domain/id"
 import {
   parsePriority,
   priorityFromStored,
@@ -15,13 +15,26 @@ import {
 } from "@/domain/priority"
 
 describe("priority", () => {
-  test("parses the token and numeric boundary forms to one value", () => {
+  test("parses the five tokens in either case", () => {
     expect(Result.getOrThrow(parsePriority("urgent"))).toBe("urgent")
     expect(Result.getOrThrow(parsePriority("HIGH"))).toBe("high")
+    expect(Result.getOrThrow(parsePriority("Medium"))).toBe("medium")
+    expect(Result.getOrThrow(parsePriority("low"))).toBe("low")
+    expect(Result.getOrThrow(parsePriority("none"))).toBe("none")
+  })
+
+  test("parses only the canonical numeric strings", () => {
     expect(Result.getOrThrow(parsePriority("0"))).toBe("none")
+    expect(Result.getOrThrow(parsePriority("1"))).toBe("urgent")
+    expect(Result.getOrThrow(parsePriority("2"))).toBe("high")
     expect(Result.getOrThrow(parsePriority("3"))).toBe("medium")
-    expect(Result.isFailure(parsePriority("5"))).toBe(true)
-    expect(Result.isFailure(parsePriority("severity"))).toBe(true)
+    expect(Result.getOrThrow(parsePriority("4"))).toBe("low")
+  })
+
+  test("rejects malformed numeric forms", () => {
+    for (const value of ["", " ", "0x2", "2.0", "2e0", " 3 ", "-0", "5", "10"]) {
+      expect(Result.isFailure(parsePriority(value))).toBe(true)
+    }
   })
 
   test("maps the wire value and the stored value at their boundaries", () => {
@@ -30,10 +43,10 @@ describe("priority", () => {
     expect(priorityValue("high")).toBe(2)
     expect(storedPriority("none")).toBeNull()
     expect(storedPriority("urgent")).toBe(1)
-    expect(priorityFromStored(null)).toBeNull()
-    expect(priorityFromStored(0)).toBeNull()
-    expect(priorityFromStored(3)).toBe("medium")
-    expect(priorityFromStored(9)).toBeNull()
+    expect(Result.getOrThrow(priorityFromStored(null))).toBeNull()
+    expect(Result.getOrThrow(priorityFromStored(0))).toBeNull()
+    expect(Result.getOrThrow(priorityFromStored(3))).toBe("medium")
+    expect(Result.isFailure(priorityFromStored(9))).toBe(true)
   })
 
   test("ranks urgent first and none last", () => {
@@ -55,11 +68,6 @@ describe("branded ids", () => {
     const team = teamId("team-1")
     // @ts-expect-error a TeamId is not a ProjectId
     const project: ProjectId = team
-    expect(String(project)).toBe(String(team))
-  })
-
-  test("constructs a project id with its own brand", () => {
-    const project = projectId("project-1")
-    expect(String(project)).toBe("project-1")
+    void project
   })
 })

@@ -25,6 +25,14 @@ const valueByPriority: Readonly<Record<Priority, PriorityValue>> = {
   low: 4,
 }
 
+const priorityByText: ReadonlyMap<string, Priority> = new Map([
+  ["0", "none"],
+  ["1", "urgent"],
+  ["2", "high"],
+  ["3", "medium"],
+  ["4", "low"],
+])
+
 const rankByPriority: Readonly<Record<Priority, number>> = {
   urgent: 0,
   high: 1,
@@ -40,7 +48,7 @@ const priorityValue = (priority: Priority): PriorityValue => valueByPriority[pri
 const priorityRank = (priority: Priority): number => rankByPriority[priority]
 
 const isPriority = (value: string): value is Priority =>
-  priorities.some((priority) => priority === value.toLowerCase())
+  priorities.some((priority) => priority === value)
 
 const isPriorityValue = (value: number): value is PriorityValue =>
   priorityValues.some((candidate) => candidate === value)
@@ -50,9 +58,9 @@ const parsePriority = (value: string): Result.Result<Priority, string> => {
   if (isPriority(normalized)) {
     return Result.succeed(normalized)
   }
-  const numeric = Number(normalized)
-  if (isPriorityValue(numeric)) {
-    return Result.succeed(priorityFromValue(numeric))
+  const numeric = priorityByText.get(normalized)
+  if (numeric !== undefined) {
+    return Result.succeed(numeric)
   }
   return Result.fail(`Expected none, urgent, high, medium, low, or 0-4, got ${value}.`)
 }
@@ -67,27 +75,27 @@ const PriorityFromValue = PriorityValueSchema.pipe(
 const storedPriority = (priority: Priority): number | null =>
   priority === "none" ? null : priorityValue(priority)
 
-const priorityFromStored = (value: number | null | undefined): Priority | null =>
-  value === null || value === undefined || value === 0
-    ? null
-    : isPriorityValue(value)
-      ? priorityFromValue(value)
-      : null
+const priorityFromStored = (
+  value: number | null | undefined,
+): Result.Result<Priority | null, string> => {
+  if (value === null || value === undefined || value === 0) {
+    return Result.succeed(null)
+  }
+  if (isPriorityValue(value)) {
+    return Result.succeed(priorityFromValue(value))
+  }
+  return Result.fail(`Expected a stored priority from 0 to 4, got ${String(value)}.`)
+}
 
 export {
-  isPriority,
-  isPriorityValue,
   parsePriority,
   type Priority,
   priorityFromStored,
   priorityFromValue,
   priorityRank,
-  priorities,
   PriorityFromValue,
   PrioritySchema,
   type PriorityValue,
   priorityValue,
-  priorityValues,
-  PriorityValueSchema,
   storedPriority,
 }

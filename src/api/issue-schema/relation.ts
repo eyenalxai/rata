@@ -2,6 +2,7 @@ import { Schema } from "effect"
 
 import { IssueInverseRelationConnection, IssueRelationConnection } from "@/api/issue-schema"
 import { PageInfo } from "@/api/pagination"
+import { IssueId } from "@/domain/id"
 
 const RelationsResponse = Schema.Struct({
   issue: Schema.Struct({ relations: IssueRelationConnection }),
@@ -19,7 +20,7 @@ const RelationsWithInverseResponse = Schema.Struct({
 })
 
 const IssueRefNode = Schema.Struct({
-  id: Schema.String,
+  id: IssueId,
   identifier: Schema.String,
 })
 

@@ -15,12 +15,14 @@ const errorCodes = [
 ] as const
 type ErrorCode = (typeof errorCodes)[number]
 
+const ErrorCodeSchema = Schema.Literals(errorCodes)
+
 class TrackerError extends Schema.TaggedError<TrackerError>()("TrackerError", {
-  code: Schema.Literals(errorCodes),
+  code: ErrorCodeSchema,
   message: Schema.String,
   hint: Schema.NullOr(Schema.String),
   details: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
   cause: Schema.optional(Schema.Defect()),
 }) {}
 
-export { type ErrorCode, errorCodes, TrackerError }
+export { type ErrorCode, ErrorCodeSchema, TrackerError }

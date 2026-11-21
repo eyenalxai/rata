@@ -13,6 +13,7 @@ import type {
   IssueUser,
 } from "@/api/issue-schema"
 import type { PageInfo, PageOptions } from "@/api/pagination"
+import type { IssueId } from "@/domain/id"
 import type { PullRequest } from "@/domain/pr"
 import type { Priority } from "@/domain/priority"
 import type { StateType } from "@/domain/workflow-state"
@@ -30,7 +31,7 @@ const isListInclude = (value: string): value is ListInclude =>
   listIncludes.some((include) => include === value)
 
 type IssueSummary = {
-  readonly id: string
+  readonly id: IssueId
   readonly identifier: string
   readonly title: string
   readonly url: string
@@ -55,7 +56,7 @@ type IssueRelations = {
 }
 
 type IssueDetail = {
-  readonly id: string
+  readonly id: IssueId
   readonly identifier: string
   readonly title: string
   readonly description: string | null

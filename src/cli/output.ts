@@ -3,12 +3,11 @@ import { Flag, GlobalFlag } from "effect/cli"
 
 import type { IssueSummary } from "@/api/issue-model"
 import type { BulkWriteResult, BulkWriteSuccess } from "@/api/issue-write/model"
-import type { ErrorCode } from "@/domain/error"
+import type { ErrorCode, TrackerError } from "@/domain/error"
 import type { PlanAction } from "@/domain/plan"
 
 import { maxPageSize } from "@/api/pagination"
-import { exitCodeOf, toTrackerError } from "@/cli/error-report"
-import { TrackerError } from "@/domain/error"
+import { commandError, exitCodeOf, toTrackerError } from "@/cli/error-report"
 
 const jsonOutput = Schema.fromJsonString(Schema.Unknown, { space: 2 })
 const defectJson = Schema.Defect()
@@ -162,7 +161,11 @@ const debugEnabled: Effect.Effect<boolean> = Config.String("RATA_DEBUG").pipe(
 const writeTrackerError = (
   report: TrackerError,
   json: boolean,
-  options: { readonly debug?: boolean; readonly cause?: unknown } = {},
+  options: {
+    readonly debug?: boolean
+    readonly cause?: unknown
+    readonly extra?: Readonly<Record<string, unknown>>
+  } = {},
 ): Effect.Effect<void> =>
   Effect.gen(function* writeErrorReport() {
     if (json) {
@@ -171,6 +174,7 @@ const writeTrackerError = (
         ...(options.debug === true ? { cause: encodeCause(options.cause ?? report) } : {}),
       }
       yield* writeJsonError({
+        ...options.extra,
         error: {
           code: report.code,
           message: report.message,
@@ -192,10 +196,25 @@ const writeTrackerError = (
     })
   })
 
+const reportTrackerError = (
+  report: TrackerError,
+  json: boolean,
+  extra?: Readonly<Record<string, unknown>>,
+): Effect.Effect<void> =>
+  Effect.gen(function* reportTrackerFailure() {
+    const debug = yield* debugEnabled
+    yield* writeTrackerError(report, json, {
+      debug,
+      cause: report.cause,
+      ...(extra === undefined ? {} : { extra }),
+    })
+  })
+
 const errorLine = (code: ErrorCode, message: string, hint?: string) =>
   Effect.gen(function* writeErrorLine() {
     const json = yield* JsonOutput
-    yield* writeTrackerError(new TrackerError({ code, message, hint: hint ?? null }), json)
+    const report = commandError({ code, message, hint: hint ?? null })
+    yield* reportTrackerError(toTrackerError(report), json)
   })
 
 const nextPageHint = (name: string, endCursor: string): string =>
@@ -217,8 +236,7 @@ const validatePageSize = (limit: number) =>
 const reportFailure = (error: unknown) =>
   Effect.gen(function* reportFailureEffect() {
     const json = yield* JsonOutput
-    const debug = yield* debugEnabled
-    yield* writeTrackerError(toTrackerError(error), json, { debug, cause: error })
+    yield* reportTrackerError(toTrackerError(error), json)
   })
 
 export {
@@ -227,9 +245,8 @@ export {
   errorLine,
   nextPageHint,
   noChange,
-  type PlanAction,
-  publicError,
   reportFailure,
+  reportTrackerError,
   validatePageSize,
   warningLine,
   writeBulkResults,
@@ -237,5 +254,4 @@ export {
   writeJson,
   writeJsonError,
   writeLine,
-  writeTrackerError,
 }

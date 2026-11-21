@@ -2,12 +2,13 @@ import { Effect } from "effect"
 
 import type { makeIssueWriteResolvers } from "@/api/issue-write/resolvers"
 import type { IssueUpdateOptions } from "@/api/issue-write/write-types"
+import type { IssueId } from "@/domain/id"
 
 import { priorityValue } from "@/domain/priority"
 
 const makeUpdateFields = (resolvers: ReturnType<typeof makeIssueWriteResolvers>) =>
   Effect.fn("IssueWriteApi.resolveUpdateFields")(function* resolveUpdateFields(
-    issueId: string,
+    issueId: IssueId,
     options: IssueUpdateOptions,
   ) {
     const input: Record<string, unknown> = {}

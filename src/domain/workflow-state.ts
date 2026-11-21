@@ -43,7 +43,6 @@ export {
   stateByName,
   stateByType,
   stateTypes,
-  StateTypeSchema,
   WorkflowState,
   WorkflowStateNode,
 }

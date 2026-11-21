@@ -1,6 +1,6 @@
 import type { IssueInverseRelation, IssueRelation } from "@/api/issue-schema"
 import type { ResolvedRelationTarget, WriteStatus } from "@/api/issue-write/model"
-import type { IssueId } from "@/domain/id"
+import type { IssueId, RelationId } from "@/domain/id"
 import type { RelationKind, RelationType } from "@/domain/relation"
 
 import { relationKindInfo } from "@/domain/relation"
@@ -11,8 +11,8 @@ type PlannedRelationLink = {
   readonly targetId: IssueId
   readonly status: WriteStatus
   readonly input: {
-    readonly issueId: string
-    readonly relatedIssueId: string
+    readonly issueId: IssueId
+    readonly relatedIssueId: IssueId
     readonly type: RelationType
   }
 }
@@ -20,16 +20,16 @@ type PlannedRelationLink = {
 type PlannedRelationUnlink = {
   readonly kind: RelationKind
   readonly target: string
-  readonly relationIds: readonly string[]
+  readonly relationIds: readonly RelationId[]
   readonly status: WriteStatus
 }
 
 const matchingRelationIds = (
   kind: RelationKind,
-  targetId: string,
+  targetId: IssueId,
   outgoing: readonly IssueRelation[],
   incoming: readonly IssueInverseRelation[],
-): readonly string[] => {
+): readonly RelationId[] => {
   if (kind === "blockedBy") {
     return incoming
       .filter((relation) => relation.type === "blocks" && relation.issue.id === targetId)
@@ -56,7 +56,7 @@ const matchingRelationIds = (
 }
 
 const linkRelationPlans = (
-  issueId: string,
+  issueId: IssueId,
   targets: readonly ResolvedRelationTarget[],
   outgoing: readonly IssueRelation[],
   incoming: readonly IssueInverseRelation[],

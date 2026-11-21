@@ -28,12 +28,4 @@ type SectionReplacementAction = typeof SectionReplacementAction.Type
 const isSectionLevel = (value: number): value is SectionLevel =>
   sectionLevels.some((level) => level === value)
 
-export {
-  isSectionLevel,
-  type SectionLevel,
-  sectionLevels,
-  SectionLevelSchema,
-  Section,
-  SectionReplacement,
-  SectionReplacementAction,
-}
+export { isSectionLevel, type SectionLevel, Section, SectionReplacement, SectionReplacementAction }

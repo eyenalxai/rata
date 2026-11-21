@@ -4,6 +4,9 @@ const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{1
 
 const isUuid = (value: string): boolean => uuidPattern.test(value)
 
+const WorkspaceId = Schema.String.pipe(Schema.brand("WorkspaceId"))
+type WorkspaceId = typeof WorkspaceId.Type
+
 const UserId = Schema.String.pipe(Schema.brand("UserId"))
 type UserId = typeof UserId.Type
 
@@ -60,6 +63,7 @@ export {
   userId,
   UserId,
   uuidPattern,
+  WorkspaceId,
   workflowStateId,
   WorkflowStateId,
 }

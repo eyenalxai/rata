@@ -66,7 +66,7 @@ const TeamLabelNode = Schema.Struct({
   id: LabelId,
   name: Schema.String,
   color: Schema.String,
-  team: Schema.NullOr(Schema.Struct({ id: Schema.String })),
+  team: Schema.NullOr(Schema.Struct({ id: TeamId })),
 })
 
 const TeamLabelConnection = Schema.Struct({

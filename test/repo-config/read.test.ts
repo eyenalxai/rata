@@ -106,6 +106,25 @@ describe("RepoConfigService.read", () => {
     expect(result).toEqual(Option.some({ team: "RAT" }))
   })
 
+  test("fails on a corrupt legacy priority and keeps the file", async () => {
+    const tree: MemoryTree = {
+      directories: ["/repo", "/repo/.git"],
+      files: new Map([["/repo/.rata.json", JSON.stringify({ team: "RAT", defaultPriority: 9 })]]),
+    }
+    const result = await withRepoConfig(
+      tree,
+      [],
+      Effect.gen(function* importPriority() {
+        const service = yield* RepoConfigService
+        return yield* Effect.flip(service.read("/repo"))
+      }),
+    )
+
+    expect(result._tag).toBe("RepoConfigError")
+    expect(result.message).toContain("invalid default priority")
+    expect(tree.files.has("/repo/.rata.json")).toBe(true)
+  })
+
   test("imports a legacy file outside Git from the current directory only", async () => {
     const tree: MemoryTree = {
       directories: ["/data", "/data/project", "/data/project/src"],

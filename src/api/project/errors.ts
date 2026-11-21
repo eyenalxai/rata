@@ -2,6 +2,8 @@ import { Schema } from "effect"
 
 import type { Project } from "@/api/project/model"
 
+import { ProjectId } from "@/domain/id"
+
 class ProjectCreateError extends Schema.TaggedError<ProjectCreateError>()("ProjectCreateError", {
   name: Schema.String,
   message: Schema.String,
@@ -19,7 +21,7 @@ class ProjectAlreadyDeletedError extends Schema.TaggedError<ProjectAlreadyDelete
   "ProjectAlreadyDeletedError",
   {
     name: Schema.String,
-    id: Schema.String,
+    id: ProjectId,
     message: Schema.String,
   },
 ) {}
@@ -41,7 +43,7 @@ class ProjectNotDeletedError extends Schema.TaggedError<ProjectNotDeletedError>(
   "ProjectNotDeletedError",
   {
     name: Schema.String,
-    id: Schema.String,
+    id: ProjectId,
     message: Schema.String,
   },
 ) {}

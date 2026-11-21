@@ -9,7 +9,7 @@ import { fakeTerminal } from "@test/terminal-harness"
 import { Console, Effect, FileSystem, Layer, Option, Path, Terminal } from "effect"
 
 import type { LinkOptions } from "@/config/link"
-import type { RepoConfig } from "@/config/repo"
+import type { RepoConfig } from "@/config/repo/model"
 
 import { LinkService } from "@/config/link"
 import { currentDirectory, RepoConfigService } from "@/config/repo"

@@ -2,7 +2,8 @@ import { Console, Context, Effect, Layer, Option } from "effect"
 
 import type { LinearApiError } from "@/api/errors"
 import type { Team } from "@/api/team"
-import type { RepoConfig, RepoConfigError } from "@/config/repo"
+import type { RepoConfigError } from "@/config/repo"
+import type { RepoConfig } from "@/config/repo/model"
 import type { TeamId } from "@/domain/id"
 
 import { TeamNotFoundError, TeamResolutionError, TeamService } from "@/api/team"

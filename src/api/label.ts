@@ -6,12 +6,11 @@ import type { LinearApiError } from "@/api/errors"
 import type { Connection, PageOptions } from "@/api/pagination"
 import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
-import type { TeamId } from "@/domain/id"
 
 import { LinearClient } from "@/api/client"
 import { collectConnection, pageOrDrain, PageInfo, pageSize } from "@/api/pagination"
 import { RepoTeam } from "@/api/repo-team"
-import { isUuid } from "@/domain/id"
+import { isUuid, TeamId } from "@/domain/id"
 import { findLabelByName, Label as LabelSchema } from "@/domain/label"
 
 const Label = LabelSchema
@@ -74,7 +73,7 @@ const updateLabelMutation = `mutation UpdateLabel($id: String!, $input: IssueLab
 
 class LabelNotFoundError extends Schema.TaggedError<LabelNotFoundError>()("LabelNotFoundError", {
   name: Schema.String,
-  teamId: Schema.String,
+  teamId: TeamId,
   message: Schema.String,
 }) {}
 

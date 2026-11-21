@@ -18,12 +18,9 @@ const states: readonly WorkflowStateNode[] = [
 
 describe("workflow state", () => {
   test("keeps the state type a literal union", () => {
-    const type: StateType = "completed"
     // @ts-expect-error done is not a Linear state type
     const invalid: StateType = "done"
-    expect(stateTypes).toContain(type)
-    expect(stateTypes).not.toContain("done")
-    expect(invalid).toBeDefined()
+    expect(stateTypes).not.toContain(invalid)
   })
 
   test("treats completed and canceled as closed", () => {

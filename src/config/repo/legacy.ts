@@ -1,6 +1,6 @@
-import { Schema } from "effect"
+import { Result, Schema } from "effect"
 
-import type { RepoConfig } from "@/config/repo"
+import type { RepoConfig } from "@/config/repo/model"
 
 import { teamId } from "@/domain/id"
 import { priorityFromStored } from "@/domain/priority"
@@ -19,14 +19,17 @@ type LegacyRepoConfig = typeof LegacyRepoConfig.Type
 
 const RepoConfigJson = Schema.fromJsonString(LegacyRepoConfig, { space: 2 })
 
-const fromLegacyConfig = (config: LegacyRepoConfig): RepoConfig => {
+const fromLegacyConfig = (config: LegacyRepoConfig): Result.Result<RepoConfig, string> => {
   const { defaultPriority, teamId: storedTeamId, ...rest } = config
   const priority = priorityFromStored(defaultPriority)
-  return {
+  if (Result.isFailure(priority)) {
+    return Result.fail(priority.failure)
+  }
+  return Result.succeed({
     ...rest,
     ...(storedTeamId === undefined ? {} : { teamId: teamId(storedTeamId) }),
-    ...(priority === null || priority === "none" ? {} : { defaultPriority: priority }),
-  }
+    ...(priority.success === null ? {} : { defaultPriority: priority.success }),
+  })
 }
 
 export { fromLegacyConfig, RepoConfigJson }
