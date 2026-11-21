@@ -21,8 +21,17 @@ const withAgentNotes = <Name extends string, Input, E, R, ContextInput>(
 
 const defaultFormatter = CliOutput.defaultFormatter()
 
+let suppressHelp = false
+
+const setSuppressHelp = (value: boolean): void => {
+  suppressHelp = value
+}
+
 const helpFormatter: CliOutput.Formatter = {
   formatHelpDoc: (doc: HelpDoc.HelpDoc) => {
+    if (suppressHelp) {
+      return ""
+    }
     const text = defaultFormatter.formatHelpDoc(doc)
     return Context.get(doc.annotations, AgentNotes) ? `${text}\n\n${agentNotes}` : text
   },
@@ -34,4 +43,4 @@ const helpFormatter: CliOutput.Formatter = {
 
 const helpLayer = CliOutput.layer(helpFormatter)
 
-export { helpLayer, withAgentNotes }
+export { helpLayer, setSuppressHelp, withAgentNotes }

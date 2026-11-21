@@ -184,8 +184,8 @@ describe("IssueWriteApi state resolution", () => {
         return yield* api.close("RAT-1", "Done", { dryRun: true })
       }),
     )
-    expect(plan.status).toBe("updated")
-    expect(plan.actions[0]?.status).toBe("skipped")
+    expect(plan.status).toBe("skipped")
+    expect(plan.actions.every((action) => action.status === "skipped")).toBe(true)
     expect(requestOf(recorder, "mutation CreateComment")).toBeUndefined()
     expect(requestOf(recorder, "mutation UpdateIssue")).toBeUndefined()
   })
@@ -217,25 +217,10 @@ describe("IssueWriteApi state resolution", () => {
     expect(requestOf(recorder, "mutation UpdateIssue")).toBeUndefined()
   })
 
-  test("posts the comment even when the issue is already completed", async () => {
+  test("skips the comment when the issue is already completed", async () => {
     const recorder = makeRecorder((request) => {
       if (request.query.includes("query IssueSummary")) {
         return jsonResponse({ data: { issue: summaryWith("completed") } })
-      }
-      if (request.query.includes("mutation CreateComment")) {
-        return jsonResponse({
-          data: {
-            commentCreate: {
-              success: true,
-              comment: {
-                id: "c1",
-                body: "Note",
-                createdAt: "2026-01-01T10:00:00.000Z",
-                user: viewer,
-              },
-            },
-          },
-        })
       }
       return jsonResponse({ errors: [{ message: `Unexpected query: ${request.query}` }] }, 400)
     })
@@ -246,8 +231,8 @@ describe("IssueWriteApi state resolution", () => {
         return yield* api.close("RAT-1", "Note")
       }),
     )
-    expect(result.status).toBe("updated")
-    expect(requestOf(recorder, "mutation CreateComment")).toBeDefined()
+    expect(result.status).toBe("skipped")
+    expect(requestOf(recorder, "mutation CreateComment")).toBeUndefined()
     expect(requestOf(recorder, "mutation UpdateIssue")).toBeUndefined()
   })
 })

@@ -33,6 +33,14 @@ class CommentNotFoundError extends Schema.TaggedError<CommentNotFoundError>()(
   },
 ) {}
 
+class AssigneeConflictError extends Schema.TaggedError<AssigneeConflictError>()(
+  "AssigneeConflictError",
+  {
+    message: Schema.String,
+    assignee: Schema.String,
+  },
+) {}
+
 const relationKinds = ["blocks", "blockedBy", "related", "duplicate"] as const
 type RelationKind = (typeof relationKinds)[number]
 
@@ -61,6 +69,7 @@ type WriteAction = {
 
 type WriteOptions = {
   readonly dryRun?: boolean | undefined
+  readonly take?: boolean | undefined
 }
 
 type BulkTarget = {
@@ -138,6 +147,7 @@ type RelationWriteResult = {
 }
 
 type IssueWriteApiError =
+  | AssigneeConflictError
   | CommentNotFoundError
   | InvalidIssueRef
   | IssueRefNotFoundError
@@ -204,6 +214,7 @@ const unwrapDelete = (
   payload.success ? Effect.void : Effect.fail(new IssueWriteError({ message }))
 
 export {
+  AssigneeConflictError,
   type BulkTarget,
   type BulkWriteResult,
   type BulkWriteSuccess,

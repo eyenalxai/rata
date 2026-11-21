@@ -34,13 +34,13 @@ rata status --json   # repo, workspace, key source, team, defaults and viewer
 | --------------- | ------------------------------------------------------------ | ---------------------------- |
 | Read one issue  | `rata issue show <ref>`                                      | `rata issue <ref>`           |
 | Comment         | `rata issue comment create <ref> --body-file -`              | `rata issue comment <ref>`   |
-| Assign          | `rata issue assign <ref> --assignee me`                      | `rata issue assign <ref> me` |
+| Assign          | `rata issue assign <ref> --assignee me [--take]`             | `rata issue assign <ref> me` |
 | Edit a section  | `rata issue section replace <ref> "<heading>" --body-file -` |                              |
 | Batch edit      | `rata issue update <ref> --sections-file -`                  | a loop of section writes     |
 | Change an issue | `rata issue update <ref> <flags>`                            |                              |
 | Close           | `rata issue close <ref> --comment "..."`                     |                              |
 
-`issue update` also sets `--assignee` and `--state`: one command with several fields, not a second spelling.
+`issue update` also sets `--assignee` and `--state`: one command with several fields, not a second spelling. An assign to an issue held by another user exits 4 and names the holder; `--take` reassigns it.
 
 ## Read loop
 
@@ -91,7 +91,8 @@ drops every heading that the new body leaves out, with no error.
 ## Errors
 
 A failed `--json` command writes one object to stderr and exits with the code of
-its class: 2 validation, 3 not found, 4 conflict, 5 auth, 6 retryable, 1 internal.
+its class: 2 usage or validation, 3 not found, 4 conflict, 5 auth, 6 retryable,
+1 internal. A parse error writes code `usage`; help prints only for `--help`.
 Read `hint` and retry once. Two cases write a partial result to stdout instead:
 a bulk write by `--parent`, and a failed `issue update --comment`.
 

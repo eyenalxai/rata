@@ -16,12 +16,16 @@ const cliLayer = (
   args: readonly string[],
   lines: string[],
   input: readonly Terminal.UserInput[] = [],
+  stdinIsTerminal = true,
 ) =>
   Layer.mergeAll(
     apiLayer(handler, { stdio: { args: Effect.succeed(args) } }),
     FileSystem.layerNoop({}),
     Path.layer,
-    Stdio.layerTest({ args: Effect.succeed(args) }),
+    Stdio.layerTest({
+      args: Effect.succeed(args),
+      stdinIsTerminal: Effect.succeed(stdinIsTerminal),
+    }),
     Layer.succeed(Terminal.Terminal, fakeTerminal(input)),
     Layer.succeed(
       ChildProcessSpawner.ChildProcessSpawner,
@@ -35,9 +39,10 @@ const runProject = (
   args: readonly string[],
   lines: string[],
   input: readonly Terminal.UserInput[] = [],
+  stdinIsTerminal = true,
 ) =>
   Command.run(projectCommand, { version: "test" }).pipe(
-    Effect.provide(cliLayer(handler, args, lines, input)),
+    Effect.provide(cliLayer(handler, args, lines, input, stdinIsTerminal)),
     Effect.runPromise,
   )
 

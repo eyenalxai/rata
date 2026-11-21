@@ -120,7 +120,7 @@ const listCommand = Command.make(
         after: Option.getOrNull(config.after),
         sort: Option.getOrUndefined(config.sort),
         limit: config.limit,
-        all: config.all || config.count,
+        all: config.all || config.count || config.idsOnly,
       })
       if (config.count) {
         yield* writeIssueCount(json, page.issues.length)
@@ -209,7 +209,7 @@ const searchCommand = Command.make(
         team: Option.getOrUndefined(config.team),
         after: Option.getOrNull(config.after),
         limit: config.limit,
-        all: config.all || config.count,
+        all: config.all || config.count || config.idsOnly,
       })
       if (config.count) {
         yield* writeIssueCount(json, page.issues.length)

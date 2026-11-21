@@ -96,11 +96,7 @@ const closeCommand = Command.make(
         return yield* writeJson({ dryRun: false, status: result.status, issue: result.issue })
       }
       if (result.actions[0]?.status === "skipped") {
-        return yield* writeLine(
-          comment === undefined
-            ? `${result.issue.identifier} is already completed.`
-            : `${result.issue.identifier} is already completed and posted a comment.`,
-        )
+        return yield* writeLine(`${result.issue.identifier} is already completed.`)
       }
       return yield* writeLine(
         comment === undefined
@@ -163,6 +159,10 @@ const assignCommand = Command.make(
       Flag.optional,
     ),
     parent: parentFlag,
+    take: Flag.Boolean("take").pipe(
+      Flag.withDescription("Reassign an issue held by another user"),
+      Flag.withDefault(false),
+    ),
     dryRun: dryRunFlag,
   },
   (config) =>
@@ -195,7 +195,10 @@ const assignCommand = Command.make(
           )
         }
         const api = yield* IssueWriteApi
-        const results = yield* api.assignChildren(parent, assignee, { dryRun: config.dryRun })
+        const results = yield* api.assignChildren(parent, assignee, {
+          dryRun: config.dryRun,
+          take: config.take,
+        })
         return yield* writeBulkResults(
           json,
           config.dryRun,
@@ -211,7 +214,7 @@ const assignCommand = Command.make(
         )
       }
       const api = yield* IssueWriteApi
-      const result = yield* api.assign(ref, assignee, { dryRun: config.dryRun })
+      const result = yield* api.assign(ref, assignee, { dryRun: config.dryRun, take: config.take })
       if (config.dryRun) {
         return yield* writeDryRun(json, result.actions, (action) =>
           action.changes.assignee === null

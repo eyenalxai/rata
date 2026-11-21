@@ -29,6 +29,17 @@ describe("project delete", () => {
     expect(deleteMutation(fake.requests)).toBeUndefined()
   })
 
+  test("fails without a TTY and points at --yes", async () => {
+    const fake = makeFakeLinear({ teams: [], labels: [], projects: [tracker] })
+    const lines: string[] = []
+    await runProject(fake.handler, ["delete", "Tracker", "--json"], lines, [], false)
+    expect(process.exitCode).toBe(2)
+    expect(JSON.parse(lines.at(-1) ?? "")).toMatchObject({
+      error: { code: "validation", hint: "Pass --yes to skip the prompt." },
+    })
+    expect(deleteMutation(fake.requests)).toBeUndefined()
+  })
+
   test("skips the prompt with --yes and prints JSON", async () => {
     const fake = makeFakeLinear({ teams: [], labels: [], projects: [tracker] })
     const lines: string[] = []

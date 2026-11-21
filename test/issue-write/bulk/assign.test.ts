@@ -41,6 +41,44 @@ describe("bulk assign by parent", () => {
     expect(mutations(recorder, "mutation UpdateIssue")).toHaveLength(0)
   })
 
+  test("reports a child held by another user unless --take", async () => {
+    const other = { ...user, id: "u2", name: "Other", displayName: "other" }
+    const recorder = recorderFor([seed("RAT-3", { assignee: other })])
+    const lines: string[] = []
+    await runIssue(
+      recorder.handler,
+      ["assign", "--parent", "RAT-1", "--assignee", "me", "--json"],
+      lines,
+    )
+    expect(lastJson(lines)).toMatchObject({
+      results: [
+        {
+          identifier: "RAT-3",
+          status: "failed",
+          error: { code: "conflict", hint: "Pass --take to reassign it." },
+        },
+      ],
+    })
+    expect(process.exitCode).toBe(4)
+    expect(mutations(recorder, "mutation UpdateIssue")).toHaveLength(0)
+  })
+
+  test("--take reassigns a child held by another user", async () => {
+    const other = { ...user, id: "u2", name: "Other", displayName: "other" }
+    const recorder = recorderFor([seed("RAT-3", { assignee: other })])
+    const lines: string[] = []
+    await runIssue(
+      recorder.handler,
+      ["assign", "--parent", "RAT-1", "--assignee", "me", "--take", "--json"],
+      lines,
+    )
+    expect(lastJson(lines)).toMatchObject({
+      results: [{ identifier: "RAT-3", status: "updated" }],
+    })
+    expect(process.exitCode).toBe(0)
+    expect(mutations(recorder, "mutation UpdateIssue")).toHaveLength(1)
+  })
+
   test("reports a mid-batch failure and exits 3", async () => {
     const recorder = recorderFor([seed("RAT-3"), seed("RAT-4")], { failOn: "id-RAT-4" })
     const lines: string[] = []

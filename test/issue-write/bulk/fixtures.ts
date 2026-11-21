@@ -31,6 +31,9 @@ const seed = (identifier: string, extra: Partial<ChildSeed> = {}): ChildSeed => 
 
 const recorderFor = (children: readonly ChildSeed[], options: { readonly failOn?: string } = {}) =>
   makeRecorder((request) => {
+    if (request.query.includes("query Viewer")) {
+      return jsonResponse({ data: { viewer } })
+    }
     if (request.query.includes("query IssueId")) {
       return jsonResponse({ data: { issue: { id: "i-parent" } } })
     }

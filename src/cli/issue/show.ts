@@ -98,7 +98,7 @@ const showCommand = Command.make(
           "Pass one of the two flags.",
         )
       }
-      const comments = skipsComments ? false : includesComments || json
+      const comments = includesComments
       const api = yield* IssueApi
       if (config.summary) {
         const summary = yield* api.summary(config.ref)
@@ -120,7 +120,7 @@ const showCommand = Command.make(
         children: !config.noChildren,
         relations: !config.noRelations,
         attachments: !config.noAttachments,
-        comments: !skipsComments,
+        comments,
       })
       return yield* writeJson(yield* selectObject(fields, shape, detailOutput(issue, config)))
     }).pipe(Effect.catch(reportFailure)),

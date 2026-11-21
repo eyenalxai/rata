@@ -4,12 +4,12 @@ import { apiLayer, makeFakeLinear } from "@test/fake-linear"
 import { inputOf } from "@test/fake-linear/model"
 import { ctrlC, fakeTerminal, key, typed } from "@test/terminal-harness"
 import { describe, expect, test } from "bun:test"
-import { Effect, Exit, FileSystem, Layer, Path, Terminal } from "effect"
+import { Effect, Exit, FileSystem, Layer, Path, Stdio, Terminal } from "effect"
 
 import type { TeamCreateOptions } from "@/api/team"
 
 import { TeamService } from "@/api/team"
-import { confirm } from "@/cli/confirm"
+import { PromptRequiredError, confirm } from "@/cli/confirm"
 
 const team = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
 
@@ -45,19 +45,20 @@ const mutationOf = (requests: readonly GraphQLRequest[]): GraphQLRequest | undef
 const hasQuery = (requests: readonly GraphQLRequest[], fragment: string): boolean =>
   requests.some((request) => request.query.includes(fragment))
 
-const terminalLayer = (input: readonly Terminal.UserInput[]) =>
+const terminalLayer = (input: readonly Terminal.UserInput[], stdinIsTerminal = true) =>
   Layer.mergeAll(
     FileSystem.layerNoop({}),
     Path.layer,
+    Stdio.layerTest({ stdinIsTerminal: Effect.succeed(stdinIsTerminal) }),
     Layer.succeed(Terminal.Terminal, fakeTerminal(input)),
   )
 
 const valueOf = <A, E>(exit: Exit.Exit<A, E>): A | undefined =>
   Exit.isSuccess(exit) ? exit.value : undefined
 
-const runConfirm = (yes: boolean, input: readonly Terminal.UserInput[]) =>
+const runConfirm = (yes: boolean, input: readonly Terminal.UserInput[], stdinIsTerminal = true) =>
   confirm("Delete team RAT (Rata)?", yes).pipe(
-    Effect.provide(terminalLayer(input)),
+    Effect.provide(terminalLayer(input, stdinIsTerminal)),
     Effect.runPromiseExit,
   )
 
@@ -143,5 +144,14 @@ describe("Cli.Confirm.confirm", () => {
   test("interrupts when the input ends", async () => {
     const exit = await runConfirm(false, [ctrlC()])
     expect(Exit.hasInterrupts(exit)).toBe(true)
+  })
+
+  test("fails with a prompt-required error when stdin is not a terminal", async () => {
+    const failure = await confirm("Delete team RAT (Rata)?", false).pipe(
+      Effect.provide(terminalLayer([], false)),
+      Effect.flip,
+      Effect.runPromise,
+    )
+    expect(failure).toBeInstanceOf(PromptRequiredError)
   })
 })

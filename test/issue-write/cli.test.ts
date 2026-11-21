@@ -1,122 +1,9 @@
+import type { WriteState } from "@test/issue-write/recorder"
+
 import { lastJson, runIssue } from "@test/cli-harness"
-import { jsonResponse, pageInfo, summaryNode, viewer } from "@test/issue-fixtures"
-import { makeRecorder } from "@test/issue-write/fixtures"
+import { viewer } from "@test/issue-fixtures"
+import { recorderFor, state } from "@test/issue-write/recorder"
 import { afterEach, describe, expect, test } from "bun:test"
-
-import type { IssueInverseRelation, IssueRelation } from "@/api/issue-schema"
-
-type WriteState = {
-  readonly assignee: typeof viewer | null
-  readonly labels: readonly { readonly id: string; readonly name: string }[]
-  readonly outgoing: readonly IssueRelation[]
-  readonly incoming: readonly IssueInverseRelation[]
-}
-
-const outgoingBlocks: IssueRelation = {
-  id: "rel-out",
-  type: "blocks",
-  relatedIssue: {
-    id: "i2",
-    identifier: "RAT-2",
-    title: "Dependent",
-    state: { name: "Todo", type: "unstarted" },
-  },
-}
-
-const state: WriteState = {
-  assignee: viewer,
-  labels: [{ id: "l1", name: "ready-for-agent" }],
-  outgoing: [outgoingBlocks],
-  incoming: [],
-}
-
-const issueIds: Readonly<Record<string, string>> = {
-  "RAT-1": "i1",
-  "RAT-2": "i2",
-  "RAT-3": "i3",
-  "RAT-9": "i9",
-}
-
-const refNodes = Object.entries(issueIds).map(([identifier, id]) => ({ id, identifier }))
-
-const recorderFor = (current: WriteState) =>
-  makeRecorder((request) => {
-    if (request.query.includes("query IssueSummary")) {
-      return jsonResponse({
-        data: {
-          issue: {
-            ...summaryNode("RAT-1"),
-            assignee: current.assignee,
-            labels: { nodes: current.labels },
-          },
-        },
-      })
-    }
-    if (request.query.includes("query Viewer")) {
-      return jsonResponse({ data: { viewer } })
-    }
-    if (request.query.includes("query IssueId")) {
-      return jsonResponse({
-        data: { issue: { id: issueIds[String(request.variables.id)] ?? "i9" } },
-      })
-    }
-    if (request.query.includes("query IssueRefs")) {
-      return jsonResponse({ data: { issues: { nodes: refNodes, pageInfo } } })
-    }
-    if (request.query.includes("query IssueTeam")) {
-      return jsonResponse({ data: { issue: { team: { id: "team-1" } } } })
-    }
-    if (request.query.includes("query IssueLabels")) {
-      return jsonResponse({
-        data: { issue: { labels: { nodes: current.labels, pageInfo } } },
-      })
-    }
-    if (request.query.includes("query AvailableLabels")) {
-      return jsonResponse({
-        data: {
-          issueLabels: {
-            nodes: [
-              { id: "l1", name: "ready-for-agent", color: "#111111" },
-              { id: "l-bug", name: "bug", color: "#EB5757" },
-            ],
-            pageInfo,
-          },
-        },
-      })
-    }
-    if (request.query.includes("query IssueRelationsWithInverse")) {
-      const relations = { nodes: current.outgoing, pageInfo }
-      const inverseRelations = { nodes: current.incoming, pageInfo }
-      return jsonResponse({ data: { issue: { relations, inverseRelations } } })
-    }
-    if (request.query.includes("mutation UpdateIssue")) {
-      return jsonResponse({
-        data: {
-          issueUpdate: {
-            success: true,
-            issue: { ...summaryNode("RAT-1"), assignee: current.assignee },
-          },
-        },
-      })
-    }
-    if (request.query.includes("mutation AddLabel")) {
-      return jsonResponse({
-        data: { issueAddLabel: { success: true, issue: summaryNode("RAT-1") } },
-      })
-    }
-    if (request.query.includes("mutation RemoveLabel")) {
-      return jsonResponse({
-        data: { issueRemoveLabel: { success: true, issue: summaryNode("RAT-1") } },
-      })
-    }
-    if (request.query.includes("mutation IssueRelationCreate")) {
-      return jsonResponse({ data: { issueRelationCreate: { success: true } } })
-    }
-    if (request.query.includes("mutation IssueRelationDelete")) {
-      return jsonResponse({ data: { issueRelationDelete: { success: true } } })
-    }
-    return jsonResponse({ errors: [{ message: `Unexpected query: ${request.query}` }] }, 400)
-  })
 
 afterEach(() => {
   process.exitCode = 0
@@ -170,6 +57,35 @@ describe("rata issue assign grammar", () => {
     ])
     expect(recorder.requests).toHaveLength(0)
     expect(process.exitCode).toBe(2)
+  })
+
+  test("refuses to take another user's issue without --take", async () => {
+    const other = { ...viewer, id: "u2", name: "Other", displayName: "other" }
+    const recorder = recorderFor({ ...state, assignee: other })
+    const lines: string[] = []
+    await runIssue(recorder.handler, ["assign", "RAT-1", "--assignee", "me", "--json"], lines)
+    expect(process.exitCode).toBe(4)
+    expect(lastJson(lines)).toMatchObject({ error: { code: "conflict" } })
+    expect(lines.at(-1) ?? "").toContain("Other")
+    expect(
+      recorder.requests.some((request) => request.query.includes("mutation UpdateIssue")),
+    ).toBe(false)
+  })
+
+  test("--take reassigns another user's issue", async () => {
+    const other = { ...viewer, id: "u2", name: "Other", displayName: "other" }
+    const recorder = recorderFor({ ...state, assignee: other })
+    const lines: string[] = []
+    await runIssue(
+      recorder.handler,
+      ["assign", "RAT-1", "--assignee", "me", "--take", "--json"],
+      lines,
+    )
+    expect(lastJson(lines)).toMatchObject({ status: "updated" })
+    const update = recorder.requests.find((request) =>
+      request.query.includes("mutation UpdateIssue"),
+    )
+    expect(update?.variables.input).toMatchObject({ assigneeId: viewer.id })
   })
 })
 
