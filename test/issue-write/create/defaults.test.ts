@@ -1,6 +1,13 @@
 import { inputOf } from "@test/fake-linear/model"
 import { jsonResponse, pageInfo, viewer } from "@test/issue-fixtures"
-import { issueCreated, makeRecorder, requestOf, run, team } from "@test/issue-write/fixtures"
+import {
+  issueCreated,
+  makeRecorder,
+  requestOf,
+  run,
+  team,
+  teamDetailResponse,
+} from "@test/issue-write/fixtures"
 import { describe, expect, test } from "bun:test"
 import { Effect } from "effect"
 
@@ -8,6 +15,15 @@ import { IssueWriteApi } from "@/api/issue-write"
 
 const handler = () =>
   makeRecorder((request) => {
+    const detail = teamDetailResponse(request, {
+      labels: [
+        { id: "l-enh", name: "enhancement", color: "#111111", teamId: "team-1" },
+        { id: "l-bug", name: "bug", color: "#EB5757", teamId: "team-1" },
+      ],
+    })
+    if (detail !== undefined) {
+      return detail
+    }
     if (request.query.includes("query TeamByKey")) {
       return jsonResponse({ data: { teams: { nodes: [team], pageInfo } } })
     }

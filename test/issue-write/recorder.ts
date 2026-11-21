@@ -1,5 +1,5 @@
 import { jsonResponse, pageInfo, summaryNode, viewer } from "@test/issue-fixtures"
-import { makeRecorder } from "@test/issue-write/fixtures"
+import { makeRecorder, teamDetailResponse } from "@test/issue-write/fixtures"
 
 import type { IssueInverseRelation, IssueRelation } from "@/api/issue-schema"
 
@@ -41,6 +41,15 @@ const refNodes = Object.entries(issueIds).map(([identifier, id]) => ({ id, ident
 
 const recorderFor = (current: WriteState) =>
   makeRecorder((request) => {
+    const detail = teamDetailResponse(request, {
+      labels: [
+        { id: "l1", name: "ready-for-agent", color: "#111111", teamId: "team-1" },
+        { id: "l-bug", name: "bug", color: "#EB5757", teamId: "team-1" },
+      ],
+    })
+    if (detail !== undefined) {
+      return detail
+    }
     if (request.query.includes("query IssueSummary")) {
       return jsonResponse({
         data: {

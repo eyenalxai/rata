@@ -1,6 +1,6 @@
 import { inputOf } from "@test/fake-linear/model"
 import { jsonResponse, summaryNode, user, viewer } from "@test/issue-fixtures"
-import { makeRecorder } from "@test/issue-write/fixtures"
+import { makeRecorder, teamDetailResponse } from "@test/issue-write/fixtures"
 
 type ChildSeed = {
   readonly identifier: string
@@ -31,6 +31,12 @@ const seed = (identifier: string, extra: Partial<ChildSeed> = {}): ChildSeed => 
 
 const recorderFor = (children: readonly ChildSeed[], options: { readonly failOn?: string } = {}) =>
   makeRecorder((request) => {
+    const detail = teamDetailResponse(request, {
+      labels: Object.values(labels).map((label) => ({ ...label, teamId: "team-1" })),
+    })
+    if (detail !== undefined) {
+      return detail
+    }
     if (request.query.includes("query Viewer")) {
       return jsonResponse({ data: { viewer } })
     }

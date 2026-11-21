@@ -7,6 +7,13 @@ import { Option } from "effect"
 import { teamId } from "@/domain/id"
 
 describe("LinkService.link", () => {
+  test("stores the team UUID and key at link time", async () => {
+    const harness = makeHarness()
+    const fake = makeFakeLinear({ teams: [rat], labels: [] })
+    const { stored } = await linkTeam(fake.handler, harness, options({}))
+    expect(stored).toEqual(Option.some({ team: "RAT", teamId: teamId("team-1") }))
+  })
+
   test("resolves a team given by id and stores the key", async () => {
     const harness = makeHarness()
     const fake = makeFakeLinear({ teams: [{ ...rat, id: ratId }, scratch], labels: [] })
@@ -16,7 +23,7 @@ describe("LinkService.link", () => {
       options({ team: Option.some(ratId) }),
     )
     expect(result.team).toEqual({ ...rat, id: ratId })
-    expect(stored).toEqual(Option.some({ team: "RAT", teamId: ratId }))
+    expect(stored).toEqual(Option.some({ team: "RAT", teamId: teamId(ratId) }))
     expect(fake.requests.some((request) => request.query.includes("query TeamById"))).toBe(true)
   })
 

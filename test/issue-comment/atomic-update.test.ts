@@ -1,6 +1,6 @@
 import { lastJson, runIssue } from "@test/cli-harness"
 import { jsonResponse, pageInfo, summaryNode, user } from "@test/issue-fixtures"
-import { makeRecorder, requestOf, states } from "@test/issue-write/fixtures"
+import { makeRecorder, requestOf, states, teamDetailResponse } from "@test/issue-write/fixtures"
 import { afterEach, describe, expect, test } from "bun:test"
 import { Option, Schema } from "effect"
 
@@ -26,6 +26,10 @@ const updateHandler = (options: { readonly failComment?: boolean } = {}) => {
     comments: 0,
   }
   const recorder = makeRecorder((request) => {
+    const detail = teamDetailResponse(request, { states })
+    if (detail !== undefined) {
+      return detail
+    }
     if (request.query.includes("query IssueSummary")) {
       return jsonResponse({
         data: { issue: { ...summaryNode("RAT-1"), updatedAt: state.updatedAt } },
@@ -33,6 +37,9 @@ const updateHandler = (options: { readonly failComment?: boolean } = {}) => {
     }
     if (request.query.includes("query IssueId")) {
       return jsonResponse({ data: { issue: { id: "i1" } } })
+    }
+    if (request.query.includes("query IssueTeam")) {
+      return jsonResponse({ data: { issue: { team: { id: "team-1" } } } })
     }
     if (request.query.includes("query IssueStates")) {
       return jsonResponse({

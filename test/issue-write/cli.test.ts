@@ -1,12 +1,43 @@
 import type { WriteState } from "@test/issue-write/recorder"
 
 import { lastJson, runIssue } from "@test/cli-harness"
-import { viewer } from "@test/issue-fixtures"
+import { jsonResponse, pageInfo, viewer } from "@test/issue-fixtures"
+import { makeRecorder, teamDetailResponse } from "@test/issue-write/fixtures"
 import { recorderFor, state } from "@test/issue-write/recorder"
 import { afterEach, describe, expect, test } from "bun:test"
 
 afterEach(() => {
   process.exitCode = 0
+})
+
+describe("rata issue create state", () => {
+  test("reports the valid states after one refresh", async () => {
+    const team = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
+    const recorder = makeRecorder((request) => {
+      const detail = teamDetailResponse(request)
+      if (detail !== undefined) {
+        return detail
+      }
+      if (request.query.includes("query TeamByKey")) {
+        return jsonResponse({ data: { teams: { nodes: [team], pageInfo } } })
+      }
+      return jsonResponse({ errors: [{ message: `Unexpected query: ${request.query}` }] }, 400)
+    })
+    const lines: string[] = []
+    await runIssue(
+      recorder.handler,
+      ["create", "--title", "T", "--team", "RAT", "--state", "Nope", "--json"],
+      lines,
+      [{ key: process.cwd(), team: "RAT", teamId: "team-1" }],
+    )
+
+    expect(process.exitCode).toBe(3)
+    expect(lastJson(lines)).toMatchObject({ error: { code: "not_found" } })
+    expect(lines.at(-1) ?? "").toContain("Valid states")
+    expect(
+      recorder.requests.filter((request) => request.query.includes("query TeamStates")),
+    ).toHaveLength(2)
+  })
 })
 
 describe("rata issue assign grammar", () => {
@@ -105,6 +136,19 @@ describe("idempotent writes report skipped", () => {
     const lines: string[] = []
     await runIssue(recorder.handler, ["unassign", "RAT-1", "--json"], lines)
     expect(lastJson(lines)).toMatchObject({ status: "skipped" })
+  })
+
+  test("reports the valid labels after one refresh", async () => {
+    const recorder = recorderFor(state)
+    const lines: string[] = []
+    await runIssue(recorder.handler, ["label", "add", "RAT-1", "nope", "--json"], lines)
+
+    expect(process.exitCode).toBe(3)
+    expect(lastJson(lines)).toMatchObject({ error: { code: "not_found" } })
+    expect(lines.at(-1) ?? "").toContain("Valid labels")
+    expect(
+      recorder.requests.filter((request) => request.query.includes("query TeamLabels")),
+    ).toHaveLength(2)
   })
 
   test("label add with a present label", async () => {

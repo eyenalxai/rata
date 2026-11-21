@@ -3,6 +3,7 @@ import { Effect, Schema } from "effect"
 import type { LinearClient } from "@/api/client"
 import type { LinearApiError } from "@/api/errors"
 import type { IssueListOptions } from "@/api/issue-model"
+import type { TeamContext } from "@/context/team"
 import type { TeamId } from "@/domain/id"
 
 import { collectConnection, PageInfo, pageSize } from "@/api/pagination"
@@ -10,18 +11,6 @@ import { isUuid, UserId, userId } from "@/domain/id"
 
 const filterNames = ["state", "label", "project"] as const
 type FilterName = (typeof filterNames)[number]
-
-const StateName = Schema.Struct({ name: Schema.String })
-const StateConnection = Schema.Struct({
-  nodes: Schema.Array(StateName),
-  pageInfo: PageInfo,
-})
-
-const LabelName = Schema.Struct({ name: Schema.String })
-const LabelConnection = Schema.Struct({
-  nodes: Schema.Array(LabelName),
-  pageInfo: PageInfo,
-})
 
 const ProjectName = Schema.Struct({ name: Schema.String })
 const ProjectConnection = Schema.Struct({
@@ -33,22 +22,6 @@ const UserConnection = Schema.Struct({
   nodes: Schema.Array(Schema.Struct({ id: UserId })),
 })
 const UserResponse = Schema.Struct({ users: UserConnection })
-
-const statesQuery = `query TeamStates($teamId: String!, $first: Int!, $after: String) {
-  team(id: $teamId) {
-    states(first: $first, after: $after) {
-      nodes { name }
-      pageInfo { hasNextPage endCursor }
-    }
-  }
-}`
-
-const labelsQuery = `query AvailableLabels($teamId: ID!, $first: Int!, $after: String) {
-  issueLabels(first: $first, after: $after, filter: { or: [{ team: { id: { eq: $teamId } } }, { team: { null: true } }] }) {
-    nodes { name }
-    pageInfo { hasNextPage endCursor }
-  }
-}`
 
 const projectsQuery = `query Projects($first: Int!, $after: String) {
   projects(first: $first, after: $after, includeArchived: false) {
@@ -98,30 +71,6 @@ const uniqueNames = (names: readonly string[]): readonly string[] => {
   return unique
 }
 
-const stateNames = (
-  execute: LinearClient["Service"]["execute"],
-  teamId: TeamId,
-): Effect.Effect<readonly string[], LinearApiError> =>
-  collectConnection((after) =>
-    execute(
-      statesQuery,
-      { teamId, first: pageSize, after },
-      Schema.Struct({ team: Schema.Struct({ states: StateConnection }) }),
-    ).pipe(Effect.map((data) => data.team.states)),
-  ).pipe(Effect.map((states) => uniqueNames(states.map((state) => state.name))))
-
-const labelNames = (
-  execute: LinearClient["Service"]["execute"],
-  teamId: TeamId,
-): Effect.Effect<readonly string[], LinearApiError> =>
-  collectConnection((after) =>
-    execute(
-      labelsQuery,
-      { teamId, first: pageSize, after },
-      Schema.Struct({ issueLabels: LabelConnection }),
-    ).pipe(Effect.map((data) => data.issueLabels)),
-  ).pipe(Effect.map((labels) => uniqueNames(labels.map((label) => label.name))))
-
 const projectNames = (
   execute: LinearClient["Service"]["execute"],
 ): Effect.Effect<readonly string[], LinearApiError> =>
@@ -158,14 +107,15 @@ const requireName = (
 
 const validateNamedFilters = Effect.fn("IssueFilters.validateNames")(function* validateNames(
   execute: LinearClient["Service"]["execute"],
+  context: TeamContext["Service"],
   teamId: TeamId,
   options: Pick<IssueListOptions, "state" | "label" | "project">,
 ) {
   if (options.state !== undefined) {
-    yield* requireName("state", options.state, yield* stateNames(execute, teamId))
+    yield* context.resolveState(options.state, teamId)
   }
   if (options.label !== undefined) {
-    yield* requireName("label", options.label, yield* labelNames(execute, teamId))
+    yield* context.resolveLabel(options.label, teamId)
   }
   if (options.project !== undefined && !isUuid(options.project)) {
     yield* requireName("project", options.project, yield* projectNames(execute))

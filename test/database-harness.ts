@@ -4,8 +4,11 @@ import { migrate } from "drizzle-orm/effect-sqlite-bun/migrator"
 import { Effect, Layer } from "effect"
 import path from "node:path"
 
+import type { Viewer } from "@/api/client"
+import type { TeamDetail } from "@/api/team/details"
+
 import { Database } from "@/db/database"
-import { profiles, repositories } from "@/db/schema"
+import { contextCache, profiles, repositories, viewerCache } from "@/db/schema"
 
 type RepositorySeed = {
   readonly key: string
@@ -24,11 +27,32 @@ type ProfileSeed = {
   readonly isDefault?: boolean | undefined
 }
 
+type ContextCacheSeed = {
+  readonly profile: string
+  readonly teamId: string
+  readonly keyHash: string
+  readonly detail: TeamDetail
+  readonly fetchedAt: number
+}
+
+type ViewerCacheSeed = {
+  readonly profile: string
+  readonly keyHash: string
+  readonly viewer: Viewer
+  readonly fetchedAt: number
+}
+
+type CacheSeed = {
+  readonly teams?: readonly ContextCacheSeed[] | undefined
+  readonly viewers?: readonly ViewerCacheSeed[] | undefined
+}
+
 const migrationsFolder = path.resolve(import.meta.dir, "../drizzle")
 
 const databaseLayer = (
   seed: readonly RepositorySeed[] = [],
   profileSeed: readonly ProfileSeed[] = [],
+  cacheSeed: CacheSeed = {},
 ) =>
   Layer.effect(
     Database,
@@ -63,8 +87,38 @@ const databaseLayer = (
           })
           .run(),
       )
+      yield* Effect.forEach(cacheSeed.teams ?? [], (row) =>
+        drizzle
+          .insert(contextCache)
+          .values({
+            profile: row.profile,
+            teamId: row.teamId,
+            keyHash: row.keyHash,
+            detail: JSON.stringify(row.detail),
+            fetchedAt: row.fetchedAt,
+          })
+          .run(),
+      )
+      yield* Effect.forEach(cacheSeed.viewers ?? [], (row) =>
+        drizzle
+          .insert(viewerCache)
+          .values({
+            profile: row.profile,
+            keyHash: row.keyHash,
+            viewer: JSON.stringify(row.viewer),
+            fetchedAt: row.fetchedAt,
+          })
+          .run(),
+      )
       return Database.of({ drizzle, file: ":memory:" })
     }),
   ).pipe(Layer.provide(SqliteClient.layer({ filename: ":memory:" })), Layer.orDie)
 
-export { databaseLayer, type ProfileSeed, type RepositorySeed }
+export {
+  type CacheSeed,
+  databaseLayer,
+  type ProfileSeed,
+  type RepositorySeed,
+  type ContextCacheSeed,
+  type ViewerCacheSeed,
+}

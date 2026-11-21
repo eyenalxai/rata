@@ -12,10 +12,10 @@ import { makeRelationWrites } from "@/api/issue-write/relation-writes"
 import { makeIssueWriteResolvers } from "@/api/issue-write/resolvers"
 import { makeSectionWrites } from "@/api/issue-write/sections"
 import { makeVisibilityChecks } from "@/api/issue-write/visibility"
-import { LabelService } from "@/api/label"
 import { ProjectService } from "@/api/project"
 import { RepoTeam } from "@/api/repo-team"
 import { RepoConfigService } from "@/config/repo"
+import { TeamContext } from "@/context/team"
 
 class IssueWriteApi extends Context.Service<IssueWriteApi, IssueWriteApiShape>()(
   "rata-cli/api/issue-write/IssueWriteApi",
@@ -24,11 +24,11 @@ class IssueWriteApi extends Context.Service<IssueWriteApi, IssueWriteApiShape>()
     IssueWriteApi,
     Effect.gen(function* issueWriteApiLayer() {
       const client = yield* LinearClient
-      const labels = yield* LabelService
       const projects = yield* ProjectService
       const repoConfig = yield* RepoConfigService
       const repoTeam = yield* RepoTeam
-      const resolvers = makeIssueWriteResolvers({ client, labels, projects })
+      const context = yield* TeamContext
+      const resolvers = makeIssueWriteResolvers({ client, context, projects })
       const visibility = makeVisibilityChecks({ client })
       const issueWrites = makeIssueWrites(resolvers)
       const bulkWrites = makeBulkWrites(resolvers)

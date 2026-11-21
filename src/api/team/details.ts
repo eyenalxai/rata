@@ -169,4 +169,4 @@ const fetchTeamDetail = Effect.fn("TeamDetail.fetch")(function* fetchTeamDetail(
   } satisfies TeamDetail
 })
 
-export { fetchTeamDetail, type TeamDetail }
+export { fetchTeamDetail, TeamDetail, type TeamLabel, type TeamState }

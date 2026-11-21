@@ -295,4 +295,4 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
   )
 }
 
-export { Auth, AuthStoreError, type KeySource, type StoredProfile }
+export { Auth, AuthStoreError, type KeySource, type ResolvedAuth, type StoredProfile }

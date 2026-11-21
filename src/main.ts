@@ -17,7 +17,9 @@ import { IssueDefaultsService } from "@/config/defaults"
 import { LinkService } from "@/config/link"
 import { RepoConfigService } from "@/config/repo"
 import { RepositoryIdentity } from "@/config/repo-identity"
+import { TeamContext } from "@/context/team"
 import { Database } from "@/db/database"
+import { ContextCache } from "@/local/context-cache"
 
 const platformLayer = BunServices.layer
 const databaseLayer = Database.layer.pipe(Layer.provide(platformLayer))
@@ -34,7 +36,15 @@ const clientLayer = LinearClient.layer.pipe(
 )
 const teamLayer = TeamService.layer.pipe(Layer.provide(clientLayer))
 const repoTeamLayer = RepoTeam.layer.pipe(Layer.provide(Layer.mergeAll(teamLayer, repoConfigLayer)))
-const issueLayer = IssueApi.layer.pipe(Layer.provide(Layer.mergeAll(clientLayer, repoTeamLayer)))
+const contextCacheLayer = ContextCache.layer.pipe(Layer.provide(databaseLayer))
+const teamContextLayer = TeamContext.layer.pipe(
+  Layer.provide(
+    Layer.mergeAll(authLayer, clientLayer, teamLayer, repoConfigLayer, contextCacheLayer),
+  ),
+)
+const issueLayer = IssueApi.layer.pipe(
+  Layer.provide(Layer.mergeAll(clientLayer, repoTeamLayer, teamContextLayer)),
+)
 const labelLayer = LabelService.layer.pipe(
   Layer.provide(Layer.mergeAll(clientLayer, repoTeamLayer)),
 )
@@ -54,7 +64,7 @@ const linkLayer = LinkService.layer.pipe(
 )
 const issueWriteLayer = IssueWriteApi.layer.pipe(
   Layer.provide(
-    Layer.mergeAll(clientLayer, labelLayer, projectLayer, repoConfigLayer, repoTeamLayer),
+    Layer.mergeAll(clientLayer, projectLayer, repoConfigLayer, repoTeamLayer, teamContextLayer),
   ),
 )
 const appLayer = Layer.mergeAll(
@@ -70,6 +80,8 @@ const appLayer = Layer.mergeAll(
   defaultsLayer,
   linkLayer,
   issueWriteLayer,
+  contextCacheLayer,
+  teamContextLayer,
   platformLayer,
   helpLayer,
 )

@@ -48,6 +48,7 @@ const errorRules: Record<string, ErrorRule> = {
     code: "not_found",
     hint: "A team key and an issue identifier prefix can differ after a rename. Run `rata team list` to see the team keys, then run `rata link --team <key>` to repair the link.",
   },
+  ContextLabelNotFoundError: { code: "not_found", hint: null },
   LabelNotFoundError: { code: "not_found", hint: null },
   LabelCreateError: {
     code: "conflict",
@@ -71,6 +72,7 @@ const errorRules: Record<string, ErrorRule> = {
   },
   ProjectAlreadyDeletedError: { code: "conflict", hint: null },
   ProjectNotDeletedError: { code: "conflict", hint: null },
+  ContextStateNotFoundError: { code: "not_found", hint: null },
   StateNotFoundError: { code: "not_found", hint: null },
   SectionAmbiguousError: {
     code: "ambiguous",
@@ -78,6 +80,7 @@ const errorRules: Record<string, ErrorRule> = {
   },
   InvalidIssueRef: { code: "validation", hint: null },
   InputError: { code: "validation", hint: null },
+  TriageMapError: { code: "validation", hint: null },
   BodyInputError: { code: "validation", hint: null },
   ColorInputError: { code: "validation", hint: null },
   PriorityInputError: { code: "validation", hint: null },

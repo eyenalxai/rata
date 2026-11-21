@@ -116,6 +116,21 @@ they explore the codebase. Use these terms; do not drift to synonyms.
 - **Repository issue defaults** (short: **issue defaults**): the assignee,
   labels and priority that `rata config` stores for one repository.
   `issue create` applies them unless a flag overrides them. Avoid: preferences.
+- **Context cache** (also **team context cache**): the SQLite copy of one
+  team's states, labels, members and priorities, plus the viewer. It stays fresh
+  for seven days. The cache key is the profile, the team UUID and the hash of
+  the API key. A warm read uses the cache and makes no Linear request.
+  Avoid: team cache, snapshot.
+- **Cache age**: the seconds since rata read the team context from Linear.
+  `rata status` reports it as `cache.ageSeconds`.
+- **Warm read**: a read that resolves the team context from the cache. A cold
+  read or `rata status --refresh` reads Linear and updates the cache.
+- **Triage map**: the map from the canonical triage roles to the label strings
+  in this tracker, parsed from `docs/agents/triage-labels.md`. The document
+  declares a canonical label header; a document without it is a validation
+  error.
+- **Tracker document health**: whether `docs/agents/issue-tracker.md` exists
+  and names the rata skill. `rata status` reports it in `docs.tracker`.
 - **Read-after-write check** (short: **visibility check**): the bounded re-read
   that `issue comment` and `issue create --parent` run after a write. It reports
   **visible**: `true` when the new object appears, `false` when the bound

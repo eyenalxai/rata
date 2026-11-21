@@ -19,6 +19,11 @@ import type {
 } from "@/api/issue/filter-check"
 import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
+import type {
+  ContextLabelNotFoundError,
+  ContextStateNotFoundError,
+  TeamContextError,
+} from "@/context/team/model"
 import type { UserId } from "@/domain/id"
 import type { InvalidIssueRef } from "@/domain/issue-ref"
 
@@ -34,6 +39,7 @@ import { makeReadOperations } from "@/api/issue/read"
 import { toIssueStatus } from "@/api/issue/status"
 import { collectPages, lastPageInfo, maxPageSize, pageOrDrain } from "@/api/pagination"
 import { RepoTeam } from "@/api/repo-team"
+import { TeamContext } from "@/context/team"
 import { isUuid, issueId } from "@/domain/id"
 import { parseRefOrFail } from "@/domain/issue-ref"
 import { priorityValue } from "@/domain/priority"
@@ -46,6 +52,9 @@ type IssueListError =
   | TeamNotFoundError
   | TeamResolutionError
   | FilterNameNotFoundError
+  | ContextLabelNotFoundError
+  | ContextStateNotFoundError
+  | TeamContextError
   | AssigneeInputError
   | AssigneeNotFoundError
   | IssueRefNotFoundError
@@ -79,6 +88,7 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
     Effect.gen(function* issueApiLayer() {
       const client = yield* LinearClient
       const repoTeam = yield* RepoTeam
+      const context = yield* TeamContext
       const { show, summary } = makeReadOperations(client.execute)
 
       const resolveAssigneeId = (
@@ -161,7 +171,9 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
         })
         const checkNames = (page: IssuePage) =>
           page.issues.length === 0 && teamId !== undefined
-            ? validateNamedFilters(client.execute, teamId, options).pipe(Effect.map(() => page))
+            ? validateNamedFilters(client.execute, context, teamId, options).pipe(
+                Effect.map(() => page),
+              )
             : Effect.succeed(page)
         const complete = (page: IssuePage, nodes: readonly IssueSummary[], whole: boolean) =>
           requested === undefined || !whole

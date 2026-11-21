@@ -1,58 +1,20 @@
-import type { ApiLayerOptions } from "@test/fake-linear"
 import type { Handler } from "@test/fake-linear/model"
 
-import { apiLayer, makeFakeLinear } from "@test/fake-linear"
-import { defaultViewer } from "@test/fake-linear/model"
-import { recordingConsoleWithErrors } from "@test/recording-console"
+import { makeFakeLinear } from "@test/fake-linear"
+import {
+  lastJson,
+  missingDocs,
+  profiles,
+  runStatus,
+  statusViewer,
+  team,
+} from "@test/status/harness"
 import { afterEach, describe, expect, test } from "bun:test"
-import { Console, Effect, FileSystem, Layer, Option, Path, Schema, Stdio, Terminal } from "effect"
-import { Command } from "effect/cli"
-import { ChildProcessSpawner } from "effect/process"
-import path from "node:path"
-
-import { statusCommand } from "@/cli/status"
+import { Option, Schema } from "effect"
 
 const unusedHandler: Handler = () => {
   throw new Error("status must not call the Linear API without a key")
 }
-
-const terminal = Terminal.make({
-  columns: Effect.succeed(80),
-  rows: Effect.succeed(24),
-  readInput: Effect.die("unused"),
-  readLine: Effect.die("unused"),
-  display: () => Effect.void,
-})
-
-const runStatus = (
-  handler: Handler,
-  args: readonly string[],
-  lines: string[],
-  options: ApiLayerOptions = {},
-  errors: string[] = lines,
-) =>
-  Command.run(statusCommand, { version: "test" }).pipe(
-    Effect.provide(
-      Layer.mergeAll(
-        apiLayer(handler, { ...options, stdio: { args: Effect.succeed(args) } }),
-        FileSystem.layerNoop({
-          exists: (file) => Effect.succeed((options.files ?? new Map()).has(file)),
-          readFileString: (file) => Effect.succeed((options.files ?? new Map()).get(file) ?? ""),
-        }),
-        Path.layer,
-        Stdio.layerTest({ args: Effect.succeed(args) }),
-        Layer.succeed(Terminal.Terminal, terminal),
-        Layer.succeed(
-          ChildProcessSpawner.ChildProcessSpawner,
-          ChildProcessSpawner.make(() => Effect.die("unused")),
-        ),
-        Layer.succeed(Console.Console, recordingConsoleWithErrors(lines, errors)),
-      ),
-    ),
-    Effect.runPromise,
-  )
-
-const lastJson = (lines: readonly string[]): unknown => JSON.parse(lines.at(-1) ?? "")
 
 const WorkspaceOnly = Schema.Struct({
   workspace: Schema.Struct({
@@ -65,20 +27,19 @@ const ErrorEnvelope = Schema.Struct({
   error: Schema.Struct({ code: Schema.String }),
 })
 
-const team = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
+const CacheDocument = Schema.Struct({
+  ageSeconds: Schema.Finite,
+  fetchedAt: Schema.String,
+})
 
-const statusViewer = {
-  id: defaultViewer.id,
-  name: defaultViewer.name,
-  displayName: defaultViewer.displayName,
-  email: defaultViewer.email,
-  organization: defaultViewer.organization,
+const readStatus = (lines: readonly string[]) => {
+  const value = Option.getOrThrow(
+    Schema.decodeUnknownOption(Schema.Record(Schema.String, Schema.Unknown))(lastJson(lines)),
+  )
+  const { cache, ...rest } = value
+  const decoded = Option.getOrThrow(Schema.decodeUnknownOption(Schema.NullOr(CacheDocument))(cache))
+  return { cache: decoded, rest }
 }
-
-const profiles = [
-  { name: "default", apiKey: "default-key", isDefault: true },
-  { name: "work", apiKey: "work-key" },
-]
 
 afterEach(() => {
   process.exitCode = 0
@@ -93,15 +54,21 @@ describe("status", () => {
       repositories: [{ key: process.cwd(), team: "RAT", workspace: "work" }],
     })
 
-    expect(lastJson(lines)).toEqual({
+    const { cache, rest } = readStatus(lines)
+    expect(rest).toEqual({
       repository: { root: process.cwd(), linked: true },
       workspace: { name: null, keySource: "env" },
       viewer: statusViewer,
       team: { id: "team-1", key: "RAT", name: "Rata" },
       project: null,
       defaults: { assignee: null, labels: [], priority: null },
+      states: [],
+      labels: [],
+      triage: null,
+      docs: missingDocs,
       warning: null,
     })
+    expect(cache?.ageSeconds).toBe(0)
   })
 
   test("uses the repository profile and shows the linked team and project", async () => {
@@ -113,15 +80,21 @@ describe("status", () => {
       repositories: [{ key: process.cwd(), team: "RAT", project: "rata", workspace: "work" }],
     })
 
-    expect(lastJson(lines)).toEqual({
+    const { cache, rest } = readStatus(lines)
+    expect(rest).toEqual({
       repository: { root: process.cwd(), linked: true },
       workspace: { name: "work", keySource: "repo" },
       viewer: statusViewer,
       team: { id: "team-1", key: "RAT", name: "Rata" },
       project: "rata",
       defaults: { assignee: null, labels: [], priority: null },
+      states: [],
+      labels: [],
+      triage: null,
+      docs: missingDocs,
       warning: null,
     })
+    expect(cache?.ageSeconds).toBe(0)
   })
 
   test("keeps the context when the stored team key is stale", async () => {
@@ -140,6 +113,11 @@ describe("status", () => {
       team: null,
       project: "rata",
       defaults: null,
+      states: [],
+      labels: [],
+      triage: null,
+      cache: null,
+      docs: missingDocs,
       warning:
         "The stored team key GONE no longer exists. Run `rata team list` to see the team keys, then run `rata link --team <key>` to repair the link.",
     })
@@ -220,37 +198,6 @@ describe("status", () => {
       repository: { root: process.cwd() },
       team: { key: "RAT" },
     })
-  })
-
-  test("warns when the tracker document does not name the rata skill", async () => {
-    const fake = makeFakeLinear({ teams: [team], labels: [] })
-    const lines: string[] = []
-    const document = path.join(process.cwd(), "docs", "agents", "issue-tracker.md")
-    await runStatus(fake.handler, ["--json"], lines, {
-      profiles,
-      repositories: [{ key: process.cwd(), team: "RAT", teamId: "team-1" }],
-      files: new Map([[document, "# Issue tracker\n\nUse the rata CLI for tracker work."]]),
-    })
-
-    expect(process.exitCode).toBe(0)
-    expect(lastJson(lines)).toMatchObject({
-      warning: `The tracker document at ${document} does not name the rata skill. Add a line that tells agents to load \`rata\` before the first tracker command.`,
-    })
-  })
-
-  test("stays quiet when the tracker document names the rata skill", async () => {
-    const fake = makeFakeLinear({ teams: [team], labels: [] })
-    const lines: string[] = []
-    const document = path.join(process.cwd(), "docs", "agents", "issue-tracker.md")
-    await runStatus(fake.handler, ["--json"], lines, {
-      profiles,
-      repositories: [{ key: process.cwd(), team: "RAT", teamId: "team-1" }],
-      files: new Map([
-        [document, "# Issue tracker\n\nLoad the `rata` skill before the first tracker command."],
-      ]),
-    })
-
-    expect(lastJson(lines)).toMatchObject({ warning: null })
   })
 
   test("repairs a stale team key and reports the repair", async () => {

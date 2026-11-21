@@ -39,18 +39,31 @@ bulk write, and a failed `issue update --comment` with the issue update,
 `auth login --with-token [--workspace <name>]` saves a key from stdin;
 `auth status`, `auth logout`, `workspace list` and `workspace use <name>`
 manage it; `whoami` shows the viewer; `unlink` removes the link and defaults.
-`status` prints the repo, workspace, key source, team, project, defaults, viewer
-and org. `link [--team] [--project] [--workspace] [--create --name]` links the
-repo; without `--team` it prompts and sets the team timezone. `config show`,
+`status [--refresh]` prints the repo, workspace, key source, team, project,
+defaults, states, labels, triage map, cache age, document health, viewer and org.
+The team detail is cached in SQLite for seven days. A warm `status` makes no
+Linear request; `--refresh` reads Linear and replaces the cache. `link [--team]
+[--project] [--workspace] [--create --name]` links the repo and stores the team
+UUID; without `--team` it prompts and sets the team timezone. `config show`,
 `config set` and `config unset` manage the issue defaults; `--label` replaces
 the list.
 
 The key resolves as `LINEAR_API_KEY`, the repository `workspace`, then
-`default`. A stale team key resolves by id, key, then name: a read repairs a
-changed key and warns; `status` keeps the warning. A key that no longer exists
-fails a read with `not_found` and the repair hint; `status` exits 0 with `team`
-and `defaults` at `null`. A legacy `.rata.json` is imported and removed on first
-use; a failed remove warns.
+`default`. A stored team resolves by UUID, key, then name. A stale UUID or key
+that resolves is repaired with a warning; `status` keeps the warning. A warm
+cache can serve the stored UUID for up to seven days; `--refresh` revalidates
+it. A team that no longer exists fails a read with `not_found` and the repair
+hint; `status` exits 0 with `team`, `defaults` and `cache` at `null` and
+`states` and `labels` empty. The triage map and the document health stay. A
+legacy `.rata.json` is imported and removed on first use; a failed remove warns.
+
+`status` carries `states` and `labels` from the cache, the `triage` map parsed
+from `docs/agents/triage-labels.md`, `cache.ageSeconds`, and `docs.tracker` and
+`docs.triage` health. The triage document must declare the canonical label
+header; a reordered table parses by header name. A headerless or incomplete
+document is an unhealthy `docs.triage` with a warning; `status` still prints the
+rest. An unknown state or label refreshes the context once, then fails
+`not_found` with the valid names.
 
 ## Teams, projects and labels
 
@@ -66,21 +79,21 @@ members and priorities; `team create --name <name> [--key]`; `team delete <key>
 
 ### Read shapes
 
-| Command                                   | JSON                                                                                                               |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `issue show <ref>`                        | The issue object with `description`, `children`, `relations` and `attachments`; `comments` with `--comments`       |
-| `issue show <ref> --summary`              | The summary object                                                                                                 |
-| `issue status <ref>`                      | The summary plus `blocked`, `blockedBy`, `prs` and `nextChild`; flags add `description`, `comments` and `children` |
-| `next --parent <ref>`                     | The summary of the ready child, or `null`; `--ids-only` prints the identifier or nothing                           |
-| `why <ref>`                               | The summary plus `blocked` and `blockedBy`                                                                         |
-| `team show [<ref>]`                       | The team object                                                                                                    |
-| `issue section get <ref> <heading>`       | `{ "heading", "level", "content" }`                                                                                |
-| `issue list`, `search`                    | `{ issues, pageInfo }`; `--count` gives `{ count }`; `--ids-only` prints identifiers                               |
-| `team list`, `project list`, `label list` | `{ <plural>, pageInfo }`                                                                                           |
-| `status`                                  | Named sections: `repository`, `workspace`, `viewer`, `team`, `project`, `defaults`, `warning`                      |
-| `config show`                             | `{ defaults }`                                                                                                     |
-| `auth status`                             | `{ authenticated, source, profile, storePath, viewer }`                                                            |
-| `link`                                    | `{ team, project, workspace, timezone }`                                                                           |
+| Command                                   | JSON                                                                                                                                         |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `issue show <ref>`                        | The issue object with `description`, `children`, `relations` and `attachments`; `comments` with `--comments`                                 |
+| `issue show <ref> --summary`              | The summary object                                                                                                                           |
+| `issue status <ref>`                      | The summary plus `blocked`, `blockedBy`, `prs` and `nextChild`; flags add `description`, `comments` and `children`                           |
+| `next --parent <ref>`                     | The summary of the ready child, or `null`; `--ids-only` prints the identifier or nothing                                                     |
+| `why <ref>`                               | The summary plus `blocked` and `blockedBy`                                                                                                   |
+| `team show [<ref>]`                       | The team object                                                                                                                              |
+| `issue section get <ref> <heading>`       | `{ "heading", "level", "content" }`                                                                                                          |
+| `issue list`, `search`                    | `{ issues, pageInfo }`; `--count` gives `{ count }`; `--ids-only` prints identifiers                                                         |
+| `team list`, `project list`, `label list` | `{ <plural>, pageInfo }`                                                                                                                     |
+| `status`                                  | Named sections: `repository`, `workspace`, `viewer`, `team`, `project`, `defaults`, `states`, `labels`, `triage`, `cache`, `docs`, `warning` |
+| `config show`                             | `{ defaults }`                                                                                                                               |
+| `auth status`                             | `{ authenticated, source, profile, storePath, viewer }`                                                                                      |
+| `link`                                    | `{ team, project, workspace, timezone }`                                                                                                     |
 
 Every issue read carries `createdAt` and `updatedAt`. The summary carries the
 identifier, title, state, priority, labels, assignee, project, parent and url.
