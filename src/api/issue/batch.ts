@@ -2,7 +2,7 @@ import { Effect, Schema } from "effect"
 
 import type { IssueSummary } from "@/api/issue-model"
 
-import { parseRefOrFail } from "@/domain/ref"
+import { parseRefOrFail } from "@/domain/issue-ref"
 
 class IssueRefNotFoundError extends Schema.TaggedError<IssueRefNotFoundError>()(
   "IssueRefNotFoundError",

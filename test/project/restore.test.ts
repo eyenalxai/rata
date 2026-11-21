@@ -6,6 +6,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { Effect } from "effect"
 
 import { ProjectService } from "@/api/project"
+import { projectId } from "@/domain/id"
 
 const trashed = { ...tracker, trashed: true }
 
@@ -30,7 +31,7 @@ describe("ProjectService.resolveTrashed", () => {
     const id = "0f8fad5b-d9cb-469f-a165-70867728950e"
     const fake = makeFakeLinear({ teams: [], labels: [], projects: [{ ...trashed, id }] })
     const found = await run(fake.handler, resolveTrashedProject(id))
-    expect(found).toEqual({ ...tracker, id, trashed: true })
+    expect(found).toEqual({ ...tracker, id: projectId(id), trashed: true })
     const byId = fake.requests.find((request) => request.query.includes("query ProjectById"))
     expect(byId?.variables).toEqual({ id, includeArchived: true })
     expect(fake.requests.some((request) => request.query.includes("query Projects"))).toBe(false)
@@ -70,7 +71,7 @@ describe("ProjectService.resolveTrashed", () => {
     const other = { ...trashed, id: "project-2" }
     const fake = makeFakeLinear({ teams: [], labels: [], projects: [tracker, other] })
     const found = await run(fake.handler, resolveTrashedProject("tracker"))
-    expect(found.id).toBe("project-2")
+    expect(String(found.id)).toBe("project-2")
     expect(found.trashed).toBe(true)
   })
 
@@ -87,7 +88,7 @@ describe("ProjectService.resolveTrashed", () => {
       projects: [...decoys, { ...trashed, id: "project-51" }],
     })
     const found = await run(fake.handler, resolveTrashedProject("tracker"))
-    expect(found.id).toBe("project-51")
+    expect(String(found.id)).toBe("project-51")
     const pages = fake.requests.filter((request) => request.query.includes("query Projects"))
     expect(pages.map((request) => request.variables)).toEqual([
       { first: 50, after: null, includeArchived: true },
@@ -107,13 +108,13 @@ describe("ProjectService.restore", () => {
         return yield* projects.restore(project)
       }),
     )
-    expect(restored).toEqual({ id: "project-1", name: "Tracker" })
+    expect(restored).toEqual({ id: projectId("project-1"), name: "Tracker" })
     expect(unarchiveMutation(fake.requests)?.variables).toEqual({ id: "project-1" })
   })
 
   test("maps a failed payload to a clear error", async () => {
     const fake = makeFakeLinear({ teams: [], labels: [] })
-    const missing = { ...trashed, id: "project-404", name: "Missing" }
+    const missing = { ...trashed, id: projectId("project-404"), name: "Missing" }
     const error = await run(
       fake.handler,
       Effect.gen(function* restoreProject() {

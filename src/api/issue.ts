@@ -19,7 +19,7 @@ import type {
 } from "@/api/issue/filter-check"
 import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
-import type { InvalidIssueRef } from "@/domain/ref"
+import type { InvalidIssueRef } from "@/domain/issue-ref"
 
 import { LinearClient } from "@/api/client"
 import { composeFilter, projectFilter, teamIdFilter, textFilter } from "@/api/issue-filter"
@@ -33,8 +33,10 @@ import { makeReadOperations } from "@/api/issue/read"
 import { toIssueStatus } from "@/api/issue/status"
 import { collectPages, lastPageInfo, maxPageSize, pageOrDrain } from "@/api/pagination"
 import { RepoTeam } from "@/api/repo-team"
-import { isUuid, parseRefOrFail } from "@/domain/ref"
-import { closedStateTypes } from "@/domain/state"
+import { isUuid } from "@/domain/id"
+import { parseRefOrFail } from "@/domain/issue-ref"
+import { priorityValue } from "@/domain/priority"
+import { closedStateTypes } from "@/domain/workflow-state"
 
 type IssueListError =
   | LinearApiError
@@ -113,7 +115,7 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
           parts.push({ state: { type: { eq: options.stateType } } })
         }
         if (options.priority !== undefined) {
-          parts.push({ priority: { eq: options.priority } })
+          parts.push({ priority: { eq: priorityValue(options.priority) } })
         }
         if (options.label !== undefined) {
           parts.push({ labels: { some: { name: { eqIgnoreCase: options.label } } } })

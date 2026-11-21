@@ -1,6 +1,6 @@
 import { Effect, Option, Result, Schema } from "effect"
 
-import { parseLabelColor } from "@/domain/labels"
+import { parseLabelColor } from "@/domain/label"
 
 class ColorInputError extends Schema.TaggedError<ColorInputError>()("ColorInputError", {
   message: Schema.String,

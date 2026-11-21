@@ -1,6 +1,7 @@
 import { Result } from "effect"
 
-import type { Section, SectionLookupError } from "@/domain/body/section/model"
+import type { SectionLookupError } from "@/domain/body/section/model"
+import type { Section } from "@/domain/section"
 
 import { parseBody, publicSection, resolveSection } from "@/domain/body/section/model"
 

@@ -17,7 +17,7 @@ import { Auth } from "@/config/auth"
 import { invalidLinkOptions, LinkError, updateTeamTimezone } from "@/config/link/team"
 import { resolveLinkTarget } from "@/config/link/workspace"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
-import { findLabelByName } from "@/domain/labels"
+import { findLabelByName } from "@/domain/label"
 
 type LinkOptions = LinkTargetOptions & {
   readonly project: Option.Option<string>

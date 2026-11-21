@@ -7,11 +7,13 @@ import { describe, expect, test } from "bun:test"
 import { Effect, Exit, FileSystem, Layer, Path, Stdio, Terminal } from "effect"
 
 import type { TeamCreateOptions } from "@/api/team"
+import type { TeamId } from "@/domain/id"
 
 import { TeamService } from "@/api/team"
 import { PromptRequiredError, confirm } from "@/cli/confirm"
+import { teamId } from "@/domain/id"
 
-const team = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
+const team = { id: teamId("team-1"), key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
 
 const run = <A, E>(handler: Handler, effect: Effect.Effect<A, E, TeamService>) =>
   effect.pipe(Effect.provide(apiLayer(handler)), Effect.runPromise)
@@ -22,7 +24,7 @@ const findTeam = (teamKey: string) =>
     return yield* teams.byKey(teamKey)
   })
 
-const findTeamById = (id: string) =>
+const findTeamById = (id: TeamId) =>
   Effect.gen(function* lookupTeamById() {
     const teams = yield* TeamService
     return yield* teams.byId(id)
@@ -73,7 +75,7 @@ describe("TeamService.byId", () => {
 
   test("fails when the team id does not exist", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
-    const error = await run(fake.handler, findTeamById("missing-id").pipe(Effect.flip))
+    const error = await run(fake.handler, findTeamById(teamId("missing-id")).pipe(Effect.flip))
     expect(error._tag).toBe("TeamNotFoundError")
   })
 })
@@ -119,7 +121,7 @@ describe("TeamService.byKey", () => {
     const id = "0f8fad5b-d9cb-469f-a165-70867728950e"
     const fake = makeFakeLinear({ teams: [{ ...team, id }], labels: [] })
     const found = await run(fake.handler, findTeam(id))
-    expect(found.id).toBe(id)
+    expect(String(found.id)).toBe(id)
     expect(hasQuery(fake.requests, "query TeamById")).toBe(true)
     expect(hasQuery(fake.requests, "query TeamByKey")).toBe(false)
   })

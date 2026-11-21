@@ -1,17 +1,14 @@
 import type { IssueInverseRelation, IssueRelation } from "@/api/issue-schema"
-import type {
-  RelationKind,
-  RelationType,
-  ResolvedRelationTarget,
-  WriteStatus,
-} from "@/api/issue-write/model"
+import type { ResolvedRelationTarget, WriteStatus } from "@/api/issue-write/model"
+import type { IssueId } from "@/domain/id"
+import type { RelationKind, RelationType } from "@/domain/relation"
 
-import { relationKindInfo } from "@/api/issue-write/model"
+import { relationKindInfo } from "@/domain/relation"
 
 type PlannedRelationLink = {
   readonly kind: RelationKind
   readonly target: string
-  readonly targetId: string
+  readonly targetId: IssueId
   readonly status: WriteStatus
   readonly input: {
     readonly issueId: string

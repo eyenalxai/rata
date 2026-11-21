@@ -12,6 +12,7 @@ import { TeamService } from "@/api/team"
 import { Auth } from "@/config/auth"
 import { RepoConfigService } from "@/config/repo"
 import { RepositoryIdentity } from "@/config/repo-identity"
+import { attachmentId, issueId, labelId, projectId, teamId, userId } from "@/domain/id"
 
 const uuid = "5f0c1f2a-3b4c-4d5e-8f90-1234567890ab"
 
@@ -28,10 +29,10 @@ const viewer = {
 const pageInfo = { hasNextPage: false, endCursor: null }
 
 const state = { name: "In Progress", type: "started" }
-const user = { id: "u1", name: "Ada", displayName: "ada" }
-const label = { id: "l1", name: "ready-for-agent" }
-const project = { id: "p1", name: "Tracker" }
-const parent = { id: "i0", identifier: "RAT-0", title: "Map" }
+const user = { id: userId("u1"), name: "Ada", displayName: "ada" }
+const label = { id: labelId("l1"), name: "ready-for-agent" }
+const project = { id: projectId("p1"), name: "Tracker" }
+const parent = { id: issueId("i0"), identifier: "RAT-0", title: "Map" }
 
 const teams = [
   { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" },
@@ -39,7 +40,7 @@ const teams = [
 ]
 
 const summaryNode = (identifier: string) => ({
-  id: `id-${identifier}`,
+  id: issueId(`id-${identifier}`),
   identifier,
   title: `Title ${identifier}`,
   url: `https://linear.app/eyenalx/issue/${identifier}/title`,
@@ -54,14 +55,14 @@ const summaryNode = (identifier: string) => ({
 })
 
 const child = {
-  id: "i2",
+  id: issueId("i2"),
   identifier: "RAT-2",
   title: "Child",
   state: { name: "Todo", type: "unstarted" },
 }
 
 const attachment = {
-  id: "a1",
+  id: attachmentId("a1"),
   title: "Design doc",
   subtitle: "Notion",
   url: "https://example.com/doc",
@@ -70,7 +71,7 @@ const attachment = {
 }
 
 const baseDetail = {
-  id: "6f1c2a3b-4d5e-4f60-8a9b-0c1d2e3f4a5b",
+  id: issueId("6f1c2a3b-4d5e-4f60-8a9b-0c1d2e3f4a5b"),
   identifier: "RAT-1",
   title: "The issue",
   description: "Body",
@@ -82,7 +83,7 @@ const baseDetail = {
   assignee: user,
   project,
   parent,
-  team: { id: "t1", key: "RAT", name: "Rata" },
+  team: { id: teamId("t1"), key: "RAT", name: "Rata" },
   labels: { nodes: [label], pageInfo },
   children: { nodes: [child], pageInfo },
   relations: { nodes: [], pageInfo },

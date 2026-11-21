@@ -15,12 +15,10 @@ import type {
 import type { PageInfo, PageOptions } from "@/api/pagination"
 import type { PullRequest } from "@/domain/pr"
 import type { Priority } from "@/domain/priority"
+import type { StateType } from "@/domain/workflow-state"
 
-import { priorityRank, toPriority } from "@/domain/priority"
-import { isClosedState } from "@/domain/state"
-
-const stateTypes = ["triage", "backlog", "unstarted", "started", "completed", "canceled"] as const
-type StateType = (typeof stateTypes)[number]
+import { priorityRank } from "@/domain/priority"
+import { isClosedState } from "@/domain/workflow-state"
 
 const sortFields = ["priority"] as const
 type SortField = (typeof sortFields)[number]
@@ -114,7 +112,7 @@ type IssueListOptions = PageOptions & {
   readonly team?: string | undefined
   readonly state?: string | undefined
   readonly stateType?: StateType | undefined
-  readonly priority?: number | undefined
+  readonly priority?: Priority | undefined
   readonly label?: string | undefined
   readonly assignee?: string | undefined
   readonly project?: string | undefined
@@ -194,7 +192,7 @@ const toSummary = (node: IssueSummaryNode): IssueSummary => {
     title: node.title,
     url: node.url,
     state: node.state,
-    priority: toPriority(node.priority),
+    priority: node.priority,
     createdAt: node.createdAt,
     updatedAt: node.updatedAt,
     assignee: node.assignee,
@@ -230,7 +228,7 @@ const byCreatedAt = (
 }
 
 const byPriority = (left: IssueSummaryNode, right: IssueSummaryNode): number => {
-  const rank = priorityRank(toPriority(left.priority)) - priorityRank(toPriority(right.priority))
+  const rank = priorityRank(left.priority) - priorityRank(right.priority)
   return rank === 0 ? byCreatedAt(left, right) : rank
 }
 
@@ -272,8 +270,6 @@ export {
   sortAndLimitNodes,
   type SortField,
   sortFields,
-  type StateType,
-  stateTypes,
   toBlockers,
   toIssueSummary,
   toSummary,

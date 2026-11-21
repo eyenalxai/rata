@@ -3,6 +3,8 @@ import { user } from "@test/issue-fixtures"
 import { mutations, recorderFor, seed } from "@test/issue-write/bulk/fixtures"
 import { afterEach, describe, expect, test } from "bun:test"
 
+import { userId } from "@/domain/id"
+
 afterEach(() => {
   process.exitCode = 0
 })
@@ -42,7 +44,7 @@ describe("bulk assign by parent", () => {
   })
 
   test("reports a child held by another user unless --take", async () => {
-    const other = { ...user, id: "u2", name: "Other", displayName: "other" }
+    const other = { ...user, id: userId("u2"), name: "Other", displayName: "other" }
     const recorder = recorderFor([seed("RAT-3", { assignee: other })])
     const lines: string[] = []
     await runIssue(
@@ -64,7 +66,7 @@ describe("bulk assign by parent", () => {
   })
 
   test("--take reassigns a child held by another user", async () => {
-    const other = { ...user, id: "u2", name: "Other", displayName: "other" }
+    const other = { ...user, id: userId("u2"), name: "Other", displayName: "other" }
     const recorder = recorderFor([seed("RAT-3", { assignee: other })])
     const lines: string[] = []
     await runIssue(

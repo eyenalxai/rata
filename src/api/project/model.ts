@@ -3,6 +3,7 @@ import { Schema, SchemaGetter } from "effect"
 import type { PageOptions } from "@/api/pagination"
 
 import { PageInfo } from "@/api/pagination"
+import { ProjectId } from "@/domain/id"
 
 const ProjectStatus = Schema.Struct({ name: Schema.String })
 
@@ -14,7 +15,7 @@ const Trashed = Schema.NullOr(Schema.Boolean).pipe(
 )
 
 const Project = Schema.Struct({
-  id: Schema.String,
+  id: ProjectId,
   name: Schema.String,
   progress: Schema.Finite,
   status: ProjectStatus,
@@ -50,7 +51,7 @@ type ProjectListOptions = PageOptions & {
 }
 
 type ProjectIdentity = {
-  readonly id: string
+  readonly id: ProjectId
   readonly name: string
 }
 

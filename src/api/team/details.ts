@@ -3,34 +3,33 @@ import { Effect, Schema } from "effect"
 import type { LinearClient } from "@/api/client"
 
 import { collectConnection, PageInfo, pageSize } from "@/api/pagination"
+import { LabelId, TeamId, UserId } from "@/domain/id"
+import { Label } from "@/domain/label"
+import { WorkflowStateNode } from "@/domain/workflow-state"
 
 type TeamIdentity = {
-  readonly id: string
+  readonly id: TeamId
   readonly key: string
   readonly name: string
   readonly timezone: string
 }
 
 const TeamState = Schema.Struct({
-  id: Schema.String,
-  name: Schema.String,
-  type: Schema.String,
+  ...WorkflowStateNode.fields,
   position: Schema.Finite,
 })
 
 type TeamState = typeof TeamState.Type
 
 const TeamLabel = Schema.Struct({
-  id: Schema.String,
-  name: Schema.String,
-  color: Schema.String,
+  ...Label.fields,
   scope: Schema.Literals(["team", "workspace"]),
 })
 
 type TeamLabel = typeof TeamLabel.Type
 
 const TeamMember = Schema.Struct({
-  id: Schema.String,
+  id: UserId,
   name: Schema.String,
   displayName: Schema.String,
   email: Schema.String,
@@ -46,7 +45,7 @@ const TeamPriority = Schema.Struct({
 type TeamPriority = typeof TeamPriority.Type
 
 const TeamDetail = Schema.Struct({
-  id: Schema.String,
+  id: TeamId,
   key: Schema.String,
   name: Schema.String,
   timezone: Schema.String,
@@ -64,7 +63,7 @@ const TeamStateConnection = Schema.Struct({
 })
 
 const TeamLabelNode = Schema.Struct({
-  id: Schema.String,
+  id: LabelId,
   name: Schema.String,
   color: Schema.String,
   team: Schema.NullOr(Schema.Struct({ id: Schema.String })),
@@ -76,7 +75,7 @@ const TeamLabelConnection = Schema.Struct({
 })
 
 const TeamMemberNode = Schema.Struct({
-  id: Schema.String,
+  id: UserId,
   name: Schema.String,
   displayName: Schema.String,
   email: Schema.String,

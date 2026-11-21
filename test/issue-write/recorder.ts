@@ -3,6 +3,8 @@ import { makeRecorder } from "@test/issue-write/fixtures"
 
 import type { IssueInverseRelation, IssueRelation } from "@/api/issue-schema"
 
+import { issueId, relationId } from "@/domain/id"
+
 type WriteState = {
   readonly assignee: typeof viewer | null
   readonly labels: readonly { readonly id: string; readonly name: string }[]
@@ -11,10 +13,10 @@ type WriteState = {
 }
 
 const outgoingBlocks: IssueRelation = {
-  id: "rel-out",
+  id: relationId("rel-out"),
   type: "blocks",
   relatedIssue: {
-    id: "i2",
+    id: issueId("i2"),
     identifier: "RAT-2",
     title: "Dependent",
     state: { name: "Todo", type: "unstarted" },

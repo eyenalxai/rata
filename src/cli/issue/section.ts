@@ -17,6 +17,7 @@ import {
   writeJson,
   writeLine,
 } from "@/cli/output"
+import { isSectionLevel } from "@/domain/section"
 
 const headingArgument = Argument.String("heading").pipe(
   Argument.withDescription('Heading text without the # marks, for example "Handoff log"'),
@@ -57,7 +58,7 @@ const validateLevel = (level: number | undefined) =>
     if (level === undefined) {
       return true
     }
-    if (level < 1 || level > 6) {
+    if (!isSectionLevel(level)) {
       yield* errorLine("validation", "The --level flag must be from 1 to 6.")
       return false
     }

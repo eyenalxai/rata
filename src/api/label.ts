@@ -6,14 +6,15 @@ import type { LinearApiError } from "@/api/errors"
 import type { Connection, PageOptions } from "@/api/pagination"
 import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
+import type { TeamId } from "@/domain/id"
 
 import { LinearClient } from "@/api/client"
 import { collectConnection, pageOrDrain, PageInfo, pageSize } from "@/api/pagination"
 import { RepoTeam } from "@/api/repo-team"
-import { findLabelByName } from "@/domain/labels"
-import { isUuid } from "@/domain/ref"
+import { isUuid } from "@/domain/id"
+import { findLabelByName, Label as LabelSchema } from "@/domain/label"
 
-const Label = Schema.Struct({ id: Schema.String, name: Schema.String, color: Schema.String })
+const Label = LabelSchema
 
 type Label = typeof Label.Type
 
@@ -93,7 +94,7 @@ class LabelUpdateError extends Schema.TaggedError<LabelUpdateError>()("LabelUpda
   message: Schema.String,
 }) {}
 
-const labelNotFoundError = (teamId: string, name: string): LabelNotFoundError =>
+const labelNotFoundError = (teamId: TeamId, name: string): LabelNotFoundError =>
   new LabelNotFoundError({
     name,
     teamId,
@@ -130,15 +131,15 @@ type LabelWriteError =
 
 type LabelOperations = {
   readonly list: (
-    teamId: string,
+    teamId: TeamId,
     options: PageOptions,
   ) => Effect.Effect<Connection<Label>, LinearApiError>
   readonly listAvailable: (
-    teamId: string,
+    teamId: TeamId,
     options: PageOptions,
   ) => Effect.Effect<Connection<Label>, LinearApiError>
   readonly byName: (
-    teamId: string,
+    teamId: TeamId,
     name: string,
   ) => Effect.Effect<Label, LabelNotFoundError | LinearApiError>
   readonly create: (
@@ -155,7 +156,7 @@ const makeLabelOperations = (
   repoTeam: RepoTeam["Service"],
 ): LabelOperations => {
   const list = Effect.fn("LabelService.list")(function* listLabels(
-    teamId: string,
+    teamId: TeamId,
     options: PageOptions,
   ) {
     const fetchPage = (after: string | null) =>
@@ -168,7 +169,7 @@ const makeLabelOperations = (
   })
 
   const listAvailable = Effect.fn("LabelService.listAvailable")(function* listAvailableLabels(
-    teamId: string,
+    teamId: TeamId,
     options: PageOptions,
   ) {
     const data = yield* execute(
@@ -179,7 +180,7 @@ const makeLabelOperations = (
     return data.issueLabels
   })
 
-  const byName = Effect.fn("LabelService.byName")(function* byName(teamId: string, name: string) {
+  const byName = Effect.fn("LabelService.byName")(function* byName(teamId: TeamId, name: string) {
     const available = yield* collectConnection((after) =>
       listAvailable(teamId, { after, limit: pageSize }),
     )

@@ -7,16 +7,17 @@ import { Effect } from "effect"
 import type { IssueInverseRelation, IssueRelation } from "@/api/issue-schema"
 
 import { IssueWriteApi } from "@/api/issue-write"
+import { issueId, relationId } from "@/domain/id"
 
 const relationIds = { "RAT-5": "i5", "RAT-6": "i6", "RAT-7": "i7", "RAT-8": "i8" }
 
 const refNodes = Object.entries(relationIds).map(([identifier, id]) => ({ id, identifier }))
 
 const outgoingRelation: IssueRelation = {
-  id: "rel-out",
+  id: relationId("rel-out"),
   type: "blocks",
   relatedIssue: {
-    id: "i7",
+    id: issueId("i7"),
     identifier: "RAT-7",
     title: "Dependent",
     state: { name: "Todo", type: "unstarted" },
@@ -24,10 +25,10 @@ const outgoingRelation: IssueRelation = {
 }
 
 const incomingRelation: IssueInverseRelation = {
-  id: "rel-in",
+  id: relationId("rel-in"),
   type: "blocks",
   issue: {
-    id: "i5",
+    id: issueId("i5"),
     identifier: "RAT-5",
     title: "Blocker",
     state: { name: "In Progress", type: "started" },

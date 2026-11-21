@@ -3,7 +3,7 @@ import { Effect } from "effect"
 import type { LinearClient } from "@/api/client"
 import type { LinearApiError } from "@/api/errors"
 import type { IssueDetail, IssueShowOptions, IssueSummary } from "@/api/issue-model"
-import type { InvalidIssueRef } from "@/domain/ref"
+import type { InvalidIssueRef } from "@/domain/issue-ref"
 
 import { LinearGraphQLError } from "@/api/errors"
 import { byCreatedAt, relationTargets, toSummary } from "@/api/issue-model"
@@ -26,8 +26,7 @@ import {
 } from "@/api/issue-schema"
 import { InverseRelationsResponse, RelationsResponse } from "@/api/issue-schema/relation"
 import { collectPages, pageSize } from "@/api/pagination"
-import { toPriority } from "@/domain/priority"
-import { parseRefOrFail } from "@/domain/ref"
+import { parseRefOrFail } from "@/domain/issue-ref"
 
 type ReadOperations = {
   readonly show: (
@@ -107,7 +106,7 @@ const makeReadOperations = (execute: LinearClient["Service"]["execute"]): ReadOp
       description: issue.description,
       url: issue.url,
       state: issue.state,
-      priority: toPriority(issue.priority),
+      priority: issue.priority,
       createdAt: issue.createdAt,
       updatedAt: issue.updatedAt,
       assignee: issue.assignee,

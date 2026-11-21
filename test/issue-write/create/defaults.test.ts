@@ -74,7 +74,7 @@ describe("IssueWriteApi create defaults", () => {
           title: "Fix login",
           team: "RAT",
           labels: ["bug"],
-          priority: 4,
+          priority: "low",
         })
       }),
       { repositories: seed },
@@ -100,7 +100,7 @@ describe("IssueWriteApi create defaults", () => {
           team: "RAT",
           useDefaultLabels: false,
           assignee: "none",
-          priority: 0,
+          priority: "none",
         })
       }),
       { repositories: seed },
@@ -142,7 +142,7 @@ describe("IssueWriteApi create defaults", () => {
       title: "Fix login",
       labels: ["enhancement"],
       assignee: "me",
-      priority: 3,
+      priority: "medium",
     })
     expect(recorder.requests.some((request) => request.query.includes("mutation"))).toBe(false)
   })

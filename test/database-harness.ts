@@ -6,7 +6,6 @@ import path from "node:path"
 
 import { Database } from "@/db/database"
 import { profiles, repositories } from "@/db/schema"
-import { storedPriority } from "@/domain/priority"
 
 type RepositorySeed = {
   readonly key: string
@@ -50,7 +49,7 @@ const databaseLayer = (
               row.defaultLabels === undefined || row.defaultLabels.length === 0
                 ? null
                 : JSON.stringify(row.defaultLabels),
-            defaultPriority: storedPriority(row.defaultPriority),
+            defaultPriority: row.defaultPriority ?? null,
           })
           .run(),
       )

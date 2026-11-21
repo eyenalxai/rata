@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { Result } from "effect"
 
-import { parseIssueRef } from "@/domain/ref"
+import { parseIssueRef } from "@/domain/issue-ref"
 
 const uuid = "5f0c1f2a-3b4c-4d5e-8f90-1234567890ab"
 
@@ -9,7 +9,7 @@ const expectRef = (input: string, expected: string) => {
   const parsed = parseIssueRef(input)
   expect(Result.isSuccess(parsed)).toBe(true)
   if (Result.isSuccess(parsed)) {
-    expect(parsed.success).toBe(expected)
+    expect(String(parsed.success)).toBe(expected)
   }
 }
 

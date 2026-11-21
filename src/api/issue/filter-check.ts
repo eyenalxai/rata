@@ -3,9 +3,10 @@ import { Effect, Schema } from "effect"
 import type { LinearClient } from "@/api/client"
 import type { LinearApiError } from "@/api/errors"
 import type { IssueListOptions } from "@/api/issue-model"
+import type { TeamId } from "@/domain/id"
 
 import { collectConnection, PageInfo, pageSize } from "@/api/pagination"
-import { isUuid } from "@/domain/ref"
+import { isUuid } from "@/domain/id"
 
 const filterNames = ["state", "label", "project"] as const
 type FilterName = (typeof filterNames)[number]
@@ -99,7 +100,7 @@ const uniqueNames = (names: readonly string[]): readonly string[] => {
 
 const stateNames = (
   execute: LinearClient["Service"]["execute"],
-  teamId: string,
+  teamId: TeamId,
 ): Effect.Effect<readonly string[], LinearApiError> =>
   collectConnection((after) =>
     execute(
@@ -111,7 +112,7 @@ const stateNames = (
 
 const labelNames = (
   execute: LinearClient["Service"]["execute"],
-  teamId: string,
+  teamId: TeamId,
 ): Effect.Effect<readonly string[], LinearApiError> =>
   collectConnection((after) =>
     execute(
@@ -157,7 +158,7 @@ const requireName = (
 
 const validateNamedFilters = Effect.fn("IssueFilters.validateNames")(function* validateNames(
   execute: LinearClient["Service"]["execute"],
-  teamId: string,
+  teamId: TeamId,
   options: Pick<IssueListOptions, "state" | "label" | "project">,
 ) {
   if (options.state !== undefined) {

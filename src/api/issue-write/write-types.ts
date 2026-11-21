@@ -1,5 +1,7 @@
 import type { IssueSummary } from "@/api/issue-model"
 import type { IssueComment } from "@/api/issue-schema"
+import type { Priority } from "@/domain/priority"
+import type { SectionReplacement, SectionReplacementAction } from "@/domain/section"
 
 type VisibilityOptions = {
   readonly waitSeconds?: number | undefined
@@ -16,7 +18,7 @@ type IssueCreateOptions = VisibilityOptions & {
   readonly project?: string | undefined
   readonly state?: string | undefined
   readonly assignee?: string | undefined
-  readonly priority?: number | undefined
+  readonly priority?: Priority | undefined
   readonly useDefaultLabels?: boolean | undefined
 }
 
@@ -32,7 +34,7 @@ type IssueUpdateOptions = {
   readonly assignee?: string | undefined
   readonly project?: string | undefined
   readonly parent?: string | undefined
-  readonly priority?: number | undefined
+  readonly priority?: Priority | undefined
   readonly append?: boolean | undefined
 }
 
@@ -46,22 +48,12 @@ type IssueUpdatePlan = {
   readonly diff: string | null
 }
 
-type IssueSectionReplacement = {
-  readonly heading: string
-  readonly content: string
-}
-
-type IssueSectionAction = {
-  readonly heading: string
-  readonly action: "replaced" | "skipped"
-}
-
 type IssueUpdateSectionsOptions = Omit<IssueUpdateOptions, "body" | "append">
 
 type IssueUpdateSectionsPlan = {
   readonly status: "updated" | "skipped"
   readonly updatedAt: string
-  readonly sections: readonly IssueSectionAction[]
+  readonly sections: readonly SectionReplacementAction[]
   readonly diff: string
 }
 
@@ -69,7 +61,7 @@ type IssueUpdateSectionsResult = {
   readonly status: "updated" | "skipped"
   readonly updatedAt: string
   readonly issue: IssueSummary
-  readonly sections: readonly IssueSectionAction[]
+  readonly sections: readonly SectionReplacementAction[]
 }
 
 type CommentCreateOptions = VisibilityOptions & {
@@ -156,8 +148,6 @@ export {
   type CommentUpdateResult,
   type IssueCreateOptions,
   type IssueCreateResult,
-  type IssueSectionAction,
-  type IssueSectionReplacement,
   type IssueUpdateOptions,
   type IssueUpdatePlan,
   type IssueUpdateSectionsOptions,
@@ -166,6 +156,8 @@ export {
   type IssueUpdateWriteOptions,
   type SectionWriteOptions,
   type SectionWriteResult,
+  type SectionReplacement,
+  type SectionReplacementAction,
   type VisibilityOptions,
   type WriteVisibility,
 }

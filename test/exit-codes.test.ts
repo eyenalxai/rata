@@ -6,7 +6,7 @@ import { jsonResponse } from "@test/issue-fixtures"
 import { afterEach, describe, expect, test } from "bun:test"
 import { CliError } from "effect/cli"
 
-import type { ErrorCode } from "@/cli/error-report"
+import type { ErrorCode } from "@/domain/error"
 
 import {
   LinearAuthError,
@@ -16,10 +16,11 @@ import {
 } from "@/api/errors"
 import { ProjectNameAmbiguousError } from "@/api/project/errors"
 import { TeamResolutionError } from "@/api/team"
-import { classifyError, exitCodeOf } from "@/cli/error-report"
+import { exitCodeOf, toTrackerError } from "@/cli/error-report"
 import { exitCodeOfCliError } from "@/cli/exit"
 import { ConflictError } from "@/domain/conflict"
-import { InvalidIssueRef } from "@/domain/ref"
+import { TrackerError } from "@/domain/error"
+import { InvalidIssueRef } from "@/domain/issue-ref"
 
 const expectedExitCodes: Record<ErrorCode, number> = {
   usage: 2,
@@ -66,8 +67,7 @@ const unusedHandler: Handler = () => {
   throw new Error("the command must fail before the first request")
 }
 
-const classify = (error: Parameters<typeof classifyError>[0]): ErrorCode =>
-  classifyError(error).code
+const classify = (error: unknown): ErrorCode => toTrackerError(error).code
 
 afterEach(() => {
   process.exitCode = 0
@@ -78,6 +78,25 @@ describe("the exit code map", () => {
     for (const code of errorCodes) {
       expect(exitCodeOf(code)).toBe(expectedExitCodes[code])
     }
+  })
+
+  test("maps every public error to one TrackerError", () => {
+    const samples: readonly unknown[] = [
+      new InvalidIssueRef({ input: "x", message: "bad ref" }),
+      new TeamResolutionError({ message: "no team" }),
+      new ProjectNameAmbiguousError({ name: "Tracker", message: "two projects" }),
+      new LinearAuthError({ message: "rejected", status: 401 }),
+      new LinearRateLimitError({ message: "slow down" }),
+      new LinearNetworkError({ message: "offline" }),
+      new LinearGraphQLError({ message: "Entity not found: Issue", details: [] }),
+      new ConflictError({ expected: "a", current: "b", message: "The issue changed." }),
+      new Error("boom"),
+    ]
+    for (const sample of samples) {
+      expect(toTrackerError(sample)).toBeInstanceOf(TrackerError)
+    }
+    const passthrough = new TrackerError({ code: "internal", message: "kept", hint: null })
+    expect(toTrackerError(passthrough)).toBe(passthrough)
   })
 
   test("classifies a representative error of each class", () => {

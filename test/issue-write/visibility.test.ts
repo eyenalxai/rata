@@ -5,9 +5,10 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { Effect } from "effect"
 
 import { IssueWriteApi } from "@/api/issue-write"
+import { commentId } from "@/domain/id"
 
 const commentNode = {
-  id: "c-new",
+  id: commentId("c-new"),
   body: "Body",
   createdAt: "2026-01-01T10:00:00.000Z",
   user,

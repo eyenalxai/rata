@@ -1,6 +1,8 @@
-import { isUuid } from "@/domain/ref"
+import type { TeamId } from "@/domain/id"
 
-const teamIdFilter = (teamId: string): Record<string, unknown> => ({
+import { isUuid } from "@/domain/id"
+
+const teamIdFilter = (teamId: TeamId): Record<string, unknown> => ({
   team: { id: { eq: teamId } },
 })
 

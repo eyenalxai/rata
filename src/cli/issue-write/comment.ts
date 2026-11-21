@@ -3,8 +3,8 @@ import { Effect, Result } from "effect"
 import type { IssueSummary } from "@/api/issue-model"
 import type { IssueWriteApi } from "@/api/issue-write"
 
-import { classifyError, exitCodeOf } from "@/cli/error-report"
-import { errorLine, writeJson, writeLine } from "@/cli/output"
+import { exitCodeOf, toTrackerError } from "@/cli/error-report"
+import { errorLine, publicError, writeJson, writeLine } from "@/cli/output"
 
 const postUpdateComment = Effect.fn("Cli.IssueWrite.postUpdateComment")(function* postUpdateComment(
   api: IssueWriteApi["Service"],
@@ -16,12 +16,12 @@ const postUpdateComment = Effect.fn("Cli.IssueWrite.postUpdateComment")(function
 ) {
   const created = yield* Effect.result(api.commentCreate(ref, body, { waitSeconds: 0 }))
   if (Result.isFailure(created)) {
-    const report = classifyError(created.failure)
+    const report = toTrackerError(created.failure)
     if (!json) {
       yield* writeLine(`Updated ${issue.identifier}.`)
       return yield* errorLine(report.code, report.message, report.hint ?? undefined)
     }
-    yield* writeJson({ issue, comment: null, ...extra, error: report })
+    yield* writeJson({ issue, comment: null, ...extra, error: publicError(report) })
     yield* Effect.sync(() => {
       process.exitCode = exitCodeOf(report.code)
     })

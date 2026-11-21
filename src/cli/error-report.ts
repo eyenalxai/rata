@@ -1,36 +1,25 @@
-type ErrorCode =
-  | "usage"
-  | "validation"
-  | "not_linked"
-  | "not_found"
-  | "ambiguous"
-  | "auth"
-  | "forbidden"
-  | "conflict"
-  | "rate_limited"
-  | "network"
-  | "internal"
+import { Predicate, Schema } from "effect"
 
-type ReportedError = {
-  readonly message: string
-  readonly cause?: unknown
-}
+import type { ErrorCode } from "@/domain/error"
 
-type ErrorReport = {
-  readonly code: ErrorCode
-  readonly message: string
-  readonly hint: string | null
-  readonly details?: Readonly<Record<string, unknown>>
-}
+import { TrackerError } from "@/domain/error"
 
 type ErrorRule = {
   readonly code: ErrorCode
   readonly hint: string | null
 }
 
-const tagOf = (error: ReportedError): string | undefined => {
-  const tag: unknown = Reflect.get(error, "_tag")
-  return typeof tag === "string" ? tag : undefined
+const fieldOf = (error: unknown, key: string): unknown =>
+  Predicate.isObject(error) ? Reflect.get(error, key) : undefined
+
+const tagOf = (error: unknown): string | undefined => {
+  const tag = fieldOf(error, "_tag")
+  return Predicate.isString(tag) ? tag : undefined
+}
+
+const messageOf = (error: unknown): string => {
+  const message = fieldOf(error, "message")
+  return Predicate.isString(message) ? message : "Unexpected error."
 }
 
 const errorRules: Record<string, ErrorRule> = {
@@ -96,22 +85,21 @@ const exitCodes: Record<ErrorCode, number> = {
 
 const exitCodeOf = (code: ErrorCode): number => exitCodes[code]
 
-const fieldSelectionReport = (error: ReportedError, message: string): ErrorReport => {
-  const hint: unknown = Reflect.get(error, "hint")
-  const path: unknown = Reflect.get(error, "path")
-  const validPaths: unknown = Reflect.get(error, "validPaths")
-  const details =
-    typeof path === "string" &&
-    Array.isArray(validPaths) &&
-    validPaths.every((item) => typeof item === "string")
-      ? { path, validPaths }
-      : undefined
-  return {
-    code: "validation",
-    message,
-    hint: typeof hint === "string" ? hint : null,
-    ...(details === undefined ? {} : { details }),
-  }
+const stringField = (error: unknown, key: string): string | null => {
+  const value = fieldOf(error, key)
+  return Predicate.isString(value) ? value : null
+}
+
+const stringArrayField = (error: unknown, key: string): readonly string[] | null => {
+  const value = fieldOf(error, key)
+  return Array.isArray(value) && value.every((item) => Predicate.isString(item)) ? value : null
+}
+
+const availableHeadingsHint = (error: unknown): string => {
+  const headings = stringArrayField(error, "available") ?? []
+  return headings.length === 0
+    ? "The issue body has no headings."
+    : `Available headings: ${headings.map((heading) => `"${heading}"`).join(", ")}.`
 }
 
 const filterSubjects = {
@@ -120,103 +108,107 @@ const filterSubjects = {
   project: { subject: "projects", command: "rata project list" },
 } as const
 
-const isFilterName = (value: unknown): value is keyof typeof filterSubjects =>
-  typeof value === "string" && Object.hasOwn(filterSubjects, value)
+type FilterName = keyof typeof filterSubjects
 
-const filterNameReport = (error: ReportedError): ErrorReport => {
-  const filter: unknown = Reflect.get(error, "filter")
-  const valid: unknown = Reflect.get(error, "valid")
-  const names = Array.isArray(valid) && valid.every((item) => typeof item === "string") ? valid : []
+const isFilterName = (value: unknown): value is FilterName =>
+  Predicate.isString(value) && Object.hasOwn(filterSubjects, value)
+
+const filterNameHint = (error: unknown): string => {
+  const valid = stringArrayField(error, "valid") ?? []
+  const filter = fieldOf(error, "filter")
   const subject = isFilterName(filter) ? filterSubjects[filter] : undefined
   const label = subject?.subject ?? "values"
   const command = subject?.command ?? "rata team show --json"
-  return {
-    code: "not_found",
-    message: error.message,
-    hint:
-      names.length === 0
-        ? `Run \`${command}\` to see the ${label}.`
-        : `Valid ${label}: ${names.join(", ")}.`,
+  return valid.length === 0
+    ? `Run \`${command}\` to see the ${label}.`
+    : `Valid ${label}: ${valid.join(", ")}.`
+}
+
+const report = (
+  error: unknown,
+  code: ErrorCode,
+  hint: string | null,
+  details?: Readonly<Record<string, unknown>>,
+): TrackerError => {
+  const base = {
+    code,
+    message: messageOf(error),
+    hint,
+    ...(details === undefined ? {} : { details }),
   }
+  return error === undefined ? new TrackerError(base) : new TrackerError({ ...base, cause: error })
 }
 
-const availableHeadingsHint = (available: unknown): string => {
-  const headings =
-    Array.isArray(available) && available.every((item) => typeof item === "string") ? available : []
-  return headings.length === 0
-    ? "The issue body has no headings."
-    : `Available headings: ${headings.map((heading) => `"${heading}"`).join(", ")}.`
-}
-
-const classifyError = (error: ReportedError): ErrorReport => {
-  const message = error.message
+const classifyTagged = (error: unknown): TrackerError | undefined => {
   const tag = tagOf(error)
   if (tag === "SectionNotFoundError") {
-    return {
-      code: "not_found",
-      message,
-      hint: availableHeadingsHint(Reflect.get(error, "available")),
-    }
+    return report(error, "not_found", availableHeadingsHint(error))
   }
   if (tag === "SectionBatchError") {
-    const reason: unknown = Reflect.get(error, "reason")
-    return {
-      code:
-        reason === "missing" ? "not_found" : reason === "duplicate" ? "ambiguous" : "validation",
-      message,
-      hint: availableHeadingsHint(Reflect.get(error, "available")),
-    }
+    const reason = fieldOf(error, "reason")
+    const code =
+      reason === "missing" ? "not_found" : reason === "duplicate" ? "ambiguous" : "validation"
+    return report(error, code, availableHeadingsHint(error))
   }
   if (tag === "FieldSelectionError") {
-    return fieldSelectionReport(error, message)
+    const path = stringField(error, "path")
+    const validPaths = stringArrayField(error, "validPaths")
+    const details = path === null || validPaths === null ? undefined : { path, validPaths }
+    return report(error, "validation", stringField(error, "hint"), details)
   }
   if (tag === "ConflictError") {
-    const current: unknown = Reflect.get(error, "current")
-    return {
-      code: "conflict",
-      message,
-      hint:
-        typeof current === "string"
-          ? `The current updatedAt is ${current}. Re-read the issue and retry.`
-          : null,
-    }
+    const current = stringField(error, "current")
+    return report(
+      error,
+      "conflict",
+      current === null ? null : `The current updatedAt is ${current}. Re-read the issue and retry.`,
+    )
   }
   if (tag === "FilterNameNotFoundError") {
-    return filterNameReport(error)
+    return report(error, "not_found", filterNameHint(error))
   }
   if (tag === "LabelExistsError") {
-    const existing: unknown = Reflect.get(error, "existingName")
-    const name = typeof existing === "string" ? existing : message
-    return {
-      code: "conflict",
-      message,
-      hint: `Labels resolve case-insensitively; use \`${name}\`, or pass \`--if-not-exists\`.`,
-    }
+    const existing = stringField(error, "existingName") ?? messageOf(error)
+    return report(
+      error,
+      "conflict",
+      `Labels resolve case-insensitively; use \`${existing}\`, or pass \`--if-not-exists\`.`,
+    )
   }
-  if (tag === "LinearAuthError" && Reflect.get(error, "status") === 403) {
-    return { code: "forbidden", message, hint: "Ask a workspace admin for access." }
+  if (tag === "LinearAuthError" && fieldOf(error, "status") === 403) {
+    return report(error, "forbidden", "Ask a workspace admin for access.")
   }
   const rule = tag === undefined ? undefined : errorRules[tag]
-  if (rule !== undefined) {
-    return { ...rule, message }
-  }
+  return rule === undefined ? undefined : report(error, rule.code, rule.hint)
+}
+
+const classifyLinear = (error: unknown): TrackerError => {
+  const tag = tagOf(error)
+  const message = messageOf(error)
   if (tag === "LinearRateLimitError") {
-    return { code: "rate_limited", message, hint: "Retry later." }
+    return report(error, "rate_limited", "Retry later.")
   }
   if (tag === "LinearGraphQLError") {
     const text = message.toLowerCase()
     if (text.includes("duplicate") || text.includes("already exists")) {
-      return {
-        code: "conflict",
-        message,
-        hint: "Use the existing object, or pass `--if-not-exists`.",
-      }
+      return report(error, "conflict", "Use the existing object, or pass `--if-not-exists`.")
     }
     if (text.includes("not found")) {
-      return { code: "not_found", message, hint: "Check the reference and retry." }
+      return report(error, "not_found", "Check the reference and retry.")
     }
   }
-  return { code: "internal", message, hint: "Run with RATA_DEBUG=1 for details." }
+  return report(error, "internal", "Run with RATA_DEBUG=1 for details.")
 }
 
-export { classifyError, exitCodeOf, type ErrorCode, type ErrorReport, type ReportedError }
+const toTrackerError = (error: unknown): TrackerError => {
+  if (Schema.is(TrackerError)(error)) {
+    return error
+  }
+  const tagged = classifyTagged(error)
+  if (tagged !== undefined) {
+    return tagged
+  }
+  return classifyLinear(error)
+}
+
+export { exitCodeOf, toTrackerError }

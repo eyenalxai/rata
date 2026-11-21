@@ -1,6 +1,6 @@
 import { Result } from "effect"
 
-import { parseIssueRef } from "@/domain/ref"
+import { parseIssueRef } from "@/domain/issue-ref"
 
 const assignHint = (first: string, second: string): string => {
   const firstIsRef = Result.isSuccess(parseIssueRef(first))

@@ -157,7 +157,7 @@ describe("IssueApi show", () => {
 
     const issue = await run(handler, showWithComments)
 
-    expect(issue.comments?.map((item) => item.id)).toEqual(["c1", "c2"])
+    expect(issue.comments?.map((item) => String(item.id))).toEqual(["c1", "c2"])
   })
 
   test("exposes blocking relations in both directions", async () => {
@@ -191,7 +191,7 @@ describe("IssueApi show", () => {
 
     const issue = await run(handler, showRef("RAT-1"))
 
-    expect(issue.attachments.map((item) => item.id)).toEqual(["a1", "a2"])
+    expect(issue.attachments.map((item) => String(item.id))).toEqual(["a1", "a2"])
     expect(variables).toEqual([{ id: "RAT-1", first: 50, after: attachment.id }])
   })
 })

@@ -11,6 +11,7 @@ import type {
 } from "@/api/project/model"
 import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
+import type { ProjectId } from "@/domain/id"
 
 import { LinearClient } from "@/api/client"
 import { collectConnection, pageOrDrain, pageSize } from "@/api/pagination"
@@ -32,7 +33,7 @@ import {
   projectUnarchiveMutation,
 } from "@/api/project/query"
 import { RepoTeam } from "@/api/repo-team"
-import { isUuid } from "@/domain/ref"
+import { isUuid, projectId } from "@/domain/id"
 
 const unwrapProjectArchive = <E>(
   payload: { readonly success: boolean; readonly entity: Project | null },
@@ -100,7 +101,7 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
       })
 
       const projectById = Effect.fn("ProjectService.projectById")(function* projectById(
-        id: string,
+        id: ProjectId,
       ) {
         const data = yield* client.execute(
           projectByIdQuery,
@@ -127,7 +128,7 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
       > {
         const wantTrashed = state === "trashed"
         if (isUuid(ref)) {
-          const project = yield* projectById(ref)
+          const project = yield* projectById(projectId(ref))
           if (project === undefined) {
             return yield* new ProjectNotFoundError({
               ref,

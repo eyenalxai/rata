@@ -5,7 +5,7 @@ import type { IssueWriteApiError } from "@/api/issue-write/model"
 
 import { IssueBodyResponse, issueBodyQuery } from "@/api/issue-write/body/query"
 import { ConflictError } from "@/domain/conflict"
-import { parseRefOrFail } from "@/domain/ref"
+import { parseRefOrFail } from "@/domain/issue-ref"
 
 const ensureUnchanged = (
   identifier: string,

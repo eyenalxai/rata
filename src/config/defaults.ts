@@ -4,17 +4,19 @@ import type { LinearApiError } from "@/api/errors"
 import type { LabelNotFoundError } from "@/api/label"
 import type { TeamNotFoundError } from "@/api/team"
 import type { RepoConfig, RepoConfigError } from "@/config/repo"
+import type { TeamId } from "@/domain/id"
+import type { Priority } from "@/domain/priority"
 
 import { LabelService } from "@/api/label"
 import { RepoTeam } from "@/api/repo-team"
 import { TeamResolutionError } from "@/api/team"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
-import { storedPriority, toPriority } from "@/domain/priority"
+import { PrioritySchema } from "@/domain/priority"
 
 const IssueDefaults = Schema.Struct({
   assignee: Schema.NullOr(Schema.String),
   labels: Schema.Array(Schema.String),
-  priority: Schema.NullOr(Schema.Int),
+  priority: Schema.NullOr(PrioritySchema),
 })
 
 type IssueDefaults = typeof IssueDefaults.Type
@@ -22,7 +24,7 @@ type IssueDefaults = typeof IssueDefaults.Type
 const DefaultsDocument = Schema.Struct({
   assignee: Schema.NullOr(Schema.String),
   labels: Schema.Array(Schema.String),
-  priority: Schema.NullOr(Schema.String),
+  priority: Schema.NullOr(PrioritySchema),
 })
 
 type DefaultsDocument = typeof DefaultsDocument.Type
@@ -36,7 +38,7 @@ const issueDefaults = (config?: RepoConfig): IssueDefaults => ({
 const defaultsDocument = (defaults: IssueDefaults): DefaultsDocument => ({
   assignee: defaults.assignee,
   labels: defaults.labels,
-  priority: defaults.priority === null ? null : toPriority(defaults.priority),
+  priority: defaults.priority,
 })
 
 const formatDefaults = (document: DefaultsDocument): string => {
@@ -56,7 +58,7 @@ const formatDefaults = (document: DefaultsDocument): string => {
 type SetDefaultsOptions = {
   readonly assignee?: string | undefined
   readonly labels?: readonly string[] | undefined
-  readonly priority?: number | undefined
+  readonly priority?: Priority | undefined
   readonly dryRun?: boolean | undefined
 }
 
@@ -136,7 +138,7 @@ class IssueDefaultsService extends Context.Service<
       })
 
       const resolveLabels = Effect.fn("IssueDefaults.resolveLabels")(function* resolveLabelNames(
-        teamId: string,
+        teamId: TeamId,
         names: readonly string[],
       ) {
         const resolved: string[] = []
@@ -176,7 +178,11 @@ class IssueDefaultsService extends Context.Service<
                 : options.assignee,
           labels: resolvedLabels,
           priority:
-            options.priority === undefined ? current.priority : storedPriority(options.priority),
+            options.priority === undefined
+              ? current.priority
+              : options.priority === "none"
+                ? null
+                : options.priority,
         }
         if (options.dryRun !== true) {
           yield* write(config, next)

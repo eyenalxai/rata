@@ -4,6 +4,8 @@ import { linkError, linkTeam, makeHarness, options, rat, ratId, scratch } from "
 import { describe, expect, test } from "bun:test"
 import { Option } from "effect"
 
+import { teamId } from "@/domain/id"
+
 describe("LinkService.link", () => {
   test("resolves a team given by id and stores the key", async () => {
     const harness = makeHarness()
@@ -124,7 +126,7 @@ describe("LinkService.link", () => {
       harness,
       options({ project: Option.some("rata") }),
     )
-    expect(stored).toEqual(Option.some({ team: "RAT", teamId: "team-1", project: "rata" }))
+    expect(stored).toEqual(Option.some({ team: "RAT", teamId: teamId("team-1"), project: "rata" }))
     expect(result.project).toEqual(Option.some("rata"))
   })
 
@@ -133,7 +135,7 @@ describe("LinkService.link", () => {
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
     const { result, stored } = await linkTeam(fake.handler, harness, options({}))
     expect(result.project).toEqual(Option.some("rata"))
-    expect(stored).toEqual(Option.some({ team: "RAT", teamId: "team-1", project: "rata" }))
+    expect(stored).toEqual(Option.some({ team: "RAT", teamId: teamId("team-1"), project: "rata" }))
   })
 
   test("keeps the workspace of an existing config when --workspace is absent", async () => {
@@ -141,7 +143,9 @@ describe("LinkService.link", () => {
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
     const { result, stored } = await linkTeam(fake.handler, harness, options({}))
     expect(result.workspace).toEqual(Option.some("work"))
-    expect(stored).toEqual(Option.some({ team: "RAT", teamId: "team-1", workspace: "work" }))
+    expect(stored).toEqual(
+      Option.some({ team: "RAT", teamId: teamId("team-1"), workspace: "work" }),
+    )
   })
 
   test("records --project over an existing config", async () => {
@@ -153,7 +157,7 @@ describe("LinkService.link", () => {
       options({ project: Option.some("rata") }),
     )
     expect(result.project).toEqual(Option.some("rata"))
-    expect(stored).toEqual(Option.some({ team: "RAT", teamId: "team-1", project: "rata" }))
+    expect(stored).toEqual(Option.some({ team: "RAT", teamId: teamId("team-1"), project: "rata" }))
   })
 })
 
@@ -162,7 +166,7 @@ describe("LinkService default labels", () => {
     id: "l-enh",
     name: "enhancement",
     color: "#111111",
-    teamId: "team-1",
+    teamId: teamId("team-1"),
   }
 
   test("keeps the defaults when the new team has the labels", async () => {
@@ -171,7 +175,7 @@ describe("LinkService default labels", () => {
     const { result, stored } = await linkTeam(fake.handler, harness, options({}))
     expect(result.team.key).toBe("RAT")
     expect(stored).toEqual(
-      Option.some({ team: "RAT", teamId: "team-1", defaultLabels: ["enhancement"] }),
+      Option.some({ team: "RAT", teamId: teamId("team-1"), defaultLabels: ["enhancement"] }),
     )
   })
 
@@ -192,18 +196,23 @@ describe("LinkService default labels", () => {
     const { result, stored } = await linkTeam(fake.handler, harness, options({}))
     expect(result.team.key).toBe("RAT")
     expect(stored).toEqual(
-      Option.some({ team: "RAT", teamId: "team-1", defaultLabels: ["missing"] }),
+      Option.some({ team: "RAT", teamId: teamId("team-1"), defaultLabels: ["missing"] }),
     )
   })
 
   test("keeps the defaults across a link to the same team", async () => {
     const harness = makeHarness({
-      config: { team: "RAT", defaultAssignee: "me", defaultPriority: 3 },
+      config: { team: "RAT", defaultAssignee: "me", defaultPriority: "medium" },
     })
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
     const { stored } = await linkTeam(fake.handler, harness, options({}))
     expect(stored).toEqual(
-      Option.some({ team: "RAT", teamId: "team-1", defaultAssignee: "me", defaultPriority: 3 }),
+      Option.some({
+        team: "RAT",
+        teamId: teamId("team-1"),
+        defaultAssignee: "me",
+        defaultPriority: "medium",
+      }),
     )
   })
 

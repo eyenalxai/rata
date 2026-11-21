@@ -9,10 +9,11 @@ import type {
   WriteOptions,
 } from "@/api/issue-write/model"
 import type { makeIssueWriteResolvers } from "@/api/issue-write/resolvers"
-import type { LabelMode } from "@/domain/labels"
+import type { TeamId } from "@/domain/id"
+import type { LabelMode } from "@/domain/label"
 
 import { AssigneeConflictError, isNoneValue } from "@/api/issue-write/model"
-import { labelChanges } from "@/domain/labels"
+import { labelChanges } from "@/domain/label"
 
 type WriteResolvers = ReturnType<typeof makeIssueWriteResolvers>
 
@@ -85,7 +86,7 @@ const makeBulkWrites = (resolvers: WriteResolvers) => {
     targets: readonly BulkTarget[],
     names: readonly string[],
   ) {
-    const resolved = new Map<string, readonly ResolvedLabel[]>()
+    const resolved = new Map<TeamId, readonly ResolvedLabel[]>()
     for (const target of targets) {
       if (resolved.has(target.teamId)) {
         continue

@@ -1,48 +1,55 @@
 import { Schema } from "effect"
 
 import { PageInfo } from "@/api/pagination"
+import {
+  AttachmentId,
+  CommentId,
+  IssueId,
+  ProjectId,
+  RelationId,
+  TeamId,
+  UserId,
+} from "@/domain/id"
+import { LabelRef } from "@/domain/label"
+import { PriorityFromValue } from "@/domain/priority"
+import { RelationTypeSchema } from "@/domain/relation"
+import { WorkflowState as WorkflowStateSchema, WorkflowStateNode } from "@/domain/workflow-state"
 
-const IssueState = Schema.Struct({
-  name: Schema.String,
-  type: Schema.String,
-})
+const IssueState = WorkflowStateSchema
 type IssueState = typeof IssueState.Type
 
 const IssueUser = Schema.Struct({
-  id: Schema.String,
+  id: UserId,
   name: Schema.String,
   displayName: Schema.String,
 })
 type IssueUser = typeof IssueUser.Type
 
-const IssueLabel = Schema.Struct({
-  id: Schema.String,
-  name: Schema.String,
-})
+const IssueLabel = LabelRef
 type IssueLabel = typeof IssueLabel.Type
 
 const IssueProject = Schema.Struct({
-  id: Schema.String,
+  id: ProjectId,
   name: Schema.String,
 })
 type IssueProject = typeof IssueProject.Type
 
 const IssueParent = Schema.Struct({
-  id: Schema.String,
+  id: IssueId,
   identifier: Schema.String,
   title: Schema.String,
 })
 type IssueParent = typeof IssueParent.Type
 
 const IssueTeam = Schema.Struct({
-  id: Schema.String,
+  id: TeamId,
   key: Schema.String,
   name: Schema.String,
 })
 type IssueTeam = typeof IssueTeam.Type
 
 const IssueChild = Schema.Struct({
-  id: Schema.String,
+  id: IssueId,
   identifier: Schema.String,
   title: Schema.String,
   state: IssueState,
@@ -62,15 +69,15 @@ const IssueChildConnection = Schema.Struct({
 })
 
 const IssueRelation = Schema.Struct({
-  id: Schema.String,
-  type: Schema.String,
+  id: RelationId,
+  type: RelationTypeSchema,
   relatedIssue: IssueChild,
 })
 type IssueRelation = typeof IssueRelation.Type
 
 const IssueInverseRelation = Schema.Struct({
-  id: Schema.String,
-  type: Schema.String,
+  id: RelationId,
+  type: RelationTypeSchema,
   issue: IssueChild,
 })
 type IssueInverseRelation = typeof IssueInverseRelation.Type
@@ -86,7 +93,7 @@ const IssueInverseRelationConnection = Schema.Struct({
 })
 
 const IssueAttachment = Schema.Struct({
-  id: Schema.String,
+  id: AttachmentId,
   title: Schema.String,
   subtitle: Schema.NullOr(Schema.String),
   url: Schema.String,
@@ -100,7 +107,7 @@ const IssueAttachmentConnection = Schema.Struct({
   pageInfo: PageInfo,
 })
 const IssueComment = Schema.Struct({
-  id: Schema.String,
+  id: CommentId,
   body: Schema.String,
   createdAt: Schema.String,
   user: Schema.NullOr(IssueUser),
@@ -112,12 +119,12 @@ const IssueCommentConnection = Schema.Struct({
 })
 
 const IssueSummaryNode = Schema.Struct({
-  id: Schema.String,
+  id: IssueId,
   identifier: Schema.String,
   title: Schema.String,
   url: Schema.String,
   state: IssueState,
-  priority: Schema.Literals([0, 1, 2, 3, 4]),
+  priority: PriorityFromValue,
   createdAt: Schema.String,
   updatedAt: Schema.String,
   assignee: Schema.NullOr(IssueUser),
@@ -131,17 +138,17 @@ type IssueSummaryNode = typeof IssueSummaryNode.Type
 
 const BulkTargetNode = Schema.Struct({
   ...IssueSummaryNode.fields,
-  team: Schema.Struct({ id: Schema.String }),
+  team: Schema.Struct({ id: TeamId }),
 })
 
 const IssueDetailNode = Schema.Struct({
-  id: Schema.String,
+  id: IssueId,
   identifier: Schema.String,
   title: Schema.String,
   description: Schema.NullOr(Schema.String),
   url: Schema.String,
   state: IssueState,
-  priority: Schema.Literals([0, 1, 2, 3, 4]),
+  priority: PriorityFromValue,
   createdAt: Schema.String,
   updatedAt: Schema.String,
   assignee: Schema.NullOr(IssueUser),
@@ -158,7 +165,7 @@ type IssueDetailNode = typeof IssueDetailNode.Type
 
 const ShowResponse = Schema.Struct({ issue: IssueDetailNode })
 
-const IssueIdResponse = Schema.Struct({ issue: Schema.Struct({ id: Schema.String }) })
+const IssueIdResponse = Schema.Struct({ issue: Schema.Struct({ id: IssueId }) })
 
 const IssueSummaryResponse = Schema.Struct({ issue: IssueSummaryNode })
 
@@ -188,11 +195,7 @@ const AttachmentsResponse = Schema.Struct({
   issue: Schema.Struct({ attachments: IssueAttachmentConnection }),
 })
 
-const WorkflowState = Schema.Struct({
-  id: Schema.String,
-  name: Schema.String,
-  type: Schema.String,
-})
+const WorkflowState = WorkflowStateNode
 type WorkflowState = typeof WorkflowState.Type
 
 const WorkflowStateConnection = Schema.Struct({
@@ -206,12 +209,12 @@ const TeamStatesResponse = Schema.Struct({
 
 const IssueStatesResponse = Schema.Struct({
   issue: Schema.Struct({
-    team: Schema.Struct({ id: Schema.String, states: WorkflowStateConnection }),
+    team: Schema.Struct({ id: TeamId, states: WorkflowStateConnection }),
   }),
 })
 
 const IssueTeamResponse = Schema.Struct({
-  issue: Schema.Struct({ team: Schema.Struct({ id: Schema.String }) }),
+  issue: Schema.Struct({ team: Schema.Struct({ id: TeamId }) }),
 })
 
 const IssueMutationPayload = Schema.Struct({

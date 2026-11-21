@@ -21,7 +21,6 @@ import type {
   CommentUpdateResult,
   IssueCreateOptions,
   IssueCreateResult,
-  IssueSectionReplacement,
   IssueUpdateOptions,
   IssueUpdatePlan,
   IssueUpdateSectionsOptions,
@@ -31,7 +30,7 @@ import type {
   SectionWriteOptions,
   SectionWriteResult,
 } from "@/api/issue-write/write-types"
-import type { Section } from "@/domain/body/section/model"
+import type { Section, SectionReplacement } from "@/domain/section"
 
 type IssueWriteApiShape = {
   readonly create: (
@@ -77,13 +76,13 @@ type IssueWriteApiShape = {
   readonly updateSections: (
     ref: string,
     options: IssueUpdateSectionsOptions,
-    sections: readonly IssueSectionReplacement[],
+    sections: readonly SectionReplacement[],
     writeOptions?: IssueUpdateWriteOptions,
   ) => Effect.Effect<IssueUpdateSectionsResult, IssueWriteApiError>
   readonly planUpdateSections: (
     ref: string,
     options: IssueUpdateSectionsOptions,
-    sections: readonly IssueSectionReplacement[],
+    sections: readonly SectionReplacement[],
     writeOptions?: IssueUpdateWriteOptions,
   ) => Effect.Effect<IssueUpdateSectionsPlan, IssueWriteApiError>
   readonly readSection: (ref: string, heading: string) => Effect.Effect<Section, IssueWriteApiError>

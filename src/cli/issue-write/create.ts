@@ -25,7 +25,6 @@ import {
   writeLine,
 } from "@/cli/output"
 import { resolvePriority } from "@/cli/priority"
-import { toPriority } from "@/domain/priority"
 
 const createAction = (plan: IssueCreatePlan): PlanAction => ({
   action: "create",
@@ -35,7 +34,7 @@ const createAction = (plan: IssueCreatePlan): PlanAction => ({
     title: plan.title,
     labels: plan.labels,
     assignee: plan.assignee,
-    priority: plan.priority === null ? null : toPriority(plan.priority),
+    priority: plan.priority,
   },
 })
 
@@ -48,7 +47,7 @@ const describeCreate = (plan: IssueCreatePlan): string => {
     details.push(`assignee ${plan.assignee}`)
   }
   if (plan.priority !== null) {
-    details.push(`priority ${toPriority(plan.priority)}`)
+    details.push(`priority ${plan.priority}`)
   }
   const suffix = details.length === 0 ? "" : ` with ${details.join(", ")}`
   return `Would create "${plan.title}" in ${plan.team}${suffix}.`

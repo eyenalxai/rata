@@ -3,12 +3,12 @@ import { Flag } from "effect/cli"
 
 import type { IssueWriteApi } from "@/api/issue-write"
 import type {
-  IssueSectionReplacement,
   IssueUpdateSectionsOptions,
   IssueUpdateSectionsPlan,
   IssueUpdateSectionsResult,
   IssueUpdateWriteOptions,
 } from "@/api/issue-write/write-types"
+import type { SectionReplacement } from "@/domain/section"
 
 import { resolveBody } from "@/cli/body"
 import { postUpdateComment } from "@/cli/issue-write/comment"
@@ -37,7 +37,7 @@ const readSections = Effect.fn("Cli.IssueWrite.readSections")(function* readSect
 ) {
   const text = yield* resolveBody({ body: "sections", file: "sections-file" }, Option.none(), file)
   if (Option.isNone(text)) {
-    return Option.none<readonly IssueSectionReplacement[]>()
+    return Option.none<readonly SectionReplacement[]>()
   }
   const decoded = Schema.decodeOption(SectionsJson)(text.value)
   if (Option.isNone(decoded)) {
@@ -45,11 +45,11 @@ const readSections = Effect.fn("Cli.IssueWrite.readSections")(function* readSect
       "validation",
       "The sections file must be JSON with a sections array of heading and content pairs.",
     )
-    return Option.none<readonly IssueSectionReplacement[]>()
+    return Option.none<readonly SectionReplacement[]>()
   }
   if (decoded.value.sections.length === 0) {
     yield* errorLine("validation", "The sections file needs at least one section.")
-    return Option.none<readonly IssueSectionReplacement[]>()
+    return Option.none<readonly SectionReplacement[]>()
   }
   return Option.some(decoded.value.sections)
 })
@@ -62,7 +62,7 @@ const resolveSectionsInput = Effect.fn("Cli.IssueWrite.resolveSectionsInput")(
     append: boolean,
   ) {
     if (Option.isNone(sectionsFile)) {
-      return Option.none<Option.Option<readonly IssueSectionReplacement[]>>()
+      return Option.none<Option.Option<readonly SectionReplacement[]>>()
     }
     if (Option.isSome(body) || Option.isSome(bodyFile) || append) {
       yield* errorLine(
@@ -70,7 +70,7 @@ const resolveSectionsInput = Effect.fn("Cli.IssueWrite.resolveSectionsInput")(
         "The --sections-file flag cannot be combined with --body, --body-file or --append.",
         "rata issue update <ref> --sections-file -",
       )
-      return Option.some(Option.none<readonly IssueSectionReplacement[]>())
+      return Option.some(Option.none<readonly SectionReplacement[]>())
     }
     return Option.some(yield* readSections(sectionsFile))
   },
@@ -106,7 +106,7 @@ const runSectionsUpdate = Effect.fn("Cli.IssueWrite.runSectionsUpdate")(function
   json: boolean,
   ref: string,
   fields: IssueUpdateSectionsOptions,
-  sections: readonly IssueSectionReplacement[],
+  sections: readonly SectionReplacement[],
   writeOptions: IssueUpdateWriteOptions,
   comment: Option.Option<string>,
   dryRun: boolean,

@@ -5,8 +5,10 @@ import { Option, Schema } from "effect"
 
 import type { IssueComment } from "@/api/issue-schema"
 
+import { commentId } from "@/domain/id"
+
 const commentNode = (id: string, body: string): IssueComment => ({
-  id,
+  id: commentId(id),
   body,
   createdAt: "2026-01-01T10:00:00.000Z",
   user,

@@ -29,7 +29,7 @@ describe("IssueApi list priority", () => {
       handler,
       Effect.gen(function* listIssues() {
         const api = yield* IssueApi
-        return yield* api.list({ priority: 0, after: null, limit: 50 })
+        return yield* api.list({ priority: "none", after: null, limit: 50 })
       }),
     )
 

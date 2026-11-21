@@ -6,6 +6,7 @@ import { Effect, Option } from "effect"
 
 import { IssueDefaultsService } from "@/config/defaults"
 import { RepoConfigService } from "@/config/repo"
+import { teamId } from "@/domain/id"
 
 const team = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
 const labels = [
@@ -36,7 +37,7 @@ describe("IssueDefaultsService.set", () => {
         const defaults = yield* service.set({
           assignee: "me",
           labels: ["enhancement"],
-          priority: 3,
+          priority: "medium",
         })
         const stored = yield* repoConfig.read(process.cwd())
         return { defaults, stored }
@@ -46,15 +47,15 @@ describe("IssueDefaultsService.set", () => {
     expect(result.defaults).toEqual({
       assignee: "me",
       labels: ["enhancement"],
-      priority: 3,
+      priority: "medium",
     })
     expect(result.stored).toEqual(
       Option.some({
         team: "RAT",
-        teamId: "team-1",
+        teamId: teamId("team-1"),
         defaultAssignee: "me",
         defaultLabels: ["enhancement"],
-        defaultPriority: 3,
+        defaultPriority: "medium",
       }),
     )
   })
@@ -84,7 +85,7 @@ describe("IssueDefaultsService.set", () => {
     )
 
     expect(result.error._tag).toBe("LabelNotFoundError")
-    expect(result.stored).toEqual(Option.some({ team: "RAT", teamId: "team-1" }))
+    expect(result.stored).toEqual(Option.some({ team: "RAT", teamId: teamId("team-1") }))
   })
 
   test("fails with not_linked without a repository link", async () => {
@@ -92,7 +93,7 @@ describe("IssueDefaultsService.set", () => {
       [],
       Effect.gen(function* setDefaults() {
         const service = yield* IssueDefaultsService
-        return yield* Effect.flip(service.set({ priority: 2 }))
+        return yield* Effect.flip(service.set({ priority: "high" }))
       }),
     )
 
@@ -105,7 +106,7 @@ describe("IssueDefaultsService.set", () => {
       Effect.gen(function* setDefaults() {
         const service = yield* IssueDefaultsService
         const repoConfig = yield* RepoConfigService
-        const plan = yield* service.set({ assignee: "none", priority: 0, dryRun: true })
+        const plan = yield* service.set({ assignee: "none", priority: "none", dryRun: true })
         const stored = yield* repoConfig.read(process.cwd())
         return { plan, stored }
       }),
@@ -113,7 +114,12 @@ describe("IssueDefaultsService.set", () => {
 
     expect(result.plan).toEqual({ assignee: null, labels: [], priority: null })
     expect(result.stored).toEqual(
-      Option.some({ team: "RAT", teamId: "team-1", defaultAssignee: "me", defaultPriority: 3 }),
+      Option.some({
+        team: "RAT",
+        teamId: teamId("team-1"),
+        defaultAssignee: "me",
+        defaultPriority: "medium",
+      }),
     )
   })
 })
@@ -142,8 +148,8 @@ describe("IssueDefaultsService.unset", () => {
       }),
     )
 
-    expect(result.defaults).toEqual({ assignee: "me", labels: [], priority: 3 })
-    expect(result.stored).toEqual({ assignee: "me", labels: [], priority: 3 })
+    expect(result.defaults).toEqual({ assignee: "me", labels: [], priority: "medium" })
+    expect(result.stored).toEqual({ assignee: "me", labels: [], priority: "medium" })
   })
 
   test("works without a link and returns empty defaults", async () => {
@@ -175,9 +181,9 @@ describe("IssueDefaultsService.unset", () => {
       }),
     )
 
-    expect(result.plan).toEqual({ assignee: null, labels: [], priority: 3 })
+    expect(result.plan).toEqual({ assignee: null, labels: [], priority: "medium" })
     expect(result.stored).toEqual(
-      Option.some({ team: "RAT", defaultLabels: ["enhancement"], defaultPriority: 3 }),
+      Option.some({ team: "RAT", defaultLabels: ["enhancement"], defaultPriority: "medium" }),
     )
   })
 })

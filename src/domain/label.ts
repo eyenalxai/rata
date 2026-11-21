@@ -1,6 +1,21 @@
-import { Result } from "effect"
+import { Result, Schema } from "effect"
+
+import { LabelId } from "@/domain/id"
 
 const labelColorPattern = /^#?[0-9a-f]{6}$/iu
+
+const Label = Schema.Struct({
+  id: LabelId,
+  name: Schema.String,
+  color: Schema.String,
+})
+type Label = typeof Label.Type
+
+const LabelRef = Schema.Struct({
+  id: LabelId,
+  name: Schema.String,
+})
+type LabelRef = typeof LabelRef.Type
 
 const parseLabelColor = (value: string): Result.Result<string, string> => {
   if (!labelColorPattern.test(value)) {
@@ -16,9 +31,9 @@ const findLabelByName = <A extends { readonly name: string }>(
 
 type LabelMode = "add" | "remove"
 
-const labelChanges = <A extends { readonly id: string }>(
+const labelChanges = <A extends { readonly id: LabelId }>(
   wanted: readonly A[],
-  present: ReadonlySet<string>,
+  present: ReadonlySet<LabelId>,
   mode: LabelMode,
 ): readonly A[] => {
   const seen = new Set<string>()
@@ -39,4 +54,4 @@ const labelChanges = <A extends { readonly id: string }>(
   return changes
 }
 
-export { findLabelByName, labelChanges, type LabelMode, parseLabelColor }
+export { findLabelByName, Label, labelChanges, type LabelMode, LabelRef, parseLabelColor }

@@ -1,5 +1,7 @@
 import { Effect, Option, Result, Schema } from "effect"
 
+import type { Priority } from "@/domain/priority"
+
 import { parsePriority } from "@/domain/priority"
 
 class PriorityInputError extends Schema.TaggedError<PriorityInputError>()("PriorityInputError", {
@@ -10,7 +12,7 @@ const resolvePriority = Effect.fn("Cli.Priority.resolvePriority")(function* reso
   value: Option.Option<string>,
 ) {
   if (Option.isNone(value)) {
-    return Option.none<number>()
+    return Option.none<Priority>()
   }
   const parsed = parsePriority(value.value)
   if (Result.isFailure(parsed)) {
