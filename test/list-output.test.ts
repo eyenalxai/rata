@@ -108,14 +108,10 @@ describe("issue list output flags", () => {
     expect(idLines).toEqual(["RAT-3"])
   })
 
-  test("prints one identifier per line in page order and composes with --all", async () => {
+  test("prints one identifier per line in page order and drains every page", async () => {
     const captured: Record<string, unknown>[] = []
     const lines: string[] = []
-    await runRoot(
-      handler(captured),
-      ["issue", "list", "--ids-only", "--all", "--limit", "2"],
-      lines,
-    )
+    await runRoot(handler(captured), ["issue", "list", "--ids-only", "--limit", "2"], lines)
 
     expect(lines).toEqual(["RAT-1", "RAT-2", "RAT-3"])
     expect(captured).toHaveLength(2)
@@ -125,15 +121,17 @@ describe("issue list output flags", () => {
 describe("search output flags", () => {
   const ranked = [secondNode, firstNode, thirdNode]
 
-  test("prints one identifier per line in relevance order", async () => {
+  test("prints every identifier in relevance order and drains every page", async () => {
+    const captured: Record<string, unknown>[] = []
     const lines: string[] = []
     await runRoot(
-      withTeamLookup(pagedHandler(ranked, [])),
+      withTeamLookup(pagedHandler(ranked, captured)),
       ["search", "rate limit", "--ids-only", "--limit", "2"],
       lines,
     )
 
-    expect(lines).toEqual(["RAT-2", "RAT-1"])
+    expect(lines).toEqual(["RAT-2", "RAT-1", "RAT-3"])
+    expect(captured).toHaveLength(2)
   })
 
   test("drains every page for --count", async () => {

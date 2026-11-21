@@ -222,5 +222,6 @@ export {
   writeBulkResults,
   writeDryRun,
   writeJson,
+  writeJsonError,
   writeLine,
 }

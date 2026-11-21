@@ -200,7 +200,7 @@ describe("issue show", () => {
   test("returns comments, children, relations and attachments in one document", async () => {
     const requests: ReturnType<typeof readBody>[] = []
     const lines: string[] = []
-    await runShow(showHandler(requests), ["show", "RAT-1", "--json"], lines)
+    await runShow(showHandler(requests), ["show", "RAT-1", "--json", "--comments"], lines)
 
     const document = Option.getOrThrow(Schema.decodeUnknownOption(ShowDocument)(lastJson(lines)))
 
@@ -221,6 +221,16 @@ describe("issue show", () => {
     )
 
     expect(lastJson(lines)).toEqual({ createdAt: "2026-01-01T08:00:00.000Z" })
+  })
+
+  test("omits comments by default and skips the fetch", async () => {
+    const requests: ReturnType<typeof readBody>[] = []
+    const lines: string[] = []
+    await runShow(showHandler(requests), ["show", "RAT-1", "--json"], lines)
+
+    const document = Option.getOrThrow(Schema.decodeUnknownOption(AnyShowDocument)(lastJson(lines)))
+    expect(document).not.toHaveProperty("comments")
+    expect(requests.some((request) => request.query.includes("query IssueComments"))).toBe(false)
   })
 
   test("--no-comments omits the comments and skips the fetch", async () => {

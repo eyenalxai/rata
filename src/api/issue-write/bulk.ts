@@ -11,7 +11,7 @@ import type {
 import type { makeIssueWriteResolvers } from "@/api/issue-write/resolvers"
 import type { LabelMode } from "@/domain/labels"
 
-import { isNoneValue } from "@/api/issue-write/model"
+import { AssigneeConflictError, isNoneValue } from "@/api/issue-write/model"
 import { labelChanges } from "@/domain/labels"
 
 type WriteResolvers = ReturnType<typeof makeIssueWriteResolvers>
@@ -36,6 +36,7 @@ const makeBulkWrites = (resolvers: WriteResolvers) => {
   ) {
     const targets = yield* resolvers.collectChildTargets(parentRef)
     const targetId = isNoneValue(assignee) ? null : yield* resolvers.resolveAssignee(assignee)
+    const viewerId = targetId === null ? null : yield* resolvers.viewerId()
     const results: BulkWriteResult[] = []
     for (const target of targets) {
       const currentId = target.summary.assignee?.id ?? null
@@ -45,6 +46,24 @@ const makeBulkWrites = (resolvers: WriteResolvers) => {
           status: "skipped",
           issue: target.summary,
         })
+        continue
+      }
+      if (
+        targetId !== null &&
+        currentId !== null &&
+        currentId !== viewerId &&
+        currentId !== targetId &&
+        options.take !== true
+      ) {
+        results.push(
+          failedResult(
+            target,
+            new AssigneeConflictError({
+              assignee: target.summary.assignee?.name ?? currentId,
+              message: `The issue is assigned to ${target.summary.assignee?.name ?? currentId}. Pass --take to reassign it.`,
+            }),
+          ),
+        )
         continue
       }
       if (options.dryRun === true) {

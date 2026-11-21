@@ -1,4 +1,5 @@
 type ErrorCode =
+  | "usage"
   | "validation"
   | "not_linked"
   | "not_found"
@@ -75,9 +76,12 @@ const errorRules: Record<string, ErrorRule> = {
   PriorityInputError: { code: "validation", hint: null },
   LinkError: { code: "validation", hint: null },
   AuthStoreError: { code: "auth", hint: "Run `rata auth login --with-token`." },
+  PromptRequiredError: { code: "validation", hint: "Pass --yes to skip the prompt." },
+  AssigneeConflictError: { code: "conflict", hint: "Pass --take to reassign it." },
 }
 
 const exitCodes: Record<ErrorCode, number> = {
+  usage: 2,
   validation: 2,
   not_linked: 2,
   ambiguous: 2,

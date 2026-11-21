@@ -22,6 +22,7 @@ import { ConflictError } from "@/domain/conflict"
 import { InvalidIssueRef } from "@/domain/ref"
 
 const expectedExitCodes: Record<ErrorCode, number> = {
+  usage: 2,
   validation: 2,
   not_linked: 2,
   ambiguous: 2,
@@ -35,6 +36,7 @@ const expectedExitCodes: Record<ErrorCode, number> = {
 }
 
 const errorCodes: readonly ErrorCode[] = [
+  "usage",
   "validation",
   "not_linked",
   "ambiguous",
@@ -99,15 +101,14 @@ describe("the exit code map", () => {
 })
 
 describe("the process exit code", () => {
-  test("a bad flag exits 2", async () => {
-    const failure = await runRoot(unusedHandler, ["issue", "show", "--bogus"], []).catch(
-      (error: unknown) => error,
-    )
+  test("a bad flag exits 2 with a usage error object", async () => {
+    const lines: string[] = []
+    await runRoot(unusedHandler, ["issue", "show", "--bogus", "--json"], lines)
 
-    if (!CliError.isCliError(failure)) {
-      throw new Error("expected a CLI parse error")
-    }
-    expect(exitCodeOfCliError(failure)).toBe(2)
+    expect(process.exitCode).toBe(2)
+    expect(JSON.parse(lines.at(-1) ?? "")).toMatchObject({
+      error: { code: "usage" },
+    })
   })
 
   test("--help exits 0 and a parse error exits 2", () => {

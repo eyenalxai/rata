@@ -3,7 +3,7 @@ import { Effect } from "effect"
 import type { WriteAction, WriteOptions, WriteStatus } from "@/api/issue-write/model"
 import type { makeIssueWriteResolvers } from "@/api/issue-write/resolvers"
 
-import { combineStatus, isNoneValue } from "@/api/issue-write/model"
+import { AssigneeConflictError, combineStatus, isNoneValue } from "@/api/issue-write/model"
 
 type WriteResolvers = ReturnType<typeof makeIssueWriteResolvers>
 
@@ -112,7 +112,7 @@ const makeIssueWrites = (resolvers: WriteResolvers) => {
             {
               action: "comment-create" as const,
               target: ref,
-              status: "updated" as const,
+              status: alreadyCompleted ? ("skipped" as const) : ("updated" as const),
               changes: { body },
             },
           ]
@@ -122,11 +122,11 @@ const makeIssueWrites = (resolvers: WriteResolvers) => {
     if (options.dryRun === true) {
       return { status, issue: summary, actions }
     }
-    if (commented) {
-      yield* resolvers.postComment(summary.id, body)
-    }
     if (alreadyCompleted) {
       return { status, issue: summary, actions }
+    }
+    if (commented) {
+      yield* resolvers.postComment(summary.id, body)
     }
     const issue = yield* resolvers.setStateByType(summary.id, "completed")
     return { status, issue, actions }
@@ -160,7 +160,21 @@ const makeIssueWrites = (resolvers: WriteResolvers) => {
   ) {
     const summary = yield* resolvers.readIssueSummary(ref)
     const targetId = isNoneValue(assignee) ? null : yield* resolvers.resolveAssignee(assignee)
+    const viewerId =
+      targetId === null || assignee.toLowerCase() === "me" ? targetId : yield* resolvers.viewerId()
     const currentId = summary.assignee?.id ?? null
+    if (
+      targetId !== null &&
+      currentId !== null &&
+      currentId !== viewerId &&
+      currentId !== targetId &&
+      options.take !== true
+    ) {
+      return yield* new AssigneeConflictError({
+        assignee: summary.assignee?.name ?? currentId,
+        message: `The issue is assigned to ${summary.assignee?.name ?? currentId}. Pass --take to reassign it.`,
+      })
+    }
     const status: WriteStatus = currentId === targetId ? "skipped" : "updated"
     const actions: readonly WriteAction[] = [
       {

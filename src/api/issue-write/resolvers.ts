@@ -131,10 +131,13 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
     value: string,
   ) {
     if (value.toLowerCase() === "me") {
-      const viewer = yield* client.viewer
-      return viewer.id
+      return (yield* client.viewer).id
     }
     return value
+  })
+
+  const viewerId = Effect.fn("IssueWriteApi.viewerId")(function* viewerId() {
+    return (yield* client.viewer).id
   })
 
   const resolveProjectId = Effect.fn("IssueWriteApi.resolveProjectId")(function* resolveProjectId(
@@ -290,6 +293,7 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
     setAssignee,
     setStateByType,
     teamStateIdByName,
+    viewerId,
   }
 }
 

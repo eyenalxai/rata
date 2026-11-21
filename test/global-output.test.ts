@@ -51,6 +51,17 @@ describe("global output flags", () => {
     })
   })
 
+  test("team delete without a TTY exits 2 with a --yes hint", async () => {
+    const fake = makeFakeLinear({ teams: [team], labels: [] })
+    const lines: string[] = []
+    await runTeam(fake.handler, ["delete", "RAT", "--json"], lines)
+
+    expect(process.exitCode).toBe(2)
+    expect(JSON.parse(lines.at(-1) ?? "")).toMatchObject({
+      error: { code: "validation", hint: "Pass --yes to skip the prompt." },
+    })
+  })
+
   test("rejects an unknown field path", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []

@@ -156,9 +156,9 @@ they explore the codebase. Use these terms; do not drift to synonyms.
   sections. `--fields` starts at the resource for a read, at each row for a
   list, and at the `defaults` object for `config show`.
 - **Error code**: the class of a failure, carried by the `code` field of the JSON
-  error object: `validation`, `not_linked`, `not_found`, `ambiguous`, `auth`,
-  `forbidden`, `conflict`, `rate_limited`, `network` or `internal`.
-- **Exit code**: the process status of a command, one number per **error code**:
-  `0` success, `1` internal, `2` validation, `3` not found, `4` conflict, `5`
-  auth, `6` retryable. A bulk write exits with its first failed result's code.
-  Agents branch on this number. Avoid: status code, return code.
+  error object: `usage`, `validation`, `not_linked`, `not_found`, `ambiguous`,
+  `auth`, `forbidden`, `conflict`, `rate_limited`, `network` or `internal`.
+- **Exit code**: the process status of a command, one number per failure class:
+  `0` success, `1` internal, `2` usage or validation, `3` not found, `4`
+  conflict, `5` auth, `6` retryable. A bulk write exits with its first failed
+  result's code. Agents branch on this number. Avoid: status code, return code.

@@ -27,11 +27,12 @@ With `--json`, a failure writes `{ "error": { "code", "message", "hint" } }` to
 stderr; `hint` is a string or `null`; `RATA_DEBUG=1` adds `details`. Human mode
 prints `error:` and `hint:`.
 
-Codes: `0` success, `1` internal, `2` validation, `3` not found, `4` conflict,
-`5` auth, `6` retryable. A bulk write exits with the first failure's code, or
-`0`. Two cases write a partial result to stdout: a bulk write, and a failed
-`issue update --comment` with the issue update, `"comment": null` and the
-`error`.
+Codes: `0` success, `1` internal, `2` usage or validation, `3` not found,
+`4` conflict, `5` auth, `6` retryable. A parse error writes the normal error
+object with code `usage`; help prints only for `--help`. A bulk write exits with
+the first failure's code, or `0`. Two cases write a partial result to stdout: a
+bulk write, and a failed `issue update --comment` with the issue update,
+`"comment": null` and the `error`.
 
 ## Setup
 
@@ -67,7 +68,7 @@ members and priorities; `team create --name <name> [--key]`; `team delete <key>
 
 | Command                                   | JSON                                                                                                               |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `issue show <ref>`                        | The issue object with `description`, `children`, `relations`, `attachments` and `comments`                         |
+| `issue show <ref>`                        | The issue object with `description`, `children`, `relations` and `attachments`; `comments` with `--comments`       |
 | `issue show <ref> --summary`              | The summary object                                                                                                 |
 | `issue status <ref>`                      | The summary plus `blocked`, `blockedBy`, `prs` and `nextChild`; flags add `description`, `comments` and `children` |
 | `next --parent <ref>`                     | The summary of the ready child, or `null`; `--ids-only` prints the identifier or nothing                           |
@@ -106,8 +107,9 @@ array of scalars is `validation`; an empty array returns `[]`. A list keeps
 
 ### `issue show` flags
 
-`--comments` adds comments; `--no-comments` skips the fetch and omits the key;
-the two conflict. `--summary` reads header fields only and rejects `--comments`.
+`--comments` adds comments; the default read omits them. `--no-comments` skips
+the fetch and omits the key; it is redundant with the default. The two conflict.
+`--summary` reads header fields only and rejects `--comments`.
 
 `--no-body` drops the description from the output only; the read still fetches
 it. `--no-relations`, `--no-children` and `--no-attachments` drop those parts and
@@ -173,10 +175,11 @@ a cursor is bound to its query.
 
 ## Issue writes
 
-The focused writes: `issue assign [<ref>...] --assignee <me|none|id> [--parent]`,
-`issue unassign <ref>`, `issue label add|remove [<ref>] <label...> [--parent]`,
-`issue close <ref> [--comment <text>] [--comment-file -]`, `issue reopen <ref>`.
-All take `--dry-run`.
+The focused writes: `issue assign [<ref>...] --assignee <me|none|id> [--take]
+[--parent]`, `issue unassign <ref>`, `issue label add|remove [<ref>] <label...>
+[--parent]`, `issue close <ref> [--comment <text>] [--comment-file -]`, `issue
+reopen <ref>`. All take `--dry-run`. An assign to an issue held by another user
+exits 4 and names the holder; `--take` reassigns it.
 
 ### `issue create` flags
 
@@ -309,10 +312,11 @@ best-effort and exits with the first failed result's code. JSON prints
 
 A write that finds the desired state in place exits 0 and reports `skipped`;
 this covers `link`, `unlink`, `assign`, `unassign`, both label commands, `close`
-and `reopen`. A `canceled` issue still moves to a completed state, and a close
-with a comment still posts it. `issue create` always creates a new object.
-`label create` fails on a duplicate name with `conflict` unless `--if-not-exists`
-returns it with `created: false`.
+and `reopen`. A `canceled` issue still moves to a completed state. A close on an
+already completed issue is skipped, including its comment, so a retry cannot
+post it twice. `issue create` always creates a new object. `label create` fails
+on a duplicate name with `conflict` unless `--if-not-exists` returns it with
+`created: false`.
 
 ## Executable hints
 

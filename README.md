@@ -98,22 +98,23 @@ repository `workspace` of the repository config, the `default` profile.
 Each operation has one spelling. The other spellings fail with a `validation`
 error and one hint that names the canonical one.
 
-| Operation           | Canonical form                                               | Rejected form                |
-| ------------------- | ------------------------------------------------------------ | ---------------------------- |
-| Read one issue      | `rata issue show <ref>`                                      | `rata issue <ref>`           |
-| Read the summary    | `rata issue show <ref> --summary`                            |                              |
-| Read the status     | `rata issue status <ref>`                                    |                              |
-| Comment on an issue | `rata issue comment create <ref> --body-file -`              | `rata issue comment <ref>`   |
-| Assign an issue     | `rata issue assign <ref> --assignee <me\|none\|id>`          | `rata issue assign <ref> me` |
-| Assign every child  | `rata issue assign --parent <ref> --assignee <me\|none\|id>` |                              |
-| Change an issue     | `rata issue update <ref> <flags>`                            |                              |
-| Edit one section    | `rata issue section replace <ref> "<heading>" --body-file -` |                              |
+| Operation           | Canonical form                                                        | Rejected form                |
+| ------------------- | --------------------------------------------------------------------- | ---------------------------- |
+| Read one issue      | `rata issue show <ref>`                                               | `rata issue <ref>`           |
+| Read the summary    | `rata issue show <ref> --summary`                                     |                              |
+| Read the status     | `rata issue status <ref>`                                             |                              |
+| Comment on an issue | `rata issue comment create <ref> --body-file -`                       | `rata issue comment <ref>`   |
+| Assign an issue     | `rata issue assign <ref> --assignee <me\|none\|id> [--take]`          | `rata issue assign <ref> me` |
+| Assign every child  | `rata issue assign --parent <ref> --assignee <me\|none\|id> [--take]` |                              |
+| Change an issue     | `rata issue update <ref> <flags>`                                     |                              |
+| Edit one section    | `rata issue section replace <ref> "<heading>" --body-file -`          |                              |
 
 `issue view` is the only alias, and it means `issue show`. There is no positional
 assignee, no direct `issue comment <ref>` form, and no bare `issue <ref>`
 execution. A rejected form exits 2 and writes no data. `issue update` also sets
 `--assignee` and `--state`: these are fields of one compound update, not a second
-spelling of `issue assign`.
+spelling of `issue assign`. An assign to an issue held by another user exits 4
+and names the holder; `--take` reassigns it.
 
 ## Read shapes
 
@@ -123,7 +124,7 @@ prints its result object.
 
 | Command                                      | JSON                                                                                                                        |
 | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `issue show <ref>`                           | The issue object with `description`, `children`, `relations`, `attachments` and `comments`                                  |
+| `issue show <ref>`                           | The issue object with `description`, `children`, `relations` and `attachments`; `comments` with `--comments`                |
 | `issue show <ref> --summary`                 | The summary object                                                                                                          |
 | `issue status <ref>`                         | The summary plus `blocked`, `blockedBy`, `prs` and `nextChild`; `--with-body`, `--comments` and `--children` add their keys |
 | `next --parent <ref>`                        | The summary of the ready child, or `null`; `--ids-only` prints the identifier or nothing                                    |
@@ -174,25 +175,26 @@ stdout when the comment fails.
 ```
 
 `hint` is a string or `null`. Set `RATA_DEBUG=1` to add `details`. The codes are
-`validation`, `not_linked`, `not_found`, `ambiguous`, `auth`, `forbidden`,
-`conflict`, `rate_limited`, `network` and `internal`. In human mode the error
-prints `error: <message>` and, when present, `hint: <hint>` on stderr.
-Argument-parse errors keep the built-in help text.
+`usage`, `validation`, `not_linked`, `not_found`, `ambiguous`, `auth`,
+`forbidden`, `conflict`, `rate_limited`, `network` and `internal`. In human mode
+the error prints `error: <message>` and, when present, `hint: <hint>` on stderr.
+A parse error writes the normal error object with code `usage`; help prints only
+for `--help`.
 
 ### Exit codes
 
 Every failure exits with the code of its class. The code is stable, so a script
 branches on the number, not the message.
 
-| Code | Meaning                                                              |
-| ---- | -------------------------------------------------------------------- |
-| `0`  | Success, including a skipped idempotent write                        |
-| `1`  | Internal error                                                       |
-| `2`  | Validation: bad input, missing flag, missing link, ambiguous heading |
-| `3`  | Not found: issue, comment, label, project, team, section             |
-| `4`  | Conflict: stale `updatedAt`, or an object in the wrong state         |
-| `5`  | Auth: missing or invalid key, or forbidden                           |
-| `6`  | Retryable: rate limit or network                                     |
+| Code | Meaning                                                                                                    |
+| ---- | ---------------------------------------------------------------------------------------------------------- |
+| `0`  | Success, including a skipped idempotent write                                                              |
+| `1`  | Internal error                                                                                             |
+| `2`  | Usage: bad input, missing flag, missing link, unknown command, parse error. Checked input is `validation`. |
+| `3`  | Not found: issue, comment, label, project, team, section                                                   |
+| `4`  | Conflict: stale `updatedAt`, or an object in the wrong state                                               |
+| `5`  | Auth: missing or invalid key, or forbidden                                                                 |
+| `6`  | Retryable: rate limit or network                                                                           |
 
 A bulk write exits with the code of its first failed result, or `0` when every
 result succeeds.
@@ -324,10 +326,10 @@ while the data does not change, and best effort when it does. `search` keeps
 Linear's relevance ranking, so its paging is best effort.
 
 Internal reads always drain every page. The list commands return one page by
-default and drain every page with `--all`. In particular, `issue show` is
-complete: it reads every page of an issue's labels, children, relations,
-attachments and comments. `--no-comments` skips the comment pages, and the
-`--no-*` flags skip their fetches.
+default and drain every page with `--all`. In particular, `issue show` reads
+every page of an issue's labels, children, relations and attachments. It reads
+comments only with `--comments`. `--no-comments` skips the comment pages and is
+the default behavior. The `--no-*` flags skip their fetches.
 
 ## Authentication
 
@@ -972,9 +974,10 @@ rata issue status RAT-42 --json --with-body --comments --children
 
 `rata issue show` accepts an identifier (`RAT-42`), a UUID, or a linear.app
 URL. `view` is an alias for `show`. `--comments` adds the comments to the human
-output. `--json` returns the complete read model in one call as one issue object
-at the top level: the issue fields, its comments, children, relations and
-attachments. `--no-comments` skips the comment fetch and omits the key.
+output. `--json` returns the read model in one call as one issue object at the
+top level: the issue fields, children, relations and attachments, plus comments
+when `--comments` is passed. The default read omits comments. `--no-comments`
+skips the comment fetch and omits the key; it is redundant with the default.
 `--comments` and `--no-comments` are mutually exclusive. Every collection drains
 every page.
 
@@ -1006,8 +1009,9 @@ Every read command accepts the global `--json` and prints one stable JSON
 document. The list and search commands print one page by default and every page
 with `--all`:
 `{ "issues": [...], "pageInfo": { "hasNextPage": ..., "endCursor": ... } }`.
-The show command prints the issue object, with the comments, children, relations
-and attachments. `--summary` prints the lean summary instead.
+The show command prints the issue object, with the children, relations and
+attachments, and the comments when `--comments` is passed. `--summary` prints
+the lean summary instead.
 
 `rata search "<text>"` searches by text. Without `--team`, the search stays
 inside the linked team; pass `--team <key>` for another team. It keeps Linear's
@@ -1248,7 +1252,7 @@ rata issue unlink RAT-43 --blocked-by RAT-42
 | `issue label remove [<ref>] <label...>` | label names, `--parent`, `--dry-run`                                                                                                                                                            |
 | `issue close <ref>`                     | `--comment`, `--comment-file`, `--dry-run`                                                                                                                                                      |
 | `issue reopen <ref>`                    | `--dry-run`                                                                                                                                                                                     |
-| `issue assign [<ref>]`                  | `--assignee` (required): `me`, a user id, or `none`; `--parent`, `--dry-run`                                                                                                                    |
+| `issue assign [<ref>]`                  | `--assignee` (required): `me`, a user id, or `none`; `--take` reassigns an issue held by another user; `--parent`, `--dry-run`                                                                  |
 | `issue unassign <ref>`                  | `--dry-run`                                                                                                                                                                                     |
 | `issue link <ref>`                      | `--blocks`, `--blocked-by`, `--related`, `--duplicate` (each repeatable), `--dry-run`                                                                                                           |
 | `issue unlink <ref>`                    | the same relation flags and `--dry-run`                                                                                                                                                         |
@@ -1403,9 +1407,9 @@ with a missing relation, `issue assign` with the same assignee, `issue unassign`
 when the issue has none, `issue label add` with a present label, `issue label
 remove` with an absent label, `issue close` when the state is already
 `completed`, and `issue reopen` when the state is already `unstarted`. A
-`canceled` issue still moves to a completed state. `issue close` with a comment
-still posts the comment when the issue is already completed; the state write is
-skipped. `issue create` always creates a new object. `issue comment create`
+`canceled` issue still moves to a completed state. `issue close` on an already
+completed issue is skipped, including its comment; a retry cannot post the same
+comment twice. `issue create` always creates a new object. `issue comment create`
 creates a comment unless `--dedupe-key` finds the one it made before.
 
 `label create --if-not-exists` returns the existing label with `created: false`.
