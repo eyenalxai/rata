@@ -1,7 +1,8 @@
 import { Effect, Result, Schema } from "effect"
 
+import { uuidPattern } from "@/domain/id"
+
 const identifierPattern = /^[A-Z][A-Z0-9]*-\d+$/u
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu
 
 const IssueIdentifier = Schema.String.pipe(
   Schema.check(
@@ -9,7 +10,9 @@ const IssueIdentifier = Schema.String.pipe(
       message: "Expected an issue identifier like RAT-42",
     }),
   ),
+  Schema.brand("IssueIdentifier"),
 )
+type IssueIdentifier = typeof IssueIdentifier.Type
 
 const IssueUuid = Schema.String.pipe(
   Schema.check(
@@ -19,7 +22,7 @@ const IssueUuid = Schema.String.pipe(
   ),
 )
 
-const IssueRef = Schema.Union([IssueIdentifier, IssueUuid])
+const IssueRef = Schema.Union([IssueIdentifier, IssueUuid]).pipe(Schema.brand("IssueRef"))
 type IssueRef = typeof IssueRef.Type
 
 class InvalidIssueRef extends Schema.TaggedError<InvalidIssueRef>()("InvalidIssueRef", {
@@ -58,8 +61,6 @@ const invalidRef = (input: string): InvalidIssueRef =>
       "Expected a Linear issue reference: an identifier like RAT-42, a UUID, or a linear.app issue URL.",
   })
 
-const isUuid = (value: string): boolean => uuidPattern.test(value)
-
 const parseIssueRef = (input: string): Result.Result<IssueRef, InvalidIssueRef> => {
   const trimmed = input.trim()
   const candidate = fromLinearUrl(trimmed) ?? trimmed
@@ -73,4 +74,4 @@ const parseIssueRef = (input: string): Result.Result<IssueRef, InvalidIssueRef> 
 const parseRefOrFail = (input: string): Effect.Effect<IssueRef, InvalidIssueRef> =>
   Effect.fromResult(parseIssueRef(input))
 
-export { InvalidIssueRef, isUuid, IssueRef, parseIssueRef, parseRefOrFail }
+export { InvalidIssueRef, IssueIdentifier, IssueRef, parseIssueRef, parseRefOrFail }

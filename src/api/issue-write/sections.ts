@@ -4,12 +4,12 @@ import type { LinearClient } from "@/api/client"
 import type { IssueWriteApiError } from "@/api/issue-write/model"
 import type { makeIssueWriteResolvers } from "@/api/issue-write/resolvers"
 import type {
-  IssueSectionReplacement,
   IssueUpdateSectionsOptions,
   IssueUpdateSectionsPlan,
   IssueUpdateSectionsResult,
   IssueUpdateWriteOptions,
 } from "@/api/issue-write/write-types"
+import type { SectionReplacement } from "@/domain/section"
 
 import { updateIssueMutation } from "@/api/issue-query"
 import { UpdateIssueResponse } from "@/api/issue-schema"
@@ -32,7 +32,7 @@ const makeSectionWrites = ({ client, resolvers }: SectionDependencies) => {
     function* resolveSectionsUpdate(
       ref: string,
       options: IssueUpdateSectionsOptions,
-      sections: readonly IssueSectionReplacement[],
+      sections: readonly SectionReplacement[],
       writeOptions: IssueUpdateWriteOptions,
     ) {
       const issueBody = yield* readIssueBody(ref)
@@ -57,7 +57,7 @@ const makeSectionWrites = ({ client, resolvers }: SectionDependencies) => {
     function* planUpdateSections(
       ref: string,
       options: IssueUpdateSectionsOptions,
-      sections: readonly IssueSectionReplacement[],
+      sections: readonly SectionReplacement[],
       writeOptions: IssueUpdateWriteOptions = {},
     ): Effect.fn.Return<IssueUpdateSectionsPlan, IssueWriteApiError> {
       const resolved = yield* resolveSectionsUpdate(ref, options, sections, writeOptions)
@@ -73,7 +73,7 @@ const makeSectionWrites = ({ client, resolvers }: SectionDependencies) => {
   const updateSections = Effect.fn("IssueWriteApi.updateSections")(function* updateSections(
     ref: string,
     options: IssueUpdateSectionsOptions,
-    sections: readonly IssueSectionReplacement[],
+    sections: readonly SectionReplacement[],
     writeOptions: IssueUpdateWriteOptions = {},
   ): Effect.fn.Return<IssueUpdateSectionsResult, IssueWriteApiError> {
     const resolved = yield* resolveSectionsUpdate(ref, options, sections, writeOptions)

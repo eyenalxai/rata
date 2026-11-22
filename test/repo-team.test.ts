@@ -7,8 +7,9 @@ import { Console, Effect, Option } from "effect"
 
 import { RepoTeam } from "@/api/repo-team"
 import { RepoConfigService } from "@/config/repo"
+import { teamId as makeTeamId } from "@/domain/id"
 
-const team = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
+const team = { id: makeTeamId("team-1"), key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
 
 const resolveWith = async (repositories: readonly RepositorySeed[]) => {
   const stderr: string[] = []
@@ -34,8 +35,10 @@ describe("RepoTeam stale links", () => {
       { key: process.cwd(), team: "OLD", teamId: "team-1", project: "rata" },
     ])
 
-    expect(result.teamId).toBe("team-1")
-    expect(result.stored).toEqual(Option.some({ team: "RAT", teamId: "team-1", project: "rata" }))
+    expect(String(result.teamId)).toBe("team-1")
+    expect(result.stored).toEqual(
+      Option.some({ team: "RAT", teamId: makeTeamId("team-1"), project: "rata" }),
+    )
     expect(result.stderr).toEqual([
       "warning: The stored team key OLD is stale. Repaired the link to RAT.",
     ])
@@ -44,8 +47,8 @@ describe("RepoTeam stale links", () => {
   test("repairs a stale key by team name and warns", async () => {
     const result = await resolveWith([{ key: process.cwd(), team: "Rata" }])
 
-    expect(result.teamId).toBe("team-1")
-    expect(result.stored).toEqual(Option.some({ team: "RAT", teamId: "team-1" }))
+    expect(String(result.teamId)).toBe("team-1")
+    expect(result.stored).toEqual(Option.some({ team: "RAT", teamId: makeTeamId("team-1") }))
     expect(result.stderr).toEqual([
       "warning: The stored team key Rata is stale. Repaired the link to RAT.",
     ])
@@ -54,8 +57,8 @@ describe("RepoTeam stale links", () => {
   test("stores the team id on a legacy key link without a warning", async () => {
     const result = await resolveWith([{ key: process.cwd(), team: "RAT" }])
 
-    expect(result.teamId).toBe("team-1")
-    expect(result.stored).toEqual(Option.some({ team: "RAT", teamId: "team-1" }))
+    expect(String(result.teamId)).toBe("team-1")
+    expect(result.stored).toEqual(Option.some({ team: "RAT", teamId: makeTeamId("team-1") }))
     expect(result.stderr).toEqual([])
   })
 

@@ -10,7 +10,7 @@ import { Command } from "effect/cli"
 import { ChildProcessSpawner } from "effect/process"
 import path from "node:path"
 
-import type { RepoConfig } from "@/config/repo"
+import type { RepoConfig } from "@/config/repo/model"
 
 import { unlinkCommand } from "@/cli/unlink"
 import { currentDirectory, RepoConfigService } from "@/config/repo"

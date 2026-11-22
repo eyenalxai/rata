@@ -8,7 +8,7 @@ import type {
 
 import { isBlocked, toBlockers, toIssueSummary } from "@/api/issue-model"
 import { pullRequests } from "@/domain/pr"
-import { isClosedState } from "@/domain/state"
+import { isClosedState } from "@/domain/workflow-state"
 
 const withoutRelations = (issue: IssueSummary): IssueSummary => {
   const { relations: _relations, ...summary } = issue

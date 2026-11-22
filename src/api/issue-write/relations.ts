@@ -1,11 +1,10 @@
 import { Effect } from "effect"
 
 import type { LinearClient } from "@/api/client"
-import type {
-  IssueRelationChanges,
-  RelationKind,
-  ResolvedRelationTarget,
-} from "@/api/issue-write/model"
+import type { IssueRelationChanges, ResolvedRelationTarget } from "@/api/issue-write/model"
+import type { IssueId } from "@/domain/id"
+import type { IssueRef } from "@/domain/issue-ref"
+import type { RelationKind } from "@/domain/relation"
 
 import {
   inverseRelationsQuery,
@@ -21,7 +20,8 @@ import {
 } from "@/api/issue-schema/relation"
 import { IssueRefNotFoundError } from "@/api/issue/batch"
 import { collectConnection, collectPages, pageSize } from "@/api/pagination"
-import { isUuid, parseRefOrFail } from "@/domain/ref"
+import { isUuid, issueId as asIssueId } from "@/domain/id"
+import { parseRefOrFail } from "@/domain/issue-ref"
 
 type RelationResolverDependencies = {
   readonly client: LinearClient["Service"]
@@ -37,9 +37,9 @@ const relationGroups = (
 ]
 
 const requireIssueId = (
-  ids: ReadonlyMap<string, string>,
+  ids: ReadonlyMap<string, IssueId>,
   ref: string,
-): Effect.Effect<string, IssueRefNotFoundError> => {
+): Effect.Effect<IssueId, IssueRefNotFoundError> => {
   const id = ids.get(ref)
   if (id !== undefined) {
     return Effect.succeed(id)
@@ -51,13 +51,13 @@ const requireIssueId = (
 
 const makeRelationResolvers = ({ client }: RelationResolverDependencies) => {
   const resolveIssueIds = Effect.fn("IssueWriteApi.resolveIssueIds")(function* resolveIssueIds(
-    refs: readonly string[],
+    refs: readonly IssueRef[],
   ) {
-    const ids = new Map<string, string>()
+    const ids = new Map<string, IssueId>()
     const unresolved: string[] = []
     for (const ref of refs) {
       if (isUuid(ref)) {
-        ids.set(ref, ref)
+        ids.set(ref, asIssueId(ref))
       } else {
         unresolved.push(ref)
       }
@@ -92,7 +92,7 @@ const makeRelationResolvers = ({ client }: RelationResolverDependencies) => {
       parseRefOrFail(entry.target).pipe(Effect.map((target) => ({ ...entry, parsed: target }))),
     )
     const ids = yield* resolveIssueIds([source, ...parsed.map((entry) => entry.parsed)])
-    const issueId = yield* requireIssueId(ids, source)
+    const sourceId = yield* requireIssueId(ids, source)
     const targets = yield* Effect.forEach(parsed, (entry) =>
       requireIssueId(ids, entry.parsed).pipe(
         Effect.map((targetId): ResolvedRelationTarget => ({
@@ -102,11 +102,11 @@ const makeRelationResolvers = ({ client }: RelationResolverDependencies) => {
         })),
       ),
     )
-    return { issueId, targets }
+    return { issueId: sourceId, targets }
   })
 
   const collectRelations = Effect.fn("IssueWriteApi.collectRelations")(function* collectRelations(
-    issueId: string,
+    issueId: IssueId,
   ) {
     const combined = yield* client.execute(
       relationsWithInverseQuery,

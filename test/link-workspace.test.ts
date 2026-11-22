@@ -17,6 +17,8 @@ import { key } from "@test/terminal-harness"
 import { describe, expect, test } from "bun:test"
 import { Option } from "effect"
 
+import { teamId } from "@/domain/id"
+
 const bob: FakeViewer = {
   id: "user-2",
   name: "Bob",
@@ -54,7 +56,9 @@ describe("LinkService.link workspace", () => {
     )
 
     expect(result.team).toEqual(scratch)
-    expect(stored).toEqual(Option.some({ team: "SCR", teamId: "team-2", workspace: "work" }))
+    expect(stored).toEqual(
+      Option.some({ team: "SCR", teamId: teamId("team-2"), workspace: "work" }),
+    )
     expect(
       harness.output.some(
         (frame) => frame.includes("* default") && frame.includes("Ada") && frame.includes("Acme"),
@@ -75,7 +79,9 @@ describe("LinkService.link workspace", () => {
     const { result, stored } = await linkTeam(fake.handler, harness, options({}))
 
     expect(result.team).toEqual(rat)
-    expect(stored).toEqual(Option.some({ team: "RAT", teamId: "team-1", workspace: "default" }))
+    expect(stored).toEqual(
+      Option.some({ team: "RAT", teamId: teamId("team-1"), workspace: "default" }),
+    )
     const lookups = fake.requests.filter((request) => request.query.includes("query TeamByKey"))
     expect(lookups.map((request) => request.authorization)).toEqual(["default-key", "work-key"])
   })
@@ -114,7 +120,9 @@ describe("LinkService.link workspace", () => {
     )
 
     expect(result.team.key).toBe("LINKZ")
-    expect(stored).toEqual(Option.some({ team: "LINKZ", teamId: "team-2", workspace: "work" }))
+    expect(stored).toEqual(
+      Option.some({ team: "LINKZ", teamId: teamId("team-2"), workspace: "work" }),
+    )
     const create = fake.requests.find((request) => request.query.includes("mutation TeamCreate"))
     expect(create?.authorization).toBe("work-key")
   })
@@ -135,7 +143,9 @@ describe("LinkService.link workspace", () => {
     const { result, stored } = await linkTeam(fake.handler, harness, options({}))
 
     expect(result.team).toEqual(rat)
-    expect(stored).toEqual(Option.some({ team: "RAT", teamId: "team-1", workspace: "default" }))
+    expect(stored).toEqual(
+      Option.some({ team: "RAT", teamId: teamId("team-1"), workspace: "default" }),
+    )
   })
 
   test("skips the workspace prompt when LINEAR_API_KEY is set", async () => {
@@ -148,7 +158,7 @@ describe("LinkService.link workspace", () => {
     )
 
     expect(result.team).toEqual(rat)
-    expect(stored).toEqual(Option.some({ team: "RAT", teamId: "team-1" }))
+    expect(stored).toEqual(Option.some({ team: "RAT", teamId: teamId("team-1") }))
     expect(harness.output.some((frame) => frame.includes("Select a workspace"))).toBe(false)
     expect(harness.output.some((frame) => frame.includes("Select a team"))).toBe(true)
   })
@@ -162,7 +172,9 @@ describe("LinkService.link workspace", () => {
       options({ workspace: Option.some("work") }),
     )
 
-    expect(stored).toEqual(Option.some({ team: "RAT", teamId: "team-1", workspace: "work" }))
+    expect(stored).toEqual(
+      Option.some({ team: "RAT", teamId: teamId("team-1"), workspace: "work" }),
+    )
     expect(result.workspace).toEqual(Option.some("work"))
     const lookup = fake.requests.find((request) => request.query.includes("query TeamByKey"))
     expect(lookup?.authorization).toBe("work-key")
@@ -198,7 +210,9 @@ describe("LinkService.link workspace", () => {
     )
 
     expect(result.workspace).toEqual(Option.some("work"))
-    expect(stored).toEqual(Option.some({ team: "RAT", teamId: "team-1", workspace: "work" }))
+    expect(stored).toEqual(
+      Option.some({ team: "RAT", teamId: teamId("team-1"), workspace: "work" }),
+    )
   })
 
   test("ignores a corrupt legacy auth file when LINEAR_API_KEY is set", async () => {
@@ -209,7 +223,7 @@ describe("LinkService.link workspace", () => {
     const { result, stored } = await linkTeam(fake.handler, harness, options({}))
 
     expect(result.team).toEqual(rat)
-    expect(stored).toEqual(Option.some({ team: "RAT", teamId: "team-1" }))
+    expect(stored).toEqual(Option.some({ team: "RAT", teamId: teamId("team-1") }))
   })
 
   test("lists a profile with a rejected key in the prompt and links the others", async () => {
@@ -231,7 +245,9 @@ describe("LinkService.link workspace", () => {
     )
 
     expect(result.team).toEqual(scratch)
-    expect(stored).toEqual(Option.some({ team: "SCR", teamId: "team-2", workspace: "work" }))
+    expect(stored).toEqual(
+      Option.some({ team: "SCR", teamId: teamId("team-2"), workspace: "work" }),
+    )
     expect(harness.output.some((frame) => frame.includes("default") && frame.includes("!"))).toBe(
       true,
     )

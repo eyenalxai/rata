@@ -1,7 +1,7 @@
 import { Effect, Option } from "effect"
 import { Command, Flag } from "effect/cli"
 
-import type { PlanAction } from "@/cli/output"
+import type { PlanAction } from "@/domain/plan"
 
 import { arrayField, objectField, scalarField } from "@/cli/field/shape"
 import { OutputFields, readFields, rejectFields, selectObject } from "@/cli/fields"

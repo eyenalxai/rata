@@ -1,6 +1,7 @@
 import { Result, Schema } from "effect"
 
 import type { ParsedSection, SectionLookupError } from "@/domain/body/section/model"
+import type { SectionReplacement, SectionReplacementAction } from "@/domain/section"
 
 import {
   ambiguousError,
@@ -165,16 +166,6 @@ class SectionBatchError extends Schema.TaggedError<SectionBatchError>()("Section
   message: Schema.String,
 }) {}
 
-type SectionReplacement = {
-  readonly heading: string
-  readonly content: string
-}
-
-type SectionReplacementAction = {
-  readonly heading: string
-  readonly action: "replaced" | "skipped"
-}
-
 type SectionReplacementResult = {
   readonly body: string
   readonly sections: readonly SectionReplacementAction[]
@@ -278,7 +269,5 @@ export {
   replaceSection,
   replaceSections,
   SectionBatchError,
-  type SectionReplacement,
-  type SectionReplacementAction,
   type SectionReplacementResult,
 }

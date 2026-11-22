@@ -110,7 +110,7 @@ describe("IssueWriteApi create payload", () => {
           parent: "RAT-0",
           project: "Tracker",
           assignee: "me",
-          priority: 2,
+          priority: "high",
           waitSeconds: 0,
         })
       }),
@@ -150,7 +150,7 @@ describe("IssueWriteApi update payload", () => {
       recorder.handler,
       Effect.gen(function* updateIssue() {
         const api = yield* IssueWriteApi
-        return yield* api.update("RAT-1", { priority: 2 })
+        return yield* api.update("RAT-1", { priority: "high" })
       }),
     )
     const update = requestOf(recorder, "mutation UpdateIssue")
@@ -163,7 +163,7 @@ describe("IssueWriteApi update payload", () => {
       recorder.handler,
       Effect.gen(function* updateIssue() {
         const api = yield* IssueWriteApi
-        return yield* api.update("RAT-1", { priority: 0 })
+        return yield* api.update("RAT-1", { priority: "none" })
       }),
     )
     const update = requestOf(recorder, "mutation UpdateIssue")

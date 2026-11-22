@@ -1,9 +1,9 @@
 import type { CliError } from "effect/cli"
 
-import { Console, Effect } from "effect"
+import { Effect } from "effect"
 
-import { exitCodeOf } from "@/cli/error-report"
-import { writeJsonError } from "@/cli/output"
+import { commandError, exitCodeOf, toTrackerError } from "@/cli/error-report"
+import { reportTrackerError } from "@/cli/output"
 
 const exitCodeOfCliError = (error: CliError.CliError): number =>
   error._tag === "ShowHelp" && error.errors.length === 0 ? 0 : exitCodeOf("validation")
@@ -18,6 +18,15 @@ const hintOf = (error: CliError.CliError): string => {
   return `Run \`${path} --help\` for usage.`
 }
 
+const cliTrackerError = (error: CliError.CliError) =>
+  toTrackerError(
+    commandError({
+      code: "usage",
+      message: messageOf(error),
+      hint: hintOf(error),
+    }),
+  )
+
 const reportCliError = (error: CliError.CliError, json: boolean): Effect.Effect<void> =>
   Effect.gen(function* reportCliErrorEffect() {
     if (error._tag === "ShowHelp" && error.errors.length === 0) {
@@ -26,17 +35,7 @@ const reportCliError = (error: CliError.CliError, json: boolean): Effect.Effect<
       })
       return
     }
-    const message = messageOf(error)
-    const hint = hintOf(error)
-    if (json) {
-      yield* writeJsonError({ error: { code: "usage", message, hint } })
-    } else {
-      yield* Console.error(`error: ${message}`)
-      yield* Console.error(`hint: ${hint}`)
-    }
-    yield* Effect.sync(() => {
-      process.exitCode = exitCodeOf("validation")
-    })
+    yield* reportTrackerError(cliTrackerError(error), json)
   })
 
 export { exitCodeOfCliError, reportCliError }

@@ -4,25 +4,15 @@ import { eq, inArray } from "drizzle-orm"
 import { Console, Context, Effect, FileSystem, Layer, Option, Path, Result, Schema } from "effect"
 
 import type { RepositoryLocation } from "@/config/repo-identity"
+import type { RepoConfig } from "@/config/repo/model"
 
 import { firstStoredKey, RepositoryIdentity } from "@/config/repo-identity"
+import { fromLegacyConfig, RepoConfigJson } from "@/config/repo/legacy"
 import { Database } from "@/db/database"
 import { repositories } from "@/db/schema"
-import { storedPriority } from "@/domain/priority"
+import { teamId } from "@/domain/id"
+import { priorityFromStored, storedPriority } from "@/domain/priority"
 
-const RepoConfig = Schema.Struct({
-  team: Schema.optional(Schema.String),
-  teamId: Schema.optional(Schema.String),
-  project: Schema.optional(Schema.String),
-  workspace: Schema.optional(Schema.String),
-  defaultAssignee: Schema.optional(Schema.String),
-  defaultLabels: Schema.optional(Schema.Array(Schema.String)),
-  defaultPriority: Schema.optional(Schema.Int),
-})
-
-type RepoConfig = typeof RepoConfig.Type
-
-const RepoConfigJson = Schema.fromJsonString(RepoConfig, { space: 2 })
 const DefaultLabelsJson = Schema.fromJsonString(Schema.Array(Schema.String))
 
 class RepoConfigError extends Schema.TaggedError<RepoConfigError>()("RepoConfigError", {
@@ -66,15 +56,23 @@ const toConfig = (row: StoredRepository): Result.Result<RepoConfig, RepoConfigEr
   if (Result.isFailure(labels)) {
     return Result.fail(labels.failure)
   }
-  const priority = storedPriority(row.defaultPriority)
+  const priority = priorityFromStored(row.defaultPriority)
+  if (Result.isFailure(priority)) {
+    return Result.fail(
+      new RepoConfigError({
+        message: "The stored default priority of the repository config is not valid.",
+        cause: priority.failure,
+      }),
+    )
+  }
   return Result.succeed({
     ...(row.team === null ? {} : { team: row.team }),
-    ...(row.teamId === null ? {} : { teamId: row.teamId }),
+    ...(row.teamId === null ? {} : { teamId: teamId(row.teamId) }),
     ...(row.project === null ? {} : { project: row.project }),
     ...(row.workspace === null ? {} : { workspace: row.workspace }),
     ...(row.defaultAssignee === null ? {} : { defaultAssignee: row.defaultAssignee }),
     ...(Option.isNone(labels.success) ? {} : { defaultLabels: labels.success.value }),
-    ...(priority === null ? {} : { defaultPriority: priority }),
+    ...(priority.success === null ? {} : { defaultPriority: priority.success }),
   })
 }
 
@@ -145,7 +143,8 @@ class RepoConfigService extends Context.Service<RepoConfigService, RepoConfigSha
           workspace: config.workspace ?? null,
           defaultAssignee: config.defaultAssignee ?? null,
           defaultLabels,
-          defaultPriority: storedPriority(config.defaultPriority),
+          defaultPriority:
+            config.defaultPriority === undefined ? null : storedPriority(config.defaultPriority),
         }
         yield* database.drizzle
           .insert(repositories)
@@ -234,10 +233,17 @@ class RepoConfigService extends Context.Service<RepoConfigService, RepoConfigSha
             message: `The repository config at ${file} is not valid JSON.`,
           })
         }
-        yield* upsert(key, decoded.success)
+        const imported = fromLegacyConfig(decoded.success)
+        if (Result.isFailure(imported)) {
+          return yield* new RepoConfigError({
+            message: `The repository config at ${file} has an invalid default priority.`,
+            cause: imported.failure,
+          })
+        }
+        yield* upsert(key, imported.success)
         yield* removeLegacy(file)
         yield* Console.error(`Migrated repository config from ${file}.`)
-        return Option.some(decoded.success)
+        return Option.some(imported.success)
       })
 
       const read = Effect.fn("RepoConfig.read")(function* readConfig(directory: string) {
@@ -284,4 +290,4 @@ class RepoConfigService extends Context.Service<RepoConfigService, RepoConfigSha
   )
 }
 
-export { currentDirectory, RepoConfigError, RepoConfigService, type RepoConfig }
+export { currentDirectory, RepoConfigError, RepoConfigService }

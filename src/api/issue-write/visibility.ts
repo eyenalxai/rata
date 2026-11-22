@@ -3,23 +3,25 @@ import { Duration, Effect, Option, Schema } from "effect"
 import type { LinearClient } from "@/api/client"
 import type { LinearApiError } from "@/api/errors"
 import type { WriteVisibility } from "@/api/issue-write/write-types"
+import type { CommentId, IssueId } from "@/domain/id"
 
 import { childTailQuery, commentTailQuery } from "@/api/issue-query"
 import { pageSize } from "@/api/pagination"
+import { CommentId as CommentIdSchema, IssueId as IssueIdSchema } from "@/domain/id"
 
 const defaultWaitSeconds = 5
 const pollInterval = Duration.millis(250)
 
-const IssueIdNodes = Schema.Struct({
-  nodes: Schema.Array(Schema.Struct({ id: Schema.String })),
-})
-
 const ChildTailResponse = Schema.Struct({
-  issue: Schema.Struct({ children: IssueIdNodes }),
+  issue: Schema.Struct({
+    children: Schema.Struct({ nodes: Schema.Array(Schema.Struct({ id: IssueIdSchema })) }),
+  }),
 })
 
 const CommentTailResponse = Schema.Struct({
-  issue: Schema.Struct({ comments: IssueIdNodes }),
+  issue: Schema.Struct({
+    comments: Schema.Struct({ nodes: Schema.Array(Schema.Struct({ id: CommentIdSchema })) }),
+  }),
 })
 
 type VisibilityRead<A extends { readonly id: string }> = () => Effect.Effect<
@@ -60,8 +62,8 @@ const verifyVisible = <A extends { readonly id: string }>(
 
 const makeVisibilityChecks = ({ client }: VisibilityDependencies) => {
   const waitForChild = Effect.fn("IssueWriteApi.waitForChild")(function* waitForChild(
-    parentId: string,
-    childId: string,
+    parentId: IssueId,
+    childId: IssueId,
     waitSeconds: number | undefined,
   ) {
     return yield* verifyVisible(childId, waitSeconds, () =>
@@ -72,8 +74,8 @@ const makeVisibilityChecks = ({ client }: VisibilityDependencies) => {
   })
 
   const waitForComment = Effect.fn("IssueWriteApi.waitForComment")(function* waitForComment(
-    issueId: string,
-    commentId: string,
+    issueId: IssueId,
+    commentId: CommentId,
     waitSeconds: number | undefined,
   ) {
     return yield* verifyVisible(commentId, waitSeconds, () =>

@@ -1,0 +1,28 @@
+import { Schema } from "effect"
+
+const errorCodes = [
+  "usage",
+  "validation",
+  "not_linked",
+  "not_found",
+  "ambiguous",
+  "auth",
+  "forbidden",
+  "conflict",
+  "rate_limited",
+  "network",
+  "internal",
+] as const
+type ErrorCode = (typeof errorCodes)[number]
+
+const ErrorCodeSchema = Schema.Literals(errorCodes)
+
+class TrackerError extends Schema.TaggedError<TrackerError>()("TrackerError", {
+  code: ErrorCodeSchema,
+  message: Schema.String,
+  hint: Schema.NullOr(Schema.String),
+  details: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
+  cause: Schema.optional(Schema.Defect()),
+}) {}
+
+export { type ErrorCode, ErrorCodeSchema, TrackerError }

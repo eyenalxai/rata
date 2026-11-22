@@ -11,7 +11,8 @@ import type {
   SectionWriteOptions,
   SectionWriteResult,
 } from "@/api/issue-write/write-types"
-import type { Section } from "@/domain/body/section/model"
+import type { IssueId } from "@/domain/id"
+import type { Section } from "@/domain/section"
 
 import { updateIssueMutation } from "@/api/issue-query"
 import { UpdateIssueResponse } from "@/api/issue-schema"
@@ -25,7 +26,6 @@ import {
   replaceSection as replaceInText,
 } from "@/domain/body/section/edit"
 import { normalizeLineEndings } from "@/domain/body/text"
-import { toPriority } from "@/domain/priority"
 
 type BodyDependencies = {
   readonly client: LinearClient["Service"]
@@ -65,7 +65,7 @@ const updateChanges = (options: IssueUpdateOptions): Readonly<Record<string, unk
     changes.parent = options.parent
   }
   if (options.priority !== undefined) {
-    changes.priority = toPriority(options.priority)
+    changes.priority = options.priority
   }
   return changes
 }
@@ -75,7 +75,7 @@ const makeBodyWrites = ({ client, resolvers }: BodyDependencies) => {
   const resolveUpdateFields = makeUpdateFields(resolvers)
 
   const writeBody = Effect.fn("IssueWriteApi.writeBody")(function* writeBody(
-    issueId: string,
+    issueId: IssueId,
     body: string,
   ) {
     const data = yield* client.execute(

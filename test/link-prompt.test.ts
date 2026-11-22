@@ -12,6 +12,8 @@ import { key } from "@test/terminal-harness"
 import { describe, expect, test } from "bun:test"
 import { Option } from "effect"
 
+import { teamId } from "@/domain/id"
+
 describe("LinkService.link prompt", () => {
   test("selects a team from the list when --team is absent", async () => {
     const harness = makeHarness(interactive([key("down"), key("enter")]))
@@ -23,13 +25,18 @@ describe("LinkService.link prompt", () => {
     )
 
     expect(result.team).toEqual(scratch)
-    expect(stored).toEqual(Option.some({ team: "SCR", teamId: "team-2" }))
+    expect(stored).toEqual(Option.some({ team: "SCR", teamId: teamId("team-2") }))
     expect(harness.output.some((frame) => frame.includes("RAT  Rata"))).toBe(true)
     expect(harness.output.some((frame) => frame.includes("SCR  Scratch"))).toBe(true)
   })
 
   test("lists a team from the next page", async () => {
-    const last = { id: "team-51", key: "T51", name: "Team 51", timezone: "America/Los_Angeles" }
+    const last = {
+      id: teamId("team-51"),
+      key: "T51",
+      name: "Team 51",
+      timezone: "America/Los_Angeles",
+    }
     const teams = [
       ...Array.from({ length: 50 }, (_, index) => ({
         id: `team-${index + 1}`,

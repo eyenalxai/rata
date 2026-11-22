@@ -8,13 +8,15 @@ import type { IssueCreateOptions } from "@/api/issue-write/write-types"
 import type { RepoTeam } from "@/api/repo-team"
 import type { IssueDefaults } from "@/config/defaults"
 import type { RepoConfigService } from "@/config/repo"
+import type { IssueId } from "@/domain/id"
+import type { Priority } from "@/domain/priority"
 
 import { createIssueMutation } from "@/api/issue-query"
 import { CreateIssueResponse } from "@/api/issue-schema"
 import { isNoneValue, unwrapIssue } from "@/api/issue-write/model"
 import { issueDefaults } from "@/config/defaults"
 import { currentDirectory } from "@/config/repo"
-import { storedPriority } from "@/domain/priority"
+import { priorityValue } from "@/domain/priority"
 
 type CreateDependencies = {
   readonly client: LinearClient["Service"]
@@ -36,11 +38,9 @@ const assigneeFor = (options: IssueCreateOptions, defaults: IssueDefaults): stri
   return isNoneValue(options.assignee) ? null : options.assignee
 }
 
-const priorityFor = (options: IssueCreateOptions, defaults: IssueDefaults): number | null => {
-  if (options.priority === undefined) {
-    return defaults.priority
-  }
-  return storedPriority(options.priority)
+const priorityFor = (options: IssueCreateOptions, defaults: IssueDefaults): Priority | null => {
+  const priority = options.priority ?? defaults.priority
+  return priority === "none" ? null : priority
 }
 
 const makeCreateWrites = ({
@@ -77,7 +77,7 @@ const makeCreateWrites = ({
     if (options.state !== undefined) {
       input.stateId = yield* resolvers.teamStateIdByName(teamId, options.state)
     }
-    let parentId: string | null = null
+    let parentId: IssueId | null = null
     if (options.parent !== undefined) {
       parentId = yield* resolvers.resolveIssueId(options.parent)
       input.parentId = parentId
@@ -92,7 +92,7 @@ const makeCreateWrites = ({
     }
     const priority = priorityFor(options, defaults)
     if (priority !== null) {
-      input.priority = priority
+      input.priority = priorityValue(priority)
     }
 
     return {

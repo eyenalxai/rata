@@ -14,6 +14,7 @@ import type {
   CommentUpdateOptions,
   CommentUpdateResult,
 } from "@/api/issue-write/write-types"
+import type { CommentId, IssueId } from "@/domain/id"
 
 import {
   commentByIdQuery,
@@ -37,7 +38,7 @@ type CommentDependencies = {
   readonly visibility: ReturnType<typeof makeVisibilityChecks>
 }
 
-const missingComment = (commentId: string): CommentNotFoundError =>
+const missingComment = (commentId: CommentId): CommentNotFoundError =>
   new CommentNotFoundError({
     id: commentId,
     message: `No comment ${commentId}.`,
@@ -46,7 +47,7 @@ const missingComment = (commentId: string): CommentNotFoundError =>
 const createChanges = (
   body: string,
   options: CommentCreateOptions,
-  id: string | undefined,
+  id: CommentId | undefined,
 ): CommentCreatePlan["changes"] => ({
   body,
   ...(options.dedupeKey === undefined ? {} : { dedupeKey: options.dedupeKey }),
@@ -55,7 +56,7 @@ const createChanges = (
 
 const makeCommentWrites = ({ client, resolvers, visibility }: CommentDependencies) => {
   const findComment = Effect.fn("IssueWriteApi.findComment")(function* findComment(
-    commentId: string,
+    commentId: CommentId,
   ): Effect.fn.Return<Option.Option<IssueComment>, IssueWriteApiError> {
     const data = yield* client.execute(
       commentByIdQuery,
@@ -65,7 +66,7 @@ const makeCommentWrites = ({ client, resolvers, visibility }: CommentDependencie
     return Option.fromNullishOr(data.comments.nodes[0])
   })
 
-  const postComment = (issueId: string, body: string, id: string | undefined) =>
+  const postComment = (issueId: IssueId, body: string, id: CommentId | undefined) =>
     client
       .execute(
         createCommentMutation,
@@ -131,14 +132,14 @@ const makeCommentWrites = ({ client, resolvers, visibility }: CommentDependencie
   })
 
   const existingComment = Effect.fn("IssueWriteApi.existingComment")(function* existingComment(
-    commentId: string,
+    commentId: CommentId,
   ): Effect.fn.Return<IssueComment, IssueWriteApiError> {
     const current = yield* findComment(commentId)
     return yield* Effect.fromOption(current, () => missingComment(commentId))
   })
 
   const commentUpdate = Effect.fn("IssueWriteApi.commentUpdate")(function* commentUpdate(
-    commentId: string,
+    commentId: CommentId,
     body: string,
     options: CommentUpdateOptions = {},
   ): Effect.fn.Return<CommentUpdateResult, IssueWriteApiError> {
@@ -162,7 +163,7 @@ const makeCommentWrites = ({ client, resolvers, visibility }: CommentDependencie
 
   const planCommentDelete = Effect.fn("IssueWriteApi.planCommentDelete")(
     function* planCommentDelete(
-      commentId: string,
+      commentId: CommentId,
     ): Effect.fn.Return<CommentDeletePlan, IssueWriteApiError> {
       const comment = yield* existingComment(commentId)
       return { action: "comment-delete", target: commentId, comment }
@@ -170,7 +171,7 @@ const makeCommentWrites = ({ client, resolvers, visibility }: CommentDependencie
   )
 
   const commentDelete = Effect.fn("IssueWriteApi.commentDelete")(function* commentDelete(
-    commentId: string,
+    commentId: CommentId,
   ): Effect.fn.Return<CommentDeleteResult, IssueWriteApiError> {
     yield* existingComment(commentId)
     const data = yield* client.execute(

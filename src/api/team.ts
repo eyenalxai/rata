@@ -18,10 +18,10 @@ import {
   teamsQuery,
   teamUpdateMutation,
 } from "@/api/team/queries"
-import { isUuid } from "@/domain/ref"
+import { isUuid, TeamId, teamId } from "@/domain/id"
 
 const Team = Schema.Struct({
-  id: Schema.String,
+  id: TeamId,
   key: Schema.String,
   name: Schema.String,
   timezone: Schema.String,
@@ -77,7 +77,7 @@ type TeamCreateOptions = {
 }
 
 type DeletedTeam = {
-  readonly id: string
+  readonly id: TeamId
   readonly key: string
   readonly name: string
 }
@@ -86,7 +86,7 @@ type TeamOperations = {
   readonly list: (options: PageOptions) => Effect.Effect<Connection<Team>, LinearApiError>
   readonly byKey: (ref: string) => Effect.Effect<Team, LinearApiError | TeamNotFoundError>
   readonly byName: (name: string) => Effect.Effect<Team, LinearApiError | TeamNotFoundError>
-  readonly byId: (id: string) => Effect.Effect<Team, LinearApiError | TeamNotFoundError>
+  readonly byId: (id: TeamId) => Effect.Effect<Team, LinearApiError | TeamNotFoundError>
   readonly details: (ref: string) => Effect.Effect<TeamDetail, LinearApiError | TeamNotFoundError>
   readonly create: (
     options: TeamCreateOptions,
@@ -153,7 +153,7 @@ const makeTeamOperations = (execute: LinearClient["Service"]["execute"]): TeamOp
     return team
   })
 
-  const byId = Effect.fn("TeamService.byId")(function* findTeamById(id: string) {
+  const byId = Effect.fn("TeamService.byId")(function* findTeamById(id: TeamId) {
     const team = yield* lookupTeam(teamByIdQuery, { id })
     if (team === undefined) {
       return yield* new TeamNotFoundError({
@@ -230,7 +230,7 @@ const makeTeamOperations = (execute: LinearClient["Service"]["execute"]): TeamOp
         message: `Linear did not delete the team ${team.key}.`,
       })
     }
-    return { id: data.teamDelete.entityId, key: team.key, name: team.name }
+    return { id: teamId(data.teamDelete.entityId), key: team.key, name: team.name }
   })
 
   return { byId, byKey, byName, create, delete: deleteTeam, details, list, updateTimezone }

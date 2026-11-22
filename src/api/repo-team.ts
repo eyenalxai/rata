@@ -2,11 +2,13 @@ import { Console, Context, Effect, Layer, Option } from "effect"
 
 import type { LinearApiError } from "@/api/errors"
 import type { Team } from "@/api/team"
-import type { RepoConfig, RepoConfigError } from "@/config/repo"
+import type { RepoConfigError } from "@/config/repo"
+import type { RepoConfig } from "@/config/repo/model"
+import type { TeamId } from "@/domain/id"
 
 import { TeamNotFoundError, TeamResolutionError, TeamService } from "@/api/team"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
-import { isUuid } from "@/domain/ref"
+import { isUuid, teamId } from "@/domain/id"
 
 type ResolvedRepoTeam = {
   readonly team: Team
@@ -17,7 +19,7 @@ type RepoTeamError = LinearApiError | RepoConfigError | TeamNotFoundError | Team
 
 type RepoTeamShape = {
   readonly linkedTeam: Effect.Effect<Option.Option<ResolvedRepoTeam>, RepoTeamError>
-  readonly resolve: (flag?: string) => Effect.Effect<string, RepoTeamError>
+  readonly resolve: (flag?: string) => Effect.Effect<TeamId, RepoTeamError>
 }
 
 const foundOrNull = (lookup: Effect.Effect<Team, LinearApiError | TeamNotFoundError>) =>
@@ -37,7 +39,7 @@ class RepoTeam extends Context.Service<RepoTeam, RepoTeamShape>()(
 
       const teamIdFor = Effect.fn("RepoTeam.teamIdFor")(function* teamIdFor(value: string) {
         if (isUuid(value)) {
-          return value
+          return teamId(value)
         }
         const team = yield* teams.byKey(value)
         return team.id
@@ -115,7 +117,7 @@ class RepoTeam extends Context.Service<RepoTeam, RepoTeamShape>()(
         }
         const config = Option.getOrUndefined(yield* repoConfig.read(yield* currentDirectory))
         if (config?.teamId === undefined && config?.team !== undefined && isUuid(config.team)) {
-          return config.team
+          return teamId(config.team)
         }
         const linked = yield* linkedTeam
         if (Option.isNone(linked)) {

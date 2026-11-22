@@ -9,15 +9,22 @@ import { fakeTerminal } from "@test/terminal-harness"
 import { Console, Effect, FileSystem, Layer, Option, Path, Terminal } from "effect"
 
 import type { LinkOptions } from "@/config/link"
-import type { RepoConfig } from "@/config/repo"
+import type { RepoConfig } from "@/config/repo/model"
 
 import { LinkService } from "@/config/link"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
+import { teamId } from "@/domain/id"
+import { storedPriority } from "@/domain/priority"
 
-const ratId = "0f8fad5b-d9cb-469f-a165-70867728950e"
+const ratId = teamId("0f8fad5b-d9cb-469f-a165-70867728950e")
 
-const rat = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
-const scratch = { id: "team-2", key: "SCR", name: "Scratch", timezone: "America/Los_Angeles" }
+const rat = { id: teamId("team-1"), key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
+const scratch = {
+  id: teamId("team-2"),
+  key: "SCR",
+  name: "Scratch",
+  timezone: "America/Los_Angeles",
+}
 
 const authPath = "/home/test/.config/rata/auth.json"
 
@@ -74,7 +81,18 @@ const provide = <A, E>(
           files: harness.files,
           profiles: harness.profiles,
           repositories:
-            harness.config === undefined ? [] : [{ key: process.cwd(), ...harness.config }],
+            harness.config === undefined
+              ? []
+              : [
+                  {
+                    key: process.cwd(),
+                    ...harness.config,
+                    defaultPriority:
+                      harness.config.defaultPriority === undefined
+                        ? undefined
+                        : (storedPriority(harness.config.defaultPriority) ?? undefined),
+                  },
+                ],
           stdio: harness.stdio,
           env: harness.env,
         }),

@@ -9,6 +9,7 @@ import { Effect } from "effect"
 import type { ProjectCreateOptions } from "@/api/project/model"
 
 import { ProjectService } from "@/api/project"
+import { projectId } from "@/domain/id"
 
 const team = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
 const otherTeam = { id: "team-2", key: "OPS", name: "Operations", timezone: "America/Los_Angeles" }
@@ -57,14 +58,14 @@ describe("ProjectService.list", () => {
     expect(fake.requests[0]?.variables).toEqual({ first: 50, after: null, includeArchived: true })
     expect(page.nodes).toEqual([
       {
-        id: "project-1",
+        id: projectId("project-1"),
         name: "Tracker",
         progress: 0.5,
         status: { name: "Started" },
         trashed: false,
       },
       {
-        id: "project-2",
+        id: projectId("project-2"),
         name: "Login",
         progress: 0,
         status: { name: "Backlog" },
@@ -77,7 +78,12 @@ describe("ProjectService.list", () => {
 describe("ProjectService.resolve", () => {
   test("reads a project by UUID without listing", async () => {
     const id = "0f8fad5b-d9cb-469f-a165-70867728950e"
-    const tracker = { id, name: "Tracker", progress: 0.5, status: { name: "Started" } }
+    const tracker = {
+      id: projectId(id),
+      name: "Tracker",
+      progress: 0.5,
+      status: { name: "Started" },
+    }
     const fake = makeFakeLinear({ teams: [], labels: [], projects: [tracker] })
     const found = await run(
       fake.handler,
@@ -161,7 +167,7 @@ describe("ProjectService.resolve", () => {
     }
     const fake = makeFakeLinear({ teams: [], labels: [], projects: [trashed, live] })
     const found = await run(fake.handler, resolveProject("Tracker"))
-    expect(found.id).toBe("project-1")
+    expect(String(found.id)).toBe("project-1")
   })
 
   test("finds a project by name across every page, ignoring case", async () => {
@@ -172,7 +178,7 @@ describe("ProjectService.resolve", () => {
       status: { name: "Backlog" },
     }))
     const tracker = {
-      id: "project-51",
+      id: projectId("project-51"),
       name: "Tracker",
       progress: 0.5,
       status: { name: "Started" },
@@ -211,7 +217,7 @@ describe("ProjectService.delete", () => {
         return yield* projects.delete(project)
       }),
     )
-    expect(deleted).toEqual({ id: "project-1", name: "Tracker" })
+    expect(deleted).toEqual({ id: projectId("project-1"), name: "Tracker" })
     const mutation = fake.requests.find((request) =>
       request.query.includes("mutation ProjectDelete"),
     )
@@ -221,7 +227,7 @@ describe("ProjectService.delete", () => {
   test("maps a failed payload to a clear error", async () => {
     const fake = makeFakeLinear({ teams: [], labels: [] })
     const missing = {
-      id: "project-404",
+      id: projectId("project-404"),
       name: "Missing",
       progress: 0,
       status: { name: "Backlog" },

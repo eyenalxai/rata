@@ -6,7 +6,7 @@ import type {
   IssueUpdatePlan,
   IssueUpdateWriteOptions,
 } from "@/api/issue-write/write-types"
-import type { PlanAction } from "@/cli/output"
+import type { PlanAction } from "@/domain/plan"
 
 import { IssueWriteApi } from "@/api/issue-write"
 import { resolveBody } from "@/cli/body"

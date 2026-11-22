@@ -1,19 +1,26 @@
 import { Effect, Schema } from "effect"
 
+import type { LinearClient } from "@/api/client"
 import type { LinearApiError } from "@/api/errors"
 import type { IssueSummary } from "@/api/issue-model"
-import type { IssueComment, IssueSummaryNode, WorkflowState } from "@/api/issue-schema"
+import type { IssueComment, IssueSummaryNode } from "@/api/issue-schema"
 import type { IssueRefNotFoundError } from "@/api/issue/batch"
-import type { LabelNotFoundError } from "@/api/label"
+import type { LabelNotFoundError, LabelService } from "@/api/label"
+import type { ProjectService } from "@/api/project"
 import type { ProjectNotFoundError } from "@/api/project/errors"
 import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
 import type { SectionBatchError } from "@/domain/body/section/edit"
 import type { SectionLookupError } from "@/domain/body/section/model"
 import type { ConflictError } from "@/domain/conflict"
-import type { InvalidIssueRef } from "@/domain/ref"
+import type { IssueId, LabelId } from "@/domain/id"
+import type { InvalidIssueRef } from "@/domain/issue-ref"
+import type { PlanActionName, PlanStatus, PlanStep } from "@/domain/plan"
+import type { Priority } from "@/domain/priority"
+import type { RelationKind } from "@/domain/relation"
 
 import { toSummary } from "@/api/issue-model"
+import { CommentId, TeamId } from "@/domain/id"
 
 class IssueWriteError extends Schema.TaggedError<IssueWriteError>()("IssueWriteError", {
   message: Schema.String,
@@ -21,14 +28,14 @@ class IssueWriteError extends Schema.TaggedError<IssueWriteError>()("IssueWriteE
 
 class StateNotFoundError extends Schema.TaggedError<StateNotFoundError>()("StateNotFoundError", {
   state: Schema.String,
-  teamId: Schema.String,
+  teamId: TeamId,
   message: Schema.String,
 }) {}
 
 class CommentNotFoundError extends Schema.TaggedError<CommentNotFoundError>()(
   "CommentNotFoundError",
   {
-    id: Schema.String,
+    id: CommentId,
     message: Schema.String,
   },
 ) {}
@@ -41,31 +48,17 @@ class AssigneeConflictError extends Schema.TaggedError<AssigneeConflictError>()(
   },
 ) {}
 
-const relationKinds = ["blocks", "blockedBy", "related", "duplicate"] as const
-type RelationKind = (typeof relationKinds)[number]
-
-const writeStatuses = ["updated", "skipped"] as const
-type WriteStatus = (typeof writeStatuses)[number]
-
-const writeActionNames = [
-  "assign",
-  "unassign",
-  "close",
-  "reopen",
-  "comment-create",
-  "add-label",
-  "remove-label",
-  "link",
-  "unlink",
-] as const
-type WriteActionName = (typeof writeActionNames)[number]
-
-type WriteAction = {
-  readonly action: WriteActionName
-  readonly target: string
-  readonly status: WriteStatus
-  readonly changes: Record<string, unknown>
+type IssueWriteDependencies = {
+  readonly client: LinearClient["Service"]
+  readonly labels: LabelService["Service"]
+  readonly projects: ProjectService["Service"]
 }
+
+type WriteStatus = PlanStatus
+
+type WriteActionName = PlanActionName
+
+type WriteAction = PlanStep
 
 type WriteOptions = {
   readonly dryRun?: boolean | undefined
@@ -74,11 +67,11 @@ type WriteOptions = {
 
 type BulkTarget = {
   readonly summary: IssueSummary
-  readonly teamId: string
+  readonly teamId: TeamId
 }
 
 type ResolvedLabel = {
-  readonly id: string
+  readonly id: LabelId
   readonly name: string
 }
 
@@ -119,25 +112,10 @@ type IssueRelationChange = {
   readonly target: string
 }
 
-type RelationType = "blocks" | "related" | "duplicate"
-
-type RelationKindInfo = {
-  readonly label: string
-  readonly type: RelationType
-  readonly inverse: boolean
-}
-
-const relationKindInfo: Record<RelationKind, RelationKindInfo> = {
-  blocks: { label: "blocks", type: "blocks", inverse: false },
-  blockedBy: { label: "blocked by", type: "blocks", inverse: true },
-  related: { label: "related to", type: "related", inverse: false },
-  duplicate: { label: "duplicates", type: "duplicate", inverse: false },
-}
-
 type ResolvedRelationTarget = {
   readonly kind: RelationKind
   readonly target: string
-  readonly targetId: string
+  readonly targetId: IssueId
 }
 
 type RelationWriteResult = {
@@ -168,16 +146,10 @@ type IssueCreatePlan = {
   readonly title: string
   readonly labels: readonly string[]
   readonly assignee: string | null
-  readonly priority: number | null
+  readonly priority: Priority | null
 }
 
 const isNoneValue = (value: string): boolean => value.toLowerCase() === "none"
-
-const stateByName = (states: readonly WorkflowState[], name: string): WorkflowState | undefined =>
-  states.find((state) => state.name.toLowerCase() === name.toLowerCase())
-
-const stateByType = (states: readonly WorkflowState[], type: string): WorkflowState | undefined =>
-  states.find((state) => state.type === type)
 
 const unwrapRelation = (payload: {
   readonly success: boolean
@@ -223,19 +195,15 @@ export {
   IssueWriteError,
   isNoneValue,
   type IssueCreatePlan,
+  type IssueWriteDependencies,
   type IssueWriteApiError,
   type IssueRelationChange,
   type IssueRelationChanges,
   type IssueWriteResult,
-  type RelationKind,
-  relationKindInfo,
-  type RelationType,
   type RelationWriteResult,
   type ResolvedLabel,
   type ResolvedRelationTarget,
   StateNotFoundError,
-  stateByName,
-  stateByType,
   unwrapComment,
   unwrapDelete,
   unwrapIssue,

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 import { Result } from "effect"
 
-import { parseLabelColor } from "@/domain/labels"
+import { parseLabelColor } from "@/domain/label"
 
 const colorOf = (value: string): string => {
   const parsed = parseLabelColor(value)

@@ -4,12 +4,11 @@ import { Argument, Command, Flag } from "effect/cli"
 import type {
   IssueRelationChange,
   IssueRelationChanges,
-  RelationKind,
   WriteAction,
 } from "@/api/issue-write/model"
+import type { RelationKind } from "@/domain/relation"
 
 import { IssueWriteApi } from "@/api/issue-write"
-import { relationKindInfo } from "@/api/issue-write/model"
 import { OutputFields, rejectFields } from "@/cli/fields"
 import { withAgentNotes } from "@/cli/help"
 import {
@@ -22,6 +21,7 @@ import {
   writeJson,
   writeLine,
 } from "@/cli/output"
+import { relationKindInfo } from "@/domain/relation"
 
 const refArgument = Argument.String("ref").pipe(
   Argument.withDescription("Issue reference: an identifier, a UUID, or a linear.app URL"),

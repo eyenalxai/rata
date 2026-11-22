@@ -1,5 +1,7 @@
 import { Schema } from "effect"
 
+import { IssueId } from "@/domain/id"
+
 const issueBodyQuery = `query IssueBody($id: String!) {
   issue(id: $id) {
     id
@@ -10,7 +12,7 @@ const issueBodyQuery = `query IssueBody($id: String!) {
 }`
 
 const IssueBodyNode = Schema.Struct({
-  id: Schema.String,
+  id: IssueId,
   identifier: Schema.String,
   description: Schema.NullOr(Schema.String),
   updatedAt: Schema.String,

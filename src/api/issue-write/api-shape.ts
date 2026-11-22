@@ -21,7 +21,6 @@ import type {
   CommentUpdateResult,
   IssueCreateOptions,
   IssueCreateResult,
-  IssueSectionReplacement,
   IssueUpdateOptions,
   IssueUpdatePlan,
   IssueUpdateSectionsOptions,
@@ -31,7 +30,8 @@ import type {
   SectionWriteOptions,
   SectionWriteResult,
 } from "@/api/issue-write/write-types"
-import type { Section } from "@/domain/body/section/model"
+import type { CommentId } from "@/domain/id"
+import type { Section, SectionReplacement } from "@/domain/section"
 
 type IssueWriteApiShape = {
   readonly create: (
@@ -51,18 +51,18 @@ type IssueWriteApiShape = {
     options?: CommentCreateOptions,
   ) => Effect.Effect<CommentCreatePlan, IssueWriteApiError>
   readonly commentUpdate: (
-    commentId: string,
+    commentId: CommentId,
     body: string,
     options?: CommentUpdateOptions,
   ) => Effect.Effect<CommentUpdateResult, IssueWriteApiError>
   readonly commentDelete: (
-    commentId: string,
+    commentId: CommentId,
   ) => Effect.Effect<CommentDeleteResult, IssueWriteApiError>
   readonly planCommentDelete: (
-    commentId: string,
+    commentId: CommentId,
   ) => Effect.Effect<CommentDeletePlan, IssueWriteApiError>
   readonly findComment: (
-    commentId: string,
+    commentId: CommentId,
   ) => Effect.Effect<Option.Option<IssueComment>, IssueWriteApiError>
   readonly update: (
     ref: string,
@@ -77,13 +77,13 @@ type IssueWriteApiShape = {
   readonly updateSections: (
     ref: string,
     options: IssueUpdateSectionsOptions,
-    sections: readonly IssueSectionReplacement[],
+    sections: readonly SectionReplacement[],
     writeOptions?: IssueUpdateWriteOptions,
   ) => Effect.Effect<IssueUpdateSectionsResult, IssueWriteApiError>
   readonly planUpdateSections: (
     ref: string,
     options: IssueUpdateSectionsOptions,
-    sections: readonly IssueSectionReplacement[],
+    sections: readonly SectionReplacement[],
     writeOptions?: IssueUpdateWriteOptions,
   ) => Effect.Effect<IssueUpdateSectionsPlan, IssueWriteApiError>
   readonly readSection: (ref: string, heading: string) => Effect.Effect<Section, IssueWriteApiError>

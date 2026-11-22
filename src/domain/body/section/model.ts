@@ -1,6 +1,9 @@
 import { Result, Schema } from "effect"
 
+import type { Section } from "@/domain/section"
+
 import { normalizeLineEndings } from "@/domain/body/text"
+import { isSectionLevel } from "@/domain/section"
 
 class SectionNotFoundError extends Schema.TaggedError<SectionNotFoundError>()(
   "SectionNotFoundError",
@@ -21,13 +24,6 @@ class SectionAmbiguousError extends Schema.TaggedError<SectionAmbiguousError>()(
 ) {}
 
 type SectionLookupError = SectionNotFoundError | SectionAmbiguousError
-
-type Section = {
-  readonly heading: string
-  readonly level: number
-  readonly content: string
-  readonly line: number
-}
 
 type ParsedSection = Section & {
   readonly start: number
@@ -66,14 +62,14 @@ const closingPattern = /[ \t]+#+[ \t]*$/u
 
 type HeadingMatch = {
   readonly heading: string
-  readonly level: number
+  readonly level: Section["level"]
 }
 
 const parseHeading = (line: string): HeadingMatch | undefined => {
   const match = headingPattern.exec(line)
   const marks = match?.groups?.marks
   const text = match?.groups?.text
-  if (marks === undefined || text === undefined) {
+  if (marks === undefined || text === undefined || !isSectionLevel(marks.length)) {
     return undefined
   }
   return { heading: text.replace(closingPattern, "").trim(), level: marks.length }
@@ -195,7 +191,6 @@ export {
   publicSection,
   resolveSection,
   SectionAmbiguousError,
-  type Section,
   type SectionLookupError,
   SectionNotFoundError,
   trimLineEnd,

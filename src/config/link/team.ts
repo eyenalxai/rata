@@ -7,7 +7,7 @@ import type { Team, TeamOperations } from "@/api/team"
 
 import { collectConnection, pageSize } from "@/api/pagination"
 import { runPrompt } from "@/config/prompt"
-import { isUuid } from "@/domain/ref"
+import { isUuid, teamId } from "@/domain/id"
 
 type LinkTargetOptions = {
   readonly team: Option.Option<string>
@@ -81,7 +81,7 @@ const resolveTeamTarget = Effect.fn("LinkTeam.resolveTarget")(function* resolveT
   }
   const value = options.team.value
   if (isUuid(value)) {
-    return yield* deps.teams.byId(value)
+    return yield* deps.teams.byId(teamId(value))
   }
   return yield* deps.teams.byKey(value).pipe(
     Effect.catchTag("TeamNotFoundError", (error) => {

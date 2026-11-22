@@ -1,12 +1,13 @@
-import { Config, Console, Effect, Option, Result, Schema } from "effect"
+import { Config, Console, Effect, Option, Predicate, Result, Schema } from "effect"
 import { Flag, GlobalFlag } from "effect/cli"
 
 import type { IssueSummary } from "@/api/issue-model"
 import type { BulkWriteResult, BulkWriteSuccess } from "@/api/issue-write/model"
-import type { ErrorCode, ErrorReport, ReportedError } from "@/cli/error-report"
+import type { ErrorCode, TrackerError } from "@/domain/error"
+import type { PlanAction } from "@/domain/plan"
 
 import { maxPageSize } from "@/api/pagination"
-import { classifyError, exitCodeOf } from "@/cli/error-report"
+import { commandError, exitCodeOf, toTrackerError } from "@/cli/error-report"
 
 const jsonOutput = Schema.fromJsonString(Schema.Unknown, { space: 2 })
 const defectJson = Schema.Defect()
@@ -28,7 +29,15 @@ const encodeCause = (cause: unknown): unknown => {
   return Result.isSuccess(encoded) ? encoded.success : cause
 }
 
-const debugValue = (error: ReportedError): object => {
+const errorLike = (
+  error: unknown,
+): error is { readonly message: string; readonly cause?: unknown } =>
+  Predicate.isObject(error) && Predicate.isString(Reflect.get(error, "message"))
+
+const debugValue = (error: unknown): object => {
+  if (!errorLike(error)) {
+    return { error }
+  }
   if (error.cause === undefined) {
     return error
   }
@@ -40,9 +49,12 @@ const debugValue = (error: ReportedError): object => {
   return value
 }
 
-const debugText = (error: ReportedError): string => {
+const debugText = (error: unknown): string => {
   const encoded = Schema.encodeResult(jsonOutput)(debugValue(error))
-  return Result.isSuccess(encoded) ? encoded.success : error.message
+  if (Result.isSuccess(encoded)) {
+    return encoded.success
+  }
+  return errorLike(error) ? error.message : String(error)
 }
 
 const fallbackErrorJson =
@@ -70,12 +82,6 @@ const writeLine = (line: string): Effect.Effect<void> => Console.log(line)
 
 const warningLine = (message: string): Effect.Effect<void> => Console.error(`warning: ${message}`)
 
-type PlanAction = {
-  readonly action: string
-  readonly target: string
-  readonly changes: Record<string, unknown>
-}
-
 const writeDryRun = <A extends PlanAction>(
   json: boolean,
   actions: readonly A[],
@@ -92,15 +98,22 @@ type BulkJsonResult = {
   readonly identifier: string
   readonly status: "updated" | "skipped" | "failed"
   readonly issue?: IssueSummary | undefined
-  readonly error?: ErrorReport | undefined
+  readonly error?: Readonly<Record<string, unknown>> | undefined
 }
+
+const publicError = (report: TrackerError): Record<string, unknown> => ({
+  code: report.code,
+  message: report.message,
+  hint: report.hint,
+  ...(report.details === undefined ? {} : { details: report.details }),
+})
 
 const bulkJsonResult = (result: BulkWriteResult): BulkJsonResult =>
   result.status === "failed"
     ? {
         identifier: result.identifier,
         status: result.status,
-        error: classifyError(result.error),
+        error: publicError(toTrackerError(result.error)),
       }
     : {
         identifier: result.identifier,
@@ -109,7 +122,7 @@ const bulkJsonResult = (result: BulkWriteResult): BulkJsonResult =>
       }
 
 const failureLine = (result: BulkWriteResult & { readonly status: "failed" }): string => {
-  const report = classifyError(result.error)
+  const report = toTrackerError(result.error)
   const hint = report.hint === null ? "" : ` (hint: ${report.hint})`
   return `${result.identifier} failed: ${report.message}${hint}`
 }
@@ -130,7 +143,7 @@ const writeBulkResults = (
           { discard: true },
         )
     if (firstFailure !== undefined && firstFailure.status === "failed") {
-      const code = classifyError(firstFailure.error).code
+      const code = toTrackerError(firstFailure.error).code
       yield* Effect.sync(() => {
         process.exitCode = exitCodeOf(code)
       })
@@ -145,20 +158,63 @@ const debugEnabled: Effect.Effect<boolean> = Config.String("RATA_DEBUG").pipe(
   Effect.orDie,
 )
 
-const errorLine = (code: ErrorCode, message: string, hint?: string) =>
-  Effect.gen(function* writeErrorLine() {
-    const json = yield* JsonOutput
+const writeTrackerError = (
+  report: TrackerError,
+  json: boolean,
+  options: {
+    readonly debug?: boolean
+    readonly cause?: unknown
+    readonly extra?: Readonly<Record<string, unknown>>
+  } = {},
+): Effect.Effect<void> =>
+  Effect.gen(function* writeErrorReport() {
     if (json) {
-      yield* writeJsonError({ error: { code, message, hint: hint ?? null } })
+      const details = {
+        ...report.details,
+        ...(options.debug === true ? { cause: encodeCause(options.cause ?? report) } : {}),
+      }
+      yield* writeJsonError({
+        ...options.extra,
+        error: {
+          code: report.code,
+          message: report.message,
+          hint: report.hint,
+          ...(Object.keys(details).length === 0 ? {} : { details }),
+        },
+      })
     } else {
-      yield* Console.error(`error: ${message}`)
-      if (hint !== undefined) {
-        yield* Console.error(`hint: ${hint}`)
+      yield* Console.error(`error: ${report.message}`)
+      if (report.hint !== null) {
+        yield* Console.error(`hint: ${report.hint}`)
+      }
+      if (options.debug === true) {
+        yield* Console.error(debugText(options.cause ?? report))
       }
     }
     yield* Effect.sync(() => {
-      process.exitCode = exitCodeOf(code)
+      process.exitCode = exitCodeOf(report.code)
     })
+  })
+
+const reportTrackerError = (
+  report: TrackerError,
+  json: boolean,
+  extra?: Readonly<Record<string, unknown>>,
+): Effect.Effect<void> =>
+  Effect.gen(function* reportTrackerFailure() {
+    const debug = yield* debugEnabled
+    yield* writeTrackerError(report, json, {
+      debug,
+      cause: report.cause,
+      ...(extra === undefined ? {} : { extra }),
+    })
+  })
+
+const errorLine = (code: ErrorCode, message: string, hint?: string) =>
+  Effect.gen(function* writeErrorLine() {
+    const json = yield* JsonOutput
+    const report = commandError({ code, message, hint: hint ?? null })
+    yield* reportTrackerError(toTrackerError(report), json)
   })
 
 const nextPageHint = (name: string, endCursor: string): string =>
@@ -177,36 +233,10 @@ const validatePageSize = (limit: number) =>
     return true
   })
 
-const reportFailure = (error: ReportedError) =>
+const reportFailure = (error: unknown) =>
   Effect.gen(function* reportFailureEffect() {
     const json = yield* JsonOutput
-    const classified = classifyError(error)
-    const debug = yield* debugEnabled
-    if (json) {
-      const details = {
-        ...classified.details,
-        ...(debug ? { cause: encodeCause(error.cause ?? error) } : {}),
-      }
-      yield* writeJsonError({
-        error: {
-          code: classified.code,
-          message: classified.message,
-          hint: classified.hint,
-          ...(Object.keys(details).length === 0 ? {} : { details }),
-        },
-      })
-    } else {
-      yield* Console.error(`error: ${classified.message}`)
-      if (classified.hint !== null) {
-        yield* Console.error(`hint: ${classified.hint}`)
-      }
-      if (debug) {
-        yield* Console.error(debugText(error))
-      }
-    }
-    yield* Effect.sync(() => {
-      process.exitCode = exitCodeOf(classified.code)
-    })
+    yield* reportTrackerError(toTrackerError(error), json)
   })
 
 export {
@@ -215,8 +245,8 @@ export {
   errorLine,
   nextPageHint,
   noChange,
-  type PlanAction,
   reportFailure,
+  reportTrackerError,
   validatePageSize,
   warningLine,
   writeBulkResults,

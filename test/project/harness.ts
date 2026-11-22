@@ -8,8 +8,14 @@ import { Command } from "effect/cli"
 import { ChildProcessSpawner } from "effect/process"
 
 import { projectCommand } from "@/cli/project"
+import { projectId } from "@/domain/id"
 
-const tracker = { id: "project-1", name: "Tracker", progress: 0.5, status: { name: "Started" } }
+const tracker = {
+  id: projectId("project-1"),
+  name: "Tracker",
+  progress: 0.5,
+  status: { name: "Started" },
+}
 
 const cliLayer = (
   handler: Handler,

@@ -7,7 +7,8 @@ import type { LabelOperations } from "@/api/label"
 import type { Team, TeamCreateError, TeamNotFoundError, TeamUpdateError } from "@/api/team"
 import type { AuthStoreError } from "@/config/auth"
 import type { LinkTargetOptions, TimezoneChange } from "@/config/link/team"
-import type { RepoConfig, RepoConfigError } from "@/config/repo"
+import type { RepoConfigError } from "@/config/repo"
+import type { RepoConfig } from "@/config/repo/model"
 
 import { LinearClient } from "@/api/client"
 import { LabelService } from "@/api/label"
@@ -17,7 +18,7 @@ import { Auth } from "@/config/auth"
 import { invalidLinkOptions, LinkError, updateTeamTimezone } from "@/config/link/team"
 import { resolveLinkTarget } from "@/config/link/workspace"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
-import { findLabelByName } from "@/domain/labels"
+import { findLabelByName } from "@/domain/label"
 
 type LinkOptions = LinkTargetOptions & {
   readonly project: Option.Option<string>

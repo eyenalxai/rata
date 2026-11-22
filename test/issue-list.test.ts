@@ -39,7 +39,7 @@ describe("IssueApi list", () => {
           team: "RAT",
           state: "In Progress",
           stateType: "started",
-          priority: 1,
+          priority: "urgent",
           label: "ready-for-agent",
           assignee: "me",
           project: "Tracker",

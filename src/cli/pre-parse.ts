@@ -1,7 +1,7 @@
 import { Effect, Result, Schema } from "effect"
 
 import { JsonOutput, errorLine } from "@/cli/output"
-import { parseIssueRef } from "@/domain/ref"
+import { parseIssueRef } from "@/domain/issue-ref"
 
 type InvalidForm = {
   readonly message: string
