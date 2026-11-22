@@ -25,9 +25,6 @@ const inverseBlockersOf = (node: {
   readonly inverseRelations: IssueWorkingNode["inverseRelations"]
 }) => toBlockers(relationTargets<IssueChild>([], node.inverseRelations.nodes))
 
-const blockersOf = (node: WorkingNode) =>
-  toBlockers(relationTargets<IssueChild>(node.relations.nodes, node.inverseRelations.nodes))
-
 const leanChild = (node: IssueWorkingChildNode): IssueWorkingChild => {
   const blockedBy = inverseBlockersOf(node)
   return {
@@ -72,7 +69,7 @@ const commentsOf = (node: WorkingNode): readonly IssueComment[] | null =>
       )
 
 const workingBase = (node: WorkingNode) => {
-  const blockedBy = blockersOf(node)
+  const blockedBy = inverseBlockersOf(node)
   const description = node.description
   return {
     ...summaryFieldsOf(node),
@@ -84,9 +81,7 @@ const workingBase = (node: WorkingNode) => {
   }
 }
 
-const toSummary = (node: WorkingNode): IssueSummary => summaryFieldsOf(node)
-
-const toWorkingSet = (node: IssueWorkingNode): IssueWorkingSet => {
+const toWorkingSet = (node: IssueWorkingNode, comments: boolean): IssueWorkingSet => {
   const children = sortedChildren(node.children.nodes).map(leanChild)
   const frontier = frontierOf(children)
   return {
@@ -94,11 +89,11 @@ const toWorkingSet = (node: IssueWorkingNode): IssueWorkingSet => {
     children,
     frontier,
     nextChild: frontier[0] ?? null,
-    comments: commentsOf(node),
+    comments: comments ? commentsOf(node) : null,
   }
 }
 
-const toFullWorkingSet = (node: IssueFullWorkingNode): IssueWorkingSetFull => {
+const toFullWorkingSet = (node: IssueFullWorkingNode, comments: boolean): IssueWorkingSetFull => {
   const children = sortedChildren(node.children.nodes).map(fullChild)
   const frontier = frontierOf(children)
   return {
@@ -106,9 +101,9 @@ const toFullWorkingSet = (node: IssueFullWorkingNode): IssueWorkingSetFull => {
     children,
     frontier,
     nextChild: frontier[0] ?? null,
-    comments: commentsOf(node),
+    comments: comments ? commentsOf(node) : null,
     relations: relationTargets<IssueChild>(node.relations.nodes, node.inverseRelations.nodes),
   }
 }
 
-export { toFullWorkingSet, toSummary, toWorkingSet }
+export { toFullWorkingSet, toWorkingSet }

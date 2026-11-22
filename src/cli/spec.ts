@@ -109,17 +109,22 @@ const defineCommand = <
       control: CommandControl,
     ) => Effect.Effect<CommandOutput, Error, R>
   },
-): CommandSpec<Name, Config, R> => ({
-  name,
-  summary: spec.summary,
-  ...(spec.examples === undefined ? {} : { examples: spec.examples }),
-  input: spec.input,
-  ...(spec.output === undefined ? {} : { output: spec.output }),
-  ...(spec.outputFor === undefined ? {} : { outputFor: spec.outputFor }),
-  ...(spec.selectable === undefined ? {} : { selectable: spec.selectable }),
-  ...(spec.control === undefined ? {} : { control: spec.control }),
-  run: (input, control) => spec.run(input, control).pipe(Effect.mapError(toTrackerError)),
-})
+): CommandSpec<Name, Config, R> => {
+  if ((spec.selectable === true) !== (spec.outputFor !== undefined)) {
+    throw new Error("selectable and outputFor must be set together.")
+  }
+  return {
+    name,
+    summary: spec.summary,
+    ...(spec.examples === undefined ? {} : { examples: spec.examples }),
+    input: spec.input,
+    ...(spec.output === undefined ? {} : { output: spec.output }),
+    ...(spec.outputFor === undefined ? {} : { outputFor: spec.outputFor }),
+    ...(spec.selectable === undefined ? {} : { selectable: spec.selectable }),
+    ...(spec.control === undefined ? {} : { control: spec.control }),
+    run: (input, control) => spec.run(input, control).pipe(Effect.mapError(toTrackerError)),
+  }
+}
 
 export {
   type CommandControl,

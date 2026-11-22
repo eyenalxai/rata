@@ -30,17 +30,24 @@ const summary = {
 }
 
 describe("Linear documents select the read fields", () => {
-  test("the working-set document carries the issue fields", () => {
+  test("the working-set document carries the working fields", () => {
     const document = workingSetQuery({ comments: true, full: false })
 
     expect(document).toContain("description")
     expect(document).toContain("createdAt")
     expect(document).toContain("updatedAt")
     expect(document).toContain("children(first: 50)")
-    expect(document).toContain("relations(first: 25)")
+    expect(document).not.toContain("relations(first: 25)")
     expect(document).toContain("inverseRelations(first: 25)")
     expect(document).toContain("attachments(first: 25)")
     expect(document).toContain("comments(first: 10, orderBy: createdAt)")
+  })
+
+  test("the full working-set document adds outgoing relations", () => {
+    const document = workingSetQuery({ comments: false, full: true })
+
+    expect(document).toContain("relations(first: 25)")
+    expect(document).toContain("inverseRelations(first: 25)")
   })
 
   test("the summary document omits the working connections", () => {

@@ -48,6 +48,10 @@ const leanChild = (
     readonly priority?: 0 | 1 | 2 | 3 | 4
     readonly assignee?: typeof member | null
     readonly createdAt?: string
+    readonly inverseRelations?: {
+      readonly nodes: readonly ReturnType<typeof incomingRelation>[]
+      readonly pageInfo: { readonly hasNextPage: boolean; readonly endCursor: string | null }
+    }
   } = {},
 ) => ({
   id: issueId(`issue-${identifier}`),
@@ -57,7 +61,7 @@ const leanChild = (
   priority: input.priority ?? 2,
   createdAt: input.createdAt ?? "2026-01-01T00:00:00.000Z",
   assignee: input.assignee === undefined ? null : input.assignee,
-  inverseRelations: { nodes: [], pageInfo },
+  inverseRelations: input.inverseRelations ?? { nodes: [], pageInfo },
 })
 
 const fullChild = (identifier: string) => ({

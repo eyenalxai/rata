@@ -209,4 +209,58 @@ describe("the working-set drain", () => {
     }
     expect(firstChild.labels).toHaveLength(12)
   })
+
+  test("drains a child blocker past the first page before the frontier", async () => {
+    const requests: RequestBody[] = []
+    const blockedChild = leanChild("RAT-500", {
+      inverseRelations: {
+        nodes: [incomingRelation(0)],
+        pageInfo: { hasNextPage: true, endCursor: "child-inverse-1" },
+      },
+    })
+    const initial = {
+      ...node,
+      children: {
+        nodes: [blockedChild],
+        pageInfo,
+      },
+      attachments: { nodes: [], pageInfo },
+    }
+    const handler = (request: Parameters<typeof readBody>[0]): Response => {
+      const body = readBody(request)
+      requests.push(body)
+      if (requestOf(body).includes("query IssueWorkingInverseRelations")) {
+        return jsonResponse({
+          data: {
+            issue0: {
+              inverseRelations: {
+                nodes: [incomingRelation(1, true)],
+                pageInfo: { hasNextPage: false, endCursor: null },
+              },
+            },
+          },
+        })
+      }
+      return jsonResponse({
+        data: { issues: { nodes: [initial], pageInfo: { hasNextPage: false, endCursor: null } } },
+      })
+    }
+
+    const page = await run(
+      handler,
+      Effect.gen(function* readWorkingSet() {
+        const reader = yield* IssueReader
+        return yield* reader.workingSet(["RAT-1"], { comments: false, mode: "working" })
+      }),
+    )
+
+    expect(requests).toHaveLength(2)
+    const item = page.items[0]
+    if (item === undefined || !("frontier" in item)) {
+      throw new Error("expected the working mode")
+    }
+    expect(item.frontier).toEqual([])
+    expect(item.nextChild).toBeNull()
+    expect(item.children[0]?.blocked).toBe(true)
+  })
 })

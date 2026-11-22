@@ -7,6 +7,7 @@ import type {
   ResolvedContext,
 } from "@/context/model"
 import type { ContextResolveError } from "@/context/resolve/model"
+import type { IssueWorkingSetOptions } from "@/domain/issue-read"
 import type { InvalidIssueRef } from "@/domain/issue-ref"
 import type { Connection } from "@/linear/connection"
 import type { IssueSummaryNode } from "@/linear/decode/issue"
@@ -21,7 +22,6 @@ import type {
   IssuePage,
   IssueReadDocument,
   IssueSearchOptions,
-  IssueWorkingSetOptions,
 } from "@/tracker/model"
 import type { IssueRefNotFoundError } from "@/tracker/read/batch"
 import type { PreparedList } from "@/tracker/read/list-input"
@@ -174,10 +174,16 @@ class IssueReader extends Context.Service<IssueReader, IssueReaderShape>()(
         }
         if (page.mode === "full") {
           const nodes = yield* order(page.nodes)
-          return { items: nodes.map(toFullWorkingSet), pageInfo: page.pageInfo }
+          return {
+            items: nodes.map((node) => toFullWorkingSet(node, options.comments)),
+            pageInfo: page.pageInfo,
+          }
         }
         const nodes = yield* order(page.nodes)
-        return { items: nodes.map(toWorkingSet), pageInfo: page.pageInfo }
+        return {
+          items: nodes.map((node) => toWorkingSet(node, options.comments)),
+          pageInfo: page.pageInfo,
+        }
       })
 
       return IssueReader.of({ list, search, workingSet })

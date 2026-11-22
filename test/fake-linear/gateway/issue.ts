@@ -229,7 +229,7 @@ const toWorking = (
     nodes: (issue.children ?? []).map((item) => leanChildNode(childSummary(item, issues))),
     pageInfo: { hasNextPage: false, endCursor: null },
   },
-  ...relationConnections(issue),
+  inverseRelations: relationConnections(issue).inverseRelations,
   attachments: {
     nodes: issue.attachments ?? [],
     pageInfo: { hasNextPage: false, endCursor: null },

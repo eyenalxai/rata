@@ -182,13 +182,13 @@ describe("LinearGateway reads", () => {
     expect(page.pageInfo).toEqual({ hasNextPage: true, endCursor: String(issueId("issue-RAT-2")) })
   })
 
-  test("groups blocking relations in both directions", async () => {
+  test("groups blocking relations in both directions in the full read", async () => {
     const page = await Effect.runPromise(
-      gateway.issue.workingSet([issueRef("RAT-4")], { comments: false, mode: "working" }),
+      gateway.issue.workingSet([issueRef("RAT-4")], { comments: false, mode: "full" }),
     )
-    expect(page.mode).toBe("working")
-    if (page.mode !== "working") {
-      throw new Error("expected the working mode")
+    expect(page.mode).toBe("full")
+    if (page.mode !== "full") {
+      throw new Error("expected the full mode")
     }
     const detail = page.nodes[0]
 

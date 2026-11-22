@@ -1,16 +1,14 @@
 import { Effect } from "effect"
 
 import type { IssueId, TeamId } from "@/domain/id"
+import type { IssueWorkingSetOptions } from "@/domain/issue-read"
 import type { IssueRef } from "@/domain/issue-ref"
 import type { LinearClientShape } from "@/linear/client"
 import type { Connection, PageOptions } from "@/linear/connection"
 import type { IssueLabel, IssueSummaryNode } from "@/linear/decode/issue"
 import type { LinearApiError } from "@/linear/errors"
 import type { IssueListOptions } from "@/linear/operations/issue/filter"
-import type {
-  IssueReadConnection,
-  IssueWorkingSetOptions,
-} from "@/linear/operations/issue/working-set"
+import type { IssueReadConnection } from "@/linear/operations/issue/working-set/model"
 
 import { isUuid, issueId } from "@/domain/id"
 import { collectConnection, pageOrDrain, pageSize } from "@/linear/connection"

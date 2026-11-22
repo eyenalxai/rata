@@ -1,16 +1,10 @@
 import type { IssueId } from "@/domain/id"
-import type { IssueReadMode } from "@/domain/issue-read"
 import type {
   IssueFullWorkingNode,
   IssueWorkingNode,
   WorkingSummaryNode,
 } from "@/linear/decode/issue/working-set"
 import type { PageInfo } from "@/linear/decode/page"
-
-type IssueWorkingSetOptions = {
-  readonly comments: boolean
-  readonly mode: IssueReadMode
-}
 
 type IssueReadConnection =
   | {
@@ -41,9 +35,4 @@ type PendingConnection = {
   readonly cursor: string
 }
 
-export {
-  type ConnectionEntry,
-  type IssueReadConnection,
-  type IssueWorkingSetOptions,
-  type PendingConnection,
-}
+export { type ConnectionEntry, type IssueReadConnection, type PendingConnection }

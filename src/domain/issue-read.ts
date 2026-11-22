@@ -1,4 +1,8 @@
-const issueReadModes = ["summary", "working", "full"] as const
-type IssueReadMode = (typeof issueReadModes)[number]
+type IssueReadMode = "summary" | "working" | "full"
 
-export { type IssueReadMode, issueReadModes }
+type IssueWorkingSetOptions = {
+  readonly comments: boolean
+  readonly mode: IssueReadMode
+}
+
+export { type IssueReadMode, type IssueWorkingSetOptions }

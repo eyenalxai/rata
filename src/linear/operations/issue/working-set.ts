@@ -1,12 +1,10 @@
 import { Effect } from "effect"
 
+import type { IssueWorkingSetOptions } from "@/domain/issue-read"
 import type { IssueRef } from "@/domain/issue-ref"
 import type { LinearClientShape } from "@/linear/client"
 import type { LinearApiError } from "@/linear/errors"
-import type {
-  IssueReadConnection,
-  IssueWorkingSetOptions,
-} from "@/linear/operations/issue/working-set/model"
+import type { IssueReadConnection } from "@/linear/operations/issue/working-set/model"
 
 import { pageOrDrain } from "@/linear/connection"
 import {
@@ -70,4 +68,4 @@ const makeWorkingSetOperation =
     })
   }
 
-export { type IssueReadConnection, type IssueWorkingSetOptions, makeWorkingSetOperation }
+export { makeWorkingSetOperation }

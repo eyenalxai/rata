@@ -1,5 +1,4 @@
 import type { IssueId } from "@/domain/id"
-import type { IssueReadMode } from "@/domain/issue-read"
 import type { PullRequest } from "@/domain/pr"
 import type { Priority } from "@/domain/priority"
 import type { RelationTargets } from "@/domain/relation"
@@ -93,11 +92,6 @@ type IssueWorkingSetFull = IssueWorkingSetBase<IssueWorkingChildFull> & {
 }
 
 type IssueReadDocument = IssueSummary | IssueWorkingSet | IssueWorkingSetFull
-
-type IssueWorkingSetOptions = {
-  readonly comments: boolean
-  readonly mode: IssueReadMode
-}
 
 type IssueListOptions = PageOptions & {
   readonly team?: string | undefined
@@ -210,7 +204,6 @@ export {
   type IssueWorkingChildFull,
   type IssueWorkingSet,
   type IssueWorkingSetFull,
-  type IssueWorkingSetOptions,
   isBlocked,
   isListInclude,
   type ListInclude,

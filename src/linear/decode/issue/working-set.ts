@@ -44,7 +44,6 @@ const IssueWorkingNode = Schema.Struct({
   labels: IssueLabelConnection,
   description: Schema.NullOr(Schema.String),
   children: IssueWorkingChildConnection,
-  relations: IssueRelationConnection,
   inverseRelations: IssueInverseRelationConnection,
   attachments: IssueAttachmentConnection,
   comments: Schema.optional(IssueCommentConnection),

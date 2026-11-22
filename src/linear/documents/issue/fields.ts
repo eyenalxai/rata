@@ -87,8 +87,7 @@ const childrenConnection = (full: boolean, first: number): string =>
     } pageInfo { hasNextPage endCursor } }`
 
 const workingFields = (full: boolean): string =>
-  `    relations(first: ${workingLimits.relations}) { nodes { id type relatedIssue { id identifier title state { name type } } } pageInfo { hasNextPage endCursor } }
-    inverseRelations(first: ${workingLimits.relations}) { nodes { id type issue { id identifier title state { name type } } } pageInfo { hasNextPage endCursor } }
+  `${full ? `    relations(first: ${workingLimits.relations}) { nodes { id type relatedIssue { id identifier title state { name type } } } pageInfo { hasNextPage endCursor } }\n` : ""}    inverseRelations(first: ${workingLimits.relations}) { nodes { id type issue { id identifier title state { name type } } } pageInfo { hasNextPage endCursor } }
     ${childrenConnection(full, workingLimits.children)}
     attachments(first: ${workingLimits.attachments}) { nodes { ${attachmentFields} } pageInfo { hasNextPage endCursor } }`
 

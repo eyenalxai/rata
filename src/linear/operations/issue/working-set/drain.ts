@@ -100,15 +100,8 @@ const makeWorkingSetDrains = (fetchers: WorkingSetFetchers) => {
         update: (node, items) => ({ ...node, labels: { nodes: items, pageInfo: lastPageInfo } }),
         fetchPage: fetchers.labels(workingLimits.labels),
       })
-      const withRelations = yield* drainNodeConnection<IssueWorkingNode, IssueRelation>({
-        nodes: withLabels,
-        idOf: (node) => node.id,
-        connectionOf: (node) => node.relations,
-        update: (node, items) => ({ ...node, relations: { nodes: items, pageInfo: lastPageInfo } }),
-        fetchPage: fetchers.relations,
-      })
       const withInverse = yield* drainNodeConnection<IssueWorkingNode, IssueInverseRelation>({
-        nodes: withRelations,
+        nodes: withLabels,
         idOf: (node) => node.id,
         connectionOf: (node) => node.inverseRelations,
         update: (node, items) => ({

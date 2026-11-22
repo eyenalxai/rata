@@ -402,10 +402,9 @@ Linear's relevance ranking, so its paging is best effort.
 
 Internal reads follow the nested connection pages they need. The list commands
 return one page by default and drain every page with `--all`. In particular,
-`issue <ref>` reads the summary of one issue and up to the documented nested
-connection caps; comments are read only with `--comments`.
-`issue <ref> <ref> ...` drains every page of refs, so one CLI call returns the
-whole set.
+`issue <ref>` drains every nested connection; comments are read only with
+`--comments`. `issue <ref> <ref> ...` drains every page of refs, so one CLI call
+returns the whole set. See **Paging lists** for the connection drain.
 
 ## Authentication
 
