@@ -108,7 +108,7 @@ describe("field array projection", () => {
   test("returns state names from a team detail", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
-    await runTeam(fake.handler, ["show", "--json", "--fields", "states.name"], lines)
+    await runTeam(fake.handler, ["show", "--format", "json", "--select", "states.name"], lines)
 
     expect(lastJson(lines)).toEqual({ states: ["Backlog", "Todo"] })
   })

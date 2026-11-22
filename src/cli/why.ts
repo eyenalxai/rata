@@ -53,6 +53,7 @@ const whyCommand = Command.make("why", { ref: refArgument }, (config) =>
       description: "Select the summary and the blockers",
     },
   ]),
+  Command.withGlobalFlags([JsonOutput, OutputFields]),
 )
 
 export { whyCommand }

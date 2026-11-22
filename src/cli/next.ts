@@ -75,6 +75,7 @@ const nextCommand = Command.make("next", { parent: parentFlag, idsOnly: idsOnlyF
       description: "Print only the ready identifier, or nothing when none is ready",
     },
   ]),
+  Command.withGlobalFlags([JsonOutput, OutputFields]),
 )
 
 export { nextCommand }

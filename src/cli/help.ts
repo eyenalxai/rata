@@ -3,6 +3,8 @@ import type { HelpDoc } from "effect/cli"
 import { Context } from "effect"
 import { CliOutput, Command } from "effect/cli"
 
+import { isWorkSurfaceName } from "@/cli/format"
+
 const agentNotes = [
   "AGENT NOTES",
   "  Run `rata <command> --help` for the flags of this command.",
@@ -28,11 +30,9 @@ const withSelectable = <Name extends string, Input, E, R, ContextInput>(
 ): Command.Command<Name, Input, ContextInput, E, R> => Command.annotate(command, Selectable, true)
 
 const defaultFormatter = CliOutput.defaultFormatter()
-const workSurfaceCommands = new Set(["issue", "search", "next", "why"])
-
 const filterGlobalFlags = (doc: HelpDoc.HelpDoc): HelpDoc.HelpDoc => {
   const command = doc.usage.trim().split(/\s+/u)[1]
-  const isWorkSurface = command !== undefined && workSurfaceCommands.has(command)
+  const isWorkSurface = isWorkSurfaceName(command)
   const selectable = Context.get(doc.annotations, Selectable)
   const globalFlags = doc.globalFlags?.filter((flag) => {
     if (flag.name === "format") {

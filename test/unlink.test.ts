@@ -89,7 +89,7 @@ describe("unlink", () => {
 
   test("prints the removed link as JSON", async () => {
     const lines: string[] = []
-    const stored = await runUnlink(["--json"], lines, [
+    const stored = await runUnlink(["--format", "json"], lines, [
       { key: process.cwd(), team: "RAT", project: "rata", workspace: "work" },
     ])
     expect(JSON.parse(lines.at(-1) ?? "")).toEqual({

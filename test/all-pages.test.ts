@@ -90,7 +90,11 @@ afterEach(() => {
 describe("team list --all", () => {
   test("drains every page and returns synthetic pageInfo", async () => {
     const lines: string[] = []
-    await runRootMemory(seed([]), ["team", "list", "--all", "--limit", "1", "--json"], lines)
+    await runRootMemory(
+      seed([]),
+      ["team", "list", "--all", "--limit", "1", "--format", "json"],
+      lines,
+    )
 
     expect(lastJson(lines)).toEqual({
       teams: [team, otherTeam],
@@ -112,7 +116,7 @@ describe("team list --all", () => {
     const lines: string[] = []
     await runRootMemory(
       seed([]),
-      ["team", "list", "--all", "--after", "team-1", "--limit", "1", "--json"],
+      ["team", "list", "--all", "--after", "team-1", "--limit", "1", "--format", "json"],
       lines,
     )
 
@@ -123,7 +127,11 @@ describe("team list --all", () => {
 describe("project list --all", () => {
   test("drains every page and returns synthetic pageInfo", async () => {
     const lines: string[] = []
-    await runRootMemory(seed([]), ["project", "list", "--all", "--limit", "1", "--json"], lines)
+    await runRootMemory(
+      seed([]),
+      ["project", "list", "--all", "--limit", "1", "--format", "json"],
+      lines,
+    )
 
     expect(lastJson(lines)).toEqual({ projects, pageInfo: syntheticPageInfo })
   })
@@ -134,7 +142,7 @@ describe("label list --all", () => {
     const lines: string[] = []
     await runRootMemory(
       seed([]),
-      ["label", "list", "--team", "RAT", "--all", "--limit", "1", "--json"],
+      ["label", "list", "--team", "RAT", "--all", "--limit", "1", "--format", "json"],
       lines,
     )
 

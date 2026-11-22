@@ -49,7 +49,7 @@ describe("status", () => {
   test("prefers the environment key over the repository profile", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
-    await runStatus(fake.handler, ["--json"], lines, {
+    await runStatus(fake.handler, ["--format", "json"], lines, {
       profiles,
       repositories: [{ key: process.cwd(), team: "RAT", workspace: "work" }],
     })
@@ -74,7 +74,7 @@ describe("status", () => {
   test("uses the repository profile and shows the linked team and project", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
-    await runStatus(fake.handler, ["--json"], lines, {
+    await runStatus(fake.handler, ["--format", "json"], lines, {
       env: { HOME: "/home/test" },
       profiles,
       repositories: [{ key: process.cwd(), team: "RAT", project: "rata", workspace: "work" }],
@@ -100,7 +100,7 @@ describe("status", () => {
   test("keeps the context when the stored team key is stale", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
-    await runStatus(fake.handler, ["--json"], lines, {
+    await runStatus(fake.handler, ["--format", "json"], lines, {
       env: { HOME: "/home/test" },
       profiles,
       repositories: [{ key: process.cwd(), team: "GONE", project: "rata", workspace: "work" }],
@@ -154,7 +154,7 @@ describe("status", () => {
   test("falls back to the default profile", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
-    await runStatus(fake.handler, ["--json"], lines, {
+    await runStatus(fake.handler, ["--format", "json"], lines, {
       env: { HOME: "/home/test" },
       profiles,
       repositories: [{ key: process.cwd(), team: "RAT" }],
@@ -176,7 +176,7 @@ describe("status", () => {
 
   test("fails with an auth error when no key exists", async () => {
     const lines: string[] = []
-    await runStatus(unusedHandler, ["--json"], lines, {
+    await runStatus(unusedHandler, ["--format", "json"], lines, {
       env: { HOME: "/home/test" },
       profiles: [],
     })
@@ -189,10 +189,15 @@ describe("status", () => {
   test("selects fields on the whole document", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
-    await runStatus(fake.handler, ["--json", "--fields", "repository.root,team.key"], lines, {
-      profiles,
-      repositories: [{ key: process.cwd(), team: "RAT" }],
-    })
+    await runStatus(
+      fake.handler,
+      ["--format", "json", "--select", "repository.root,team.key"],
+      lines,
+      {
+        profiles,
+        repositories: [{ key: process.cwd(), team: "RAT" }],
+      },
+    )
 
     expect(lastJson(lines)).toEqual({
       repository: { root: process.cwd() },
@@ -203,7 +208,7 @@ describe("status", () => {
   test("repairs a stale team key and reports the repair", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
-    await runStatus(fake.handler, ["--json"], lines, {
+    await runStatus(fake.handler, ["--format", "json"], lines, {
       profiles,
       repositories: [{ key: process.cwd(), team: "OLD", teamId: "team-1" }],
     })

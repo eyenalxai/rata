@@ -12,24 +12,23 @@ import { ProjectService } from "@/api/project"
 import { RepoTeam } from "@/api/repo-team"
 import { TeamService } from "@/api/team"
 import { helpLayer } from "@/cli/help"
+import { issueCommand, searchCommand } from "@/cli/issue"
+import { nextCommand } from "@/cli/next"
 import {
   authCommand,
   configCommand,
   createRoot,
-  issueCommand,
   labelCommand,
   linkCommand,
-  nextCommand,
   projectCommand,
-  searchCommand,
   statusCommand,
   teamCommand,
   unlinkCommand,
   whoamiCommand,
-  whyCommand,
   workspaceCommand,
 } from "@/cli/registry"
 import { runCli } from "@/cli/runner"
+import { whyCommand } from "@/cli/why"
 import { Auth } from "@/config/auth"
 import { IssueDefaultsService } from "@/config/defaults"
 import { LinkService } from "@/config/link"

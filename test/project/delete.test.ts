@@ -40,7 +40,7 @@ describe("project delete", () => {
   test("fails without a TTY and points at --yes", async () => {
     const fake = makeFakeLinear({ teams: [], labels: [], projects: [tracker] })
     const lines: string[] = []
-    await runProject(fake.handler, ["delete", "Tracker", "--json"], lines, [], false)
+    await runProject(fake.handler, ["delete", "Tracker", "--format", "json"], lines, [], false)
     expect(process.exitCode).toBe(2)
     expect(JSON.parse(lines.at(-1) ?? "")).toMatchObject({
       error: { code: "validation", hint: "Pass --yes to skip the prompt." },
@@ -51,7 +51,7 @@ describe("project delete", () => {
   test("skips the prompt with --yes and prints JSON", async () => {
     const fake = makeFakeLinear({ teams: [], labels: [], projects: [tracker] })
     const lines: string[] = []
-    await runProject(fake.handler, ["delete", "Tracker", "--yes", "--json"], lines)
+    await runProject(fake.handler, ["delete", "Tracker", "--yes", "--format", "json"], lines)
     expect(lines).toHaveLength(1)
     expect(lastJson(lines)).toEqual({ deleted: { id: "project-1", name: "Tracker" } })
     expect(deleteMutation(fake.requests)?.variables).toEqual({ id: "project-1" })

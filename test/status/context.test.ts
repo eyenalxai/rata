@@ -40,7 +40,7 @@ describe("status context", () => {
       return { afterFirst, afterSecond: fake.requests.length }
     }).pipe(
       Effect.provide(
-        statusLayer(fake.handler, ["--json"], lines, {
+        statusLayer(fake.handler, ["--format", "json"], lines, {
           profiles,
           repositories: [{ key: process.cwd(), teamId: "team-1" }],
         }),
@@ -61,7 +61,7 @@ describe("status context", () => {
   test("reports the repaired team when the stored UUID is stale", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
-    await runStatus(fake.handler, ["--json"], lines, {
+    await runStatus(fake.handler, ["--format", "json"], lines, {
       profiles,
       repositories: [{ key: process.cwd(), team: "RAT", teamId: "gone-id", project: "rata" }],
     })
@@ -84,7 +84,7 @@ describe("status context", () => {
       labels: [{ id: "label-bug", name: "bug", color: "#EB5757", teamId: "team-1" }],
     })
     const lines: string[] = []
-    await runStatus(fake.handler, ["--json"], lines, {
+    await runStatus(fake.handler, ["--format", "json"], lines, {
       profiles,
       repositories: [{ key: process.cwd(), teamId: "team-1" }],
     })
@@ -100,7 +100,7 @@ describe("status context", () => {
     const lines: string[] = []
     const keyHash = hashApiKey("test-key")
     const fetchedAt = await now()
-    await runStatus(fake.handler, ["--json", "--refresh"], lines, {
+    await runStatus(fake.handler, ["--format", "json", "--refresh"], lines, {
       repositories: [{ key: process.cwd(), teamId: "team-1" }],
       cache: {
         teams: [

@@ -109,7 +109,7 @@ describe("TeamService.details", () => {
 describe("team show", () => {
   test("uses the linked team and prints the complete read model", async () => {
     const lines: string[] = []
-    await runRootMemory(seed, ["team", "show", "--json"], lines, [
+    await runRootMemory(seed, ["team", "show", "--format", "json"], lines, [
       { key: process.cwd(), team: "RAT" },
     ])
 
@@ -123,7 +123,7 @@ describe("team show", () => {
 
   test("fails with not_linked without a reference or a link", async () => {
     const lines: string[] = []
-    await runRootMemory(seed, ["team", "show", "--json"], lines, [])
+    await runRootMemory(seed, ["team", "show", "--format", "json"], lines, [])
 
     const error = Option.getOrThrow(Schema.decodeUnknownOption(ErrorEnvelope)(lastJson(lines)))
     expect(error.error.code).toBe("not_linked")

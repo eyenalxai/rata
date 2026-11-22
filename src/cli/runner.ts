@@ -33,9 +33,12 @@ import { renderOutput } from "@/cli/render"
 import { outputFormats } from "@/cli/spec"
 import { TrackerError } from "@/domain/error"
 
+// Canonical-form detection stays in pre-parse.ts: it needs raw flag values for
+// The replacement hint. format.ts only classifies the command and output flags.
+
 const Format = GlobalFlag.Setting("format")({
   flag: Flag.Literals("format", outputFormats).pipe(
-    Flag.withDescription("Output format"),
+    Flag.withDescription("Output format. JSON is the default when stdout is not a terminal"),
     Flag.withMetavar("json|text"),
     Flag.optional,
   ),
@@ -174,8 +177,10 @@ const runSpec = <Name extends string, Config extends CliCommand.Command.Config, 
   Effect.gen(function* runCommandSpec() {
     const stdio = yield* Stdio.Stdio
     const stdoutIsTerminal = yield* stdio.stdoutIsTerminal
-    const json = yield* JsonOutput
-    const fields = yield* OutputFields
+    const json = OptionValue.getOrElse(yield* Effect.serviceOption(JsonOutput), () => false)
+    const fields = OptionValue.getOrElse(yield* Effect.serviceOption(OutputFields), () =>
+      OptionValue.none<string>(),
+    )
     const requestedFormat = yield* Format
     const selectedFields = yield* OutputSelect
     const format = resolveFormat(

@@ -57,7 +57,7 @@ describe("rata label create", () => {
     const lines: string[] = []
     await runLabel(
       recorder.handler,
-      ["create", "--team", "RAT", "--name", "bug", "--color", "eb5757", "--json"],
+      ["create", "--team", "RAT", "--name", "bug", "--color", "eb5757", "--format", "json"],
       lines,
     )
     expect(requestOf(recorder, "mutation CreateLabel")?.variables).toEqual({
@@ -86,7 +86,7 @@ describe("rata label create", () => {
     const lines: string[] = []
     await runLabel(
       recorder.handler,
-      ["create", "--team", "RAT", "--name", "bug", "--if-not-exists", "--json"],
+      ["create", "--team", "RAT", "--name", "bug", "--if-not-exists", "--format", "json"],
       lines,
     )
     expect(lastJson(lines)).toEqual({
@@ -158,7 +158,11 @@ describe("rata label edit", () => {
   test("edits a label by name, ignoring case", async () => {
     const recorder = editHandler()
     const lines: string[] = []
-    await runLabel(recorder.handler, ["edit", "BUG", "--color", "#00ff00", "--json"], lines)
+    await runLabel(
+      recorder.handler,
+      ["edit", "BUG", "--color", "#00ff00", "--format", "json"],
+      lines,
+    )
     expect(requestOf(recorder, "mutation UpdateLabel")?.variables).toEqual({
       id: "label-2",
       input: { color: "#00ff00" },

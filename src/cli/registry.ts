@@ -4,13 +4,11 @@ import { Command } from "effect/cli"
 
 import { loginSpec, logoutSpec, statusSpec as authStatusSpec, whoamiSpec } from "@/cli/auth"
 import { configSetSpec, configShowSpec, configUnsetSpec } from "@/cli/config"
-import { OutputFields } from "@/cli/fields"
-import { withAgentNotes, withSelectable } from "@/cli/help"
+import { withAgentNotes } from "@/cli/help"
 import { issueCommand, searchCommand } from "@/cli/issue"
 import { labelCreateSpec, labelEditSpec, labelListSpec } from "@/cli/label"
 import { linkSpec } from "@/cli/link"
 import { nextCommand } from "@/cli/next"
-import { JsonOutput } from "@/cli/output"
 import {
   projectCreateSpec,
   projectDeleteSpec,
@@ -24,7 +22,7 @@ import { unlinkSpec } from "@/cli/unlink"
 import { whyCommand } from "@/cli/why"
 import { workspaceListSpec, workspaceUseSpec } from "@/cli/workspace"
 
-const globalOutputFlags = [JsonOutput, OutputFields, Format, OutputSelect] as const
+const globalOutputFlags = [Format, OutputSelect] as const
 
 const authCommand = buildGroup("auth", "Manage Linear authentication", [
   buildCommand(loginSpec),
@@ -51,31 +49,29 @@ const workspaceCommand = buildGroup("workspace", "Manage the stored Linear works
   buildCommand(workspaceUseSpec),
 ]).pipe(Command.withGlobalFlags(globalOutputFlags))
 
-const teamCommand = withSelectable(
-  buildGroup("team", "Inspect, create and delete the teams in the workspace", [
-    buildCommand(teamListSpec),
-    buildCommand(teamShowSpec),
-    buildCommand(teamCreateSpec),
-    buildCommand(teamDeleteSpec),
-  ]).pipe(Command.withGlobalFlags(globalOutputFlags)),
-)
+const teamCommand = buildGroup("team", "Inspect, create and delete the teams in the workspace", [
+  buildCommand(teamListSpec),
+  buildCommand(teamShowSpec),
+  buildCommand(teamCreateSpec),
+  buildCommand(teamDeleteSpec),
+]).pipe(Command.withGlobalFlags(globalOutputFlags))
 
-const projectCommand = withSelectable(
-  buildGroup("project", "Create, inspect, delete and restore the projects in the workspace", [
+const projectCommand = buildGroup(
+  "project",
+  "Create, inspect, delete and restore the projects in the workspace",
+  [
     buildCommand(projectListSpec),
     buildCommand(projectCreateSpec),
     buildCommand(projectDeleteSpec),
     buildCommand(projectRestoreSpec),
-  ]).pipe(Command.withGlobalFlags(globalOutputFlags)),
-)
+  ],
+).pipe(Command.withGlobalFlags(globalOutputFlags))
 
-const labelCommand = withSelectable(
-  buildGroup("label", "Create and inspect the labels of a team", [
-    buildCommand(labelListSpec),
-    buildCommand(labelCreateSpec),
-    buildCommand(labelEditSpec),
-  ]).pipe(Command.withGlobalFlags(globalOutputFlags)),
-)
+const labelCommand = buildGroup("label", "Create and inspect the labels of a team", [
+  buildCommand(labelListSpec),
+  buildCommand(labelCreateSpec),
+  buildCommand(labelEditSpec),
+]).pipe(Command.withGlobalFlags(globalOutputFlags))
 
 const commandGroups = [
   authCommand,
@@ -95,33 +91,24 @@ const commandGroups = [
 ] as const
 
 const createRoot = <const Commands extends readonly CliCommand.Command.Any[]>(commands: Commands) =>
-  withSelectable(
-    Command.make("rata").pipe(
-      Command.withDescription("Linear issue tracking for agent workflows."),
-      Command.withSubcommands(commands),
-      Command.withGlobalFlags(globalOutputFlags),
-      withAgentNotes,
-    ),
+  Command.make("rata").pipe(
+    Command.withDescription("Linear issue tracking for agent workflows."),
+    Command.withSubcommands(commands),
+    Command.withGlobalFlags(globalOutputFlags),
+    withAgentNotes,
   )
-
-const root = createRoot(commandGroups)
 
 export {
   authCommand,
   commandGroups,
   configCommand,
   createRoot,
-  issueCommand,
   labelCommand,
   linkCommand,
-  nextCommand,
   projectCommand,
-  root,
-  searchCommand,
   statusCommand,
   teamCommand,
   unlinkCommand,
-  whyCommand,
   whoamiCommand,
   workspaceCommand,
 }

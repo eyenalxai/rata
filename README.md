@@ -160,11 +160,13 @@ rata issue list --json
 
 With `--json`, the work surface prints one stable JSON document. The migrated
 admin commands (`auth`, `link`, `unlink`, `workspace`, `config`, `team`,
-`project`, `label`, `status`, `whoami`) use `--format json|text` and
-`--select`. JSON is their default when standard output is not a terminal, and
-`--format text` forces text. The work surface (`issue`, `search`, `next`,
-`why`) keeps its current `--json` and `--fields` flags until its own ticket;
-those flags are not aliases of `--format` and `--select`.
+`project`, `label`, `status`, `whoami`) use `--format json|text`. JSON is their
+default when standard output is not a terminal, and `--format text` forces
+text. The admin reads (`whoami`, `status`, `config show`, `team list`,
+`team show`, `project list`, `label list`) also use `--select`; the admin
+writes do not. The work surface (`issue`, `search`, `next`, `why`) keeps its
+current `--json` and `--fields` flags until its own ticket; those flags are not
+aliases of `--format` and `--select`.
 
 A reordered table parses by header name. A headerless or incomplete
 document is an unhealthy `docs.triage` with a warning; `status` still prints the

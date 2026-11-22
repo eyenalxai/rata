@@ -53,20 +53,20 @@ describe("global output flags", () => {
     })
   })
 
-  test("accepts --json before the subcommand", async () => {
+  test("accepts --format before the subcommand", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
-    await runTeam(fake.handler, ["--json", "list"], lines)
+    await runTeam(fake.handler, ["--format", "json", "list"], lines)
     expect(lastJson(lines)).toEqual({
       teams: [team],
       pageInfo: { hasNextPage: false, endCursor: "team-1" },
     })
   })
 
-  test("accepts --json after the subcommand", async () => {
+  test("accepts --format after the subcommand", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
-    await runTeam(fake.handler, ["list", "--json"], lines)
+    await runTeam(fake.handler, ["list", "--format", "json"], lines)
     expect(lastJson(lines)).toEqual({
       teams: [team],
       pageInfo: { hasNextPage: false, endCursor: "team-1" },
@@ -76,7 +76,7 @@ describe("global output flags", () => {
   test("selects fields on a read command", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
-    await runTeam(fake.handler, ["list", "--json", "--fields", "key,name"], lines)
+    await runTeam(fake.handler, ["list", "--format", "json", "--select", "key,name"], lines)
     expect(lastJson(lines)).toEqual({
       teams: [{ key: "RAT", name: "Rata" }],
       pageInfo: { hasNextPage: false, endCursor: "team-1" },
@@ -86,7 +86,7 @@ describe("global output flags", () => {
   test("team delete without a TTY exits 2 with a --yes hint", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
-    await runTeam(fake.handler, ["delete", "RAT", "--json"], lines)
+    await runTeam(fake.handler, ["delete", "RAT", "--format", "json"], lines)
 
     expect(process.exitCode).toBe(2)
     expect(JSON.parse(lines.at(-1) ?? "")).toMatchObject({
@@ -97,7 +97,7 @@ describe("global output flags", () => {
   test("rejects an unknown field path", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
-    await runTeam(fake.handler, ["list", "--json", "--fields", "nope"], lines)
+    await runTeam(fake.handler, ["list", "--format", "json", "--select", "nope"], lines)
     expect(JSON.parse(lines[0] ?? "")).toMatchObject({
       error: { code: "validation" },
     })
@@ -106,17 +106,10 @@ describe("global output flags", () => {
   test("lists the valid paths in the hint of an unknown field path", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
-    await runTeam(fake.handler, ["list", "--json", "--fields", "nope"], lines)
+    await runTeam(fake.handler, ["list", "--format", "json", "--select", "nope"], lines)
     expect(JSON.parse(lines[0] ?? "")).toMatchObject({
       error: { hint: "Valid paths: id, key, name, timezone." },
     })
-  })
-
-  test("rejects --fields without --json", async () => {
-    const fake = makeFakeLinear({ teams: [team], labels: [] })
-    const lines: string[] = []
-    await runTeam(fake.handler, ["list", "--fields", "name"], lines)
-    expect(lines).toContain("error: --fields requires --json.")
   })
 
   test("rejects --fields on a write command", async () => {

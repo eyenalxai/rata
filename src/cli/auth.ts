@@ -2,7 +2,7 @@ import { Effect, Option, Schema, Stdio, Stream } from "effect"
 import { Flag } from "effect/cli"
 
 import { objectField, scalarField } from "@/cli/field/shape"
-import { defineCommand, resourceOutput } from "@/cli/spec"
+import { defineCommand, resourceOutput, selectOutput } from "@/cli/spec"
 import { Auth } from "@/config/auth"
 import { TrackerError } from "@/domain/error"
 import { LinearGateway } from "@/linear/gateway"
@@ -198,7 +198,7 @@ const viewerShape = objectField({
 const whoamiSpec = defineCommand("whoami", {
   summary: "Print the authenticated Linear viewer",
   input: {},
-  output: resourceOutput(viewerShape),
+  output: selectOutput(viewerShape),
   run: () =>
     Effect.gen(function* whoami() {
       const gateway = yield* LinearGateway

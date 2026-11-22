@@ -7,7 +7,7 @@ import { ChildProcessSpawner } from "effect/process"
 import { arrayField, objectField, scalarField } from "@/cli/field/shape"
 import { OutputFields } from "@/cli/fields"
 import { helpLayer } from "@/cli/help"
-import { bodyFileFlag, bodyFlag, ifUnchangedFlag } from "@/cli/input"
+import { ifUnchangedFlag } from "@/cli/input"
 import { JsonOutput, dryRunFlag } from "@/cli/output"
 import { Format, OutputSelect, buildCommand, buildGroup, runCli } from "@/cli/runner"
 import { defineCommand, selectOutput } from "@/cli/spec"
@@ -43,19 +43,6 @@ const dryRunSpec = defineCommand("dry-run", {
       kind: "resource",
       value: { dryRun: control.dryRun },
       text: [`dryRun: ${control.dryRun}`],
-    }),
-})
-
-const bodySpec = defineCommand("body", {
-  summary: "Report the body",
-  input: { body: bodyFlag, bodyFile: bodyFileFlag },
-  control: (input) => ({ body: input.body, bodyFile: input.bodyFile }),
-  output: selectOutput(objectField({ body: scalarField })),
-  run: (_input, control) =>
-    Effect.succeed({
-      kind: "resource",
-      value: { body: Option.getOrNull(control.body) },
-      text: [`body: ${Option.getOrElse(control.body, () => "")}`],
     }),
 })
 
@@ -103,7 +90,6 @@ const failSpec = defineCommand("fail", {
 const testGroup = buildGroup("test", "Runner test commands", [
   buildCommand(echoSpec),
   buildCommand(dryRunSpec),
-  buildCommand(bodySpec),
   buildCommand(unchangedSpec),
   buildCommand(failSpec),
 ]).pipe(Command.withGlobalFlags([Format, OutputSelect, JsonOutput, OutputFields]))
@@ -219,22 +205,6 @@ describe("the command runner", () => {
     await run(["dry-run", "--dry-run"], lines)
 
     expect(lastJson(lines)).toEqual({ dryRun: true })
-  })
-
-  test("--body reaches the command through the control", async () => {
-    const lines: string[] = []
-    await run(["body", "--body", "inline text"], lines)
-
-    expect(lastJson(lines)).toEqual({ body: "inline text" })
-  })
-
-  test("--body-file reads the file before the command runs", async () => {
-    const lines: string[] = []
-    await run(["body", "--body-file", "notes.md"], lines, {
-      files: new Map([["notes.md", "from the file"]]),
-    })
-
-    expect(lastJson(lines)).toEqual({ body: "from the file" })
   })
 
   test("--if-unchanged reaches the command through the control", async () => {

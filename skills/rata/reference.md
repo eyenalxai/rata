@@ -11,9 +11,9 @@ and the loops. `docs/agents/issue-tracker.md` covers the repository rules.
 - `--json` is global: it works before or after the subcommand.
 - `--fields <paths>` selects dotted paths from a read; it needs `--json`.
 - The migrated admin commands accept `--format json|text`. JSON is their
-  default when stdout is not a terminal. `--select <paths>` is their field
-  selection flag. The work surface (`issue`, `search`, `next`, `why`) keeps
-  `--json` and `--fields` until its own ticket.
+  default when stdout is not a terminal. The admin reads also accept
+  `--select <paths>`; the admin writes do not. The work surface (`issue`,
+  `search`, `next`, `why`) keeps `--json` and `--fields` until its own ticket.
 - `--body-file -` and `--comment-file -` read stdin. `--dry-run` previews.
 - `--limit` is the page size: 50 by default, 250 at most. `--after` continues a
   page; `--all` drains every page. The repository config supplies the default

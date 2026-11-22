@@ -94,14 +94,30 @@ describe("the known wrong flags teach the canonical command", () => {
 })
 
 describe("the new output flags stay on the migrated surface", () => {
-  test("the work-surface help does not advertise --format or --select", async () => {
+  test("the work-surface help keeps --json and --fields", async () => {
     const help = await helpOf(["issue", "update", "--help"])
+    expect(help).toContain("--json")
+    expect(help).toContain("--fields")
     expect(help).not.toContain("--format")
     expect(help).not.toContain("--select")
   })
 
-  test("an admin write help hides --select but keeps --format", async () => {
+  test("an admin write help keeps --format and hides the read flags", async () => {
     const help = await helpOf(["team", "create", "--help"])
+    expect(help).toContain("--format")
+    expect(help).not.toContain("--select")
+    expect(help).not.toContain("--json")
+    expect(help).not.toContain("--fields")
+  })
+
+  test("an admin read help keeps --format and --select", async () => {
+    const help = await helpOf(["whoami", "--help"])
+    expect(help).toContain("--format")
+    expect(help).toContain("--select")
+  })
+
+  test("an admin group help keeps --format and hides --select", async () => {
+    const help = await helpOf(["team", "--help"])
     expect(help).toContain("--format")
     expect(help).not.toContain("--select")
   })

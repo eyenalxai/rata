@@ -20,9 +20,9 @@ rata status --json   # repo, team, states, labels, triage, cache age, docs, view
 
 The migrated admin commands (`auth`, `link`, `unlink`, `workspace`, `config`,
 `team`, `project`, `label`, `status`, `whoami`) accept `--format json|text`.
-JSON is their default when stdout is not a terminal, and `--select` is their
-field selection flag. The work surface (`issue`, `search`, `next`, `why`) keeps
-`--json` and `--fields` until its own ticket.
+JSON is their default when stdout is not a terminal. The admin reads also
+accept `--select`; the admin writes do not. The work surface (`issue`, `search`,
+`next`, `why`) keeps `--json` and `--fields` until its own ticket.
 
 - `auth`: `printf '%s' "$LINEAR_API_KEY" | rata auth login --with-token`. The key
   resolves as `LINEAR_API_KEY`, the repository workspace, then `default`;

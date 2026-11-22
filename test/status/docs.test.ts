@@ -30,7 +30,7 @@ describe("status documents", () => {
     const lines: string[] = []
     const tracker = path.join(docsDirectory, "issue-tracker.md")
     const triage = path.join(docsDirectory, "triage-labels.md")
-    await runStatus(fake.handler, ["--json"], lines, {
+    await runStatus(fake.handler, ["--format", "json"], lines, {
       profiles,
       repositories: [{ key: process.cwd(), team: "RAT", teamId: "team-1" }],
       files: new Map([
@@ -68,7 +68,7 @@ describe("status documents", () => {
     const lines: string[] = []
     const tracker = path.join(docsDirectory, "issue-tracker.md")
     const triage = path.join(docsDirectory, "triage-labels.md")
-    await runStatus(fake.handler, ["--json"], lines, {
+    await runStatus(fake.handler, ["--format", "json"], lines, {
       profiles,
       repositories: [{ key: process.cwd(), teamId: "team-1" }],
       files: new Map([
@@ -116,7 +116,7 @@ describe("status documents", () => {
       "| `ready-for-human` | `ready-for-human` | Needs the maintainer |",
       "| `wontfix` | `wontfix` | Will not be addressed |",
     ].join("\n")
-    await runStatus(fake.handler, ["--json"], lines, {
+    await runStatus(fake.handler, ["--format", "json"], lines, {
       profiles,
       repositories: [{ key: process.cwd(), teamId: "team-1" }],
       files: new Map([
@@ -148,7 +148,7 @@ describe("status documents", () => {
     const lines: string[] = []
     const tracker = path.join(docsDirectory, "issue-tracker.md")
     const triage = path.join(docsDirectory, "triage-labels.md")
-    await runStatus(fake.handler, ["--json"], lines, {
+    await runStatus(fake.handler, ["--format", "json"], lines, {
       profiles,
       repositories: [{ key: process.cwd(), teamId: "team-1" }],
       files: new Map([
@@ -185,7 +185,7 @@ describe("status documents", () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
     const document = path.join(docsDirectory, "issue-tracker.md")
-    await runStatus(fake.handler, ["--json"], lines, {
+    await runStatus(fake.handler, ["--format", "json"], lines, {
       profiles,
       repositories: [{ key: process.cwd(), team: "RAT", teamId: "team-1" }],
       files: new Map([[document, "# Issue tracker\n\nUse the rata CLI for tracker work."]]),
