@@ -10,6 +10,9 @@ and the loops. `docs/agents/issue-tracker.md` covers the repository rules.
 - `<ref>` is an issue identifier (`ABC-42`), a UUID, or a `linear.app` URL.
 - `--json` is global: it works before or after the subcommand.
 - `--fields <paths>` selects dotted paths from a read; it needs `--json`.
+- The admin commands accept `--format json|text`. JSON is the default when
+  stdout is not a terminal. `--select <paths>` is the runner spelling for field
+  selection there; `--json` and `--fields` still work during the migration.
 - `--body-file -` and `--comment-file -` read stdin. `--dry-run` previews.
 - `--limit` is the page size: 50 by default, 250 at most. `--after` continues a
   page; `--all` drains every page. The repository config supplies the default

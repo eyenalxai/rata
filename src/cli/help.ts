@@ -5,7 +5,9 @@ import { CliOutput, Command } from "effect/cli"
 
 const agentNotes = [
   "AGENT NOTES",
-  "  --json prints one JSON document.",
+  "  --format json|text selects the output. JSON is the default when stdout is not a terminal.",
+  "  --select lists field paths for JSON output.",
+  "  --json and --fields remain the 0.10 spelling during the surface migration.",
   "  --dry-run prints the actions without writing.",
   "  --body-file - reads the body from standard input.",
   "  A list returns one page. Use --all to drain every page.",

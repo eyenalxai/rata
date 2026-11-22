@@ -18,6 +18,11 @@ rata status --json   # repo, team, states, labels, triage, cache age, docs, view
 
 `status` works without a link. Fix a failed first command before you retry:
 
+Admin commands (`auth`, `link`, `unlink`, `workspace`, `config`, `team`,
+`project`, `label`, `status`) accept `--format json|text`. JSON is the default
+when stdout is not a terminal. `--select` is the new field selection spelling
+there; `--json` and `--fields` remain the 0.10 spelling during the migration.
+
 - `auth`: `printf '%s' "$LINEAR_API_KEY" | rata auth login --with-token`. The key
   resolves as `LINEAR_API_KEY`, the repository workspace, then `default`;
   `workspace use <name>` selects a profile.

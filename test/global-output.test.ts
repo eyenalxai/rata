@@ -21,6 +21,24 @@ afterEach(() => {
 })
 
 describe("global output flags", () => {
+  test("defaults a migrated command to JSON off a terminal", async () => {
+    const fake = makeFakeLinear({ teams: [team], labels: [] })
+    const lines: string[] = []
+    await Command.run(teamCommand, { version: "test" }).pipe(
+      Effect.provide(
+        cliLayer(fake.handler, ["list"], lines, [{ key: process.cwd(), team: "RAT" }], {
+          stdio: { stdoutIsTerminal: Effect.succeed(false) },
+        }),
+      ),
+      Effect.runPromise,
+    )
+
+    expect(lastJson(lines)).toEqual({
+      teams: [team],
+      pageInfo: { hasNextPage: false, endCursor: "team-1" },
+    })
+  })
+
   test("accepts --json before the subcommand", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []

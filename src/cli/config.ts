@@ -4,20 +4,15 @@ import { Command, Flag } from "effect/cli"
 import type { PlanAction } from "@/domain/plan"
 
 import { arrayField, objectField, scalarField } from "@/cli/field/shape"
-import { OutputFields, readFields, rejectFields, selectObject } from "@/cli/fields"
-import {
-  JsonOutput,
-  dryRunFlag,
-  errorLine,
-  reportFailure,
-  writeDryRun,
-  writeJson,
-  writeLine,
-} from "@/cli/output"
+import { OutputFields } from "@/cli/fields"
+import { JsonOutput, dryRunFlag } from "@/cli/output"
 import { resolvePriority } from "@/cli/priority"
+import { Format, buildCommand, buildGroup, OutputSelect } from "@/cli/runner"
+import { defineCommand, resourceOutput, selectOutput } from "@/cli/spec"
 import { defaultsDocument, formatDefaults, IssueDefaultsService } from "@/config/defaults"
 import { currentDirectory } from "@/config/repo"
 import { RepositoryIdentity } from "@/config/repo-identity"
+import { TrackerError } from "@/domain/error"
 
 const optionalText = (name: string, description: string) =>
   Flag.String(name).pipe(Flag.withDescription(description), Flag.optional)
@@ -26,6 +21,18 @@ const defaultsShape = objectField({
   assignee: scalarField,
   labels: arrayField(scalarField),
   priority: scalarField,
+})
+
+const changeShape = objectField({
+  dryRun: scalarField,
+  actions: arrayField(
+    objectField({
+      action: scalarField,
+      target: scalarField,
+      changes: scalarField,
+    }),
+  ),
+  defaults: scalarField,
 })
 
 const assigneeFlag = optionalText("assignee", "Default assignee: `me`, a user id, or `none`")
@@ -55,152 +62,157 @@ const repositoryRoot = Effect.fn("Cli.Config.repositoryRoot")(function* reposito
   return location.root
 })
 
-const showCommand = Command.make("show", {}, () =>
-  Effect.gen(function* showDefaults() {
-    const json = yield* JsonOutput
-    const fields = yield* readFields(json, yield* OutputFields)
-    const service = yield* IssueDefaultsService
-    const document = defaultsDocument(yield* service.show)
-    if (json) {
-      return yield* writeJson({ defaults: yield* selectObject(fields, defaultsShape, document) })
-    }
-    return yield* writeLine(`defaults: ${formatDefaults(document)}`)
-  }).pipe(Effect.catch(reportFailure)),
-).pipe(
-  Command.withDescription("Show the issue defaults of this repository"),
-  Command.withExamples([
-    {
-      command: "rata config show",
-      description: "Show the defaults of this repository",
-    },
-    {
-      command: "rata config show --json --fields assignee,labels",
-      description: "Read the defaults for an agent",
-    },
-  ]),
-)
+const showCommand = buildCommand(
+  defineCommand("show", {
+    summary: "Show the issue defaults of this repository",
+    examples: [
+      {
+        command: "rata config show",
+        description: "Show the defaults of this repository",
+      },
+      {
+        command: "rata config show --select assignee,labels",
+        description: "Read the defaults for an agent",
+      },
+    ],
+    input: {},
+    output: selectOutput(defaultsShape, ["defaults"]),
+    run: () =>
+      Effect.gen(function* showDefaults() {
+        const service = yield* IssueDefaultsService
+        const document = defaultsDocument(yield* service.show)
+        return {
+          kind: "resource",
+          value: { defaults: document },
+          text: [`defaults: ${formatDefaults(document)}`],
+        }
+      }),
+  }),
+).pipe(Command.withGlobalFlags([JsonOutput, OutputFields, Format, OutputSelect]))
 
-const setCommand = Command.make(
-  "set",
-  {
-    assignee: assigneeFlag,
-    label: labelFlag,
-    priority: priorityFlag,
-    dryRun: dryRunFlag,
-  },
-  (config) =>
-    Effect.gen(function* setDefaults() {
-      const json = yield* JsonOutput
-      yield* rejectFields(yield* OutputFields)
-      if (
-        Option.isNone(config.assignee) &&
-        Option.isNone(config.label) &&
-        Option.isNone(config.priority)
-      ) {
-        return yield* errorLine(
-          "validation",
-          "Pass at least one of --assignee, --label or --priority.",
-          "rata config set --assignee me --label enhancement --priority medium",
-        )
-      }
-      const service = yield* IssueDefaultsService
-      const defaults = yield* service.set({
-        assignee: Option.getOrUndefined(config.assignee),
-        labels: Option.getOrUndefined(config.label),
-        priority: Option.getOrUndefined(yield* resolvePriority(config.priority)),
-        dryRun: config.dryRun,
-      })
-      const document = defaultsDocument(defaults)
-      if (config.dryRun) {
-        const root = yield* repositoryRoot()
-        return yield* writeDryRun(
-          json,
-          [configAction("config-set", root, document)],
-          () => `Would set defaults: ${formatDefaults(document)}`,
-        )
-      }
-      if (json) {
-        return yield* writeJson({ dryRun: false, defaults: document })
-      }
-      return yield* writeLine(`Set defaults: ${formatDefaults(document)}`)
-    }).pipe(Effect.catch(reportFailure)),
-).pipe(
-  Command.withDescription("Set the issue defaults of this repository"),
-  Command.withExamples([
-    {
-      command: "rata config set --assignee me --label enhancement --priority medium",
-      description: "Apply these values to every new issue",
+const setCommand = buildCommand(
+  defineCommand("set", {
+    summary: "Set the issue defaults of this repository",
+    examples: [
+      {
+        command: "rata config set --assignee me --label enhancement --priority medium",
+        description: "Apply these values to every new issue",
+      },
+      {
+        command: "rata config set --priority high",
+        description: "Change only the default priority",
+      },
+    ],
+    input: {
+      assignee: assigneeFlag,
+      label: labelFlag,
+      priority: priorityFlag,
+      dryRun: dryRunFlag,
     },
-    {
-      command: "rata config set --priority high",
-      description: "Change only the default priority",
-    },
-  ]),
-)
+    control: (input) => ({ dryRun: input.dryRun }),
+    output: resourceOutput(changeShape),
+    run: (input, control) =>
+      Effect.gen(function* setDefaults() {
+        if (
+          Option.isNone(input.assignee) &&
+          Option.isNone(input.label) &&
+          Option.isNone(input.priority)
+        ) {
+          return yield* new TrackerError({
+            code: "validation",
+            message: "Pass at least one of --assignee, --label or --priority.",
+            hint: "rata config set --assignee me --label enhancement --priority medium",
+          })
+        }
+        const service = yield* IssueDefaultsService
+        const defaults = yield* service.set({
+          assignee: Option.getOrUndefined(input.assignee),
+          labels: Option.getOrUndefined(input.label),
+          priority: Option.getOrUndefined(yield* resolvePriority(input.priority)),
+          dryRun: control.dryRun,
+        })
+        const document = defaultsDocument(defaults)
+        if (control.dryRun) {
+          const root = yield* repositoryRoot()
+          return {
+            kind: "resource",
+            value: { dryRun: true, actions: [configAction("config-set", root, document)] },
+            text: [`Would set defaults: ${formatDefaults(document)}`],
+          }
+        }
+        return {
+          kind: "resource",
+          value: { dryRun: false, defaults: document },
+          text: [`Set defaults: ${formatDefaults(document)}`],
+        }
+      }),
+  }),
+).pipe(Command.withGlobalFlags([JsonOutput, OutputFields, Format, OutputSelect]))
 
-const unsetCommand = Command.make(
-  "unset",
-  {
-    assignee: Flag.Boolean("assignee").pipe(
-      Flag.withDescription("Clear the default assignee"),
-      Flag.withDefault(false),
-    ),
-    label: Flag.Boolean("label").pipe(
-      Flag.withDescription("Clear the default labels"),
-      Flag.withDefault(false),
-    ),
-    priority: Flag.Boolean("priority").pipe(
-      Flag.withDescription("Clear the default priority"),
-      Flag.withDefault(false),
-    ),
-    dryRun: dryRunFlag,
-  },
-  (config) =>
-    Effect.gen(function* unsetDefaults() {
-      const json = yield* JsonOutput
-      yield* rejectFields(yield* OutputFields)
-      if (!config.assignee && !config.label && !config.priority) {
-        return yield* errorLine(
-          "validation",
-          "Pass at least one of --assignee, --label or --priority.",
-          "rata config unset --label",
-        )
-      }
-      const service = yield* IssueDefaultsService
-      const defaults = yield* service.unset({
-        assignee: config.assignee,
-        labels: config.label,
-        priority: config.priority,
-        dryRun: config.dryRun,
-      })
-      const document = defaultsDocument(defaults)
-      if (config.dryRun) {
-        const root = yield* repositoryRoot()
-        return yield* writeDryRun(
-          json,
-          [configAction("config-unset", root, document)],
-          () => `Would clear the selected defaults: ${formatDefaults(document)}`,
-        )
-      }
-      if (json) {
-        return yield* writeJson({ dryRun: false, defaults: document })
-      }
-      return yield* writeLine(`Cleared the selected defaults: ${formatDefaults(document)}`)
-    }).pipe(Effect.catch(reportFailure)),
-).pipe(
-  Command.withDescription("Clear the issue defaults of this repository"),
-  Command.withExamples([
-    {
-      command: "rata config unset --label",
-      description: "Drop the default labels",
+const unsetCommand = buildCommand(
+  defineCommand("unset", {
+    summary: "Clear the issue defaults of this repository",
+    examples: [
+      {
+        command: "rata config unset --label",
+        description: "Drop the default labels",
+      },
+    ],
+    input: {
+      assignee: Flag.Boolean("assignee").pipe(
+        Flag.withDescription("Clear the default assignee"),
+        Flag.withDefault(false),
+      ),
+      label: Flag.Boolean("label").pipe(
+        Flag.withDescription("Clear the default labels"),
+        Flag.withDefault(false),
+      ),
+      priority: Flag.Boolean("priority").pipe(
+        Flag.withDescription("Clear the default priority"),
+        Flag.withDefault(false),
+      ),
+      dryRun: dryRunFlag,
     },
-  ]),
-)
+    control: (input) => ({ dryRun: input.dryRun }),
+    output: resourceOutput(changeShape),
+    run: (input, control) =>
+      Effect.gen(function* unsetDefaults() {
+        if (!input.assignee && !input.label && !input.priority) {
+          return yield* new TrackerError({
+            code: "validation",
+            message: "Pass at least one of --assignee, --label or --priority.",
+            hint: "rata config unset --label",
+          })
+        }
+        const service = yield* IssueDefaultsService
+        const defaults = yield* service.unset({
+          assignee: input.assignee,
+          labels: input.label,
+          priority: input.priority,
+          dryRun: control.dryRun,
+        })
+        const document = defaultsDocument(defaults)
+        if (control.dryRun) {
+          const root = yield* repositoryRoot()
+          return {
+            kind: "resource",
+            value: { dryRun: true, actions: [configAction("config-unset", root, document)] },
+            text: [`Would clear the selected defaults: ${formatDefaults(document)}`],
+          }
+        }
+        return {
+          kind: "resource",
+          value: { dryRun: false, defaults: document },
+          text: [`Cleared the selected defaults: ${formatDefaults(document)}`],
+        }
+      }),
+  }),
+).pipe(Command.withGlobalFlags([JsonOutput, OutputFields, Format, OutputSelect]))
 
-const configCommand = Command.make("config").pipe(
-  Command.withDescription("Show and change the issue defaults of this repository"),
-  Command.withSubcommands([showCommand, setCommand, unsetCommand]),
-  Command.withGlobalFlags([JsonOutput, OutputFields]),
-)
+const configCommand = buildGroup(
+  "config",
+  "Show and change the issue defaults of this repository",
+  [showCommand, setCommand, unsetCommand],
+).pipe(Command.withGlobalFlags([JsonOutput, OutputFields, Format, OutputSelect]))
 
 export { configCommand }

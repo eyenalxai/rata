@@ -158,7 +158,14 @@ rata --json issue list
 rata issue list --json
 ```
 
-With `--json`, every command prints one stable JSON document. A reordered table parses by header name. A headerless or incomplete
+With `--json`, every command prints one stable JSON document. The admin
+commands (`auth`, `link`, `unlink`, `workspace`, `config`, `team`, `project`,
+`label`, `status`) also accept `--format json|text`. JSON is the default when
+standard output is not a terminal, and `--format text` forces text. `--select`
+is the runner spelling for field selection on those commands. `--json` and
+`--fields` remain the 0.10 spelling during the migration.
+
+A reordered table parses by header name. A headerless or incomplete
 document is an unhealthy `docs.triage` with a warning; `status` still prints the
 rest. The first state or label resolution after a cache miss fetches the full
 team detail; later calls use the cache. With `--json`, a

@@ -96,7 +96,7 @@ describe("the write help carries the agent notes block", () => {
   test("issue update", async () => {
     const help = await helpOf(["issue", "update", "--help"])
     expect(help).toContain("AGENT NOTES")
-    expect(help).toContain("--json prints one JSON document.")
+    expect(help).toContain("--format json|text selects the output.")
     expect(help).toContain("--dry-run prints the actions without writing.")
     expect(help).toContain("--body-file - reads the body from standard input.")
     expect(help).toContain("A list returns one page. Use --all to drain every page.")

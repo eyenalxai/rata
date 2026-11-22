@@ -31,6 +31,7 @@ const cliLayer = (
     Stdio.layerTest({
       args: Effect.succeed(args),
       stdinIsTerminal: Effect.succeed(stdinIsTerminal),
+      stdoutIsTerminal: Effect.succeed(true),
     }),
     Layer.succeed(Terminal.Terminal, fakeTerminal(input)),
     Layer.succeed(

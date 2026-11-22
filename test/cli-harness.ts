@@ -11,7 +11,10 @@ import { ChildProcessSpawner } from "effect/process"
 
 import { helpLayer } from "@/cli/help"
 import { issueCommand } from "@/cli/issue"
-import { runCli } from "@/cli/run"
+import { commandGroups, createRoot } from "@/cli/registry"
+import { runCli } from "@/cli/runner"
+
+const root = createRoot(commandGroups)
 
 const terminal = Terminal.make({
   columns: Effect.succeed(80),
@@ -33,7 +36,11 @@ const cliLayer = (
   options: CliOptions = {},
 ) => {
   const { stdio, ...rest } = options
-  const stdioOptions = { ...stdio, args: Effect.succeed(args) }
+  const stdioOptions = {
+    stdoutIsTerminal: Effect.succeed(true),
+    ...stdio,
+    args: Effect.succeed(args),
+  }
   return Layer.mergeAll(
     apiLayer(handler, {
       ...rest,
@@ -63,7 +70,11 @@ const memoryCliLayer = (
   options: CliOptions = {},
 ) => {
   const { stdio, ...rest } = options
-  const stdioOptions = { ...stdio, args: Effect.succeed(args) }
+  const stdioOptions = {
+    stdoutIsTerminal: Effect.succeed(true),
+    ...stdio,
+    args: Effect.succeed(args),
+  }
   return Layer.mergeAll(
     memoryApiLayer(seed, {
       ...rest,
@@ -102,7 +113,7 @@ const runRootMemory = (
   repositories: ApiLayerOptions["repositories"] = defaultRepositories,
   options: CliOptions = {},
 ) =>
-  runCli("test").pipe(
+  runCli("test", root).pipe(
     Effect.provide(memoryCliLayer(seed, args, lines, repositories, options)),
     Effect.runPromise,
   )
@@ -133,7 +144,7 @@ const runRoot = (
   repositories: ApiLayerOptions["repositories"] = defaultRepositories,
   options: CliOptions = {},
 ) =>
-  runCli("test").pipe(
+  runCli("test", root).pipe(
     Effect.provide(cliLayer(handler, args, lines, repositories, options)),
     Effect.runPromise,
   )

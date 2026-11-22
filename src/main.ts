@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import { BunRuntime, BunServices } from "@effect/platform-bun"
 import { Effect, Layer } from "effect"
+import { Command } from "effect/cli"
 import { FetchHttpClient, HttpClient } from "effect/http"
 
 import { LinearClient } from "@/api/client"
@@ -10,8 +11,21 @@ import { LabelService } from "@/api/label"
 import { ProjectService } from "@/api/project"
 import { RepoTeam } from "@/api/repo-team"
 import { TeamService } from "@/api/team"
+import { authCommand, whoamiCommand } from "@/cli/auth"
+import { configCommand } from "@/cli/config"
 import { helpLayer } from "@/cli/help"
-import { runCli } from "@/cli/run"
+import { issueCommand, searchCommand } from "@/cli/issue"
+import { labelCommand } from "@/cli/label"
+import { linkCommand } from "@/cli/link"
+import { nextCommand } from "@/cli/next"
+import { projectCommand } from "@/cli/project"
+import { createRoot } from "@/cli/registry"
+import { runCli } from "@/cli/runner"
+import { statusCommand } from "@/cli/status"
+import { teamCommand } from "@/cli/team"
+import { unlinkCommand } from "@/cli/unlink"
+import { whyCommand } from "@/cli/why"
+import { workspaceCommand } from "@/cli/workspace"
 import { Auth } from "@/config/auth"
 import { IssueDefaultsService } from "@/config/defaults"
 import { LinkService } from "@/config/link"
@@ -100,7 +114,7 @@ const linkLayer = LinkService.layer.pipe(
 const issueWriteLayer = IssueWriteApi.layer.pipe(
   Layer.provide(Layer.mergeAll(contextResolverLayer, writerLayer)),
 )
-const appLayer = Layer.mergeAll(
+const workLayer = Layer.mergeAll(
   authLayer,
   gatewayLayer,
   clientLayer,
@@ -120,12 +134,42 @@ const appLayer = Layer.mergeAll(
   readerLayer,
   writerLayer,
   platformLayer,
-  helpLayer,
 )
 
-const program = runCli("0.10.0").pipe(
+const authAdminLayer = Layer.mergeAll(authLayer, gatewayLayer)
+const unlinkAdminLayer = Layer.mergeAll(repoConfigLayer, repoIdentityLayer)
+const configAdminLayer = Layer.mergeAll(defaultsLayer, repoIdentityLayer)
+const teamAdminLayer = Layer.mergeAll(teamLayer, repoConfigLayer, repoIdentityLayer)
+const projectAdminLayer = Layer.mergeAll(projectLayer, repoTeamLayer)
+const labelAdminLayer = Layer.mergeAll(labelLayer, repoTeamLayer)
+const statusAdminLayer = Layer.mergeAll(
+  authLayer,
+  repoConfigLayer,
+  repoIdentityLayer,
+  teamContextLayer,
+)
+const workspaceAdminLayer = Layer.mergeAll(authLayer, gatewayLayer)
+
+const root = createRoot([
+  Command.provide(authCommand, authAdminLayer),
+  Command.provide(whoamiCommand, gatewayLayer),
+  Command.provide(statusCommand, statusAdminLayer),
+  Command.provide(configCommand, configAdminLayer),
+  Command.provide(linkCommand, linkLayer),
+  Command.provide(unlinkCommand, unlinkAdminLayer),
+  Command.provide(workspaceCommand, workspaceAdminLayer),
+  Command.provide(issueCommand, workLayer),
+  Command.provide(searchCommand, workLayer),
+  Command.provide(nextCommand, workLayer),
+  Command.provide(whyCommand, workLayer),
+  Command.provide(teamCommand, teamAdminLayer),
+  Command.provide(projectCommand, projectAdminLayer),
+  Command.provide(labelCommand, labelAdminLayer),
+])
+
+const program = runCli("0.10.0", root).pipe(
   // oxlint-disable-next-line effecttsgo/strict-effect-provide -- This is the application entry point; it owns the layer graph.
-  Effect.provide(appLayer),
+  Effect.provide(Layer.mergeAll(platformLayer, helpLayer)),
 )
 
 BunRuntime.runMain(program)

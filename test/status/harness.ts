@@ -33,7 +33,7 @@ const statusLayer = (
       readFileString: (file) => Effect.succeed((options.files ?? new Map()).get(file) ?? ""),
     }),
     Path.layer,
-    Stdio.layerTest({ args: Effect.succeed(args) }),
+    Stdio.layerTest({ args: Effect.succeed(args), stdoutIsTerminal: Effect.succeed(true) }),
     Layer.succeed(Terminal.Terminal, terminal),
     Layer.succeed(
       ChildProcessSpawner.ChildProcessSpawner,
