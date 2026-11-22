@@ -23,9 +23,13 @@ type MemoryIssue = {
   readonly comments?: readonly IssueComment[] | undefined
 }
 
+type MemoryMember = TeamMember & {
+  readonly active?: boolean | undefined
+}
+
 type MemoryTeam = Team & {
   readonly states?: readonly TeamState[] | undefined
-  readonly members?: readonly TeamMember[] | undefined
+  readonly members?: readonly MemoryMember[] | undefined
   readonly labels?: readonly TeamLabel[] | undefined
   readonly priorities?: readonly TeamPriority[] | undefined
 }
@@ -41,12 +45,22 @@ type MemoryProject = Project & {
   readonly teams?: readonly TeamId[] | undefined
 }
 
+type MemoryWorkspace = {
+  readonly viewer?: Viewer | undefined
+  readonly teams?: readonly MemoryTeam[] | undefined
+  readonly labels?: readonly MemoryLabel[] | undefined
+  readonly projects?: readonly MemoryProject[] | undefined
+  readonly issues?: readonly MemoryIssue[] | undefined
+}
+
 type MemorySeed = {
   readonly viewer: Viewer
   readonly teams: readonly MemoryTeam[]
   readonly labels: readonly MemoryLabel[]
   readonly projects?: readonly MemoryProject[] | undefined
   readonly issues?: readonly MemoryIssue[] | undefined
+  readonly rejectedKeys?: readonly string[] | undefined
+  readonly workspaces?: Readonly<Record<string, MemoryWorkspace>> | undefined
 }
 
 const defaultPriorities: readonly TeamPriority[] = [
@@ -61,7 +75,9 @@ export {
   defaultPriorities,
   type MemoryIssue,
   type MemoryLabel,
+  type MemoryMember,
   type MemoryProject,
   type MemorySeed,
   type MemoryTeam,
+  type MemoryWorkspace,
 }

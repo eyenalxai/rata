@@ -1,34 +1,32 @@
-import type { Handler } from "@test/fake-linear/model"
+import type { MemorySeed } from "@test/fake-linear/gateway/model"
 
-import { apiLayer } from "@test/fake-linear"
-import { readRequest } from "@test/fake-linear/model"
+import { memoryApiLayer } from "@test/fake-linear/memory-layer"
 import { describe, expect, test } from "bun:test"
-import { Effect, Result } from "effect"
+import { Effect, Option, Result, Schema } from "effect"
 
 import { collectWorkspaces } from "@/cli/workspace"
+import { Viewer } from "@/linear/decode/viewer"
 
-const viewer = {
-  id: "user-1",
-  name: "Good User",
-  displayName: "good",
-  email: "good@example.com",
-  active: true,
-  admin: false,
-  organization: { id: "org-1", name: "Good Org", urlKey: "good" },
+const viewer = Option.getOrThrow(
+  Schema.decodeUnknownOption(Viewer)({
+    id: "user-1",
+    name: "Good User",
+    displayName: "good",
+    email: "good@example.com",
+    active: true,
+    admin: false,
+    organization: { id: "org-1", name: "Good Org", urlKey: "good" },
+  }),
+)
+
+const seed: MemorySeed = {
+  viewer,
+  teams: [],
+  labels: [],
+  rejectedKeys: ["bad-key"],
 }
 
-const handler: Handler = (request) => {
-  const { query } = readRequest(request)
-  if (!query.includes("Viewer")) {
-    throw new Error(`Unexpected query: ${query}`)
-  }
-  if (request.headers.authorization === "good-key") {
-    return Response.json({ data: { viewer } })
-  }
-  return Response.json({ errors: [{ message: "Authentication required" }] }, { status: 401 })
-}
-
-const layer = apiLayer(handler, {
+const layer = memoryApiLayer(seed, {
   profiles: [
     { name: "good", apiKey: "good-key", isDefault: true },
     { name: "bad", apiKey: "bad-key" },
@@ -47,5 +45,8 @@ describe("workspace list", () => {
     expect(Result.isSuccess(good.result)).toBe(true)
     expect(Result.isSuccess(good.result) ? good.result.success.name : undefined).toBe("Good User")
     expect(Result.isFailure(bad.result)).toBe(true)
+    expect(Result.isFailure(bad.result) ? bad.result.failure._tag : undefined).toBe(
+      "LinearAuthError",
+    )
   })
 })

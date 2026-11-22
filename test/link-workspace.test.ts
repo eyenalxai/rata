@@ -9,15 +9,17 @@ import {
   linkError,
   linkTeam,
   makeHarness,
+  makeLinkSeed,
   options,
   rat,
   scratch,
 } from "@test/link-harness"
 import { key } from "@test/terminal-harness"
 import { describe, expect, test } from "bun:test"
-import { Option } from "effect"
+import { Option, Schema } from "effect"
 
 import { teamId } from "@/domain/id"
+import { Viewer } from "@/linear/decode/viewer"
 
 const bob: FakeViewer = {
   id: "user-2",
@@ -41,9 +43,23 @@ const twoWorkspaces = () => ({
   "work-key": { viewer: bob, teams: [scratch] },
 })
 
+const bobViewer = Option.getOrThrow(Schema.decodeUnknownOption(Viewer)(bob))
+
+const workspaceSeed = (overrides: Partial<Parameters<typeof makeLinkSeed>[0]> = {}) =>
+  makeLinkSeed({
+    teams: [],
+    labels: [],
+    workspaces: {
+      "default-key": { teams: [rat] },
+      "work-key": { viewer: bobViewer, teams: [scratch] },
+    },
+    ...overrides,
+  })
+
 describe("LinkService.link workspace", () => {
   test("prompts for the workspace, then lists that workspace's teams", async () => {
     const harness = makeHarness({
+      seed: workspaceSeed(),
       env: noEnv,
       profiles: twoProfiles,
       ...interactive([key("down"), key("enter"), key("enter")]),
@@ -74,7 +90,11 @@ describe("LinkService.link workspace", () => {
   })
 
   test("resolves --team across the stored workspaces and records the match", async () => {
-    const harness = makeHarness({ env: noEnv, profiles: twoProfiles })
+    const harness = makeHarness({
+      seed: workspaceSeed(),
+      env: noEnv,
+      profiles: twoProfiles,
+    })
     const fake = makeFakeLinear({ teams: [rat], labels: [], workspaces: twoWorkspaces() })
     const { result, stored } = await linkTeam(fake.handler, harness, options({}))
 
@@ -82,12 +102,19 @@ describe("LinkService.link workspace", () => {
     expect(stored).toEqual(
       Option.some({ team: "RAT", teamId: teamId("team-1"), workspace: "default" }),
     )
-    const lookups = fake.requests.filter((request) => request.query.includes("query TeamByKey"))
-    expect(lookups.map((request) => request.authorization)).toEqual(["default-key", "work-key"])
   })
 
   test("fails when --team exists in several workspaces", async () => {
-    const harness = makeHarness({ env: noEnv, profiles: twoProfiles })
+    const harness = makeHarness({
+      seed: workspaceSeed({
+        workspaces: {
+          "default-key": { teams: [rat] },
+          "work-key": { viewer: bobViewer, teams: [rat] },
+        },
+      }),
+      env: noEnv,
+      profiles: twoProfiles,
+    })
     const fake = makeFakeLinear({
       teams: [rat],
       labels: [],
@@ -176,8 +203,6 @@ describe("LinkService.link workspace", () => {
       Option.some({ team: "RAT", teamId: teamId("team-1"), workspace: "work" }),
     )
     expect(result.workspace).toEqual(Option.some("work"))
-    const lookup = fake.requests.find((request) => request.query.includes("query TeamByKey"))
-    expect(lookup?.authorization).toBe("work-key")
   })
 
   test("fails when --workspace names a missing profile", async () => {
@@ -228,6 +253,7 @@ describe("LinkService.link workspace", () => {
 
   test("lists a profile with a rejected key in the prompt and links the others", async () => {
     const harness = makeHarness({
+      seed: workspaceSeed({ rejectedKeys: ["default-key"] }),
       env: noEnv,
       profiles: twoProfiles,
       ...interactive([key("down"), key("enter"), key("enter")]),

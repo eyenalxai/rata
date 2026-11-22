@@ -20,7 +20,7 @@ import { makeTeamOperations } from "@/linear/operations/team"
 import { makeUserOperations } from "@/linear/operations/user"
 
 type LinearGatewayShape = {
-  // Write services keep the raw transport until the write seam moves; reads use the typed operations.
+  // The client is the single raw transport: LinearClient adapts it for writes, reads use the typed operations.
   readonly client: LinearClientShape
   readonly viewer: Effect.Effect<Viewer, LinearApiError>
   readonly viewerWithKey: (apiKey: Redacted.Redacted) => Effect.Effect<Viewer, LinearApiError>

@@ -15,12 +15,10 @@ import {
   Schema,
 } from "effect"
 
-import type { DatabaseError } from "@/db/database"
-
 import { AuthStoreError } from "@/config/auth/error"
 import { makeConfigHome } from "@/config/auth/home"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
-import { Database } from "@/db/database"
+import { Database, DatabaseError } from "@/db/database"
 import { profiles } from "@/db/schema"
 import { normalize, StoredAuthJson } from "@/domain/auth"
 
@@ -154,10 +152,19 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
           })
         }
         const requested = Option.flatMap(
-          yield* Effect.mapError(
-            repoConfig.read(yield* currentDirectory),
-            (error) => new AuthStoreError({ message: error.message, cause: error.cause }),
-          ),
+          yield* repoConfig
+            .read(yield* currentDirectory)
+            .pipe(
+              Effect.catchTag(
+                "RepoConfigError",
+                (error): Effect.Effect<never, AuthStoreError | DatabaseError> =>
+                  Schema.is(DatabaseError)(error.cause)
+                    ? Effect.fail(error.cause)
+                    : Effect.fail(
+                        new AuthStoreError({ message: error.message, cause: error.cause }),
+                      ),
+              ),
+            ),
           (config) => Option.fromUndefinedOr(config.workspace),
         )
         const stored = yield* loadRows()

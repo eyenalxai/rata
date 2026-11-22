@@ -32,4 +32,6 @@ const showFields = {
 
 const listRelationFields = relationFields(maxPageSize)
 
-export { attachmentFields, listRelationFields, showFields, summaryFields }
+const commentFields = `id body createdAt user { id name displayName }`
+
+export { attachmentFields, commentFields, listRelationFields, showFields, summaryFields }

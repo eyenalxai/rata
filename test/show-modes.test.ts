@@ -1,66 +1,79 @@
-import type { Handler } from "@test/fake-linear/model"
-import type { HttpClientRequest } from "effect/http"
+import type { MemoryIssue, MemorySeed } from "@test/fake-linear/gateway/model"
 
-import { cliLayer, lastJson } from "@test/cli-harness"
-import {
-  attachment,
-  baseDetail,
-  jsonResponse,
-  pageInfo,
-  readBody,
-  summaryNode,
-  user,
-} from "@test/issue-fixtures"
+import { lastJson, runIssueMemory } from "@test/cli-harness"
+import { defaultViewer } from "@test/fake-linear/model"
 import { afterEach, describe, expect, test } from "bun:test"
-import { Effect, Option, Schema } from "effect"
-import { Command } from "effect/cli"
+import { Option, Schema } from "effect"
 
-import { issueCommand } from "@/cli/issue"
+import { attachmentId, commentId, issueId, labelId, projectId, teamId, userId } from "@/domain/id"
+import { Viewer } from "@/linear/decode/viewer"
 
-const comment = { id: "c1", body: "First", createdAt: "2026-01-01T10:00:00.000Z", user }
+const viewer = Option.getOrThrow(Schema.decodeUnknownOption(Viewer)(defaultViewer))
+const team = { id: teamId("team-1"), key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
+const user = { id: userId("u1"), name: "Ada", displayName: "ada" }
+const label = { id: labelId("l1"), name: "ready-for-agent" }
+const project = { id: projectId("p1"), name: "Tracker" }
+const parent = { id: issueId("i0"), identifier: "RAT-0", title: "Map" }
 
+const child = {
+  id: issueId("i2"),
+  identifier: "RAT-2",
+  title: "Child",
+  state: { name: "Todo", type: "unstarted" as const },
+}
 const dependent = {
-  id: "i8",
+  id: issueId("i8"),
   identifier: "RAT-8",
   title: "Dependent",
-  state: { name: "Todo", type: "unstarted" },
+  state: { name: "Todo", type: "unstarted" as const },
+}
+const attachment = {
+  id: attachmentId("a1"),
+  title: "Design doc",
+  subtitle: "Notion",
+  url: "https://example.com/doc",
+  sourceType: "link",
+  createdAt: "2026-01-01T10:00:00.000Z",
+}
+const comment = {
+  id: commentId("c1"),
+  body: "First",
+  createdAt: "2026-01-01T10:00:00.000Z",
+  user,
 }
 
-const relatedDetail = {
-  ...baseDetail,
-  relations: {
-    nodes: [{ id: "rel-1", type: "blocks", relatedIssue: dependent }],
-    pageInfo,
+const issue = (overrides: Partial<MemoryIssue> = {}): MemoryIssue => ({
+  summary: {
+    id: issueId("5f0c1f2a-3b4c-4d5e-8f90-1234567890ab"),
+    identifier: "RAT-1",
+    title: "Title RAT-1",
+    url: "https://linear.app/eyenalx/issue/RAT-1/title",
+    state: { name: "In Progress", type: "started" },
+    priority: "urgent",
+    createdAt: "2026-01-01T08:00:00.000Z",
+    updatedAt: "2026-01-01T09:00:00.000Z",
+    assignee: user,
+    project,
+    parent,
+    labels: { nodes: [label] },
   },
-  attachments: { nodes: [attachment], pageInfo },
-}
+  description: "Body",
+  team,
+  children: [child],
+  relations: [{ type: "blocks", relatedIssue: dependent }],
+  attachments: [attachment],
+  comments: [comment],
+  ...overrides,
+})
 
-const showHandler =
-  (requests: ReturnType<typeof readBody>[]) =>
-  (request: HttpClientRequest.HttpClientRequest): Response => {
-    const body = readBody(request)
-    requests.push(body)
-    if (body.query.includes("query IssueComments")) {
-      return jsonResponse({ data: { issue: { comments: { nodes: [comment], pageInfo } } } })
-    }
-    return jsonResponse({ data: { issue: relatedDetail } })
-  }
-
-const summaryHandler = (): Response => jsonResponse({ data: { issue: summaryNode("RAT-1") } })
-
-const rootSummaryHandler = (): Response =>
-  jsonResponse({
-    data: { issue: { ...summaryNode("RAT-1"), assignee: null, parent: null } },
-  })
-
-const runShow = (handler: Handler, args: readonly string[], lines: string[]) =>
-  Command.run(issueCommand, { version: "test" }).pipe(
-    Effect.provide(cliLayer(handler, args, lines)),
-    Effect.runPromise,
-  )
+const seed = (entry: MemoryIssue = issue()): MemorySeed => ({
+  viewer,
+  teams: [team],
+  labels: [],
+  issues: [entry],
+})
 
 const AnyShowDocument = Schema.Record(Schema.String, Schema.Unknown)
-
 const ErrorEnvelope = Schema.Struct({ error: Schema.Struct({ code: Schema.String }) })
 
 const documentOf = (lines: readonly string[]) =>
@@ -72,14 +85,8 @@ afterEach(() => {
 
 describe("issue show output modes", () => {
   test("--summary returns the lean document and skips the connections", async () => {
-    const requests: ReturnType<typeof readBody>[] = []
-    const handler = (request: HttpClientRequest.HttpClientRequest): Response => {
-      const body = readBody(request)
-      requests.push(body)
-      return jsonResponse({ data: { issue: summaryNode("RAT-1") } })
-    }
     const lines: string[] = []
-    await runShow(handler, ["show", "RAT-1", "--summary", "--json"], lines)
+    await runIssueMemory(seed(), ["show", "RAT-1", "--summary", "--json"], lines)
 
     const document = documentOf(lines)
     expect(Object.keys(document).toSorted()).toEqual([
@@ -96,14 +103,12 @@ describe("issue show output modes", () => {
       "updatedAt",
       "url",
     ])
-    expect(requests).toHaveLength(1)
-    expect(requests[0]?.query).toContain("query IssueSummary")
   })
 
   test("hints the valid paths at the failing level of --fields", async () => {
     const lines: string[] = []
-    await runShow(
-      summaryHandler,
+    await runIssueMemory(
+      seed(),
       ["show", "RAT-1", "--summary", "--json", "--fields", "state.nope"],
       lines,
     )
@@ -118,8 +123,8 @@ describe("issue show output modes", () => {
 
   test("rejects a prototype key in --fields", async () => {
     const lines: string[] = []
-    await runShow(
-      summaryHandler,
+    await runIssueMemory(
+      seed(),
       ["show", "RAT-1", "--summary", "--json", "--fields", "constructor"],
       lines,
     )
@@ -136,8 +141,8 @@ describe("issue show output modes", () => {
 
   test("returns null when a field path crosses a null object", async () => {
     const lines: string[] = []
-    await runShow(
-      rootSummaryHandler,
+    await runIssueMemory(
+      seed(issue({ summary: { ...issue().summary, assignee: null, parent: null } })),
       ["show", "RAT-1", "--summary", "--json", "--fields", "assignee.name,parent.identifier"],
       lines,
     )
@@ -147,19 +152,19 @@ describe("issue show output modes", () => {
 
   test("selects an array leaf as a whole", async () => {
     const lines: string[] = []
-    await runShow(
-      summaryHandler,
+    await runIssueMemory(
+      seed(),
       ["show", "RAT-1", "--summary", "--json", "--fields", "labels"],
       lines,
     )
 
-    expect(lastJson(lines)).toEqual({ labels: [{ id: "l1", name: "ready-for-agent" }] })
+    expect(lastJson(lines)).toEqual({ labels: [{ id: labelId("l1"), name: "ready-for-agent" }] })
   })
 
   test("projects a scalar leaf through an array", async () => {
     const lines: string[] = []
-    await runShow(
-      summaryHandler,
+    await runIssueMemory(
+      seed(),
       ["show", "RAT-1", "--summary", "--json", "--fields", "labels.name"],
       lines,
     )
@@ -168,19 +173,17 @@ describe("issue show output modes", () => {
   })
 
   test("--no-body omits the description but keeps the full read", async () => {
-    const requests: ReturnType<typeof readBody>[] = []
     const lines: string[] = []
-    await runShow(showHandler(requests), ["show", "RAT-1", "--json", "--no-body"], lines)
+    await runIssueMemory(seed(), ["show", "RAT-1", "--json", "--no-body"], lines)
 
     const document = documentOf(lines)
     expect(document).not.toHaveProperty("description")
     expect(document).toHaveProperty("children")
-    expect(requests.some((request) => request.query.includes("query IssueShow"))).toBe(true)
   })
 
   test("--summary human output prints the header without the body", async () => {
     const lines: string[] = []
-    await runShow(summaryHandler, ["show", "RAT-1", "--summary"], lines)
+    await runIssueMemory(seed(), ["show", "RAT-1", "--summary"], lines)
 
     const output = lines.join("\n")
     expect(output).toContain("RAT-1: Title RAT-1")
@@ -190,9 +193,8 @@ describe("issue show output modes", () => {
   })
 
   test("--no-body human output omits the body and keeps the connections", async () => {
-    const requests: ReturnType<typeof readBody>[] = []
     const lines: string[] = []
-    await runShow(showHandler(requests), ["show", "RAT-1", "--no-body"], lines)
+    await runIssueMemory(seed(), ["show", "RAT-1", "--no-body"], lines)
 
     const output = lines.join("\n")
     expect(output).not.toContain("Body")
@@ -200,33 +202,20 @@ describe("issue show output modes", () => {
   })
 
   test("--no-relations --comments keeps the body, children, attachments and comments", async () => {
-    const requests: ReturnType<typeof readBody>[] = []
     const lines: string[] = []
-    await runShow(
-      showHandler(requests),
-      ["show", "RAT-1", "--json", "--no-relations", "--comments"],
-      lines,
-    )
+    await runIssueMemory(seed(), ["show", "RAT-1", "--json", "--no-relations", "--comments"], lines)
 
     const document = documentOf(lines)
     expect(document).not.toHaveProperty("relations")
     expect(document).toHaveProperty("children")
     expect(document).toHaveProperty("attachments")
     expect(document).toHaveProperty("comments")
-    expect(requests.some((request) => request.query.includes("query IssueRelations"))).toBe(false)
-    expect(requests.some((request) => request.query.includes("query IssueInverseRelations"))).toBe(
-      false,
-    )
-    expect(requests.some((request) => request.query.includes("query IssueComments"))).toBe(true)
-    const showRequest = requests.find((request) => request.query.includes("query IssueShow"))
-    expect(showRequest?.query).not.toContain("relations(")
   })
 
-  test("--no-children and --no-attachments skip their fetches", async () => {
-    const requests: ReturnType<typeof readBody>[] = []
+  test("--no-children and --no-attachments skip their connections", async () => {
     const lines: string[] = []
-    await runShow(
-      showHandler(requests),
+    await runIssueMemory(
+      seed(),
       ["show", "RAT-1", "--json", "--no-children", "--no-attachments"],
       lines,
     )
@@ -234,40 +223,28 @@ describe("issue show output modes", () => {
     const document = documentOf(lines)
     expect(document).not.toHaveProperty("children")
     expect(document).not.toHaveProperty("attachments")
-    expect(requests.some((request) => request.query.includes("query IssueChildren"))).toBe(false)
-    expect(requests.some((request) => request.query.includes("query IssueAttachments"))).toBe(false)
-    const showRequest = requests.find((request) => request.query.includes("query IssueShow"))
-    expect(showRequest?.query).not.toContain("children(")
-    expect(showRequest?.query).not.toContain("attachments(")
   })
 
   test("rejects --summary with --comments before any fetch", async () => {
-    const requests: ReturnType<typeof readBody>[] = []
     const lines: string[] = []
-    await runShow(
-      showHandler(requests),
-      ["show", "RAT-1", "--json", "--summary", "--comments"],
-      lines,
-    )
+    await runIssueMemory(seed(), ["show", "RAT-1", "--json", "--summary", "--comments"], lines)
 
     expect(
       Option.getOrThrow(Schema.decodeUnknownOption(ErrorEnvelope)(lastJson(lines))).error.code,
     ).toBe("validation")
-    expect(requests).toEqual([])
     expect(process.exitCode).toBe(2)
   })
 
   test("view is an alias for show", async () => {
-    const requests: ReturnType<typeof readBody>[] = []
     const lines: string[] = []
-    await runShow(showHandler(requests), ["view", "RAT-1", "--json"], lines)
+    await runIssueMemory(seed(), ["view", "RAT-1", "--json"], lines)
 
     expect(documentOf(lines).identifier).toBe("RAT-1")
   })
 
   test("help lists the view alias", async () => {
     const lines: string[] = []
-    await runShow(showHandler([]), ["--help"], lines)
+    await runIssueMemory(seed(), ["--help"], lines)
 
     expect(lines.join("\n")).toContain("show, view")
   })

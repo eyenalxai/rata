@@ -1,5 +1,6 @@
 import {
   attachmentFields,
+  commentFields,
   listRelationFields,
   showFields,
   summaryFields,
@@ -100,8 +101,6 @@ const labelsQuery = `query IssueLabels($id: String!, $first: Int!, $after: Strin
   }
 }`
 
-const commentFields = `id body createdAt user { id name displayName }`
-
 const commentsQuery = `query IssueComments($id: String!, $first: Int!, $after: String) {
   issue(id: $id) {
     comments(first: $first, after: $after, orderBy: createdAt) {
@@ -123,7 +122,6 @@ const attachmentsQuery = `query IssueAttachments($id: String!, $first: Int!, $af
 export {
   attachmentsQuery,
   childrenQuery,
-  commentFields,
   commentsQuery,
   issueIdQuery,
   issueSummaryQuery,

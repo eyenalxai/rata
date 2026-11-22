@@ -1,6 +1,4 @@
-import { summaryFields } from "@/linear/documents/issue/fields"
-
-const commentFields = `id body createdAt user { id name displayName }`
+import { commentFields, summaryFields } from "@/linear/documents/issue/fields"
 
 const createIssueMutation = `mutation CreateIssue($input: IssueCreateInput!) {
   issueCreate(input: $input) {

@@ -8,14 +8,14 @@ import type {
 
 import { byPriority, matchesIssue, toDetail, withRelations } from "@test/fake-linear/gateway/issue"
 import { defaultPriorities } from "@test/fake-linear/gateway/model"
-import { Effect, Layer } from "effect"
+import { Effect, Layer, Redacted } from "effect"
 
 import type { Connection } from "@/linear/connection"
 import type { TeamDetail } from "@/linear/decode/team"
 import type { LinearGatewayShape } from "@/linear/gateway"
 
 import { isUuid } from "@/domain/id"
-import { LinearGraphQLError } from "@/linear/errors"
+import { LinearAuthError, LinearGraphQLError } from "@/linear/errors"
 import { LinearGateway } from "@/linear/gateway"
 
 const paginate = <A extends { readonly id: string }>(
@@ -74,7 +74,9 @@ const teamDetail = (team: MemoryTeam, labels: readonly MemoryLabel[]): TeamDetai
         color: label.color,
         scope: label.teamId === null ? ("workspace" as const) : ("team" as const),
       })),
-  members: [...(team.members ?? [])],
+  members: (team.members ?? [])
+    .filter((member) => member.active !== false)
+    .map(({ active: _active, ...member }) => member),
   priorities: [...(team.priorities ?? defaultPriorities)].toSorted(
     (left, right) => left.priority - right.priority,
   ),
@@ -100,19 +102,29 @@ const makeMemoryGateway = (seed: MemorySeed): LinearGatewayShape => {
   const executeWithKey = (() =>
     Effect.fail(unsupported())) as LinearGatewayShape["client"]["executeWithKey"]
   const viewer = Effect.succeed(seed.viewer)
+  const rejectedKeys = new Set<string>(seed.rejectedKeys)
+
+  const workspaceFor = (apiKey: Redacted.Redacted) => seed.workspaces?.[Redacted.value(apiKey)]
+
+  const viewerWithKey = (apiKey: Redacted.Redacted) => {
+    const workspace = workspaceFor(apiKey)
+    return rejectedKeys.has(Redacted.value(apiKey))
+      ? Effect.fail(new LinearAuthError({ message: "Linear rejected the API key.", status: 401 }))
+      : Effect.succeed(workspace?.viewer ?? seed.viewer)
+  }
 
   const client: LinearGatewayShape["client"] = {
     execute,
     executeWithKey,
     viewer,
-    viewerWithKey: () => viewer,
+    viewerWithKey,
     withKey: () => client,
   }
 
   const gateway: LinearGatewayShape = {
     client,
     viewer,
-    viewerWithKey: () => viewer,
+    viewerWithKey,
     issue: {
       id: (ref) => requireIssue(String(ref)).pipe(Effect.map((issue) => issue.summary.id)),
       summary: (ref) => requireIssue(String(ref)).pipe(Effect.map((issue) => issue.summary)),
@@ -201,7 +213,24 @@ const makeMemoryGateway = (seed: MemorySeed): LinearGatewayShape => {
         return Effect.succeed(known ? id : undefined)
       },
     },
-    withKey: () => gateway,
+    withKey: (apiKey) => {
+      const workspace = workspaceFor(apiKey)
+      if (workspace === undefined) {
+        return gateway
+      }
+      return makeMemoryGateway({
+        viewer: workspace.viewer ?? seed.viewer,
+        teams: workspace.teams ?? seed.teams,
+        labels: workspace.labels ?? seed.labels,
+        ...((workspace.projects ?? seed.projects) === undefined
+          ? {}
+          : { projects: workspace.projects ?? seed.projects ?? [] }),
+        ...((workspace.issues ?? seed.issues) === undefined
+          ? {}
+          : { issues: workspace.issues ?? seed.issues ?? [] }),
+        ...(seed.rejectedKeys === undefined ? {} : { rejectedKeys: seed.rejectedKeys }),
+      })
+    },
   }
   return gateway
 }

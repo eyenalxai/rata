@@ -20,7 +20,7 @@ import { RepositoryIdentity } from "@/config/repo-identity"
 import { TeamContext } from "@/context/team"
 import { Database } from "@/db/database"
 import { makeClient } from "@/linear/client"
-import { LinearAuthError } from "@/linear/errors"
+import { LinearAuthError, LinearInternalError } from "@/linear/errors"
 import { LinearGateway, makeLinearGateway } from "@/linear/gateway"
 import { ContextCache } from "@/local/context-cache"
 
@@ -41,7 +41,12 @@ const gatewayLayer = Layer.effect(
     const key = () =>
       auth.require.pipe(
         Effect.map((resolved) => resolved.key),
-        Effect.mapError((error) => new LinearAuthError({ message: error.message, cause: error })),
+        Effect.catchTags({
+          AuthStoreError: (error) =>
+            Effect.fail(new LinearAuthError({ message: error.message, cause: error })),
+          DatabaseError: (error) =>
+            Effect.fail(new LinearInternalError({ message: error.message, cause: error })),
+        }),
       )
     return LinearGateway.of(makeLinearGateway(makeClient(http, key)))
   }),

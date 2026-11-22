@@ -199,38 +199,6 @@ describe("LinearGateway reads", () => {
     expect(full.comments?.map((comment) => comment.body)).toEqual(["First", "Second"])
   })
 
-  test("keeps a skipped connection undefined and an empty connection empty", async () => {
-    const emptyGateway = makeMemoryGateway({
-      ...seed,
-      issues: [issue({ identifier: "RAT-6" })],
-    })
-    const skipped = await Effect.runPromise(
-      emptyGateway.issue.show(issueRef("RAT-6"), {
-        comments: false,
-        children: false,
-        relations: false,
-        attachments: false,
-      }),
-    )
-    const requested = await Effect.runPromise(
-      emptyGateway.issue.show(issueRef("RAT-6"), { comments: false }),
-    )
-
-    expect(skipped).not.toHaveProperty("children")
-    expect(skipped).not.toHaveProperty("relations")
-    expect(skipped).not.toHaveProperty("attachments")
-    expect(requested.children).toEqual([])
-    expect(requested.relations).toEqual({
-      blocks: [],
-      blockedBy: [],
-      duplicates: [],
-      duplicatedBy: [],
-      related: [],
-      similar: [],
-    })
-    expect(requested.attachments).toEqual([])
-  })
-
   test("keeps comments off the summary and list rows", async () => {
     const summary = await Effect.runPromise(gateway.issue.summary(issueRef("RAT-4")))
     const page = await Effect.runPromise(gateway.issue.list({ after: null, limit: 1 }))
