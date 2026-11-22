@@ -9,7 +9,6 @@ import { ConfigProvider, Effect, FileSystem, Layer, Path, Stdio } from "effect"
 import type { LinearGatewayShape } from "@/linear/gateway"
 
 import { LinearClient } from "@/api/client"
-import { IssueApi } from "@/api/issue"
 import { IssueWriteApi } from "@/api/issue-write"
 import { LabelService } from "@/api/label"
 import { ProjectService } from "@/api/project"
@@ -76,7 +75,6 @@ const memoryApiLayer = (seed: MemorySeed, options: MemoryLayerOptions = {}) => {
   )
   const reader = IssueReader.layer.pipe(Layer.provide(Layer.mergeAll(gateway, contextResolver)))
   const writer = IssueWriter.layer.pipe(Layer.provide(Layer.mergeAll(gateway, contextResolver)))
-  const issue = IssueApi.layer.pipe(Layer.provide(Layer.mergeAll(contextResolver, reader)))
   const issueWrite = IssueWriteApi.layer.pipe(
     Layer.provide(Layer.mergeAll(contextResolver, writer)),
   )
@@ -100,7 +98,6 @@ const memoryApiLayer = (seed: MemorySeed, options: MemoryLayerOptions = {}) => {
     writer,
     labels,
     projects,
-    issue,
     repoConfig,
     identity,
     defaults,

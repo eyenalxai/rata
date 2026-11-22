@@ -126,7 +126,7 @@ describe("the exit code map", () => {
 describe("the process exit code", () => {
   test("a bad flag exits 2 with a usage error object", async () => {
     const lines: string[] = []
-    await runRoot(unusedHandler, ["issue", "show", "--bogus", "--json"], lines)
+    await runRoot(unusedHandler, ["issue", "RAT-1", "--bogus", "--format", "json"], lines)
 
     expect(process.exitCode).toBe(2)
     expect(JSON.parse(lines.at(-1) ?? "")).toMatchObject({
@@ -156,13 +156,13 @@ describe("the process exit code", () => {
   })
 
   test("a bad limit exits 2", async () => {
-    await runIssue(unusedHandler, ["list", "--limit", "0", "--json"], [])
+    await runIssue(unusedHandler, ["list", "--limit", "0", "--format", "json"], [])
 
     expect(process.exitCode).toBe(2)
   })
 
   test("a missing issue exits 3", async () => {
-    await runIssue(graphqlErrors("Entity not found: Issue"), ["show", "RAT-404", "--json"], [])
+    await runIssue(graphqlErrors("Entity not found: Issue"), ["RAT-404", "--format", "json"], [])
 
     expect(process.exitCode).toBe(3)
   })
@@ -203,13 +203,13 @@ describe("the process exit code", () => {
   })
 
   test("a rate limit exits 6", async () => {
-    await runIssue(rateLimited, ["show", "RAT-1", "--json"], [])
+    await runIssue(rateLimited, ["RAT-1", "--format", "json"], [])
 
     expect(process.exitCode).toBe(6)
   })
 
   test("an unexpected failure exits 1", async () => {
-    await runIssue(graphqlErrors("Something broke"), ["show", "RAT-1", "--json"], [])
+    await runIssue(graphqlErrors("Something broke"), ["RAT-1", "--format", "json"], [])
 
     expect(process.exitCode).toBe(1)
   })

@@ -63,11 +63,6 @@ const IssueLabelConnection = Schema.Struct({
   pageInfo: PageInfo,
 })
 
-const IssueChildConnection = Schema.Struct({
-  nodes: Schema.Array(IssueChild),
-  pageInfo: PageInfo,
-})
-
 const IssueRelation = Schema.Struct({
   id: RelationId,
   type: RelationTypeSchema,
@@ -141,40 +136,12 @@ const BulkTargetNode = Schema.Struct({
   team: Schema.Struct({ id: TeamId }),
 })
 
-const IssueDetailNode = Schema.Struct({
-  id: IssueId,
-  identifier: Schema.String,
-  title: Schema.String,
-  description: Schema.NullOr(Schema.String),
-  url: Schema.String,
-  state: IssueState,
-  priority: PriorityFromValue,
-  createdAt: Schema.String,
-  updatedAt: Schema.String,
-  assignee: Schema.NullOr(IssueUser),
-  project: Schema.NullOr(IssueProject),
-  parent: Schema.NullOr(IssueParent),
-  team: IssueTeam,
-  labels: IssueLabelConnection,
-  children: Schema.optional(IssueChildConnection),
-  relations: Schema.optional(IssueRelationConnection),
-  inverseRelations: Schema.optional(IssueInverseRelationConnection),
-  attachments: Schema.optional(IssueAttachmentConnection),
-})
-type IssueDetailNode = typeof IssueDetailNode.Type
-
-const ShowResponse = Schema.Struct({ issue: IssueDetailNode })
-
 const IssueIdResponse = Schema.Struct({ issue: Schema.Struct({ id: IssueId }) })
 
 const IssueSummaryResponse = Schema.Struct({ issue: IssueSummaryNode })
 
 const IssueTeamResponse = Schema.Struct({
   issue: Schema.Struct({ team: Schema.Struct({ id: TeamId }) }),
-})
-
-const ChildrenResponse = Schema.Struct({
-  issue: Schema.Struct({ children: IssueChildConnection }),
 })
 
 const BulkTargetsResponse = Schema.Struct({
@@ -236,7 +203,6 @@ export {
   AddLabelResponse,
   AttachmentsResponse,
   BulkTargetsResponse,
-  ChildrenResponse,
   CommentByIdResponse,
   CommentsResponse,
   CreateCommentResponse,
@@ -244,10 +210,11 @@ export {
   CreateRelationResponse,
   DeleteCommentResponse,
   DeleteRelationResponse,
+  IssueAttachmentConnection,
   type IssueAttachment,
   type IssueChild,
   type IssueComment,
-  IssueDetailNode,
+  IssueCommentConnection,
   IssueIdResponse,
   type IssueInverseRelation,
   IssueInverseRelationConnection,
@@ -264,7 +231,6 @@ export {
   type IssueUser,
   LabelsResponse,
   RemoveLabelResponse,
-  ShowResponse,
   UpdateCommentResponse,
   UpdateIssueResponse,
   type WorkflowState,

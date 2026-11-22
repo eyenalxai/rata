@@ -6,7 +6,7 @@ import type {
   MemoryTeam,
 } from "@test/fake-linear/gateway/model"
 
-import { byPriority, matchesIssue, toDetail, withRelations } from "@test/fake-linear/gateway/issue"
+import { byPriority, matchesIssue, toWorking, withRelations } from "@test/fake-linear/gateway/issue"
 import { defaultPriorities } from "@test/fake-linear/gateway/model"
 import { Effect, Layer, Option, Redacted, Schema } from "effect"
 
@@ -160,8 +160,6 @@ const makeMemoryGateway = (seed: MemorySeed): LinearGatewayShape => {
       labels: (ref) =>
         requireIssue(String(ref)).pipe(Effect.map((issue) => issue.summary.labels.nodes)),
       teamId: (issueId) => requireIssue(String(issueId)).pipe(Effect.map((issue) => issue.team.id)),
-      show: (ref, options) =>
-        requireIssue(String(ref)).pipe(Effect.map((issue) => toDetail(issue, options))),
       list: (options) => {
         const matching = issues.filter((issue) => matchesIssue(issue, options))
         const sorted =
@@ -189,6 +187,17 @@ const makeMemoryGateway = (seed: MemorySeed): LinearGatewayShape => {
             options,
           ),
         )
+      },
+      workingSet: (refs, options) => {
+        const requested = new Set(refs.map(String))
+        const matching = issues.filter(
+          (issue) =>
+            requested.has(String(issue.summary.id)) || requested.has(issue.summary.identifier),
+        )
+        return Effect.succeed({
+          nodes: matching.map((issue) => toWorking(issue, issues, options.comments)),
+          pageInfo: { hasNextPage: false, endCursor: null },
+        })
       },
     },
     team: {

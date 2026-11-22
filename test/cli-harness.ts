@@ -9,6 +9,8 @@ import { Console, Effect, FileSystem, Layer, Option, Path, Schema, Stdio, Termin
 import { Command } from "effect/cli"
 import { ChildProcessSpawner } from "effect/process"
 
+import type { LinearGatewayShape } from "@/linear/gateway"
+
 import { helpLayer } from "@/cli/help"
 import { issueCommand } from "@/cli/issue"
 import { commandGroups, createRoot } from "@/cli/registry"
@@ -26,6 +28,10 @@ const terminal = Terminal.make({
 
 type CliOptions = Omit<ApiLayerOptions, "repositories" | "stdio"> & {
   readonly stdio?: Partial<Stdio.Stdio> | undefined
+}
+
+type MemoryCliOptions = CliOptions & {
+  readonly gateway?: LinearGatewayShape
 }
 
 const cliLayer = (
@@ -67,7 +73,7 @@ const memoryCliLayer = (
   args: readonly string[],
   lines: string[],
   repositories?: ApiLayerOptions["repositories"],
-  options: CliOptions = {},
+  options: MemoryCliOptions = {},
 ) => {
   const { stdio, ...rest } = options
   const stdioOptions = {
@@ -99,7 +105,7 @@ const runIssueMemory = (
   args: readonly string[],
   lines: string[],
   repositories: ApiLayerOptions["repositories"] = defaultRepositories,
-  options: CliOptions = {},
+  options: MemoryCliOptions = {},
 ) =>
   Command.run(issueCommand, { version: "test" }).pipe(
     Effect.provide(memoryCliLayer(seed, args, lines, repositories, options)),
@@ -111,7 +117,7 @@ const runRootMemory = (
   args: readonly string[],
   lines: string[],
   repositories: ApiLayerOptions["repositories"] = defaultRepositories,
-  options: CliOptions = {},
+  options: MemoryCliOptions = {},
 ) =>
   runCli("test", root).pipe(
     Effect.provide(memoryCliLayer(seed, args, lines, repositories, options)),

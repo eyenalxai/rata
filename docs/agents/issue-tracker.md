@@ -33,9 +33,9 @@ tickets are child issues.
 - **Publish the spec**: `rata issue create --title "<title>" --label ready-for-agent --priority medium --assignee me --body-file -`
 - **Publish a ticket**: `rata issue create --title "<title>" --parent <spec-ref> --label ready-for-agent --priority medium --assignee me --body-file -`
 - **Wire blocking**: `rata issue link <ticket-ref> --blocked-by <blocker-ref>`.
-- **Start a ticket**: `rata issue status <ticket-ref> --json --with-body`. The read carries the description, blockers, pull requests and next child.
-- **Read a known set**: `rata issue list --id <ref> --id <ref> --json`.
-- **Implement**: `rata issue list --parent <spec-ref> --all --json --include relations`. Each row carries its blocking edges.
+- **Start a ticket**: `rata issue <ticket-ref>`. The read carries the description, sections, blockers, pull requests, children, frontier and next child in one call.
+- **Read a known set**: `rata issue <ref> <ref> ...`.
+- **Implement**: `rata issue list --parent <spec-ref> --relations --all`. Each row carries its blocking edges.
 - **Close the spec**: `rata issue close <spec-ref> --comment "<result>"`.
 
 ## Wayfinding operations
@@ -46,7 +46,7 @@ The map is an issue labelled `wayfinder:map`. Its children carry
 - **Map**: `rata issue create --title "<title>" --label wayfinder:map --no-default-labels --assignee none --body-file -`
 - **Child**: `rata issue create --title "<title>" --parent <map-ref> --label wayfinder:<type> --no-default-labels --assignee none --body-file -`
 - **Wire**: `rata issue link <child-ref> --blocked-by <blocker-ref>`.
-- **Frontier**: `rata next --parent <map-ref>`. For the whole frontier, use `rata issue list --parent <map-ref> --unblocked --unassigned --include relations --sort priority --all --json`.
+- **Frontier**: `rata issue <map-ref>` returns `frontier` and `nextChild`. For the whole frontier as rows, use `rata issue list --parent <map-ref> --unblocked --unassigned --relations --sort priority --all`.
 - **Claim**: `rata issue assign <ref> --assignee me`. If another user holds it,
   the command exits 4 and names the holder; `--take` reassigns it.
 - **Resolve**: `rata issue comment create <ref> --body-file -`, then `rata issue close <ref>`, then `rata issue section append <map-ref> "Decisions so far" --body-file -`.
@@ -54,10 +54,10 @@ The map is an issue labelled `wayfinder:map`. Its children carry
 ## Pull requests
 
 - A PR closes its issue with `Closes RATA-42` in the body. Use the Linear identifier, not `#42`.
-- A bare `#42` or `Closes #45` in a review is a GitHub number. Resolve it to the Linear issue, then read it with `rata issue show <ref>`.
+- A bare `#42` or `Closes #45` in a review is a GitHub number. Resolve it to the Linear issue, then read it with `rata issue <ref>`.
 - PRs are not a request surface. Triage an external PR where it lives and mirror the outcome here.
 
 ## Skill phrases
 
 - "Publish to the issue tracker": create a Linear issue.
-- "Fetch the relevant ticket": `rata issue show <ref> --json`.
+- "Fetch the relevant ticket": `rata issue <ref>`.

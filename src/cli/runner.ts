@@ -21,11 +21,13 @@ import { OutputFields, parseFieldPaths } from "@/cli/fields"
 import {
   formatFromArgs,
   hasNewOutputFlag,
+  hasOldOutputFlag,
   helpRequested,
   isBareInvocation,
-  isWorkSurfaceCommand,
+  isIssueReadCommand,
+  isLegacyIssueCommand,
 } from "@/cli/format"
-import { setSuppressHelp, withSelectable } from "@/cli/help"
+import { setSuppressHelp, withModernOutput, withSelectable } from "@/cli/help"
 import { readBodyInput } from "@/cli/input"
 import { JsonOutput, reportTrackerError } from "@/cli/output"
 import { detectInvalidForm, jsonEnabled, reportInvalidForm } from "@/cli/pre-parse"
@@ -217,7 +219,8 @@ const buildCommand = <Name extends string, Config extends CliCommand.Command.Con
     Command.withDescription(spec.summary),
     Command.withExamples(spec.examples ?? []),
   )
-  return supportsSelect(spec.output) ? withSelectable(command) : command
+  const modern = withModernOutput(command)
+  return supportsSelect(spec.output) ? withSelectable(modern) : modern
 }
 
 const buildGroup = <
@@ -228,7 +231,11 @@ const buildGroup = <
   description: string,
   commands: Commands,
 ) =>
-  Command.make(name).pipe(Command.withDescription(description), Command.withSubcommands(commands))
+  Command.make(name).pipe(
+    Command.withDescription(description),
+    Command.withSubcommands(commands),
+    withModernOutput,
+  )
 
 const runCli = <Name extends string, Input, ContextInput, E, R>(
   version: string,
@@ -242,9 +249,9 @@ const runCli = <Name extends string, Input, ContextInput, E, R>(
     setSuppressHelp(false)
     const invalid = detectInvalidForm(args)
     if (invalid !== undefined) {
-      return yield* reportInvalidForm(invalid, jsonEnabled(args))
+      return yield* reportInvalidForm(invalid, format === "json")
     }
-    if (!helpRequested(args) && isWorkSurfaceCommand(args) && hasNewOutputFlag(args)) {
+    if (!helpRequested(args) && isLegacyIssueCommand(args) && hasNewOutputFlag(args)) {
       return yield* reportRunFailure(
         new TrackerError({
           code: "usage",
@@ -252,6 +259,16 @@ const runCli = <Name extends string, Input, ContextInput, E, R>(
           hint: "Use --json for JSON output; --fields applies to reads.",
         }),
         jsonEnabled(args) ? "json" : "text",
+      )
+    }
+    if (!helpRequested(args) && isIssueReadCommand(args) && hasOldOutputFlag(args)) {
+      return yield* reportRunFailure(
+        new TrackerError({
+          code: "usage",
+          message: "The --json and --fields flags are not supported by issue reads.",
+          hint: "Use --format json; --select replaces --fields.",
+        }),
+        "json",
       )
     }
     const allowHelp = helpRequested(args) || isBareInvocation(root, args)

@@ -68,18 +68,16 @@ rata link --team RAT                     # bind this repository to a Linear team
 rata config set --assignee me --label enhancement --priority medium  # defaults for new issues
 rata config show                         # read the issue defaults
 rata unlink                              # remove the stored link of this repository
-rata issue list                          # list issues
+rata issue RAT-42                        # one call: body, sections, blockers, PRs, children, frontier
+rata issue RAT-42 --comments             # add the comments
+rata issue RAT-42 --summary              # header fields only
+rata issue RAT-42 --full                 # labels, URLs, timestamps, relations, full child rows
+rata issue RAT-1 RAT-2 RAT-3             # read a known set in one list request per page
+rata issue list --parent RAT-1 --relations  # the children of a map with their blocking edges
 rata issue list --parent RAT-1 --unblocked --unassigned --sort priority  # the frontier of a map
-rata next --parent RAT-1                 # the next ready child of a map
 rata issue list --after <cursor>         # read the next page of a list
 rata issue list --all                    # drain every page of a list
-rata issue list --id RAT-42 --id RAT-43 --json  # read a known set in one call
-rata issue list --parent RAT-1 --unblocked --count  # count the frontier
-rata issue show RAT-42                   # read one issue
-rata issue view RAT-42 --summary         # lean read; `view` is an alias for `show`
-rata why RAT-42                          # the blockers of one issue
-rata issue status RAT-42 --with-body     # session read with the description
-rata search "rate limit"                 # search issues by text
+rata issue search "rate limit"           # ten summary rows by default
 rata issue create --title "Fix login" --team RAT --assignee me  # create an issue
 rata issue link RAT-43 --blocked-by RAT-42         # RAT-43 waits for RAT-42
 rata issue comment create RAT-42 --body "..."      # comment on an issue
@@ -100,72 +98,68 @@ error and one hint that names the canonical one.
 
 | Operation           | Canonical form                                                        | Rejected form                |
 | ------------------- | --------------------------------------------------------------------- | ---------------------------- |
-| Read one issue      | `rata issue show <ref>`                                               | `rata issue <ref>`           |
-| Read the summary    | `rata issue show <ref> --summary`                                     |                              |
-| Read the status     | `rata issue status <ref>`                                             |                              |
+| Read an issue       | `rata issue <ref>`                                                    | `rata issue show <ref>`      |
+| Read the header     | `rata issue <ref> --summary`                                          | `rata issue status <ref>`    |
+| Read many issues    | `rata issue <ref> <ref> ...`                                          | repeated `issue <ref>` calls |
 | Comment on an issue | `rata issue comment create <ref> --body-file -`                       | `rata issue comment <ref>`   |
 | Assign an issue     | `rata issue assign <ref> --assignee <me\|none\|id> [--take]`          | `rata issue assign <ref> me` |
 | Assign every child  | `rata issue assign --parent <ref> --assignee <me\|none\|id> [--take]` |                              |
 | Change an issue     | `rata issue update <ref> <flags>`                                     |                              |
 | Edit one section    | `rata issue section replace <ref> "<heading>" --body-file -`          |                              |
 
-`issue view` is the only alias, and it means `issue show`. There is no positional
-assignee, no direct `issue comment <ref>` form, and no bare `issue <ref>`
-execution. A rejected form exits 2 and writes no data. `issue update` also sets
-`--assignee` and `--state`: these are fields of one compound update, not a second
-spelling of `issue assign`. An assign to an issue held by another user exits 4
-and names the holder; `--take` reassigns it.
+`issue <ref>` is the only read form. `issue show`, `issue view`, `issue status`,
+`next` and `why` do not exist; they exit 2. There is no positional assignee, no
+direct `issue comment <ref>` form, and no other read alias. `issue update` also
+sets `--assignee` and `--state`: these are fields of one compound update, not a
+second spelling of `issue assign`. An assign to an issue held by another user
+exits 4 and names the holder; `--take` reassigns it.
 
 ## Read shapes
 
-A read of one resource prints the resource object. A collection prints
-`{ <plural>, pageInfo }`. A context document keeps its named sections. A write
-prints its result object.
+A read of one resource prints the resource object. A read of many prints
+`{ items, pageInfo }`. A collection prints `{ <plural>, pageInfo }`. A context
+document keeps its named sections. A write prints its result object.
 
-| Command                                      | JSON                                                                                                                                         |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `issue show <ref>`                           | The issue object with `description`, `children`, `relations` and `attachments`; `comments` with `--comments`                                 |
-| `issue show <ref> --summary`                 | The summary object                                                                                                                           |
-| `issue status <ref>`                         | The summary plus `blocked`, `blockedBy`, `prs` and `nextChild`; `--with-body`, `--comments` and `--children` add their keys                  |
-| `next --parent <ref>`                        | The summary of the ready child, or `null`; `--ids-only` prints the identifier or nothing                                                     |
-| `why <ref>`                                  | The summary plus `blocked` and `blockedBy`                                                                                                   |
-| `team show [<ref>]`                          | The team object                                                                                                                              |
-| `issue section get <ref> "<heading>"`        | The section object: `heading`, `level`, `content`                                                                                            |
-| `issue list`, `search`                       | `{ issues, pageInfo }`                                                                                                                       |
-| `issue list --count`, `search --count`       | `{ count }`                                                                                                                                  |
-| `issue list --ids-only`, `search --ids-only` | Plain text: one identifier per line                                                                                                          |
-| `team list`, `project list`, `label list`    | `{ <plural>, pageInfo }`                                                                                                                     |
-| `status`                                     | Named sections: `repository`, `workspace`, `viewer`, `team`, `project`, `defaults`, `states`, `labels`, `triage`, `cache`, `docs`, `warning` |
-| `config show`                                | `{ defaults }`                                                                                                                               |
-| A write                                      | The write result object                                                                                                                      |
+| Command                                   | JSON                                                                                                                                         |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `issue <ref>`                             | The working set: header, `description`, `sections`, `blocked`, `blockedBy`, `prs`, `children`, `frontier`, `nextChild`, `comments: null`     |
+| `issue <ref> --summary`                   | The header fields: `id`, `identifier`, `title`, `state`, `priority`, `assignee`, `project`, `parent`                                         |
+| `issue <ref> --full`                      | The working set plus `url`, `createdAt`, `updatedAt`, `labels`, `relations` and full child rows                                              |
+| `issue <ref> <ref> ...`                   | `{ items, pageInfo }`; one working set per ref, one list request per page                                                                    |
+| `team show [<ref>]`                       | The team object                                                                                                                              |
+| `issue section get <ref> "<heading>"`     | The section object: `heading`, `level`, `content`                                                                                            |
+| `issue list`                              | `{ issues, pageInfo }`; `--relations` adds the six relation groups                                                                           |
+| `issue search`                            | `{ issues, pageInfo }`; ten summary rows by default, no description                                                                          |
+| `team list`, `project list`, `label list` | `{ <plural>, pageInfo }`                                                                                                                     |
+| `status`                                  | Named sections: `repository`, `workspace`, `viewer`, `team`, `project`, `defaults`, `states`, `labels`, `triage`, `cache`, `docs`, `warning` |
+| `config show`                             | `{ defaults }`                                                                                                                               |
+| A write                                   | The write result object                                                                                                                      |
 
-Every issue read carries `createdAt` and `updatedAt`. For a work-surface read,
-`--fields` starts at the object in the table: the resource for a read, each row
-for a list. For an admin read, `--select` starts at the same place; for
-`config show`, it starts at the `defaults` object. The command validates every
-path against its declared shape before it reads the value, so a typo fails even
-on an empty list or a null object. A path may cross an array: `labels.name`
-returns the names, and `children.state` returns an array of state objects. A
-path through an array of scalars is a `validation` error. A write rejects field
-selection with a hint. See **Field selection**.
+The working set carries the header fields, the parsed `sections`, `blocked` and
+`blockedBy`, the Linear `github` attachments as `prs`, lean `children` with
+`blocked` and `blockedBy`, `frontier` (open, unblocked, unassigned children),
+`nextChild` (the first frontier row) and `comments: null`. `--comments` fills the
+comments. `--full` adds `url`, `createdAt`, `updatedAt`, `labels`, the six
+`relations` groups and full child rows. `issue list` and `issue search` rows are
+summaries with `url`, timestamps and labels; search rows have no description.
+
+For an issue read, `--select` starts at the resource for one ref and at each row
+for a list. For an admin read it starts at the same place; for `config show`, it
+starts at the `defaults` object. The command validates every path against its
+declared shape before it reads the value, so a typo fails even on an empty list
+or a null object. A path may cross an array: `labels.name` returns the names, and
+`children.identifier` returns the child identifiers. A path through an array of
+scalars is a `validation` error. A write rejects field selection with a hint.
+See **Field selection**.
 
 ## Output and errors
 
-The CLI has two output surfaces. The work surface (`issue`, `search`, `next`,
-`why`) uses `--json` and `--fields`; both may come before or after the
-subcommand:
-
-```bash
-rata --json issue list
-rata issue list --json
-```
-
-The migrated admin commands (`auth`, `link`, `unlink`, `workspace`, `config`,
-`team`, `project`, `label`, `status`, `whoami`) use `--format json|text`. JSON
-is their default when standard output is not a terminal, and `--format text`
-forces text. The admin reads (`whoami`, `status`, `config show`, `team list`,
-`team show`, `project list`, `label list`) also use `--select`; the admin
-writes do not.
+The issue reads (`issue <ref>...`, `issue list`, `issue search`) and the admin
+commands (`auth`, `link`, `unlink`, `workspace`, `config`, `team`, `project`,
+`label`, `status`, `whoami`) use `--format json|text`. JSON is the default when
+standard output is not a terminal, and `--format text` forces text. The issue
+reads also use `--select`; the issue writes still use `--json` until the apply
+engine lands.
 
 ```bash
 rata status
@@ -216,24 +210,24 @@ branches on the number, not the message.
 A bulk write exits with the code of its first failed result, or `0` when every
 result succeeds.
 
-The work surface selects dotted paths with `--fields` on a JSON read; it
-requires `--json`. The migrated admin reads use `--select`:
+The issue reads select dotted paths with `--select` on a JSON read; it implies
+JSON. The admin reads use the same flag:
 
 ```bash
-rata issue list --json --fields identifier,title,state.name
+rata issue RAT-42 --select identifier,title,state.name,children.identifier
+rata issue list --select identifier,title,state.name
 rata status --select repository.root,team.key
 rata config show --select assignee,labels
 ```
 
-The path applies to the command's own resource, not to a wrapper: the issue
-object of a single-issue read, the team object of `team show`, the section object
+The path applies to the command's own resource, not to a wrapper: the working set
+of a single-issue read, the team object of `team show`, the section object
 of `issue section get`, each row of a list, the `defaults` object of
 `config show`, or the whole `status` document. A wrapper key stays only for a
 named section or a list. An unknown path is a `validation` error, and the hint
 lists the valid keys at the failing level; the shape check runs even when the
 list is empty or the object is null. A path may cross an array, as `labels.name`
-and `children.state` do. See **Field selection** under **Reading issues** for the
-array rules and the valid commands.
+and `children.identifier` do. See **Field selection**.
 
 Rata's own output is plain text. Effect's help and error presenter honor
 `NO_COLOR`, so set `NO_COLOR=1` to drop color from help and errors. There is no
@@ -362,24 +356,23 @@ is missing, or a document is unhealthy.
 
 ## Paging lists
 
-`issue list`, `search`, `team list`, `project list` and `label list` return one
-page per call. `--limit` sets the page size: 50 by default, 250 at most. A
-value above 250 fails before the API call. `--after <cursor>` reads the page
-after a cursor.
+`issue list`, `issue search`, `team list`, `project list` and `label list` return
+one page per call. `--limit` sets the page size: 50 by default, 250 at most; the
+search default is 10. A value above 250 fails before the API call.
+`--after <cursor>` reads the page after a cursor.
 
 `--all` drains every page in one call. `--limit` stays the page size; it is not
 a total bound. `--all` with `--after` starts from the cursor. JSON returns the
 full array and `pageInfo: { "hasNextPage": false, "endCursor": null }`. Human
-output prints no next-page hint. On `issue list` and `search`, `--count` and
-`--ids-only` always drain every page.
+output prints no next-page hint.
 
 ```bash
-rata issue list --all --json
-rata search "rate limit" --all --json
+rata issue list --all --format json
+rata issue search "rate limit" --all --format json
 rata team list --all
 ```
 
-`--json` prints one page and its page state:
+`--format json` prints one page and its page state:
 
 ```json
 {
@@ -405,10 +398,10 @@ while the data does not change, and best effort when it does. `search` keeps
 Linear's relevance ranking, so its paging is best effort.
 
 Internal reads always drain every page. The list commands return one page by
-default and drain every page with `--all`. In particular, `issue show` reads
-every page of an issue's labels, children, relations and attachments. It reads
-comments only with `--comments`. `--no-comments` skips the comment pages and is
-the default behavior. The `--no-*` flags skip their fetches.
+default and drain every page with `--all`. In particular, `issue <ref>` reads
+every page of an issue's labels, children, relations, attachments and comments.
+`issue <ref> RAT-2 ...` drains every page of refs, so one CLI call returns the
+whole set.
 
 ## Authentication
 
@@ -702,10 +695,11 @@ issues of the spec, so the set stays together:
    Wire the blocking edges between the tickets with
    `rata issue link ABC-44 --blocked-by ABC-43`.
 3. `/implement-spec` fetches the whole set:
-   `rata issue list --parent ABC-42 --all --json --include relations`. Each row
+   `rata issue list --parent ABC-42 --all --relations`. Each row
    then carries its blocking edges, so the frontier needs no per-child read.
 
-`issue show <spec-ref> --json` also lists the child issues.
+`rata issue <spec-ref>` also lists the child issues, the frontier and the next
+child in one call.
 
 `issue create --project` and `issue list --project` accept a project name or a
 UUID. A wayfinding map stays an issue with child issues.
@@ -899,6 +893,53 @@ repository config.
 
 ## Reading issues
 
+`rata issue <ref>` is the one read. It accepts an identifier (`RAT-42`), a UUID,
+or a linear.app URL. It returns the working set in one call: the header, the
+description, the parsed `sections`, `blocked`, `blockedBy`, the Linear GitHub
+attachments as `prs`, lean `children`, `frontier`, `nextChild` and
+`comments: null`.
+
+```bash
+rata issue RAT-42
+rata issue RAT-42 --comments
+rata issue RAT-42 --summary
+rata issue RAT-42 --full
+```
+
+The header fields are `id`, `identifier`, `title`, `state`, `priority`,
+`assignee`, `project` and `parent`. `--summary` returns only those fields.
+`--full` adds `url`, `createdAt`, `updatedAt`, `labels`, the six `relations`
+groups and full child rows. `--summary` and `--full` are mutually exclusive, and
+`--summary` rejects `--comments`.
+
+```bash
+rata issue RAT-42 --select identifier,title,state.name,children.identifier
+```
+
+The lean child rows carry the header plus `blocked` and `blockedBy`. `frontier`
+holds the open, unblocked, unassigned children ordered by priority then
+creation time. `nextChild` is the first frontier row, or `null`. The `sections`
+array carries `heading`, `level`, `content` and `line`. The comments are `null`
+unless `--comments` is passed.
+
+Many refs are one call and one list request per page, not one detail read per
+ref:
+
+```bash
+rata issue RAT-1 RAT-2 RAT-3
+```
+
+Many refs print `{ "items": [...], "pageInfo": { ... } }`. One ref prints the
+workspace object at the top level.
+
+The PR projection reads the Linear `github` attachments. Each PR carries its
+number, repo, url, status, draft flag, reviews, conflict flag, `mergedAt` and
+`closedAt`. The repo comes from `repo`, or from `repoLogin` and `repoName` when
+Linear omits `repo`. `checks` and `mergeCommit` are `null`: Linear does not
+carry them. Each PR says `source: "linear"`. A missing attachment gives
+`prs: []`, and missing metadata gives `null` fields. The command needs no GitHub
+token.
+
 `rata issue list` accepts filters. Combine any of them. Without `--team`, the
 list shows only the linked team's issues; run `rata link` once to set the link:
 
@@ -907,55 +948,34 @@ rata issue list --team RAT --state "In Progress" --label bug --limit 100
 rata issue list --state-type started --assignee me
 rata issue list --parent RAT-1 --text login
 rata issue list --parent RAT-1 --unblocked --unassigned --sort priority
-rata issue list --parent RAT-1 --include relations --json
+rata issue list --parent RAT-1 --relations
 rata issue list --limit 100 --after <cursor>
 rata issue list --priority urgent --sort priority --limit 10
 ```
 
-| Flag           | Meaning                                                                                                                                                                                                                                                                                                                                                  |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--team`       | Team key or id. Default: the team from `rata link`.                                                                                                                                                                                                                                                                                                      |
-| `--state`      | Workflow state name, for example `In Progress`.                                                                                                                                                                                                                                                                                                          |
-| `--state-type` | One of `triage`, `backlog`, `unstarted`, `started`, `completed`, `canceled`, `duplicate`.                                                                                                                                                                                                                                                                |
-| `--priority`   | `none`, `urgent`, `high`, `medium`, `low`, or `0`-`4`.                                                                                                                                                                                                                                                                                                   |
-| `--label`      | Label name.                                                                                                                                                                                                                                                                                                                                              |
-| `--assignee`   | `me`, or a user id.                                                                                                                                                                                                                                                                                                                                      |
-| `--project`    | Project id or name.                                                                                                                                                                                                                                                                                                                                      |
-| `--parent`     | Parent issue reference.                                                                                                                                                                                                                                                                                                                                  |
-| `--id`         | Exact issue reference. Repeat for a batch. Exact refs bypass the linked team; `--team` narrows.                                                                                                                                                                                                                                                          |
-| `--text`       | Text that appears in the title or the description.                                                                                                                                                                                                                                                                                                       |
-| `--unblocked`  | Keep only open issues with no open blocker.                                                                                                                                                                                                                                                                                                              |
-| `--unassigned` | Keep only issues with no assignee.                                                                                                                                                                                                                                                                                                                       |
-| `--include`    | `relations` adds `blocks`, `blockedBy`, `duplicates`, `duplicatedBy`, `related` and `similar` to every row. One list request per page and no per-child read; up to 250 per outgoing or inverse connection, and `related` and `similar` merge both. A full page measures 2,462 complexity points at page sizes 10, 25 and 50, under the 10,000-point cap. |
-| `--sort`       | `priority` orders urgent first and none last; ties go to the oldest. Linear sorts on the server.                                                                                                                                                                                                                                                         |
-| `--limit`      | Page size. Default: 50, maximum: 250.                                                                                                                                                                                                                                                                                                                    |
-| `--after`      | Continue after a cursor from a previous page.                                                                                                                                                                                                                                                                                                            |
-| `--all`        | Drain every page. `--limit` stays the page size.                                                                                                                                                                                                                                                                                                         |
-| `--count`      | Print the number of matching issues. Drains every page.                                                                                                                                                                                                                                                                                                  |
-| `--ids-only`   | Print one identifier per line as plain text. Rejects `--json` and `--fields`.                                                                                                                                                                                                                                                                            |
+| Flag           | Meaning                                                                                                                                                                                       |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--team`       | Team key or id. Default: the team from `rata link`.                                                                                                                                           |
+| `--state`      | Workflow state name, for example `In Progress`.                                                                                                                                               |
+| `--state-type` | One of `triage`, `backlog`, `unstarted`, `started`, `completed`, `canceled`, `duplicate`.                                                                                                     |
+| `--priority`   | `none`, `urgent`, `high`, `medium`, `low`, or `0`-`4`.                                                                                                                                        |
+| `--label`      | Label name.                                                                                                                                                                                   |
+| `--assignee`   | `me`, or a user id.                                                                                                                                                                           |
+| `--project`    | Project id or name.                                                                                                                                                                           |
+| `--parent`     | Parent issue reference.                                                                                                                                                                       |
+| `--text`       | Text that appears in the title or the description.                                                                                                                                            |
+| `--unblocked`  | Keep only open issues with no open blocker.                                                                                                                                                   |
+| `--unassigned` | Keep only issues with no assignee.                                                                                                                                                            |
+| `--relations`  | Add `blocks`, `blockedBy`, `duplicates`, `duplicatedBy`, `related` and `similar` to every row. One list request per page and no per-child read; up to 250 per outgoing or inverse connection. |
+| `--sort`       | `priority` orders urgent first and none last; ties go to the oldest. Linear sorts on the server.                                                                                              |
+| `--limit`      | Page size. Default: 50, maximum: 250.                                                                                                                                                         |
+| `--after`      | Continue after a cursor from a previous page.                                                                                                                                                 |
+| `--all`        | Drain every page. `--limit` stays the page size.                                                                                                                                              |
 
-`--include relations` is the one-call path to the blocking edges of a parent's
-children. It adds the same `relations` object that `issue show` returns, with the
-six groups `blocks`, `blockedBy`, `duplicates`, `duplicatedBy`, `related` and
-`similar`. The flag sends one list request per page and no per-child read,
-composes with every filter, `--all` and `--fields`, and caps each outgoing and
-inverse connection at 250 relations. `related` and `similar` merge both, so
-those groups can hold up to 500. Linear scores a full page at 2,462 complexity
-points at page sizes 10, 25 and 50, under the 10,000-point single-query cap.
-Read a row with more relations with `issue show`. Without the flag, a row has
-no `relations` key. Another value is `validation`, and the hint lists
-`relations`.
-
-`--id <ref>` is a batch read. Repeat it for each issue. Exact refs bypass the
-linked team; pass `--team` to narrow. The result is the usual
-`{ issues, pageInfo }` and composes with `--fields`, `--include relations`,
-`--all`, `--count` and `--ids-only`. A missing ref is `not_found` once the read
-covers every page; add `--all` to check a batch completely.
-
-`--count` drains every page and prints one number: `{ "count": n }` in JSON and
-one line in human output. `--ids-only` prints one identifier per line as plain
-text, and rejects `--json` and `--fields`. The two flags cannot combine, and
-`--count` rejects `--fields`. Both also work on `search`.
+`--relations` is the one-call path to the blocking edges of a parent's children.
+It adds the same six groups that `issue <ref> --full` returns. The flag composes
+with every filter, `--all` and `--select`. Without the flag, a row has no
+`relations` key.
 
 On an empty page, `--state`, `--label` and `--project` are checked for
 existence. An unknown name is `not_found`, and the hint lists the valid names. A
@@ -972,247 +992,31 @@ issues are dropped before the sort.
 
 An open issue is one whose state type is not `completed`, `canceled` or
 `duplicate`. An open blocker is a blocker whose state type is not `completed`,
-`canceled` or `duplicate`.
-`--unblocked` keeps the open issues whose blockers are all closed. It filters
-on the server and composes with the other filters with AND, so a state filter
-that contradicts it returns an empty list.
-`--parent` with `--unblocked` and `--unassigned` is the **frontier** of a map:
-the open, unblocked, unclaimed children. With `--sort priority`, the first
-result is the most urgent; ties go to the oldest first. `rata next --parent
-<ref>` is the frontier as one command: it prints the first ready child, or
-`No ready ticket.` when the frontier is empty. JSON is the summary object of the
-ready child, or `null` for an empty frontier; both exit 0. `--ids-only` prints
-the identifier, or nothing for an empty frontier. `--fields` selects from the
-summary. To read the whole frontier with its blocking edges in one call,
-run this command:
-`rata issue list --parent <ref> --unblocked --unassigned --include relations --all --json`.
-`--all` drains every page.
+`canceled` or `duplicate`. `--unblocked` keeps the open issues whose blockers
+are all closed. `--parent` with `--unblocked` and `--unassigned` is the
+**frontier** of a map: the open, unblocked, unclaimed children. The map's own
+read carries the same frontier in `frontier` and `nextChild`.
 
-`rata why <ref>` prints one level of the blocking graph. JSON is the issue
-summary plus `blocked` and `blockedBy`. Each blocker carries its state and a
-`closed` flag; `blocked` is true when any blocker is open. A blocker is closed
-when its state type is `completed`, `canceled` or `duplicate`. Human output prints
-`RATA-42 is blocked by:` and one line per blocker, or `RATA-42 is ready.` when
-nothing blocks. `--fields` selects from the same object.
+`rata issue search "<text>"` searches by text. Without `--team`, the search stays
+inside the linked team; pass `--team <key>` for another team. It returns ten
+summary rows by default. `--limit` changes the page size, `--all` drains every
+page, and the rows carry no description. It keeps Linear's relevance ranking.
 
 ```bash
-rata next --parent RAT-1
-rata next --parent RAT-1 --json
-rata why RAT-42
-rata why RAT-42 --json
+rata issue search "rate limit"
+rata issue search "rate limit" --limit 25
+rata issue search "rate limit" --all --format json
 ```
-
-`rata issue status <ref>` reads one issue with everything a session needs in one
-call: the summary, the open blockers, the GitHub pull requests and the next
-unblocked child. It reads the detail and the child list in two requests. JSON is
-one flat object: the summary plus `blocked`, `blockedBy`, `prs` and `nextChild`.
-`--with-body` adds the description at no extra request. `--comments` adds the
-comments with one extra request. `--children` replaces the one-child read with
-every child, each carrying `blocked` and `blockedBy`, and computes `nextChild`
-from them. The default shape stays the same. `--fields` follows the flags:
-`description` needs `--with-body`, `comments` needs `--comments`, and `children`
-needs `--children`.
-
-The PR projection reads the Linear `github` attachments. Each PR carries its
-number, repo, url, status, draft flag, reviews, conflict flag, `mergedAt` and
-`closedAt`. The repo comes from `repo`, or from `repoLogin` and `repoName` when
-Linear omits `repo`. `checks` and `mergeCommit` are `null`: Linear does not
-carry them. Each PR says `source: "linear"`. A missing attachment gives
-`prs: []`, and missing metadata gives `null` fields. The command needs no GitHub
-token.
-
-`nextChild` is the first open, unblocked child ordered by priority, then
-creation time. It does not filter on the assignee, unlike `rata next`, which
-keeps the unassigned filter for the wayfinder claim. A missing issue exits `3`.
-
-```bash
-rata issue status RAT-42
-rata issue status RAT-42 --json
-rata issue status RAT-42 --json --with-body --comments --children
-```
-
-```json
-{
-  "identifier": "RAT-42",
-  "title": "Add the issue read path",
-  "state": { "name": "In Progress", "type": "started" },
-  "priority": "high",
-  "assignee": { "id": "u1", "name": "Ada", "displayName": "ada" },
-  "project": null,
-  "parent": null,
-  "labels": [],
-  "url": "https://linear.app/eyenalx/issue/RAT-42/add-the-issue-read-path",
-  "createdAt": "2025-12-30T10:00:00.000Z",
-  "updatedAt": "2026-01-01T10:00:00.000Z",
-  "id": "b2c3...",
-  "blocked": true,
-  "blockedBy": [
-    {
-      "identifier": "RAT-41",
-      "title": "Add the issue write path",
-      "state": { "name": "In Progress", "type": "started" },
-      "closed": false
-    }
-  ],
-  "prs": [
-    {
-      "source": "linear",
-      "number": 25,
-      "repo": "eyenalxai/rata",
-      "url": "https://github.com/eyenalxai/rata/pull/25",
-      "title": "feat(cli): add issue status",
-      "status": "merged",
-      "draft": false,
-      "reviews": [],
-      "hasConflicts": false,
-      "mergedAt": "2026-01-03T10:00:00.000Z",
-      "closedAt": "2026-01-03T10:00:00.000Z",
-      "checks": null,
-      "mergeCommit": null
-    }
-  ],
-  "nextChild": null
-}
-```
-
-`rata issue show` accepts an identifier (`RAT-42`), a UUID, or a linear.app
-URL. `view` is an alias for `show`. `--comments` adds the comments to the human
-output. `--json` returns the read model in one call as one issue object at the
-top level: the issue fields, children, relations and attachments, plus comments
-when `--comments` is passed. The default read omits comments. `--no-comments`
-skips the comment fetch and omits the key; it is redundant with the default.
-`--comments` and `--no-comments` are mutually exclusive. Every collection drains
-every page.
-
-`--summary` reads the lean summary: identifier, title, state, priority, labels,
-assignee, project, parent, url, `createdAt` and `updatedAt`. It skips the
-description, children, relations, attachments and comments. JSON is the summary
-object at the top level. `--summary` with `--comments` is a `validation` error.
-
-`--no-body` drops the description from the output. The full read still fetches
-it. `--no-relations`, `--no-children` and `--no-attachments` drop those parts
-from the output and skip their fetches. The flags are independent:
-`--no-relations --comments` prints the body, children, attachments and
-comments.
-
-```bash
-rata issue view RAT-42 --summary
-rata issue show RAT-42 --json --no-body
-rata issue show RAT-42 --json --no-relations --comments
-```
-
-Each issue carries `createdAt` and `updatedAt`, the Linear creation and
-modification timestamps. They appear in every issue read (`issue list`,
-`issue show` and its summary, `issue status`, `search`, `next`, `why`) and in
-every write result that returns a full issue summary. `--fields createdAt`
-selects the creation time. Pass `updatedAt` to `--if-unchanged` to make a
-best-effort conditional write before a body change.
-
-Every work-surface read command accepts `--json` and prints one stable JSON
-document. The list and search commands print one page by default and every page
-with `--all`:
-`{ "issues": [...], "pageInfo": { "hasNextPage": ..., "endCursor": ... } }`.
-The show command prints the issue object, with the children, relations and
-attachments, and the comments when `--comments` is passed. `--summary` prints
-the lean summary instead.
-
-`rata search "<text>"` searches by text. Without `--team`, the search stays
-inside the linked team; pass `--team <key>` for another team. It keeps Linear's
-relevance ranking, so the best match stays first and its paging is best effort.
-It accepts `--team`, `--limit`, `--after`, `--all` and `--json`.
-
-```json
-{
-  "issues": [
-    {
-      "id": "b2c3...",
-      "identifier": "RAT-42",
-      "title": "Add the issue read path",
-      "url": "https://linear.app/eyenalx/issue/RAT-42/add-the-issue-read-path",
-      "state": { "name": "In Progress", "type": "started" },
-      "priority": "high",
-      "assignee": { "id": "u1", "name": "Ada", "displayName": "ada" },
-      "project": { "id": "p1", "name": "rata" },
-      "parent": { "id": "i0", "identifier": "RAT-1", "title": "Map" },
-      "labels": [{ "id": "l1", "name": "ready-for-agent" }],
-      "createdAt": "2025-12-30T10:00:00.000Z",
-      "updatedAt": "2026-01-01T10:00:00.000Z"
-    }
-  ],
-  "pageInfo": { "hasNextPage": true, "endCursor": "b2c3..." }
-}
-```
-
-`assignee`, `project` and `parent` are `null` when they are unset. `priority`
-is one of `urgent`, `high`, `medium`, `low` or `none`; `none` means no priority
-is set.
-
-```json
-{
-  "id": "b2c3...",
-  "identifier": "RAT-42",
-  "title": "Add the issue read path",
-  "url": "https://linear.app/eyenalx/issue/RAT-42/add-the-issue-read-path",
-  "createdAt": "2025-12-30T10:00:00.000Z",
-  "updatedAt": "2026-01-01T10:00:00.000Z",
-  "state": { "name": "In Progress", "type": "started" },
-  "priority": "high",
-  "assignee": null,
-  "project": null,
-  "parent": null,
-  "team": { "id": "t1", "key": "RAT", "name": "rata" },
-  "labels": [],
-  "comments": [],
-  "description": "...",
-  "children": [
-    {
-      "id": "i2",
-      "identifier": "RAT-43",
-      "title": "Child issue",
-      "state": { "name": "Todo", "type": "unstarted" }
-    }
-  ],
-  "relations": {
-    "blocks": [],
-    "blockedBy": [],
-    "duplicates": [],
-    "duplicatedBy": [],
-    "related": [],
-    "similar": []
-  },
-  "attachments": [
-    {
-      "id": "a1",
-      "title": "Design doc",
-      "subtitle": "Notion",
-      "url": "https://example.com/doc",
-      "sourceType": "link",
-      "createdAt": "2026-01-01T10:00:00.000Z",
-      "metadata": {}
-    }
-  ]
-}
-```
-
-`relations.blocks` lists the issues this issue blocks. `relations.blockedBy`
-lists the issues that block it. `--json` includes `comments` by default.
-`--no-comments` skips the fetch and omits the key. `--comments` and
-`--no-comments` are mutually exclusive.
-
-Each attachment carries `metadata`, the integration-specific object from Linear.
-A `github` attachment holds the pull request fields there, and
-`rata issue status` reads that projection.
 
 ### Field selection
 
-`--fields` selects dotted paths from the JSON output of a work-surface read. It
-needs `--json`, and it starts at the command's resource:
+`--select` selects dotted paths from the JSON output of an issue read. It implies
+JSON, and it starts at the command's resource:
 
 ```bash
-rata issue show RAT-42 --json --fields identifier,title,state.name
-rata issue list --json --fields identifier,title --limit 10
-rata issue section get RAT-42 "Handoff log" --json --fields content
-rata next --parent RAT-1 --json --fields identifier,title
+rata issue RAT-42 --select identifier,title,state.name,children.identifier
+rata issue list --select identifier,title --limit 10
+rata issue search "rate limit" --select identifier,title
 ```
 
 A single-resource read has no wrapper:
@@ -1220,7 +1024,7 @@ A single-resource read has no wrapper:
 item:
 `{ "issues": [ { "identifier": "...", "title": "..." } ], "pageInfo": ... }`.
 `pageInfo` stays in a list result. Paths are dotted and nested, such as
-`state.name` or `repository.root`.
+`state.name` or `parent.identifier`.
 
 A path through a null object returns `null` and does not fail: `assignee.name`
 on an unassigned issue gives `{ "assignee": null }`. The selector validates the
@@ -1235,13 +1039,13 @@ returns an array of objects: `children.state` gives
 A path through an array of scalars is a `validation` error. An empty array is
 validated and returns `[]`.
 
-`--fields` is valid on `issue show`, `issue status`, `next`, `why`,
-`issue section get`, `issue list` and `search`. The migrated admin reads use
-`--select`; the admin writes do not. Work-surface writes reject `--fields` with
-`validation` and a hint. An unknown path is a `validation` error whose hint
-lists the valid keys at the failing level.
+`--select` is valid on `issue <ref>...`, `issue list`, `issue search`, `status`,
+`team show`, `team list`, `project list`, `label list`, `config show` and
+`whoami`. The issue writes still use `--json` and `--fields` until the apply
+engine lands. An unknown path is a `validation` error whose hint lists the valid
+keys at the failing level.
 
-For any other shape, use `--json` and `jq`. There is no custom format or
+For any other shape, use `--format json` and `jq`. There is no custom format or
 template language.
 
 ### Section editing

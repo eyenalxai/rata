@@ -70,7 +70,7 @@ afterEach(() => {
 describe("issue list filter existence", () => {
   test("fails a read with not_found and the team repair hint when the key is gone", async () => {
     const lines: string[] = []
-    await runIssueMemory(emptySeed(), ["list", "--json"], lines, [
+    await runIssueMemory(emptySeed(), ["list", "--format", "json"], lines, [
       { key: process.cwd(), team: "GONE" },
     ])
 
@@ -83,7 +83,7 @@ describe("issue list filter existence", () => {
 
   test("rejects an unknown state with the valid state names", async () => {
     const lines: string[] = []
-    await runIssueMemory(emptySeed(), ["list", "--state", "In Progess", "--json"], lines)
+    await runIssueMemory(emptySeed(), ["list", "--state", "In Progess", "--format", "json"], lines)
 
     const error = errorOf(lines)
     expect(process.exitCode).toBe(3)
@@ -95,7 +95,7 @@ describe("issue list filter existence", () => {
 
   test("keeps an empty page for a valid state", async () => {
     const lines: string[] = []
-    await runIssueMemory(emptySeed(), ["list", "--state", "In Progress", "--json"], lines)
+    await runIssueMemory(emptySeed(), ["list", "--state", "In Progress", "--format", "json"], lines)
 
     expect(process.exitCode).toBe(0)
     expect(lastJsonRecord(lines)).toEqual({
@@ -106,7 +106,11 @@ describe("issue list filter existence", () => {
 
   test("rejects an unknown label with the valid label names", async () => {
     const lines: string[] = []
-    await runIssueMemory(emptySeed(), ["list", "--label", "redy-for-agent", "--json"], lines)
+    await runIssueMemory(
+      emptySeed(),
+      ["list", "--label", "redy-for-agent", "--format", "json"],
+      lines,
+    )
 
     const error = errorOf(lines)
     expect(process.exitCode).toBe(3)
@@ -117,7 +121,11 @@ describe("issue list filter existence", () => {
 
   test("keeps an empty page for a valid label", async () => {
     const lines: string[] = []
-    await runIssueMemory(emptySeed(), ["list", "--label", "ready-for-agent", "--json"], lines)
+    await runIssueMemory(
+      emptySeed(),
+      ["list", "--label", "ready-for-agent", "--format", "json"],
+      lines,
+    )
 
     expect(process.exitCode).toBe(0)
     expect(lastJsonRecord(lines)).toEqual({
@@ -128,7 +136,7 @@ describe("issue list filter existence", () => {
 
   test("rejects an unknown project with the valid project names", async () => {
     const lines: string[] = []
-    await runIssueMemory(emptySeed(), ["list", "--project", "No Such", "--json"], lines)
+    await runIssueMemory(emptySeed(), ["list", "--project", "No Such", "--format", "json"], lines)
 
     const error = errorOf(lines)
     expect(process.exitCode).toBe(3)
@@ -138,7 +146,7 @@ describe("issue list filter existence", () => {
 
   test("keeps an empty page for a valid project", async () => {
     const lines: string[] = []
-    await runIssueMemory(emptySeed(), ["list", "--project", "Tracker", "--json"], lines)
+    await runIssueMemory(emptySeed(), ["list", "--project", "Tracker", "--format", "json"], lines)
 
     expect(process.exitCode).toBe(0)
     expect(lastJsonRecord(lines)).toEqual({
@@ -149,7 +157,11 @@ describe("issue list filter existence", () => {
 
   test("rejects a malformed assignee as validation", async () => {
     const lines: string[] = []
-    await runIssueMemory(emptySeed(), ["list", "--assignee", "not-a-user", "--json"], lines)
+    await runIssueMemory(
+      emptySeed(),
+      ["list", "--assignee", "not-a-user", "--format", "json"],
+      lines,
+    )
 
     const error = errorOf(lines)
     expect(process.exitCode).toBe(2)
@@ -161,7 +173,7 @@ describe("issue list filter existence", () => {
     const lines: string[] = []
     await runIssueMemory(
       emptySeed(),
-      ["list", "--assignee", "00000000-0000-4000-8000-000000000000", "--json"],
+      ["list", "--assignee", "00000000-0000-4000-8000-000000000000", "--format", "json"],
       lines,
     )
 
@@ -172,7 +184,11 @@ describe("issue list filter existence", () => {
 
   test("accepts an assignee UUID that resolves", async () => {
     const lines: string[] = []
-    await runIssueMemory(emptySeed(), ["list", "--assignee", userId(userIdValue), "--json"], lines)
+    await runIssueMemory(
+      emptySeed(),
+      ["list", "--assignee", userId(userIdValue), "--format", "json"],
+      lines,
+    )
 
     expect(process.exitCode).toBe(0)
     expect(lastJsonRecord(lines)).toEqual({
@@ -183,7 +199,7 @@ describe("issue list filter existence", () => {
 
   test("accepts me as the viewer", async () => {
     const lines: string[] = []
-    await runIssueMemory(emptySeed(), ["list", "--assignee", "me", "--json"], lines)
+    await runIssueMemory(emptySeed(), ["list", "--assignee", "me", "--format", "json"], lines)
 
     expect(process.exitCode).toBe(0)
     expect(lastJsonRecord(lines)).toEqual({

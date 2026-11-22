@@ -26,7 +26,6 @@ import { ConfigProvider, Effect, FileSystem, Layer, Path, Stdio } from "effect"
 import { HttpClient, HttpClientResponse } from "effect/http"
 
 import { LinearClient } from "@/api/client"
-import { IssueApi } from "@/api/issue"
 import { IssueWriteApi } from "@/api/issue-write"
 import { LabelService } from "@/api/label"
 import { ProjectService } from "@/api/project"
@@ -249,7 +248,6 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
   )
   const reader = IssueReader.layer.pipe(Layer.provide(Layer.mergeAll(gateway, contextResolver)))
   const writer = IssueWriter.layer.pipe(Layer.provide(Layer.mergeAll(gateway, contextResolver)))
-  const issue = IssueApi.layer.pipe(Layer.provide(Layer.mergeAll(contextResolver, reader)))
   const issueWrite = IssueWriteApi.layer.pipe(
     Layer.provide(Layer.mergeAll(contextResolver, writer)),
   )
@@ -273,7 +271,6 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
     writer,
     labels,
     projects,
-    issue,
     repoConfig,
     identity,
     defaults,

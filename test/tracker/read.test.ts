@@ -8,7 +8,7 @@ import { recordingConsoleWithErrors } from "@test/recording-console"
 import { describe, expect, test } from "bun:test"
 import { Console, Effect, Option, Schema } from "effect"
 
-import { IssueApi } from "@/api/issue"
+import { resolveIssueContext } from "@/cli/issue/context"
 import { ContextResolver } from "@/context/resolve"
 import { labelId, teamId, workflowStateId } from "@/domain/id"
 import { IssueSummaryNode } from "@/linear/decode/issue"
@@ -63,15 +63,31 @@ const env = { HOME: "/home/test", LINEAR_API_KEY: "test-key" }
 
 const program = <A, E>(
   counting: ReturnType<typeof countingGateway>,
-  effect: Effect.Effect<A, E, ContextResolver | IssueReader | IssueApi>,
+  effect: Effect.Effect<A, E, ContextResolver | IssueReader>,
 ) =>
   effect.pipe(
     Effect.provide(memoryApiLayer(seed, { env, gateway: counting.gateway, repositories })),
     Effect.runPromise,
   )
 
+const readList = (options: Parameters<IssueReader["Service"]["list"]>[1]) =>
+  Effect.gen(function* listIssues() {
+    const resolver = yield* ContextResolver
+    const reader = yield* IssueReader
+    const context = yield* resolver.resolve({ team: options.team, viewer: false })
+    return yield* reader.list(context, options)
+  })
+
+const readWorkingSet = (refs: readonly string[]) =>
+  Effect.gen(function* readWorkingSetIssues() {
+    const resolver = yield* ContextResolver
+    const reader = yield* IssueReader
+    const context = yield* resolver.resolve({ viewer: false, withTeam: false })
+    return yield* reader.workingSet(context, refs, { comments: false, full: false })
+  })
+
 describe("IssueReader", () => {
-  test("reads a list, a show, a summary, a search and a status from the context", async () => {
+  test("reads a list, a search and a working set from the context", async () => {
     const counting = countingGateway(seed)
     const result = await program(
       counting,
@@ -80,19 +96,18 @@ describe("IssueReader", () => {
         const reader = yield* IssueReader
         const context = yield* resolver.resolve({})
         const list = yield* reader.list(context, { after: null, limit: 50 })
-        const show = yield* reader.show(context, "RAT-1", { comments: false })
-        const summary = yield* reader.summary(context, "RAT-1")
-        const status = yield* reader.status(context, "RAT-1", { children: false })
+        const workingSet = yield* reader.workingSet(context, ["RAT-1"], {
+          comments: false,
+          full: false,
+        })
         const search = yield* reader.search(context, "Body", { after: null, limit: 10 })
-        return { list, search, show, status, summary }
+        return { list, search, workingSet }
       }),
     )
 
     expect(result.list.issues.map((row) => row.identifier)).toEqual(["RAT-1", "RAT-2"])
-    expect(result.show.identifier).toBe("RAT-1")
-    expect(result.show.description).toBe("Body RAT-1")
-    expect(result.summary.identifier).toBe("RAT-1")
-    expect(result.status.identifier).toBe("RAT-1")
+    expect(result.workingSet.items[0]?.identifier).toBe("RAT-1")
+    expect(result.workingSet.items[0]?.description).toBe("Body RAT-1")
     expect(result.search.issues.map((row) => row.identifier)).toEqual(["RAT-1", "RAT-2"])
   })
 
@@ -118,40 +133,29 @@ describe("IssueReader", () => {
 describe("IssueReader context use", () => {
   test("list resolves the viewer only for --assignee me", async () => {
     const counting = countingGateway(seed)
-    await program(
-      counting,
-      Effect.gen(function* listMine() {
-        const api = yield* IssueApi
-        yield* api.list({ after: null, assignee: "me", limit: 50 })
-      }),
-    )
+    await program(counting, readList({ after: null, assignee: "me", limit: 50 }))
 
     expect(counting.counts.viewer()).toBe(1)
     expect(counting.counts.details()).toBe(1)
   })
 
-  test("show and summary do not resolve the viewer or the link", async () => {
+  test("the working set does not resolve the viewer or the link", async () => {
     const counting = countingGateway(seed)
-    await program(
-      counting,
-      Effect.gen(function* showAndSummary() {
-        const api = yield* IssueApi
-        yield* api.show("RAT-1", { comments: false })
-        yield* api.summary("RAT-1")
-      }),
-    )
+    await program(counting, readWorkingSet(["RAT-1"]))
 
     expect(counting.counts.viewer()).toBe(0)
     expect(counting.counts.details()).toBe(0)
     expect(counting.counts.byId()).toBe(0)
+    expect(counting.counts.workingSets()).toBe(1)
   })
 
   test("list prints the stale-link warning", async () => {
     const counting = countingGateway(seed)
     const errors: string[] = []
     await Effect.gen(function* listStale() {
-      const api = yield* IssueApi
-      yield* api.list({ after: null, limit: 50 })
+      const reader = yield* IssueReader
+      const context = yield* resolveIssueContext({ viewer: false })
+      yield* reader.list(context, { after: null, limit: 50 })
     }).pipe(
       Effect.provide(
         memoryApiLayer(seed, {
@@ -172,9 +176,8 @@ describe("IssueReader context use", () => {
     await program(
       counting,
       Effect.gen(function* listTwice() {
-        const api = yield* IssueApi
-        yield* api.list({ after: null, limit: 50 })
-        yield* api.list({ after: null, limit: 50 })
+        yield* readList({ after: null, limit: 50 })
+        yield* readList({ after: null, limit: 50 })
       }),
     )
 
@@ -183,29 +186,21 @@ describe("IssueReader context use", () => {
     expect(counting.counts.byId()).toBe(1)
   })
 
-  test("the adapter resolves once for a status read", async () => {
+  test("the adapter resolves once for a working-set read", async () => {
     const counting = countingGateway(seed)
-    await program(
-      counting,
-      Effect.gen(function* status() {
-        const api = yield* IssueApi
-        yield* api.status("RAT-1", { children: false })
-      }),
-    )
+    await program(counting, readWorkingSet(["RAT-1"]))
 
     expect(counting.counts.viewer()).toBe(0)
     expect(counting.counts.details()).toBe(0)
     expect(counting.counts.byId()).toBe(0)
+    expect(counting.counts.workingSets()).toBe(1)
   })
 
   test("an unknown state filter refreshes the team detail once", async () => {
     const counting = countingGateway(seed)
     const error = await program(
       counting,
-      Effect.gen(function* listWithBadState() {
-        const api = yield* IssueApi
-        return yield* Effect.flip(api.list({ after: null, limit: 50, state: "Nope" }))
-      }),
+      Effect.flip(readList({ after: null, limit: 50, state: "Nope" })),
     )
 
     expect(error._tag).toBe("ContextStateNotFoundError")

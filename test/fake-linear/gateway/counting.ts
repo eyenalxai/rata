@@ -12,6 +12,7 @@ type GatewayCounts = {
   readonly byKey: () => number
   readonly details: () => number
   readonly viewer: () => number
+  readonly workingSets: () => number
   readonly reset: () => void
 }
 
@@ -23,6 +24,7 @@ const countingGateway = (
   let byKey = 0
   let details = 0
   let viewer = 0
+  let workingSets = 0
 
   const gateway: LinearGatewayShape = {
     ...base,
@@ -30,6 +32,14 @@ const countingGateway = (
       viewer += 1
       return base.viewer
     }),
+    issue: {
+      ...base.issue,
+      workingSet: (refs, options) =>
+        Effect.suspend(() => {
+          workingSets += 1
+          return base.issue.workingSet(refs, options)
+        }),
+    },
     team: {
       ...base.team,
       byId: (id) =>
@@ -57,11 +67,13 @@ const countingGateway = (
       byKey: () => byKey,
       details: () => details,
       viewer: () => viewer,
+      workingSets: () => workingSets,
       reset: () => {
         byId = 0
         byKey = 0
         details = 0
         viewer = 0
+        workingSets = 0
       },
     },
   }

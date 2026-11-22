@@ -1,4 +1,4 @@
-import { maxPageSize, pageSize } from "@/linear/connection"
+import { maxPageSize } from "@/linear/connection"
 
 const summaryFields = `
       id
@@ -23,15 +23,14 @@ const relationFields = (
   inverseRelations: `    inverseRelations(first: ${first}) { nodes { id type issue { id identifier title state { name type } } } pageInfo { hasNextPage endCursor } }`,
 })
 
-const showFields = {
-  labels: `    labels(first: ${pageSize}) { nodes { id name } pageInfo { hasNextPage endCursor } }`,
-  children: `    children(first: ${pageSize}) { nodes { id identifier title state { name type } } pageInfo { hasNextPage endCursor } }`,
-  ...relationFields(pageSize),
-  attachments: `    attachments(first: ${pageSize}) { nodes { ${attachmentFields} } pageInfo { hasNextPage endCursor } }`,
-}
-
 const listRelationFields = relationFields(maxPageSize)
+
+const workingFields = {
+  ...listRelationFields,
+  children: `    children(first: ${maxPageSize}) { nodes {${summaryFields}\n      ${listRelationFields.relations}\n      ${listRelationFields.inverseRelations}\n    } pageInfo { hasNextPage endCursor } }`,
+  attachments: `    attachments(first: ${maxPageSize}) { nodes { ${attachmentFields} } pageInfo { hasNextPage endCursor } }`,
+}
 
 const commentFields = `id body createdAt user { id name displayName }`
 
-export { attachmentFields, commentFields, listRelationFields, showFields, summaryFields }
+export { attachmentFields, commentFields, listRelationFields, summaryFields, workingFields }

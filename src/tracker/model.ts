@@ -2,10 +2,10 @@ import type { IssueId } from "@/domain/id"
 import type { PullRequest } from "@/domain/pr"
 import type { Priority } from "@/domain/priority"
 import type { RelationTargets } from "@/domain/relation"
+import type { Section } from "@/domain/section"
 import type { StateType } from "@/domain/workflow-state"
 import type { PageOptions } from "@/linear/connection"
 import type {
-  IssueAttachment,
   IssueChild,
   IssueComment,
   IssueLabel,
@@ -16,7 +16,6 @@ import type {
   IssueUser,
 } from "@/linear/decode/issue"
 import type { PageInfo } from "@/linear/decode/page"
-import type { IssueDetailData } from "@/linear/operations/issue/show"
 
 import { priorityRank } from "@/domain/priority"
 import { relationTargets } from "@/domain/relation"
@@ -49,12 +48,6 @@ type IssueSummary = {
 
 type IssueRelations = RelationTargets<IssueChild>
 
-type IssueDetail = Omit<IssueDetailData, "children" | "relations" | "attachments"> & {
-  readonly children: readonly IssueChild[]
-  readonly relations: IssueRelations
-  readonly attachments: readonly IssueAttachment[]
-}
-
 type IssuePage = {
   readonly issues: readonly IssueSummary[]
   readonly pageInfo: PageInfo
@@ -67,25 +60,41 @@ type IssueBlocker = {
   readonly closed: boolean
 }
 
-type IssueStatusChild = IssueSummary & {
+type IssueHeader = Pick<
+  IssueSummary,
+  "id" | "identifier" | "title" | "state" | "priority" | "assignee" | "project" | "parent"
+>
+
+type IssueWorkingChild = IssueHeader & {
   readonly blocked: boolean
   readonly blockedBy: readonly IssueBlocker[]
 }
 
-type IssueStatus = IssueSummary & {
+type IssueWorkingChildFull = IssueWorkingChild &
+  Pick<IssueSummary, "url" | "createdAt" | "updatedAt" | "labels">
+
+type IssueWorkingSetBase<Child> = IssueHeader & {
+  readonly description: string | null
+  readonly sections: readonly Section[]
   readonly blocked: boolean
   readonly blockedBy: readonly IssueBlocker[]
   readonly prs: readonly PullRequest[]
-  readonly nextChild: IssueSummary | null
-  readonly description?: string | null | undefined
-  readonly comments?: readonly IssueComment[] | undefined
-  readonly children?: readonly IssueStatusChild[] | undefined
+  readonly children: readonly Child[]
+  readonly frontier: readonly Child[]
+  readonly nextChild: Child | null
+  readonly comments: readonly IssueComment[] | null
 }
 
-type IssueStatusOptions = {
-  readonly withBody?: boolean | undefined
-  readonly comments?: boolean | undefined
-  readonly children?: boolean | undefined
+type IssueWorkingSet = IssueWorkingSetBase<IssueWorkingChild>
+
+type IssueWorkingSetFull = IssueWorkingSetBase<IssueWorkingChildFull> &
+  Pick<IssueSummary, "url" | "createdAt" | "updatedAt" | "labels"> & {
+    readonly relations: IssueRelations
+  }
+
+type IssueWorkingSetOptions = {
+  readonly comments: boolean
+  readonly full: boolean
 }
 
 type IssueListOptions = PageOptions & {
@@ -100,33 +109,12 @@ type IssueListOptions = PageOptions & {
   readonly text?: string | undefined
   readonly unblocked?: boolean | undefined
   readonly unassigned?: boolean | undefined
-  readonly ids?: readonly string[] | undefined
   readonly include?: ListInclude | undefined
   readonly sort?: SortField | undefined
 }
 
 type IssueSearchOptions = PageOptions & {
   readonly team?: string | undefined
-}
-
-type IssueShowOptions = {
-  readonly comments: boolean
-  readonly relations?: boolean | undefined
-  readonly children?: boolean | undefined
-  readonly attachments?: boolean | undefined
-}
-
-const toIssueSummary = (issue: IssueDetail): IssueSummary => {
-  const {
-    description: _description,
-    team: _team,
-    children: _children,
-    relations: _relations,
-    attachments: _attachments,
-    comments: _comments,
-    ...summary
-  } = issue
-  return summary
 }
 
 const summaryRelations = (node: IssueSummaryNode): IssueRelations | undefined =>
@@ -202,16 +190,17 @@ export {
   byCreatedAt,
   collectsAllPages,
   type IssueBlocker,
-  type IssueDetail,
+  type IssueHeader,
   type IssueListOptions,
   type IssuePage,
   type IssueRelations,
   type IssueSearchOptions,
-  type IssueShowOptions,
-  type IssueStatus,
-  type IssueStatusChild,
-  type IssueStatusOptions,
   type IssueSummary,
+  type IssueWorkingChild,
+  type IssueWorkingChildFull,
+  type IssueWorkingSet,
+  type IssueWorkingSetFull,
+  type IssueWorkingSetOptions,
   isBlocked,
   isListInclude,
   type ListInclude,
@@ -220,6 +209,5 @@ export {
   type SortField,
   sortFields,
   toBlockers,
-  toIssueSummary,
   toSummary,
 }

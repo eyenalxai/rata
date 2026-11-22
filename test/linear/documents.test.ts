@@ -5,7 +5,7 @@ import { attachmentId, issueId, labelId, teamId, userId } from "@/domain/id"
 import { IssueSummaryNode } from "@/linear/decode/issue"
 import { PageInfo } from "@/linear/decode/page"
 import { TeamDetail } from "@/linear/decode/team"
-import { listQuery, searchQuery, showQuery } from "@/linear/documents/issue"
+import { listQuery, searchQuery, workingSetQuery } from "@/linear/documents/issue"
 import { listProjectsQuery } from "@/linear/documents/project"
 import { teamLabelsQuery, teamStatesQuery } from "@/linear/documents/team"
 
@@ -25,8 +25,8 @@ const summary = {
 }
 
 describe("Linear documents select the read fields", () => {
-  test("the show document carries the working-set fields", () => {
-    const document = showQuery({ children: true, relations: true, attachments: true })
+  test("the working-set document carries the issue fields", () => {
+    const document = workingSetQuery({ comments: true })
 
     expect(document).toContain("description")
     expect(document).toContain("createdAt")
@@ -35,6 +35,7 @@ describe("Linear documents select the read fields", () => {
     expect(document).toContain("relations(")
     expect(document).toContain("inverseRelations(")
     expect(document).toContain("attachments(")
+    expect(document).toContain("comments(")
   })
 
   test("the list and search documents carry summary fields", () => {

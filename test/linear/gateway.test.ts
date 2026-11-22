@@ -183,20 +183,32 @@ describe("LinearGateway reads", () => {
   })
 
   test("groups blocking relations in both directions", async () => {
-    const detail = await Effect.runPromise(
-      gateway.issue.show(issueRef("RAT-4"), { comments: false }),
+    const page = await Effect.runPromise(
+      gateway.issue.workingSet([issueRef("RAT-4")], { comments: false }),
     )
+    const detail = page.nodes[0]
 
-    expect(detail.relations?.blocks.map((target) => target.identifier)).toEqual(["RAT-8"])
-    expect(detail.relations?.blockedBy.map((target) => target.identifier)).toEqual(["RAT-9"])
+    expect(detail?.relations.nodes.map((relation) => relation.relatedIssue.identifier)).toEqual([
+      "RAT-8",
+    ])
+    expect(detail?.inverseRelations.nodes.map((relation) => relation.issue.identifier)).toEqual([
+      "RAT-9",
+    ])
   })
 
   test("omits comments unless requested, then sorts them", async () => {
-    const lean = await Effect.runPromise(gateway.issue.show(issueRef("RAT-4"), { comments: false }))
-    const full = await Effect.runPromise(gateway.issue.show(issueRef("RAT-4"), { comments: true }))
+    const lean = await Effect.runPromise(
+      gateway.issue.workingSet([issueRef("RAT-4")], { comments: false }),
+    )
+    const full = await Effect.runPromise(
+      gateway.issue.workingSet([issueRef("RAT-4")], { comments: true }),
+    )
 
-    expect(lean.comments).toBeUndefined()
-    expect(full.comments?.map((comment) => comment.body)).toEqual(["First", "Second"])
+    expect(lean.nodes[0]?.comments).toBeUndefined()
+    expect(full.nodes[0]?.comments?.nodes.map((comment) => comment.body)).toEqual([
+      "First",
+      "Second",
+    ])
   })
 
   test("keeps comments off the summary and list rows", async () => {

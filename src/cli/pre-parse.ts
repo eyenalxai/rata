@@ -208,6 +208,8 @@ const detectUpdateForm = (args: readonly string[], groupIndex: number): InvalidF
   return undefined
 }
 
+const removedReadGroups = new Set(["show", "view", "status"])
+
 const detectInvalidForm = (args: readonly string[]): InvalidForm | undefined => {
   if (hasActionFlag(args)) {
     return undefined
@@ -236,13 +238,15 @@ const detectInvalidForm = (args: readonly string[]): InvalidForm | undefined => 
     return detectUpdateForm(args, groupIndex)
   }
 
-  if (!Result.isSuccess(parseIssueRef(group))) {
-    return undefined
+  if (removedReadGroups.has(group)) {
+    const ref = issueRef(args, groupIndex + 1) ?? "<ref>"
+    return {
+      message: `The issue ${group} command does not exist.`,
+      hint: `rata issue ${ref}`,
+    }
   }
-  return {
-    message: "The issue group needs a subcommand.",
-    hint: `rata issue show ${group}`,
-  }
+
+  return undefined
 }
 
 const jsonEnabled = (args: readonly string[]): boolean => {
@@ -266,6 +270,6 @@ const jsonEnabled = (args: readonly string[]): boolean => {
 }
 
 const reportInvalidForm = (form: InvalidForm, json: boolean): Effect.Effect<void> =>
-  errorLine("validation", form.message, form.hint).pipe(Effect.provideService(JsonOutput, json))
+  errorLine("usage", form.message, form.hint).pipe(Effect.provideService(JsonOutput, json))
 
 export { detectInvalidForm, jsonEnabled, reportInvalidForm }

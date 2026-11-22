@@ -18,11 +18,13 @@ rata status          # repo, team, states, labels, triage, cache age, docs, view
 
 `status` works without a link. Fix a failed first command before you retry:
 
-The migrated admin commands (`auth`, `link`, `unlink`, `workspace`, `config`,
-`team`, `project`, `label`, `status`, `whoami`) accept `--format json|text`.
-JSON is their default when stdout is not a terminal. The admin reads also
-accept `--select`; the admin writes do not. The work surface (`issue`, `search`,
-`next`, `why`) keeps `--json` and `--fields` until its own ticket.
+The admin commands (`auth`, `link`, `unlink`, `workspace`, `config`, `team`,
+`project`, `label`, `status`, `whoami`) and the new issue reads (`issue <ref>...`,
+`issue list`, `issue search`) accept `--format json|text` and `--select`. JSON is
+their default when stdout is not a terminal. The issue writes still accept
+`--json` and `--fields` until the apply engine lands. The old read forms (`issue
+show`, `issue view`, `issue status`, `next`, `why`) and the old read flags
+(`--json`, `--fields`, `--count`, `--ids-only`, `--include`) exit 2.
 
 - `auth`: `printf '%s' "$LINEAR_API_KEY" | rata auth login --with-token`. The key
   resolves as `LINEAR_API_KEY`, the repository workspace, then `default`;
@@ -46,7 +48,9 @@ needs it; reads without that flag do not.
 
 | Operation       | Canonical form                                               | Rejected form                |
 | --------------- | ------------------------------------------------------------ | ---------------------------- |
-| Read one issue  | `rata issue show <ref>`                                      | `rata issue <ref>`           |
+| Read an issue   | `rata issue <ref>`                                           | `rata issue show <ref>`      |
+| Read the header | `rata issue <ref> --summary`                                 | `rata issue status <ref>`    |
+| Read many       | `rata issue <ref> <ref> ...`                                 | repeated `issue <ref>` calls |
 | Comment         | `rata issue comment create <ref> --body-file -`              | `rata issue comment <ref>`   |
 | Assign          | `rata issue assign <ref> --assignee me [--take]`             | `rata issue assign <ref> me` |
 | Edit a section  | `rata issue section replace <ref> "<heading>" --body-file -` |                              |
@@ -59,21 +63,20 @@ needs it; reads without that flag do not.
 ## Read loop
 
 ```bash
-rata issue status <ref> --json --with-body
-rata issue show <ref> --json
-rata issue show <ref> --summary --json
-rata issue list --id <ref> --id <ref> --json
-rata issue list --parent <ref> --all --json --include relations
-rata next --parent <ref>
-rata why <ref>
-rata search "<text>" --json
+rata issue <ref>                          # one call: body, sections, blockers, PRs, children, frontier, next child
+rata issue <ref> --comments                # add the comments
+rata issue <ref> --summary                 # header fields only
+rata issue <ref> --full                    # labels, URLs, timestamps, relations, full child rows
+rata issue <ref> <ref> ...                 # one list request per page
+rata issue list --parent <ref> --relations # the children with their blocking edges
+rata issue search "<text>"                 # ten summary rows by default
 ```
 
-One resource prints that object; a collection prints `{ <plural>, pageInfo }`.
-`--fields` selects dotted paths and needs `--json`; it validates the read shape
-even on an empty list or a null object, and a path may cross an array
-(`labels.name`). A list returns one page; `--after` continues it and `--all`
-drains it. `--count` prints one number; `--ids-only` prints plain identifiers.
+`issue <ref>` returns the working set: summary fields, `description`, `sections`,
+`blocked`, `blockedBy`, `prs`, lean `children` with `blocked` and `blockedBy`,
+`frontier`, `nextChild` and `comments: null`. One ref prints the object; many
+print `{ "items", "pageInfo" }`. `--select` validates a declared shape and may
+cross arrays (`children.identifier`, `frontier.identifier`).
 
 ## Write loop
 

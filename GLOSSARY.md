@@ -23,9 +23,10 @@ they explore the codebase. Use these terms; do not drift to synonyms.
   deleted object is also archived.
 - **Issue**: a Linear issue. Avoid: task, card, ticket, when the general Linear
   object is meant.
-- **Issue status**: the combined read of one issue: its summary, its blockers,
-  its pull requests and its next child. `rata issue status` prints it. It is not
-  the workflow state.
+- **Working set**: the one read of an issue: summary header, description, parsed
+  sections, blockers, pull requests, lean child rows, the frontier, the next
+  child and `comments: null`. `rata issue <ref>` prints it. Avoid: issue status,
+  session read.
 - **Issue reference** (short: **ref**): the string that names an issue in a
   command. Accepted forms: the identifier (`RAT-42`), the UUID, or a Linear URL.
 - **Identifier**: the human-readable issue key, `<team key>-<number>`.
@@ -71,10 +72,10 @@ they explore the codebase. Use these terms; do not drift to synonyms.
   is not a separate relation type. A read groups relations as `blocks`,
   `blockedBy`, `duplicates`, `duplicatedBy`, `related` and `similar`.
 - **List row**: one item of a list result. It is the **summary**. With
-  `issue list --include relations` it also carries a `relations` object with the
-  six relation groups. Each outgoing or inverse connection holds up to 250
+  `issue list --relations` it also carries a `relations` object with the six
+  relation groups. Each outgoing or inverse connection holds up to 250
   relations; `related` and `similar` merge both. Read a larger row with
-  `issue show`.
+  `issue <ref> --full`.
 - **Bulk write**: one command that writes to every child of a **parent**. It
   reports one result per child: `updated`, `skipped` or `failed`. Only
   `issue assign`, `issue label add` and `issue label remove` treat `--parent` as
@@ -156,8 +157,8 @@ they explore the codebase. Use these terms; do not drift to synonyms.
 - **Resolution order**: the order rata uses to select the API key:
   `LINEAR_API_KEY`, the repository `workspace`, the default profile.
 - **Page**: one call's slice of a list. Every list command returns one page by
-  default. `--limit` sets the page size: 50 by default, 250 at most. Add
-  `--all` to drain every page; `--limit` stays the page size.
+  default. `--limit` sets the page size: 50 by default, 10 for `issue search`,
+  250 at most. Add `--all` to drain every page; `--limit` stays the page size.
 - **Cursor**: the value that continues a list. Pass the `endCursor` of a page
   to `--after`. A cursor is bound to its query: keep the filters and the order
   fixed across pages.
@@ -168,16 +169,21 @@ they explore the codebase. Use these terms; do not drift to synonyms.
   to one issue: rata derives a comment UUIDv4 from the issue id and the key.
   The same key on the same issue returns the existing comment with `skipped`; a
   different issue gets its own comment. Avoid: idempotency key.
-- **Summary** (or **issue summary**): the lean read of one issue: identifier,
-  title, state, priority, labels, assignee, project, parent, url, `createdAt`
-  and `updatedAt`. It carries no description, children, relations, attachments
-  or comments. `issue show --summary` prints it, `next` returns it, and
-  `issue status` starts from it. Avoid: header, metadata.
+- **Header fields**: the identity part of an issue read: `id`, `identifier`,
+  `title`, `state`, `priority`, `assignee`, `project` and `parent`.
+  `issue <ref> --summary` prints only these fields.
+- **Summary** (or **issue summary**): the lean row of a list or a search:
+  identifier, title, state, priority, labels, assignee, project, parent, url,
+  `createdAt` and `updatedAt`. It carries no description, children, relations,
+  attachments or comments. `issue list` and `issue search` print summaries.
+  Avoid: header, metadata.
+- **Full read**: the working set plus labels, URLs, timestamps, the six relation
+  groups and full child rows. `issue <ref> --full` prints it.
 - **Read shape**: the JSON shape of a read. A resource is the object itself,
   whether it has an identifier or is addressed by its heading. A collection is
-  `{ <plural>, pageInfo }`. A context document, such as `status`, keeps its named
-  sections. `--fields` starts at the resource for a read, at each row for a
-  list, and at the `defaults` object for `config show`.
+  `{ <plural>, pageInfo }`. Many refs are `{ items, pageInfo }`. A context
+  document, such as `status`, keeps its named sections. `--select` starts at the
+  resource for a read, at each row for a list, and at each item for many refs.
 - **Error code**: the class of a failure, carried by the `code` field of the JSON
   error object: `usage`, `validation`, `not_linked`, `not_found`, `ambiguous`,
   `auth`, `forbidden`, `conflict`, `rate_limited`, `network` or `internal`.

@@ -90,25 +90,6 @@ const issueCommentShape = objectField({
   user: issueUserShape,
 })
 
-type IssueDetailShapeOptions = {
-  readonly body: boolean
-  readonly children: boolean
-  readonly relations: boolean
-  readonly attachments: boolean
-  readonly comments: boolean
-}
-
-const issueDetailShape = (options: IssueDetailShapeOptions): FieldShape =>
-  objectField({
-    ...issueSummaryFields,
-    team: issueTeamShape,
-    ...(options.body ? { description: scalarField } : {}),
-    ...(options.children ? { children: arrayField(issueChildShape) } : {}),
-    ...(options.relations ? { relations: issueRelationsShape } : {}),
-    ...(options.attachments ? { attachments: arrayField(issueAttachmentShape) } : {}),
-    ...(options.comments ? { comments: arrayField(issueCommentShape) } : {}),
-  })
-
 const issueBlockerShape = objectField({
   identifier: scalarField,
   title: scalarField,
@@ -132,43 +113,76 @@ const issuePullRequestShape = objectField({
   mergeCommit: scalarField,
 })
 
-const issueStatusChildShape = objectField({
-  ...issueSummaryFields,
-  blocked: scalarField,
-  blockedBy: arrayField(issueBlockerShape),
+const issueSectionShape = objectField({
+  heading: scalarField,
+  level: scalarField,
+  content: scalarField,
+  line: scalarField,
 })
 
-type IssueStatusShapeOptions = {
-  readonly body: boolean
-  readonly comments: boolean
-  readonly children: boolean
-}
+const issueHeaderFields = {
+  id: scalarField,
+  identifier: scalarField,
+  title: scalarField,
+  state: issueStateShape,
+  priority: scalarField,
+  assignee: issueUserShape,
+  project: issueProjectShape,
+  parent: issueParentShape,
+} satisfies FieldShapeFields
 
-const issueStatusShape = (options: IssueStatusShapeOptions): FieldShape =>
-  objectField({
-    ...issueSummaryFields,
-    blocked: scalarField,
-    blockedBy: arrayField(issueBlockerShape),
-    prs: arrayField(issuePullRequestShape),
-    nextChild: issueSummaryShape,
-    ...(options.body ? { description: scalarField } : {}),
-    ...(options.comments ? { comments: arrayField(issueCommentShape) } : {}),
-    ...(options.children ? { children: arrayField(issueStatusChildShape) } : {}),
-  })
-
-const issueWhyShape = objectField({
-  ...issueSummaryFields,
+const issueWorkingChildFields = {
+  ...issueHeaderFields,
   blocked: scalarField,
   blockedBy: arrayField(issueBlockerShape),
+} satisfies FieldShapeFields
+
+const issueWorkingChildShape = objectField(issueWorkingChildFields)
+
+const issueWorkingChildFullShape = objectField({
+  ...issueWorkingChildFields,
+  url: scalarField,
+  createdAt: scalarField,
+  updatedAt: scalarField,
+  labels: arrayField(issueLabelShape),
+})
+
+const issueWorkingSetShape: FieldShape = objectField({
+  ...issueHeaderFields,
+  url: scalarField,
+  createdAt: scalarField,
+  updatedAt: scalarField,
+  labels: arrayField(issueLabelShape),
+  description: scalarField,
+  sections: arrayField(issueSectionShape),
+  blocked: scalarField,
+  blockedBy: arrayField(issueBlockerShape),
+  prs: arrayField(issuePullRequestShape),
+  children: arrayField(issueWorkingChildFullShape),
+  frontier: arrayField(issueWorkingChildFullShape),
+  nextChild: issueWorkingChildFullShape,
+  comments: arrayField(issueCommentShape),
+  relations: issueRelationsShape,
 })
 
 export {
+  issueAttachmentShape,
+  issueBlockerShape,
+  issueChildShape,
   issueCommentShape,
-  issueDetailShape,
-  type IssueDetailShapeOptions,
-  issueStatusShape,
-  type IssueStatusShapeOptions,
+  issueHeaderFields,
+  issueLabelShape,
+  issueParentShape,
+  issueProjectShape,
+  issuePullRequestShape,
+  issueRelationsShape,
+  issueSectionShape,
+  issueStateShape,
+  issueSummaryFields,
   issueSummaryRelationsShape,
   issueSummaryShape,
-  issueWhyShape,
+  issueTeamShape,
+  issueUserShape,
+  issueWorkingChildShape,
+  issueWorkingSetShape,
 }
