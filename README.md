@@ -916,7 +916,7 @@ rata issue list --priority urgent --sort priority --limit 10
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--team`       | Team key or id. Default: the team from `rata link`.                                                                                                                                                                                                                                                                                                      |
 | `--state`      | Workflow state name, for example `In Progress`.                                                                                                                                                                                                                                                                                                          |
-| `--state-type` | One of `triage`, `backlog`, `unstarted`, `started`, `completed`, `canceled`.                                                                                                                                                                                                                                                                             |
+| `--state-type` | One of `triage`, `backlog`, `unstarted`, `started`, `completed`, `canceled`, `duplicate`.                                                                                                                                                                                                                                                                |
 | `--priority`   | `none`, `urgent`, `high`, `medium`, `low`, or `0`-`4`.                                                                                                                                                                                                                                                                                                   |
 | `--label`      | Label name.                                                                                                                                                                                                                                                                                                                                              |
 | `--assignee`   | `me`, or a user id.                                                                                                                                                                                                                                                                                                                                      |
@@ -970,8 +970,9 @@ stays the page size and `--after` continues the sorted result. Issues with equal
 priorities stay in `createdAt` order, oldest first. With `--unblocked`, blocked
 issues are dropped before the sort.
 
-An open issue is one whose state type is not `completed` or `canceled`. An open
-blocker is a blocker whose state type is not `completed` or `canceled`.
+An open issue is one whose state type is not `completed`, `canceled` or
+`duplicate`. An open blocker is a blocker whose state type is not `completed`,
+`canceled` or `duplicate`.
 `--unblocked` keeps the open issues whose blockers are all closed. It filters
 on the server and composes with the other filters with AND, so a state filter
 that contradicts it returns an empty list.
@@ -990,7 +991,7 @@ run this command:
 `rata why <ref>` prints one level of the blocking graph. JSON is the issue
 summary plus `blocked` and `blockedBy`. Each blocker carries its state and a
 `closed` flag; `blocked` is true when any blocker is open. A blocker is closed
-when its state type is `completed` or `canceled`. Human output prints
+when its state type is `completed`, `canceled` or `duplicate`. Human output prints
 `RATA-42 is blocked by:` and one line per blocker, or `RATA-42 is ready.` when
 nothing blocks. `--fields` selects from the same object.
 
