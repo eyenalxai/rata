@@ -5,7 +5,7 @@ first command, the canonical forms, the read loop, the write loop and the
 errors. This file covers this repository's facts.
 
 - **Team**: the repository link stores the team UUID and the default project;
-  `rata status --json` prints them with the workflow states, labels, triage map,
+  `rata status` prints them with the workflow states, labels, triage map,
   cache age and document health. A warm `status` makes no Linear request;
   `--refresh` reads Linear again. A cache miss or `--refresh` repairs a renamed
   team UUID or key and warns; if the team is gone, the error or `status` names

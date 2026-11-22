@@ -139,40 +139,44 @@ prints its result object.
 | `config show`                                | `{ defaults }`                                                                                                                               |
 | A write                                      | The write result object                                                                                                                      |
 
-Every issue read carries `createdAt` and `updatedAt`. `--fields` starts at the
-object in the table: the resource for a read, each row for a list. For
+Every issue read carries `createdAt` and `updatedAt`. For a work-surface read,
+`--fields` starts at the object in the table: the resource for a read, each row
+for a list. For an admin read, `--select` starts at the same place; for
 `config show`, it starts at the `defaults` object. The command validates every
 path against its declared shape before it reads the value, so a typo fails even
 on an empty list or a null object. A path may cross an array: `labels.name`
 returns the names, and `children.state` returns an array of state objects. A
-path through an array of scalars is a `validation` error. A write rejects
-`--fields` with a hint. See **Field selection**.
+path through an array of scalars is a `validation` error. A write rejects field
+selection with a hint. See **Field selection**.
 
 ## Output and errors
 
-`--json` is one global flag. It may come before or after the subcommand, and
-both forms are equivalent:
+The CLI has two output surfaces. The work surface (`issue`, `search`, `next`,
+`why`) uses `--json` and `--fields`; both may come before or after the
+subcommand:
 
 ```bash
 rata --json issue list
 rata issue list --json
 ```
 
-With `--json`, the work surface prints one stable JSON document. The migrated
-admin commands (`auth`, `link`, `unlink`, `workspace`, `config`, `team`,
-`project`, `label`, `status`, `whoami`) use `--format json|text`. JSON is their
-default when standard output is not a terminal, and `--format text` forces
-text. The admin reads (`whoami`, `status`, `config show`, `team list`,
+The migrated admin commands (`auth`, `link`, `unlink`, `workspace`, `config`,
+`team`, `project`, `label`, `status`, `whoami`) use `--format json|text`. JSON
+is their default when standard output is not a terminal, and `--format text`
+forces text. The admin reads (`whoami`, `status`, `config show`, `team list`,
 `team show`, `project list`, `label list`) also use `--select`; the admin
-writes do not. The work surface (`issue`, `search`, `next`, `why`) keeps its
-current `--json` and `--fields` flags until its own ticket; those flags are not
-aliases of `--format` and `--select`.
+writes do not.
+
+```bash
+rata status
+rata status --format text
+```
 
 A reordered table parses by header name. A headerless or incomplete
 document is an unhealthy `docs.triage` with a warning; `status` still prints the
 rest. The first state or label resolution after a cache miss fetches the full
-team detail; later calls use the cache. With `--json`, a
-failure writes one JSON object to stderr and leaves stdout empty. Two cases are
+team detail; later calls use the cache. With JSON output, a failure writes one
+JSON object to stderr and leaves stdout empty. Two cases are
 the exceptions: a bulk write reports one result per issue on stdout, and
 `issue update --comment` writes the issue update and the `error` object on
 stdout when the comment fails.
@@ -212,13 +216,13 @@ branches on the number, not the message.
 A bulk write exits with the code of its first failed result, or `0` when every
 result succeeds.
 
-`--fields` selects dotted paths from the JSON output of a read command. It
-requires `--json`:
+The work surface selects dotted paths with `--fields` on a JSON read; it
+requires `--json`. The migrated admin reads use `--select`:
 
 ```bash
 rata issue list --json --fields identifier,title,state.name
-rata status --json --fields repository.root,team.key
-rata config show --json --fields assignee,labels
+rata status --select repository.root,team.key
+rata config show --select assignee,labels
 ```
 
 The path applies to the command's own resource, not to a wrapper: the issue
@@ -274,7 +278,7 @@ team detail; later calls use the cache.
 
 ```bash
 rata status
-rata status --json
+rata status --format json
 rata status --refresh
 ```
 
@@ -296,7 +300,7 @@ viewer:    Ada <ada@example.com>
 org:       Acme (acme)
 ```
 
-`--json` prints one document:
+`--format json` prints one document:
 
 ```json
 {
@@ -460,7 +464,7 @@ A repository that names a missing profile fails with a clear error. The
 environment key wins over every stored profile, so a script can point every
 repository at one key.
 
-`rata workspace list --json` prints one document:
+`rata workspace list --format json` prints one document:
 
 ```json
 {
@@ -490,7 +494,7 @@ fail with ``No default workspace. Run `rata workspace use <name>`.`` Run
 ## Teams
 
 `rata team list` prints the teams in the workspace: key, name, id. It returns
-one page per call: see **Paging lists**. `--json` prints
+one page per call: see **Paging lists**. `--format json` prints
 `{ "teams": [...], "pageInfo": { "hasNextPage": ..., "endCursor": ... } }`.
 
 `rata team show [<team-ref>]` prints the full read model of a team: the id, key,
@@ -502,10 +506,10 @@ labels and members.
 
 ```bash
 rata team show JYO
-rata team show --json
+rata team show --format json
 ```
 
-`--json` prints the team object at the top level:
+`--format json` prints the team object at the top level:
 
 ```json
 {
@@ -546,7 +550,7 @@ rata team create --name "Scratch" --copy-settings-from RAT
 `--copy-settings-from` copies the workflow states, labels and other settings of
 another team. The value is a team key or a UUID.
 
-`--json` prints one stable document:
+`--format json` prints one stable document:
 
 ```json
 {
@@ -572,7 +576,7 @@ rata team delete SCR --yes
 | ------- | ----------------------------- |
 | `--yes` | Skip the confirmation prompt. |
 
-`--json` prints one stable document:
+`--format json` prints one stable document:
 
 ```json
 {
@@ -598,7 +602,7 @@ rata project create --name "Login revamp" --team RAT --team OPS --description "T
 | `--team`        | Team key or id. Repeat for more teams. Default: the repository config. |
 | `--description` | Project description.                                                   |
 
-`--json` prints one stable document:
+`--format json` prints one stable document:
 
 ```json
 {
@@ -628,7 +632,8 @@ projects. A trashed row carries a ` (deleted)` marker after the name:
 rata project list --include-archived
 ```
 
-`--json` prints `{ "projects": [...], "pageInfo": { "hasNextPage": ..., "endCursor": ... } }`
+`--format json` prints
+`{ "projects": [...], "pageInfo": { "hasNextPage": ..., "endCursor": ... } }`
 with the same fields, and every item carries the `trashed` flag. `--limit` and
 `--after` page the list; see **Paging lists**. `progress` is the fraction of
 the project's issues that are done, between 0 and 1.
@@ -651,7 +656,7 @@ the answer is `y` or `yes`, in any case. The prompt names the project and its
 id. An ambiguous name fails and asks for the UUID. A project that is already in
 the trash fails and points at `project restore`.
 
-`--json` prints one stable document:
+`--format json` prints one stable document:
 
 ```json
 {
@@ -674,7 +679,7 @@ rata project restore "Login revamp"
 A project that is not in the trash fails and points at `project delete`. An
 ambiguous name fails and asks for the UUID.
 
-`--json` prints one stable document:
+`--format json` prints one stable document:
 
 ```json
 {
@@ -709,7 +714,7 @@ UUID. A wayfinding map stays an issue with child issues.
 
 `rata label list` prints the labels of the linked team: name, id, color. Pass
 `--team <key>` for another team. It returns one page per call: see
-**Paging lists**. `--json` prints
+**Paging lists**. `--format json` prints
 `{ "labels": [...], "pageInfo": { "hasNextPage": ..., "endCursor": ... } }`.
 
 `rata label create --name <name> [--color <hex>] [--team <key>] [--if-not-exists]`
@@ -726,7 +731,7 @@ at least one of `--name` and `--color`.
 The color is 6 hex digits, with or without `#`: `#EB5757` and `EB5757` are both
 valid. rata adds the `#` when it is missing and keeps the case.
 
-`create` and `edit` accept `--json`. Both print
+`create` and `edit` accept `--format json`. Both print
 `{ "label": { "id": ..., "name": ..., "color": ... } }`. `create` also prints
 `"created": true` or `"created": false` when `--if-not-exists` returns an
 existing label.
@@ -799,7 +804,7 @@ imported config. A file that is already gone is not an error.
 | `--workspace` | Workspace profile. Skips the workspace prompt.                         |
 | `--create`    | Create the team when it does not exist. Needs `--team` and `--name`.   |
 | `--name`      | Team name, used with `--create`.                                       |
-| `--json`      | Print machine-readable JSON.                                           |
+| `--format`    | Print JSON or text. JSON is the default off a terminal.                |
 
 A missing team fails with `TeamNotFoundError` unless `--create` is passed.
 
@@ -813,8 +818,8 @@ stores the team key and the team UUID, so later reads use the UUID. The explicit
 `--workspace` wins. A team found by `--team` records the profile that holds it.
 Without a profile, `link` keeps the `workspace` of an existing config.
 
-`--json` prints one stable document with the linked team and the repository
-config:
+`--format json` prints one stable document with the linked team and the
+repository config:
 
 ```json
 {
@@ -838,12 +843,12 @@ profile is recorded. `timezone` holds the previous and current IANA names when
 
 ```bash
 rata unlink
-rata unlink --json
+rata unlink --format json
 ```
 
 It prints what it removed, for example `Unlinked RAT from this repository.`, and
-it exits non-zero when the repository is not linked. `--json` prints one stable
-document with the removed team, project and workspace:
+it exits non-zero when the repository is not linked. `--format json` prints one
+stable document with the removed team, project and workspace:
 
 ```json
 {
@@ -861,7 +866,7 @@ flags:
 ```bash
 rata config set --assignee me --label enhancement --priority medium
 rata config show
-rata config show --json
+rata config show --format json
 rata config unset --label
 ```
 
@@ -876,7 +881,7 @@ every label against the team and fails with `not_found` for a missing label.
 `config set --label` replaces the default list; `config unset` clears only the
 named fields.
 
-`config show --json` prints:
+`config show --format json` prints:
 
 ```json
 { "defaults": { "assignee": "me", "labels": ["enhancement"], "priority": "medium" } }
@@ -1102,7 +1107,7 @@ every write result that returns a full issue summary. `--fields createdAt`
 selects the creation time. Pass `updatedAt` to `--if-unchanged` to make a
 best-effort conditional write before a body change.
 
-Every read command accepts the global `--json` and prints one stable JSON
+Every work-surface read command accepts `--json` and prints one stable JSON
 document. The list and search commands print one page by default and every page
 with `--all`:
 `{ "issues": [...], "pageInfo": { "hasNextPage": ..., "endCursor": ... } }`.
@@ -1199,8 +1204,8 @@ A `github` attachment holds the pull request fields there, and
 
 ### Field selection
 
-`--fields` selects dotted paths from the JSON output of a read command. It needs
-`--json`, and it starts at the command's resource:
+`--fields` selects dotted paths from the JSON output of a work-surface read. It
+needs `--json`, and it starts at the command's resource:
 
 ```bash
 rata issue show RAT-42 --json --fields identifier,title,state.name
@@ -1229,14 +1234,14 @@ returns an array of objects: `children.state` gives
 A path through an array of scalars is a `validation` error. An empty array is
 validated and returns `[]`.
 
-`--fields` is valid on `status`, `issue show`, `issue status`, `next`, `why`,
-`issue section get`, `issue list`, `search`, `team show`, `team list`,
-`label list`, `project list` and `config show`. Write commands reject it with
+`--fields` is valid on `issue show`, `issue status`, `next`, `why`,
+`issue section get`, `issue list` and `search`. The migrated admin reads use
+`--select`; the admin writes do not. Work-surface writes reject `--fields` with
 `validation` and a hint. An unknown path is a `validation` error whose hint
 lists the valid keys at the failing level.
 
-For any other shape, use `--json` and `jq`. There is no `--format` template
-language.
+For any other shape, use `--json` and `jq`. There is no custom format or
+template language.
 
 ### Section editing
 
@@ -1542,10 +1547,10 @@ mutation. Every issue write accepts it: `issue create`, `issue update`,
 rata issue create --title "Fix login" --assignee me --dry-run
 rata issue assign RAT-42 --assignee me --dry-run
 rata issue close RAT-42 --comment "Done." --dry-run
-rata config set --label enhancement --dry-run --json
+rata config set --label enhancement --dry-run --format json
 ```
 
-`--json` prints `{ "dryRun": true, "actions": [...] }` for most writes. Each
+With JSON output, most writes print `{ "dryRun": true, "actions": [...] }`. Each
 action carries the command action, the target and the changes. Comment and
 section writes print one `action` with their own fields; **Dry runs** in
 `skills/rata/reference.md` lists the shape by command.
@@ -1574,7 +1579,7 @@ role name is not always the label string. `issue label add RAT-42 <label>` adds
 one. A label name resolves against the team labels and the workspace labels,
 ignoring case. `issue label remove` resolves the same way.
 
-Every write command accepts the global `--json`. The update and reopen commands
+Every work-surface write command accepts `--json`. The update and reopen commands
 print the summary shape:
 
 ```json

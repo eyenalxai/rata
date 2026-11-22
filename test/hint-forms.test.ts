@@ -72,6 +72,16 @@ describe("the known wrong flags teach the canonical command", () => {
     expect(process.exitCode).toBe(2)
   })
 
+  test("a leading --format value does not hide the canonical hint", async () => {
+    const lines: string[] = []
+    await run(["--format", "json", "issue", "create", "--blocked-by", "RAT-2"], lines)
+    expect(lines).toEqual([
+      "error: The --blocked-by flag is not supported by issue create.",
+      "hint: Create the issue, then run rata issue link <new-ref> --blocked-by RAT-2.",
+    ])
+    expect(process.exitCode).toBe(2)
+  })
+
   test("a known wrong flag does not print the full help", async () => {
     const lines: string[] = []
     await run(["issue", "update", "RAT-1", "--label", "bug"], lines)

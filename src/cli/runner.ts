@@ -33,8 +33,7 @@ import { renderOutput } from "@/cli/render"
 import { outputFormats } from "@/cli/spec"
 import { TrackerError } from "@/domain/error"
 
-// Canonical-form detection stays in pre-parse.ts: it needs raw flag values for
-// The replacement hint. format.ts only classifies the command and output flags.
+// Canonical-form detection lives in pre-parse.ts because it needs raw flag values for the replacement hint; format.ts only classifies the command and output flags.
 
 const Format = GlobalFlag.Setting("format")({
   flag: Flag.Literals("format", outputFormats).pipe(
