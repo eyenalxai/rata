@@ -1,6 +1,9 @@
 import type { Effect, Option } from "effect"
 
-import type { IssueSummary } from "@/api/issue-model"
+import type { CommentId } from "@/domain/id"
+import type { Section, SectionReplacement } from "@/domain/section"
+import type { IssueComment } from "@/linear/decode/issue"
+import type { IssueSummary } from "@/tracker/model"
 import type {
   BulkWriteResult,
   IssueCreatePlan,
@@ -9,7 +12,7 @@ import type {
   IssueWriteResult,
   RelationWriteResult,
   WriteOptions,
-} from "@/api/issue-write/model"
+} from "@/tracker/write/model"
 import type {
   CommentCreateOptions,
   CommentCreatePlan,
@@ -28,10 +31,7 @@ import type {
   IssueUpdateWriteOptions,
   SectionWriteOptions,
   SectionWriteResult,
-} from "@/api/issue-write/write-types"
-import type { CommentId } from "@/domain/id"
-import type { Section, SectionReplacement } from "@/domain/section"
-import type { IssueComment } from "@/linear/decode/issue"
+} from "@/tracker/write/write-types"
 
 type IssueWriteApiShape = {
   readonly create: (

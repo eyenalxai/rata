@@ -1,7 +1,7 @@
 import { Effect, Schema } from "effect"
 
-import type { IssueSummary } from "@/api/issue-model"
 import type { IssueRef } from "@/domain/issue-ref"
+import type { IssueSummary } from "@/tracker/model"
 
 import { parseRefOrFail } from "@/domain/issue-ref"
 

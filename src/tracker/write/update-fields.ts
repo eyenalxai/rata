@@ -1,8 +1,8 @@
 import { Effect } from "effect"
 
-import type { makeIssueWriteResolvers } from "@/api/issue-write/resolvers"
-import type { IssueUpdateOptions } from "@/api/issue-write/write-types"
 import type { IssueId } from "@/domain/id"
+import type { makeIssueWriteResolvers } from "@/tracker/write/resolvers"
+import type { IssueUpdateOptions } from "@/tracker/write/write-types"
 
 import { priorityValue } from "@/domain/priority"
 

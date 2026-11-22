@@ -1,38 +1,17 @@
-import { Effect, Schema } from "effect"
+import { Effect } from "effect"
 
-import type { IssueListOptions } from "@/api/issue-model"
-import type { TeamContext } from "@/context/team"
+import type { ContextLabelNotFoundError, ContextStateNotFoundError } from "@/context/model"
+import type { ContextResolveError, ContextResolver } from "@/context/resolve"
 import type { TeamId } from "@/domain/id"
 import type { LinearApiError } from "@/linear/errors"
 import type { LinearGatewayShape } from "@/linear/gateway"
+import type { FilterName } from "@/tracker/error"
+import type { IssueListOptions } from "@/tracker/model"
 
-import { isUuid, UserId, userId } from "@/domain/id"
+import { isUuid } from "@/domain/id"
 import { pageSize } from "@/linear/connection"
-
-const filterNames = ["state", "label", "project"] as const
-type FilterName = (typeof filterNames)[number]
-
-class FilterNameNotFoundError extends Schema.TaggedError<FilterNameNotFoundError>()(
-  "FilterNameNotFoundError",
-  {
-    filter: Schema.Literals(filterNames),
-    value: Schema.String,
-    valid: Schema.Array(Schema.String),
-    message: Schema.String,
-  },
-) {}
-
-class AssigneeInputError extends Schema.TaggedError<AssigneeInputError>()("AssigneeInputError", {
-  message: Schema.String,
-}) {}
-
-class AssigneeNotFoundError extends Schema.TaggedError<AssigneeNotFoundError>()(
-  "AssigneeNotFoundError",
-  {
-    id: UserId,
-    message: Schema.String,
-  },
-) {}
+import { FilterNameNotFoundError } from "@/tracker/error"
+import { resolveLabelName, resolveStateName } from "@/tracker/resolve"
 
 const uniqueNames = (names: readonly string[]): readonly string[] => {
   const seen = new Set<string>()
@@ -77,46 +56,28 @@ const requireName = (
     ? Effect.void
     : failMissing(filter, value, names)
 
-const validateNamedFilters = Effect.fn("IssueFilters.validateNames")(function* validateNames(
+const validateNamedFilters = Effect.fn("TrackerFilters.validateNames")(function* validateNames(
   gateway: LinearGatewayShape,
-  context: TeamContext["Service"],
+  resolver: ContextResolver["Service"],
   teamId: TeamId,
   options: Pick<IssueListOptions, "state" | "label" | "project">,
-) {
+): Effect.fn.Return<
+  void,
+  | ContextLabelNotFoundError
+  | ContextResolveError
+  | ContextStateNotFoundError
+  | FilterNameNotFoundError
+  | LinearApiError
+> {
   if (options.state !== undefined) {
-    yield* context.resolveState(options.state, teamId)
+    yield* resolveStateName(resolver, teamId, options.state)
   }
   if (options.label !== undefined) {
-    yield* context.resolveLabel(options.label, teamId)
+    yield* resolveLabelName(resolver, teamId, options.label)
   }
   if (options.project !== undefined && !isUuid(options.project)) {
     yield* requireName("project", options.project, yield* projectNames(gateway))
   }
 })
 
-const resolveAssignee = Effect.fn("IssueFilters.resolveAssignee")(function* resolveAssigneeId(
-  gateway: LinearGatewayShape,
-  value: string,
-) {
-  if (!isUuid(value)) {
-    return yield* new AssigneeInputError({
-      message: "The --assignee flag accepts `me` or a user UUID.",
-    })
-  }
-  const found = yield* gateway.user.byId(userId(value))
-  if (found === undefined) {
-    return yield* new AssigneeNotFoundError({
-      id: userId(value),
-      message: `No user with id ${value}.`,
-    })
-  }
-  return found
-})
-
-export {
-  AssigneeInputError,
-  AssigneeNotFoundError,
-  FilterNameNotFoundError,
-  resolveAssignee,
-  validateNamedFilters,
-}
+export { validateNamedFilters }

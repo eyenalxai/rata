@@ -2,13 +2,13 @@ import { Effect, Option, Schema } from "effect"
 import { Flag } from "effect/cli"
 
 import type { IssueWriteApi } from "@/api/issue-write"
+import type { SectionReplacement } from "@/domain/section"
 import type {
   IssueUpdateSectionsOptions,
   IssueUpdateSectionsPlan,
   IssueUpdateSectionsResult,
   IssueUpdateWriteOptions,
-} from "@/api/issue-write/write-types"
-import type { SectionReplacement } from "@/domain/section"
+} from "@/tracker/write/write-types"
 
 import { resolveBody } from "@/cli/body"
 import { postUpdateComment } from "@/cli/issue-write/comment"

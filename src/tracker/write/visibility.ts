@@ -1,13 +1,13 @@
 import { Duration, Effect, Option, Schema } from "effect"
 
-import type { LinearClient } from "@/api/client"
-import type { WriteVisibility } from "@/api/issue-write/write-types"
 import type { CommentId, IssueId } from "@/domain/id"
+import type { LinearClientShape } from "@/linear/client"
 import type { LinearApiError } from "@/linear/errors"
+import type { WriteVisibility } from "@/tracker/write/write-types"
 
-import { childTailQuery, commentTailQuery } from "@/api/issue-write/documents"
 import { CommentId as CommentIdSchema, IssueId as IssueIdSchema } from "@/domain/id"
 import { pageSize } from "@/linear/connection"
+import { childTailQuery, commentTailQuery } from "@/tracker/write/documents"
 
 const defaultWaitSeconds = 5
 const pollInterval = Duration.millis(250)
@@ -30,7 +30,7 @@ type VisibilityRead<A extends { readonly id: string }> = () => Effect.Effect<
 >
 
 type VisibilityDependencies = {
-  readonly client: LinearClient["Service"]
+  readonly client: LinearClientShape
 }
 
 const verifyVisible = <A extends { readonly id: string }>(

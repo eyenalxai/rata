@@ -1,21 +1,9 @@
 import { Context, Effect, Layer } from "effect"
 
-import type { IssueWriteApiShape } from "@/api/issue-write/api-shape"
+import type { IssueWriteApiShape } from "@/api/issue-write/shape"
 
-import { LinearClient } from "@/api/client"
-import { makeBodyWrites } from "@/api/issue-write/body"
-import { makeBulkWrites } from "@/api/issue-write/bulk"
-import { makeCommentWrites } from "@/api/issue-write/comments"
-import { makeCreateWrites } from "@/api/issue-write/create"
-import { makeIssueWrites } from "@/api/issue-write/issue-writes"
-import { makeRelationWrites } from "@/api/issue-write/relation-writes"
-import { makeIssueWriteResolvers } from "@/api/issue-write/resolvers"
-import { makeSectionWrites } from "@/api/issue-write/sections"
-import { makeVisibilityChecks } from "@/api/issue-write/visibility"
-import { ProjectService } from "@/api/project"
-import { RepoTeam } from "@/api/repo-team"
-import { RepoConfigService } from "@/config/repo"
-import { TeamContext } from "@/context/team"
+import { ContextResolver } from "@/context/resolve"
+import { IssueWriter } from "@/tracker/write"
 
 class IssueWriteApi extends Context.Service<IssueWriteApi, IssueWriteApiShape>()(
   "rata-cli/api/issue-write/IssueWriteApi",
@@ -23,35 +11,42 @@ class IssueWriteApi extends Context.Service<IssueWriteApi, IssueWriteApiShape>()
   static readonly layer = Layer.effect(
     IssueWriteApi,
     Effect.gen(function* issueWriteApiLayer() {
-      const client = yield* LinearClient
-      const projects = yield* ProjectService
-      const repoConfig = yield* RepoConfigService
-      const repoTeam = yield* RepoTeam
-      const context = yield* TeamContext
-      const resolvers = makeIssueWriteResolvers({ client, context, projects })
-      const visibility = makeVisibilityChecks({ client })
-      const issueWrites = makeIssueWrites(resolvers)
-      const bulkWrites = makeBulkWrites(resolvers)
-      const relationWrites = makeRelationWrites({ client, resolvers })
-      const bodyWrites = makeBodyWrites({ client, resolvers })
-      const sectionWrites = makeSectionWrites({ client, resolvers })
-      const commentWrites = makeCommentWrites({ client, resolvers, visibility })
-      const createWrites = makeCreateWrites({
-        client,
-        repoConfig,
-        repoTeam,
-        resolvers,
-        visibility,
-      })
+      const contexts = yield* ContextResolver
+      const writer = yield* IssueWriter
 
       return IssueWriteApi.of({
-        ...issueWrites,
-        ...bulkWrites,
-        ...relationWrites,
-        ...createWrites,
-        ...bodyWrites,
-        ...sectionWrites,
-        ...commentWrites,
+        addLabels: writer.addLabels,
+        addLabelsToChildren: writer.addLabelsToChildren,
+        appendSection: writer.appendSection,
+        assign: writer.assign,
+        assignChildren: writer.assignChildren,
+        close: writer.close,
+        commentCreate: writer.commentCreate,
+        commentDelete: writer.commentDelete,
+        commentUpdate: writer.commentUpdate,
+        create: (options) =>
+          contexts
+            .resolve({ requireTeam: true, team: options.team })
+            .pipe(Effect.flatMap((context) => writer.create(context, options))),
+        findComment: writer.findComment,
+        link: writer.link,
+        planCommentCreate: writer.planCommentCreate,
+        planCommentDelete: writer.planCommentDelete,
+        planCreate: (options) =>
+          contexts
+            .resolve({ requireTeam: true, team: options.team })
+            .pipe(Effect.flatMap((context) => writer.planCreate(context, options))),
+        planUpdate: writer.planUpdate,
+        planUpdateSections: writer.planUpdateSections,
+        readSection: writer.readSection,
+        removeLabels: writer.removeLabels,
+        removeLabelsFromChildren: writer.removeLabelsFromChildren,
+        reopen: writer.reopen,
+        replaceSection: writer.replaceSection,
+        unassign: writer.unassign,
+        unlink: writer.unlink,
+        update: writer.update,
+        updateSections: writer.updateSections,
       })
     }),
   )

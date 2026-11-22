@@ -1,27 +1,23 @@
-import { Effect, Option } from "effect"
+import { Effect } from "effect"
 
-import type { LinearClient } from "@/api/client"
-import type { ResolvedLabel } from "@/api/issue-write/model"
-import type { makeIssueWriteResolvers } from "@/api/issue-write/resolvers"
-import type { makeVisibilityChecks } from "@/api/issue-write/visibility"
-import type { IssueCreateOptions } from "@/api/issue-write/write-types"
-import type { RepoTeam } from "@/api/repo-team"
-import type { IssueDefaults } from "@/config/defaults"
-import type { RepoConfigService } from "@/config/repo"
+import type { ResolvedContext } from "@/context/model"
 import type { IssueId } from "@/domain/id"
+import type { IssueDefaults } from "@/domain/issue-defaults"
 import type { Priority } from "@/domain/priority"
+import type { LinearClientShape } from "@/linear/client"
+import type { ResolvedLabel } from "@/tracker/write/model"
+import type { makeIssueWriteResolvers } from "@/tracker/write/resolvers"
+import type { makeVisibilityChecks } from "@/tracker/write/visibility"
+import type { IssueCreateOptions } from "@/tracker/write/write-types"
 
-import { createIssueMutation } from "@/api/issue-write/documents"
-import { isNoneValue, unwrapIssue } from "@/api/issue-write/model"
-import { issueDefaults } from "@/config/defaults"
-import { currentDirectory } from "@/config/repo"
 import { priorityValue } from "@/domain/priority"
 import { CreateIssueResponse } from "@/linear/decode/issue"
+import { requireTeamId } from "@/tracker/resolve"
+import { createIssueMutation } from "@/tracker/write/documents"
+import { isNoneValue, unwrapIssue } from "@/tracker/write/model"
 
 type CreateDependencies = {
-  readonly client: LinearClient["Service"]
-  readonly repoConfig: RepoConfigService["Service"]
-  readonly repoTeam: RepoTeam["Service"]
+  readonly client: LinearClientShape
   readonly resolvers: ReturnType<typeof makeIssueWriteResolvers>
   readonly visibility: ReturnType<typeof makeVisibilityChecks>
 }
@@ -43,36 +39,34 @@ const priorityFor = (options: IssueCreateOptions, defaults: IssueDefaults): Prio
   return priority === "none" ? null : priority
 }
 
-const makeCreateWrites = ({
-  client,
-  repoConfig,
-  repoTeam,
-  resolvers,
-  visibility,
-}: CreateDependencies) => {
+const dedupeLabels = (labels: readonly ResolvedLabel[]): readonly ResolvedLabel[] => {
+  const seen = new Set<string>()
+  const unique: ResolvedLabel[] = []
+  for (const label of labels) {
+    if (!seen.has(label.id)) {
+      seen.add(label.id)
+      unique.push(label)
+    }
+  }
+  return unique
+}
+
+const makeCreateWrites = ({ client, resolvers, visibility }: CreateDependencies) => {
   const resolve = Effect.fn("IssueWriteApi.resolveCreate")(function* resolveCreate(
+    context: ResolvedContext,
     options: IssueCreateOptions,
   ) {
-    const config = Option.getOrUndefined(yield* repoConfig.read(yield* currentDirectory))
-    const defaults = issueDefaults(config)
-    const teamId = yield* repoTeam.resolve(options.team)
-    const names = labelsFor(options, defaults)
+    const teamId = yield* requireTeamId(context)
+    const names = labelsFor(options, context.defaults)
     const resolved = names.length === 0 ? [] : yield* resolvers.resolveLabels(teamId, names)
-    const resolvedLabels: ResolvedLabel[] = []
-    const seenLabels = new Set<string>()
-    for (const label of resolved) {
-      if (!seenLabels.has(label.id)) {
-        seenLabels.add(label.id)
-        resolvedLabels.push(label)
-      }
-    }
+    const labels = dedupeLabels(resolved)
 
     const input: Record<string, unknown> = { teamId, title: options.title }
     if (options.body !== undefined && options.body.length > 0) {
       input.description = options.body
     }
-    if (resolvedLabels.length > 0) {
-      input.labelIds = resolvedLabels.map((label) => label.id)
+    if (labels.length > 0) {
+      input.labelIds = labels.map((label) => label.id)
     }
     if (options.state !== undefined) {
       input.stateId = yield* resolvers.teamStateIdByName(teamId, options.state)
@@ -82,15 +76,18 @@ const makeCreateWrites = ({
       parentId = yield* resolvers.resolveIssueId(options.parent)
       input.parentId = parentId
     }
-    const project = options.project ?? config?.project
-    if (project !== undefined) {
+    const project = options.project ?? context.project
+    if (project !== null) {
       input.projectId = yield* resolvers.resolveProjectId(project)
     }
-    const assignee = assigneeFor(options, defaults)
+    const assignee = assigneeFor(options, context.defaults)
     if (assignee !== null) {
-      input.assigneeId = yield* resolvers.resolveAssignee(assignee)
+      input.assigneeId =
+        assignee.toLowerCase() === "me"
+          ? context.viewer.id
+          : yield* resolvers.resolveAssignee(assignee)
     }
-    const priority = priorityFor(options, defaults)
+    const priority = priorityFor(options, context.defaults)
     if (priority !== null) {
       input.priority = priorityValue(priority)
     }
@@ -99,17 +96,20 @@ const makeCreateWrites = ({
       input,
       parentId,
       plan: {
-        team: options.team ?? config?.team ?? teamId,
+        team: options.team ?? context.team?.identity.key ?? context.storedTeam ?? teamId,
         title: options.title,
-        labels: resolvedLabels.map((label) => label.name),
+        labels: labels.map((label) => label.name),
         assignee,
         priority,
       },
     }
   })
 
-  const create = Effect.fn("IssueWriteApi.create")(function* create(options: IssueCreateOptions) {
-    const { input, parentId } = yield* resolve(options)
+  const create = Effect.fn("IssueWriteApi.create")(function* create(
+    context: ResolvedContext,
+    options: IssueCreateOptions,
+  ) {
+    const { input, parentId } = yield* resolve(context, options)
     const data = yield* client.execute(createIssueMutation, { input }, CreateIssueResponse)
     const issue = yield* unwrapIssue(data.issueCreate)
     const visible =
@@ -120,9 +120,10 @@ const makeCreateWrites = ({
   })
 
   const planCreate = Effect.fn("IssueWriteApi.planCreate")(function* planCreate(
+    context: ResolvedContext,
     options: IssueCreateOptions,
   ) {
-    const resolved = yield* resolve(options)
+    const resolved = yield* resolve(context, options)
     return resolved.plan
   })
 

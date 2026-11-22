@@ -1,23 +1,19 @@
 import { Effect } from "effect"
 
-import type { LinearClient } from "@/api/client"
-import type { IssueSummary } from "@/api/issue-model"
-import type { IssueWriteApiError } from "@/api/issue-write/model"
-import type { makeIssueWriteResolvers } from "@/api/issue-write/resolvers"
+import type { IssueId } from "@/domain/id"
+import type { Section } from "@/domain/section"
+import type { LinearClientShape } from "@/linear/client"
+import type { IssueSummary } from "@/tracker/model"
+import type { IssueWriteApiError } from "@/tracker/write/model"
+import type { makeIssueWriteResolvers } from "@/tracker/write/resolvers"
 import type {
   IssueUpdateOptions,
   IssueUpdatePlan,
   IssueUpdateWriteOptions,
   SectionWriteOptions,
   SectionWriteResult,
-} from "@/api/issue-write/write-types"
-import type { IssueId } from "@/domain/id"
-import type { Section } from "@/domain/section"
+} from "@/tracker/write/write-types"
 
-import { ensureUnchanged, makeReadIssueBody } from "@/api/issue-write/body/snapshot"
-import { updateIssueMutation } from "@/api/issue-write/documents"
-import { unwrapIssue } from "@/api/issue-write/model"
-import { makeUpdateFields } from "@/api/issue-write/update-fields"
 import { unifiedDiff } from "@/domain/body/diff"
 import { readSection as readSectionText } from "@/domain/body/section"
 import {
@@ -26,9 +22,13 @@ import {
 } from "@/domain/body/section/edit"
 import { normalizeLineEndings } from "@/domain/body/text"
 import { UpdateIssueResponse } from "@/linear/decode/issue"
+import { ensureUnchanged, makeReadIssueBody } from "@/tracker/write/body/snapshot"
+import { updateIssueMutation } from "@/tracker/write/documents"
+import { unwrapIssue } from "@/tracker/write/model"
+import { makeUpdateFields } from "@/tracker/write/update-fields"
 
 type BodyDependencies = {
-  readonly client: LinearClient["Service"]
+  readonly client: LinearClientShape
   readonly resolvers: ReturnType<typeof makeIssueWriteResolvers>
 }
 

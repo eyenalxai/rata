@@ -1,19 +1,19 @@
 import { Effect, Result } from "effect"
 
-import type { IssueSummary } from "@/api/issue-model"
+import type { TeamId } from "@/domain/id"
+import type { LabelMode } from "@/domain/label"
+import type { IssueSummary } from "@/tracker/model"
 import type {
   BulkTarget,
   BulkWriteResult,
   IssueWriteApiError,
   ResolvedLabel,
   WriteOptions,
-} from "@/api/issue-write/model"
-import type { makeIssueWriteResolvers } from "@/api/issue-write/resolvers"
-import type { TeamId } from "@/domain/id"
-import type { LabelMode } from "@/domain/label"
+} from "@/tracker/write/model"
+import type { makeIssueWriteResolvers } from "@/tracker/write/resolvers"
 
-import { AssigneeConflictError, isNoneValue } from "@/api/issue-write/model"
 import { labelChanges } from "@/domain/label"
+import { AssigneeConflictError, isNoneValue } from "@/tracker/write/model"
 
 type WriteResolvers = ReturnType<typeof makeIssueWriteResolvers>
 

@@ -7,17 +7,17 @@ import { HttpClient, HttpClientResponse } from "effect/http"
 
 import { LinearClient } from "@/api/client"
 import { IssueApi } from "@/api/issue"
-import { RepoTeam } from "@/api/repo-team"
 import { TeamService } from "@/api/team"
 import { Auth } from "@/config/auth"
 import { RepoConfigService } from "@/config/repo"
 import { RepositoryIdentity } from "@/config/repo-identity"
-import { TeamContext } from "@/context/team"
+import { ContextResolver } from "@/context/resolve"
 import { attachmentId, issueId, labelId, projectId, teamId, userId } from "@/domain/id"
 import { makeClient } from "@/linear/client"
 import { LinearAuthError } from "@/linear/errors"
 import { LinearGateway, makeLinearGateway } from "@/linear/gateway"
 import { ContextCache } from "@/local/context-cache"
+import { IssueReader } from "@/tracker/read"
 
 const uuid = "5f0c1f2a-3b4c-4d5e-8f90-1234567890ab"
 
@@ -133,6 +133,9 @@ const withTeamLookup =
   (handler: (request: HttpClientRequest.HttpClientRequest) => Response) =>
   (request: HttpClientRequest.HttpClientRequest): Response => {
     const body = readBody(request)
+    if (body.query.includes("query Viewer")) {
+      return jsonResponse({ data: { viewer } })
+    }
     if (body.query.includes("query TeamByKey")) {
       const key = body.variables.key
       const nodes = typeof key === "string" ? teams.filter((team) => team.key === key) : []
@@ -150,6 +153,18 @@ const withTeamLookup =
           ? teams.filter((team) => team.name.toLowerCase() === name.toLowerCase())
           : []
       return jsonResponse({ data: { teams: { nodes, pageInfo } } })
+    }
+    if (body.query.includes("query TeamStates")) {
+      return jsonResponse({ data: { team: { states: { nodes: [], pageInfo } } } })
+    }
+    if (body.query.includes("query TeamLabels")) {
+      return jsonResponse({ data: { issueLabels: { nodes: [], pageInfo } } })
+    }
+    if (body.query.includes("query TeamMembers")) {
+      return jsonResponse({ data: { team: { members: { nodes: [], pageInfo } } } })
+    }
+    if (body.query.includes("query IssuePriorityValues")) {
+      return jsonResponse({ data: { issuePriorityValues: [] } })
     }
     return handler(request)
   }
@@ -182,12 +197,12 @@ const issueLayer = (
   ).pipe(Layer.provide(Layer.mergeAll(auth, Layer.succeed(HttpClient.HttpClient, http))))
   const client = LinearClient.layer.pipe(Layer.provide(gateway))
   const teamLayer = TeamService.layer.pipe(Layer.provide(Layer.mergeAll(gateway, client)))
-  const repoTeam = RepoTeam.layer.pipe(Layer.provide(Layer.mergeAll(teamLayer, repoConfig)))
   const contextCache = ContextCache.layer.pipe(Layer.provide(database))
-  const teamContext = TeamContext.layer.pipe(
-    Layer.provide(Layer.mergeAll(auth, gateway, teamLayer, repoConfig, contextCache)),
+  const contextResolver = ContextResolver.layer.pipe(
+    Layer.provide(Layer.mergeAll(auth, gateway, teamLayer, repoConfig, identity, contextCache)),
   )
-  return IssueApi.layer.pipe(Layer.provide(Layer.mergeAll(gateway, repoTeam, teamContext)))
+  const reader = IssueReader.layer.pipe(Layer.provide(Layer.mergeAll(gateway, contextResolver)))
+  return IssueApi.layer.pipe(Layer.provide(Layer.mergeAll(contextResolver, reader)))
 }
 
 const run = <A, E>(

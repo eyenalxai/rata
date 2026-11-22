@@ -22,6 +22,21 @@ const summaryWith = (stateType: string) => ({
 
 const teamHandler = () =>
   makeRecorder((request) => {
+    if (request.query.includes("query Viewer")) {
+      return jsonResponse({ data: { viewer } })
+    }
+    if (request.query.includes("query TeamStates")) {
+      return jsonResponse({ data: { team: { states: { nodes: [], pageInfo } } } })
+    }
+    if (request.query.includes("query TeamLabels")) {
+      return jsonResponse({ data: { issueLabels: { nodes: [], pageInfo } } })
+    }
+    if (request.query.includes("query TeamMembers")) {
+      return jsonResponse({ data: { team: { members: { nodes: [], pageInfo } } } })
+    }
+    if (request.query.includes("query IssuePriorityValues")) {
+      return jsonResponse({ data: { issuePriorityValues: [] } })
+    }
     if (request.query.includes("query TeamByKey")) {
       const key = request.variables.key
       return jsonResponse({

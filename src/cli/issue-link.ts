@@ -1,12 +1,8 @@
 import { Effect } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 
-import type {
-  IssueRelationChange,
-  IssueRelationChanges,
-  WriteAction,
-} from "@/api/issue-write/model"
 import type { RelationKind } from "@/domain/relation"
+import type { IssueRelationChange, IssueRelationChanges, WriteAction } from "@/tracker/write/model"
 
 import { IssueWriteApi } from "@/api/issue-write"
 import { OutputFields, rejectFields } from "@/cli/fields"

@@ -30,15 +30,14 @@ const runTeam = (handler: Handler, args: readonly string[], lines: string[]) =>
     Effect.runPromise,
   )
 
-const detailHandler =
-  (detail: unknown): Handler =>
-  (request) => {
+const detailHandler = (detail: unknown): Handler =>
+  withTeamLookup((request) => {
     const body = readBody(request)
     if (body.query.includes("query IssueComments")) {
       return jsonResponse({ data: { issue: { comments: { nodes: [], pageInfo } } } })
     }
     return jsonResponse({ data: { issue: detail } })
-  }
+  })
 
 const emptyPageHandler: Handler = withTeamLookup(() =>
   jsonResponse({ data: { issues: { nodes: [], pageInfo } } }),

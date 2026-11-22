@@ -1,5 +1,5 @@
-import type { IssueDetail } from "@/api/issue-model"
 import type { IssueDetailData } from "@/linear/operations/issue/show"
+import type { IssueDetail } from "@/tracker/model"
 
 import { relationTargets } from "@/domain/relation"
 

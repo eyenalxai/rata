@@ -1,21 +1,21 @@
 import { Effect } from "effect"
 
-import type { LinearClient } from "@/api/client"
+import type { LinearClientShape } from "@/linear/client"
 import type {
   IssueRelationChange,
   IssueRelationChanges,
   WriteAction,
   WriteOptions,
-} from "@/api/issue-write/model"
-import type { makeIssueWriteResolvers } from "@/api/issue-write/resolvers"
+} from "@/tracker/write/model"
+import type { makeIssueWriteResolvers } from "@/tracker/write/resolvers"
 
-import { createRelationMutation, deleteRelationMutation } from "@/api/issue-write/documents"
-import { combineStatus, unwrapRelation } from "@/api/issue-write/model"
-import { linkRelationPlans, planRelationUnlinks } from "@/api/issue-write/relation-plan"
 import { CreateRelationResponse, DeleteRelationResponse } from "@/linear/decode/issue"
+import { createRelationMutation, deleteRelationMutation } from "@/tracker/write/documents"
+import { combineStatus, unwrapRelation } from "@/tracker/write/model"
+import { linkRelationPlans, planRelationUnlinks } from "@/tracker/write/relation-plan"
 
 type RelationWriteDependencies = {
-  readonly client: LinearClient["Service"]
+  readonly client: LinearClientShape
   readonly resolvers: ReturnType<typeof makeIssueWriteResolvers>
 }
 

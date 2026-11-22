@@ -1,12 +1,11 @@
 import { Effect } from "effect"
 
-import type { LinearClient } from "@/api/client"
-import type { IssueRelationChanges, ResolvedRelationTarget } from "@/api/issue-write/model"
 import type { IssueId } from "@/domain/id"
 import type { IssueRef } from "@/domain/issue-ref"
 import type { RelationKind } from "@/domain/relation"
+import type { LinearClientShape } from "@/linear/client"
+import type { IssueRelationChanges, ResolvedRelationTarget } from "@/tracker/write/model"
 
-import { IssueRefNotFoundError } from "@/api/issue/batch"
 import { isUuid, issueId as asIssueId } from "@/domain/id"
 import { parseRefOrFail } from "@/domain/issue-ref"
 import { collectConnection, collectPages, pageSize } from "@/linear/connection"
@@ -22,9 +21,10 @@ import {
   relationsQuery,
   relationsWithInverseQuery,
 } from "@/linear/documents/relation"
+import { IssueRefNotFoundError } from "@/tracker/read/batch"
 
 type RelationResolverDependencies = {
-  readonly client: LinearClient["Service"]
+  readonly client: LinearClientShape
 }
 
 const relationGroups = (

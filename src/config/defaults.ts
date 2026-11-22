@@ -5,6 +5,7 @@ import type { TeamNotFoundError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
 import type { RepoConfig } from "@/config/repo/model"
 import type { TeamId } from "@/domain/id"
+import type { IssueDefaults } from "@/domain/issue-defaults"
 import type { Priority } from "@/domain/priority"
 import type { LinearApiError } from "@/linear/errors"
 
@@ -12,15 +13,8 @@ import { LabelService } from "@/api/label"
 import { RepoTeam } from "@/api/repo-team"
 import { TeamResolutionError } from "@/api/team"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
+import { issueDefaults } from "@/domain/issue-defaults"
 import { PrioritySchema } from "@/domain/priority"
-
-const IssueDefaults = Schema.Struct({
-  assignee: Schema.NullOr(Schema.String),
-  labels: Schema.Array(Schema.String),
-  priority: Schema.NullOr(PrioritySchema),
-})
-
-type IssueDefaults = typeof IssueDefaults.Type
 
 const DefaultsDocument = Schema.Struct({
   assignee: Schema.NullOr(Schema.String),
@@ -29,12 +23,6 @@ const DefaultsDocument = Schema.Struct({
 })
 
 type DefaultsDocument = typeof DefaultsDocument.Type
-
-const issueDefaults = (config?: RepoConfig): IssueDefaults => ({
-  assignee: config?.defaultAssignee ?? null,
-  labels: config?.defaultLabels ?? [],
-  priority: config?.defaultPriority ?? null,
-})
 
 const defaultsDocument = (defaults: IssueDefaults): DefaultsDocument => ({
   assignee: defaults.assignee,
@@ -216,8 +204,6 @@ export {
   type DefaultsDocument,
   defaultsDocument,
   formatDefaults,
-  type IssueDefaults,
   type IssueDefaultsError,
   IssueDefaultsService,
-  issueDefaults,
 }

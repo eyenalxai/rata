@@ -1,9 +1,9 @@
 import { Effect } from "effect"
 
-import type { WriteAction, WriteOptions, WriteStatus } from "@/api/issue-write/model"
-import type { makeIssueWriteResolvers } from "@/api/issue-write/resolvers"
+import type { WriteAction, WriteOptions, WriteStatus } from "@/tracker/write/model"
+import type { makeIssueWriteResolvers } from "@/tracker/write/resolvers"
 
-import { AssigneeConflictError, combineStatus, isNoneValue } from "@/api/issue-write/model"
+import { AssigneeConflictError, combineStatus, isNoneValue } from "@/tracker/write/model"
 
 type WriteResolvers = ReturnType<typeof makeIssueWriteResolvers>
 

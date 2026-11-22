@@ -1,9 +1,11 @@
 import { Effect, Option, Result } from "effect"
 
-import type { LinearClient } from "@/api/client"
-import type { IssueWriteApiError } from "@/api/issue-write/model"
-import type { makeIssueWriteResolvers } from "@/api/issue-write/resolvers"
-import type { makeVisibilityChecks } from "@/api/issue-write/visibility"
+import type { CommentId, IssueId } from "@/domain/id"
+import type { LinearClientShape } from "@/linear/client"
+import type { IssueComment } from "@/linear/decode/issue"
+import type { IssueWriteApiError } from "@/tracker/write/model"
+import type { makeIssueWriteResolvers } from "@/tracker/write/resolvers"
+import type { makeVisibilityChecks } from "@/tracker/write/visibility"
 import type {
   CommentCreateOptions,
   CommentCreatePlan,
@@ -12,17 +14,8 @@ import type {
   CommentDeleteResult,
   CommentUpdateOptions,
   CommentUpdateResult,
-} from "@/api/issue-write/write-types"
-import type { CommentId, IssueId } from "@/domain/id"
-import type { IssueComment } from "@/linear/decode/issue"
+} from "@/tracker/write/write-types"
 
-import {
-  commentByIdQuery,
-  createCommentMutation,
-  deleteCommentMutation,
-  updateCommentMutation,
-} from "@/api/issue-write/documents"
-import { CommentNotFoundError, unwrapComment, unwrapDelete } from "@/api/issue-write/model"
 import { unifiedDiff } from "@/domain/body/diff"
 import { dedupeCommentId } from "@/domain/comment"
 import {
@@ -31,9 +24,16 @@ import {
   DeleteCommentResponse,
   UpdateCommentResponse,
 } from "@/linear/decode/issue"
+import {
+  commentByIdQuery,
+  createCommentMutation,
+  deleteCommentMutation,
+  updateCommentMutation,
+} from "@/tracker/write/documents"
+import { CommentNotFoundError, unwrapComment, unwrapDelete } from "@/tracker/write/model"
 
 type CommentDependencies = {
-  readonly client: LinearClient["Service"]
+  readonly client: LinearClientShape
   readonly resolvers: ReturnType<typeof makeIssueWriteResolvers>
   readonly visibility: ReturnType<typeof makeVisibilityChecks>
 }

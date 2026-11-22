@@ -1,5 +1,5 @@
 import { inputOf } from "@test/fake-linear/model"
-import { jsonResponse, pageInfo, summaryNode } from "@test/issue-fixtures"
+import { jsonResponse, pageInfo, summaryNode, viewer } from "@test/issue-fixtures"
 import {
   issueCreated,
   issueUpdated,
@@ -74,6 +74,9 @@ const labelsHandler = () =>
 
 const createHandler = () =>
   makeRecorder((request) => {
+    if (request.query.includes("query Viewer")) {
+      return jsonResponse({ data: { viewer } })
+    }
     if (request.query.includes("query TeamByKey")) {
       return jsonResponse({ data: { teams: { nodes: [team], pageInfo } } })
     }

@@ -1,19 +1,10 @@
 import { Effect, Schema } from "effect"
 
-import type { LinearClient } from "@/api/client"
-import type { IssueSummary } from "@/api/issue-model"
-import type { IssueRefNotFoundError } from "@/api/issue/batch"
 import type { LabelNotFoundError } from "@/api/label"
-import type { ProjectService } from "@/api/project"
 import type { ProjectNotFoundError } from "@/api/project/errors"
 import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
-import type { RepoConfigError } from "@/config/repo"
-import type { TeamContext } from "@/context/team"
-import type {
-  ContextLabelNotFoundError,
-  ContextStateNotFoundError,
-  TeamContextError,
-} from "@/context/team/model"
+import type { ContextLabelNotFoundError, ContextStateNotFoundError } from "@/context/model"
+import type { ContextResolveError, ContextResolver } from "@/context/resolve"
 import type { SectionBatchError } from "@/domain/body/section/edit"
 import type { SectionLookupError } from "@/domain/body/section/model"
 import type { ConflictError } from "@/domain/conflict"
@@ -22,11 +13,15 @@ import type { InvalidIssueRef } from "@/domain/issue-ref"
 import type { PlanActionName, PlanStatus, PlanStep } from "@/domain/plan"
 import type { Priority } from "@/domain/priority"
 import type { RelationKind } from "@/domain/relation"
+import type { LinearClientShape } from "@/linear/client"
 import type { IssueComment, IssueSummaryNode } from "@/linear/decode/issue"
 import type { LinearApiError } from "@/linear/errors"
+import type { LinearGatewayShape } from "@/linear/gateway"
+import type { IssueSummary } from "@/tracker/model"
+import type { IssueRefNotFoundError } from "@/tracker/read/batch"
 
-import { toSummary } from "@/api/issue-model"
 import { CommentId, TeamId } from "@/domain/id"
+import { toSummary } from "@/tracker/model"
 
 class IssueWriteError extends Schema.TaggedError<IssueWriteError>()("IssueWriteError", {
   message: Schema.String,
@@ -55,9 +50,9 @@ class AssigneeConflictError extends Schema.TaggedError<AssigneeConflictError>()(
 ) {}
 
 type IssueWriteDependencies = {
-  readonly client: LinearClient["Service"]
-  readonly context: TeamContext["Service"]
-  readonly projects: ProjectService["Service"]
+  readonly client: LinearClientShape
+  readonly contexts: ContextResolver["Service"]
+  readonly gateway: LinearGatewayShape
 }
 
 type WriteStatus = PlanStatus
@@ -138,15 +133,14 @@ type IssueWriteApiError =
   | IssueWriteError
   | ConflictError
   | ContextLabelNotFoundError
+  | ContextResolveError
   | ContextStateNotFoundError
   | LabelNotFoundError
   | LinearApiError
   | ProjectNotFoundError
-  | RepoConfigError
   | SectionBatchError
   | SectionLookupError
   | StateNotFoundError
-  | TeamContextError
   | TeamNotFoundError
   | TeamResolutionError
 

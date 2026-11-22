@@ -1,7 +1,13 @@
 import type { Handler } from "@test/fake-linear/model"
 
 import { lastJson, lastJsonRecord, runRoot } from "@test/cli-harness"
-import { baseDetail, jsonResponse, pageInfo, summaryKeys } from "@test/issue-fixtures"
+import {
+  baseDetail,
+  jsonResponse,
+  pageInfo,
+  summaryKeys,
+  withTeamLookup,
+} from "@test/issue-fixtures"
 import { afterEach, describe, expect, test } from "bun:test"
 import { Option, Schema } from "effect"
 
@@ -30,9 +36,8 @@ const blocker = (identifier: string, state: { name: string; type: string }) => (
   state,
 })
 
-const whyHandler =
-  (blockers: readonly unknown[]): Handler =>
-  () =>
+const whyHandler = (blockers: readonly unknown[]): Handler =>
+  withTeamLookup(() =>
     jsonResponse({
       data: {
         issue: {
@@ -47,7 +52,8 @@ const whyHandler =
           },
         },
       },
-    })
+    }),
+  )
 
 afterEach(() => {
   process.exitCode = 0

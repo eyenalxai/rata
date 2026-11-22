@@ -1,7 +1,7 @@
 import { Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 
-import type { SectionWriteResult } from "@/api/issue-write/write-types"
+import type { SectionWriteResult } from "@/tracker/write/write-types"
 
 import { IssueWriteApi } from "@/api/issue-write"
 import { resolveBody } from "@/cli/body"

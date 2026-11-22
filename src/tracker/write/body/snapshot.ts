@@ -1,12 +1,12 @@
 import { Effect } from "effect"
 
-import type { LinearClient } from "@/api/client"
-import type { IssueWriteApiError } from "@/api/issue-write/model"
 import type { IssueId } from "@/domain/id"
+import type { LinearClientShape } from "@/linear/client"
+import type { IssueWriteApiError } from "@/tracker/write/model"
 
-import { IssueBodyResponse, issueBodyQuery } from "@/api/issue-write/body/query"
 import { ConflictError } from "@/domain/conflict"
 import { parseRefOrFail } from "@/domain/issue-ref"
+import { IssueBodyResponse, issueBodyQuery } from "@/tracker/write/body/query"
 
 const ensureUnchanged = (
   identifier: string,
@@ -23,7 +23,7 @@ const ensureUnchanged = (
         }),
       )
 
-const makeReadIssueBody = (client: LinearClient["Service"]) =>
+const makeReadIssueBody = (client: LinearClientShape) =>
   Effect.fn("IssueWriteApi.readIssueBody")(function* readIssueBody(input: string): Effect.fn.Return<
     {
       readonly id: IssueId

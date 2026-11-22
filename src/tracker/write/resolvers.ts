@@ -1,27 +1,15 @@
 import { Effect } from "effect"
 
+import type { IssueId, LabelId, ProjectId, TeamId, UserId, WorkflowStateId } from "@/domain/id"
+import type { StateType, WorkflowStateNode } from "@/domain/workflow-state"
+import type { LinearApiError } from "@/linear/errors"
 import type {
   BulkTarget,
   IssueWriteApiError,
   IssueWriteDependencies,
   ResolvedLabel,
-} from "@/api/issue-write/model"
-import type { IssueId, LabelId, ProjectId, TeamId, UserId, WorkflowStateId } from "@/domain/id"
-import type { StateType, WorkflowStateNode } from "@/domain/workflow-state"
-import type { LinearApiError } from "@/linear/errors"
+} from "@/tracker/write/model"
 
-import { toSummary } from "@/api/issue-model"
-import {
-  addLabelMutation,
-  bulkTargetsQuery,
-  createCommentMutation,
-  issueStatesQuery,
-  issueTeamQuery,
-  removeLabelMutation,
-  updateIssueMutation,
-} from "@/api/issue-write/documents"
-import { StateNotFoundError, unwrapComment, unwrapIssue } from "@/api/issue-write/model"
-import { makeRelationResolvers } from "@/api/issue-write/relations"
 import { ProjectNotFoundError } from "@/api/project/errors"
 import {
   isUuid,
@@ -45,8 +33,21 @@ import {
   UpdateIssueResponse,
 } from "@/linear/decode/issue"
 import { issueIdQuery, issueSummaryQuery, labelsQuery } from "@/linear/documents/issue"
+import { toSummary } from "@/tracker/model"
+import { resolveLabels as resolveLabelNames, resolveStateName } from "@/tracker/resolve"
+import {
+  addLabelMutation,
+  bulkTargetsQuery,
+  createCommentMutation,
+  issueStatesQuery,
+  issueTeamQuery,
+  removeLabelMutation,
+  updateIssueMutation,
+} from "@/tracker/write/documents"
+import { StateNotFoundError, unwrapComment, unwrapIssue } from "@/tracker/write/model"
+import { makeRelationResolvers } from "@/tracker/write/relations"
 
-const makeIssueWriteResolvers = ({ client, context, projects }: IssueWriteDependencies) => {
+const makeIssueWriteResolvers = ({ client, contexts, gateway }: IssueWriteDependencies) => {
   const resolveIssueId = Effect.fn("IssueWriteApi.resolveIssueId")(function* resolveIssueId(
     input: string,
   ) {
@@ -142,7 +143,9 @@ const makeIssueWriteResolvers = ({ client, context, projects }: IssueWriteDepend
     if (isUuid(value)) {
       return asProjectId(value)
     }
-    const all = yield* collectConnection((after) => projects.list({ after, limit: pageSize }))
+    const all = yield* collectConnection((after) =>
+      gateway.project.list({ after, limit: pageSize }),
+    )
     const match = all.find((project) => project.name.toLowerCase() === value.toLowerCase())
     if (match === undefined) {
       return yield* new ProjectNotFoundError({
@@ -171,7 +174,7 @@ const makeIssueWriteResolvers = ({ client, context, projects }: IssueWriteDepend
 
   const teamStateIdByName = Effect.fn("IssueWriteApi.teamStateIdByName")(
     function* teamStateIdByName(teamId: TeamId, name: string) {
-      const state = yield* context.resolveState(name, teamId)
+      const state = yield* resolveStateName(contexts, teamId, name)
       return state.id
     },
   )
@@ -203,7 +206,7 @@ const makeIssueWriteResolvers = ({ client, context, projects }: IssueWriteDepend
   const issueStateIdByName = Effect.fn("IssueWriteApi.issueStateIdByName")(
     function* issueStateIdByName(issueId: IssueId, name: string) {
       const teamId = yield* resolveIssueTeamId(issueId)
-      const state = yield* context.resolveState(name, teamId)
+      const state = yield* resolveStateName(contexts, teamId, name)
       return state.id
     },
   )
@@ -226,12 +229,8 @@ const makeIssueWriteResolvers = ({ client, context, projects }: IssueWriteDepend
     teamId: TeamId,
     names: readonly string[],
   ): Effect.fn.Return<readonly ResolvedLabel[], IssueWriteApiError> {
-    const resolved: readonly ResolvedLabel[] = yield* Effect.forEach(names, (name) =>
-      context
-        .resolveLabel(name, teamId)
-        .pipe(Effect.map((label) => ({ id: label.id, name: label.name }))),
-    )
-    return resolved
+    const resolved = yield* resolveLabelNames(contexts, teamId, names)
+    return resolved.map((label) => ({ id: label.id, name: label.name }))
   })
 
   const postComment = Effect.fn("IssueWriteApi.postComment")(function* postComment(

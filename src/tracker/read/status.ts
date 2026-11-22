@@ -4,11 +4,11 @@ import type {
   IssueStatusChild,
   IssueStatusOptions,
   IssueSummary,
-} from "@/api/issue-model"
+} from "@/tracker/model"
 
-import { isBlocked, toBlockers, toIssueSummary } from "@/api/issue-model"
 import { pullRequests } from "@/domain/pr"
 import { isClosedState } from "@/domain/workflow-state"
+import { isBlocked, toBlockers, toIssueSummary } from "@/tracker/model"
 
 const withoutRelations = (issue: IssueSummary): IssueSummary => {
   const { relations: _relations, ...summary } = issue

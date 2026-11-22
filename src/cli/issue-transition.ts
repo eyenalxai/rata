@@ -1,10 +1,9 @@
 import { Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 
-import type { BulkWriteSuccess, WriteAction } from "@/api/issue-write/model"
+import type { BulkWriteSuccess, WriteAction } from "@/tracker/write/model"
 
 import { IssueWriteApi } from "@/api/issue-write"
-import { isNoneValue } from "@/api/issue-write/model"
 import { assignHint } from "@/cli/assign-hint"
 import { resolveBody } from "@/cli/body"
 import { OutputFields, rejectFields } from "@/cli/fields"
@@ -19,6 +18,7 @@ import {
   writeJson,
   writeLine,
 } from "@/cli/output"
+import { isNoneValue } from "@/tracker/write/model"
 
 const optionalText = (name: string, description: string) =>
   Flag.String(name).pipe(Flag.withDescription(description), Flag.optional)
