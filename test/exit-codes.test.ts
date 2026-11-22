@@ -8,19 +8,20 @@ import { CliError } from "effect/cli"
 
 import type { ErrorCode } from "@/domain/error"
 
+import { ProjectNameAmbiguousError } from "@/api/project/errors"
+import { TeamResolutionError } from "@/api/team"
+import { exitCodeOf, toTrackerError } from "@/cli/error-report"
+import { exitCodeOfCliError } from "@/cli/exit"
+import { DatabaseError } from "@/db/database"
+import { ConflictError } from "@/domain/conflict"
+import { TrackerError } from "@/domain/error"
+import { InvalidIssueRef } from "@/domain/issue-ref"
 import {
   LinearAuthError,
   LinearGraphQLError,
   LinearNetworkError,
   LinearRateLimitError,
-} from "@/api/errors"
-import { ProjectNameAmbiguousError } from "@/api/project/errors"
-import { TeamResolutionError } from "@/api/team"
-import { exitCodeOf, toTrackerError } from "@/cli/error-report"
-import { exitCodeOfCliError } from "@/cli/exit"
-import { ConflictError } from "@/domain/conflict"
-import { TrackerError } from "@/domain/error"
-import { InvalidIssueRef } from "@/domain/issue-ref"
+} from "@/linear/errors"
 
 const expectedExitCodes: Record<ErrorCode, number> = {
   usage: 2,
@@ -115,6 +116,9 @@ describe("the exit code map", () => {
     expect(
       classify(new ConflictError({ expected: "a", current: "b", message: "The issue changed." })),
     ).toBe("conflict")
+    expect(classify(new DatabaseError({ message: "Could not open the database." }))).toBe(
+      "internal",
+    )
     expect(classify(new Error("boom"))).toBe("internal")
   })
 })

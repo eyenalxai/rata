@@ -8,10 +8,10 @@ import { Clock, Effect, Option, Schema } from "effect"
 
 import type { StateType } from "@/domain/workflow-state"
 
-import { Viewer } from "@/api/client"
-import { TeamDetail } from "@/api/team/details"
 import { hashApiKey } from "@/context/key-hash"
 import { TeamContext } from "@/context/team"
+import { TeamDetail } from "@/linear/decode/team"
+import { Viewer } from "@/linear/decode/viewer"
 import { contextCacheTtlMillis } from "@/local/context-cache"
 
 const states: readonly (Omit<FakeTeamState, "type"> & { readonly type: StateType })[] = [

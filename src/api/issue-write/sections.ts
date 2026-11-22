@@ -11,13 +11,13 @@ import type {
 } from "@/api/issue-write/write-types"
 import type { SectionReplacement } from "@/domain/section"
 
-import { updateIssueMutation } from "@/api/issue-query"
-import { UpdateIssueResponse } from "@/api/issue-schema"
 import { ensureUnchanged, makeReadIssueBody } from "@/api/issue-write/body/snapshot"
+import { updateIssueMutation } from "@/api/issue-write/documents"
 import { unwrapIssue } from "@/api/issue-write/model"
 import { makeUpdateFields } from "@/api/issue-write/update-fields"
 import { unifiedDiff } from "@/domain/body/diff"
 import { replaceSections as replaceSectionsInText } from "@/domain/body/section/edit"
+import { UpdateIssueResponse } from "@/linear/decode/issue"
 
 type SectionDependencies = {
   readonly client: LinearClient["Service"]

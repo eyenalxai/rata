@@ -38,6 +38,9 @@ import { LinkService } from "@/config/link"
 import { RepoConfigService } from "@/config/repo"
 import { RepositoryIdentity } from "@/config/repo-identity"
 import { TeamContext } from "@/context/team"
+import { makeClient } from "@/linear/client"
+import { LinearAuthError } from "@/linear/errors"
+import { LinearGateway, makeLinearGateway } from "@/linear/gateway"
 import { ContextCache } from "@/local/context-cache"
 
 const handleQuery = (
@@ -217,18 +220,30 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
     Layer.provide(Layer.mergeAll(platform, database, identity)),
   )
   const auth = Auth.layer.pipe(Layer.provide(Layer.mergeAll(repoConfig, platform, database)))
-  const client = LinearClient.layer.pipe(
-    Layer.provide(Layer.mergeAll(auth, Layer.succeed(HttpClient.HttpClient, http))),
-  )
-  const teams = TeamService.layer.pipe(Layer.provide(client))
+  const gateway = Layer.effect(
+    LinearGateway,
+    Effect.gen(function* linearGatewayLayer() {
+      const resolvedAuth = yield* Auth
+      const key = () =>
+        resolvedAuth.require.pipe(
+          Effect.map((resolved) => resolved.key),
+          Effect.mapError((error) => new LinearAuthError({ message: error.message, cause: error })),
+        )
+      return LinearGateway.of(makeLinearGateway(makeClient(http, key)))
+    }),
+  ).pipe(Layer.provide(Layer.mergeAll(auth, Layer.succeed(HttpClient.HttpClient, http))))
+  const client = LinearClient.layer.pipe(Layer.provide(gateway))
+  const teams = TeamService.layer.pipe(Layer.provide(Layer.mergeAll(gateway, client)))
   const repoTeam = RepoTeam.layer.pipe(Layer.provide(Layer.mergeAll(teams, repoConfig)))
   const contextCacheLayer = ContextCache.layer.pipe(Layer.provide(database))
   const teamContext = TeamContext.layer.pipe(
-    Layer.provide(Layer.mergeAll(auth, client, teams, repoConfig, contextCacheLayer)),
+    Layer.provide(Layer.mergeAll(auth, gateway, teams, repoConfig, contextCacheLayer)),
   )
-  const labels = LabelService.layer.pipe(Layer.provide(Layer.mergeAll(client, repoTeam)))
-  const projects = ProjectService.layer.pipe(Layer.provide(Layer.mergeAll(client, repoTeam)))
-  const issue = IssueApi.layer.pipe(Layer.provide(Layer.mergeAll(client, repoTeam, teamContext)))
+  const labels = LabelService.layer.pipe(Layer.provide(Layer.mergeAll(gateway, client, repoTeam)))
+  const projects = ProjectService.layer.pipe(
+    Layer.provide(Layer.mergeAll(gateway, client, repoTeam)),
+  )
+  const issue = IssueApi.layer.pipe(Layer.provide(Layer.mergeAll(gateway, repoTeam, teamContext)))
   const issueWrite = IssueWriteApi.layer.pipe(
     Layer.provide(Layer.mergeAll(client, projects, repoConfig, repoTeam, teamContext)),
   )
@@ -236,11 +251,12 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
     Layer.provide(Layer.mergeAll(labels, repoConfig, repoTeam)),
   )
   const link = LinkService.layer.pipe(
-    Layer.provide(Layer.mergeAll(teams, labels, repoConfig, platform, auth, client)),
+    Layer.provide(Layer.mergeAll(teams, labels, repoConfig, platform, auth, gateway)),
   )
   return Layer.mergeAll(
     configLayer(options.env ?? defaultEnv),
     auth,
+    gateway,
     client,
     teams,
     repoTeam,

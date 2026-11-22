@@ -87,7 +87,8 @@ const runRequire = (harness: AuthHarness) =>
 
 const storedProfiles = Effect.gen(function* readStoredProfiles() {
   const database = yield* Database
-  return yield* database.drizzle.select().from(profiles).orderBy(profiles.name).all()
+  const opened = yield* database.open
+  return yield* opened.drizzle.select().from(profiles).orderBy(profiles.name).all()
 })
 
 export {

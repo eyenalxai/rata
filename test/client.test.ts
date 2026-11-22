@@ -1,15 +1,12 @@
 import type { HttpClientRequest } from "effect/http"
 
-import { databaseLayer } from "@test/database-harness"
 import { describe, expect, test } from "bun:test"
-import { ConfigProvider, Clock, Effect, Fiber, FileSystem, Layer, Path } from "effect"
+import { Clock, Effect, Fiber, Layer, Redacted } from "effect"
 import { HttpClient, HttpClientError, HttpClientResponse } from "effect/http"
 import { TestClock } from "effect/testing"
 
 import { LinearClient } from "@/api/client"
-import { Auth } from "@/config/auth"
-import { RepoConfigService } from "@/config/repo"
-import { RepositoryIdentity } from "@/config/repo-identity"
+import { LinearGateway } from "@/linear/gateway"
 
 const jsonResponse = (
   body: unknown,
@@ -21,22 +18,12 @@ const jsonResponse = (
     headers: { "content-type": "application/json", ...headers },
   })
 
-const configLayer = () =>
-  ConfigProvider.layer(
-    ConfigProvider.fromEnvRecord({ HOME: "/home/test", LINEAR_API_KEY: "test-key" }),
-  )
-
 const httpClientLayer = (http: HttpClient.HttpClient) => {
-  const platform = Layer.mergeAll(FileSystem.layerNoop({}), Path.layer)
-  const database = databaseLayer()
-  const identity = RepositoryIdentity.layer.pipe(Layer.provide(platform))
-  const repoConfig = RepoConfigService.layer.pipe(
-    Layer.provide(Layer.mergeAll(platform, database, identity)),
+  const gateway = LinearGateway.layer(() => Effect.succeed(Redacted.make("test-key"))).pipe(
+    Layer.provide(Layer.succeed(HttpClient.HttpClient, http)),
   )
-  const auth = Auth.layer.pipe(Layer.provide(Layer.mergeAll(repoConfig, platform, database)))
-  return LinearClient.layer.pipe(
-    Layer.provide(Layer.mergeAll(auth, Layer.succeed(HttpClient.HttpClient, http))),
-  )
+  const client = LinearClient.layer.pipe(Layer.provide(gateway))
+  return Layer.merge(gateway, client)
 }
 
 const clientLayer = (handler: (request: HttpClientRequest.HttpClientRequest) => Response) =>
@@ -78,12 +65,8 @@ const readViewer = Effect.gen(function* readViewer() {
   return yield* client.viewer
 })
 
-const runViewerFailure = (layer: Layer.Layer<LinearClient>) =>
-  readViewer.pipe(
-    Effect.provide(Layer.mergeAll(layer, configLayer())),
-    Effect.flip,
-    Effect.runPromise,
-  )
+const runViewerFailure = (layer: Layer.Layer<LinearClient | LinearGateway>) =>
+  readViewer.pipe(Effect.provide(layer), Effect.flip, Effect.runPromise)
 
 describe("LinearClient", () => {
   test("maps 401 to LinearAuthError without a retry", async () => {
@@ -127,7 +110,6 @@ describe("LinearClient", () => {
             () => jsonResponse({ errors: [{ message: "slow down" }] }, 429, { "retry-after": "2" }),
             times,
           ),
-          configLayer(),
           TestClock.layer(),
         ),
       ),

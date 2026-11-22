@@ -25,9 +25,15 @@ class LinearNetworkError extends Schema.TaggedError<LinearNetworkError>()("Linea
   cause: Schema.optional(Schema.Defect()),
 }) {}
 
+class LinearInternalError extends Schema.TaggedError<LinearInternalError>()("LinearInternalError", {
+  message: Schema.String,
+  cause: Schema.optional(Schema.Defect()),
+}) {}
+
 type LinearApiError =
   | LinearAuthError
   | LinearGraphQLError
+  | LinearInternalError
   | LinearNetworkError
   | LinearRateLimitError
 
@@ -38,6 +44,7 @@ export {
   isRetryableLinearError,
   LinearAuthError,
   LinearGraphQLError,
+  LinearInternalError,
   LinearNetworkError,
   LinearRateLimitError,
   type LinearApiError,

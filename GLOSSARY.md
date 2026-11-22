@@ -121,6 +121,10 @@ they explore the codebase. Use these terms; do not drift to synonyms.
   for seven days. The cache key is the profile, the team UUID and the hash of
   the API key. A warm read uses the cache and makes no Linear request.
   Avoid: team cache, snapshot.
+- **Linear gateway**: the one seam over Linear for reads. It holds the HTTP
+  client, GraphQL documents, decoders and typed operations. It takes an API key
+  and never reads config, runs a command or renders output. Tests replace it
+  with the in-memory adapter.
 - **Cache age**: the seconds since rata read the team context from Linear.
   `rata status` reports it as `cache.ageSeconds`.
 - **Warm read**: a read that resolves the team context from the cache. A cold

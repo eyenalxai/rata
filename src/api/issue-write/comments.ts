@@ -1,7 +1,6 @@
 import { Effect, Option, Result } from "effect"
 
 import type { LinearClient } from "@/api/client"
-import type { IssueComment } from "@/api/issue-schema"
 import type { IssueWriteApiError } from "@/api/issue-write/model"
 import type { makeIssueWriteResolvers } from "@/api/issue-write/resolvers"
 import type { makeVisibilityChecks } from "@/api/issue-write/visibility"
@@ -15,22 +14,23 @@ import type {
   CommentUpdateResult,
 } from "@/api/issue-write/write-types"
 import type { CommentId, IssueId } from "@/domain/id"
+import type { IssueComment } from "@/linear/decode/issue"
 
 import {
   commentByIdQuery,
   createCommentMutation,
   deleteCommentMutation,
   updateCommentMutation,
-} from "@/api/issue-query"
+} from "@/api/issue-write/documents"
+import { CommentNotFoundError, unwrapComment, unwrapDelete } from "@/api/issue-write/model"
+import { unifiedDiff } from "@/domain/body/diff"
+import { dedupeCommentId } from "@/domain/comment"
 import {
   CommentByIdResponse,
   CreateCommentResponse,
   DeleteCommentResponse,
   UpdateCommentResponse,
-} from "@/api/issue-schema"
-import { CommentNotFoundError, unwrapComment, unwrapDelete } from "@/api/issue-write/model"
-import { unifiedDiff } from "@/domain/body/diff"
-import { dedupeCommentId } from "@/domain/comment"
+} from "@/linear/decode/issue"
 
 type CommentDependencies = {
   readonly client: LinearClient["Service"]

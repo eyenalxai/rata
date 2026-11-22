@@ -5,10 +5,10 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { Effect, Option, Schema } from "effect"
 import { Command } from "effect/cli"
 
-import { Viewer } from "@/api/client"
-import { TeamDetail } from "@/api/team/details"
 import { statusCommand } from "@/cli/status"
 import { hashApiKey } from "@/context/key-hash"
+import { TeamDetail } from "@/linear/decode/team"
+import { Viewer } from "@/linear/decode/viewer"
 
 const cachedDetail: TeamDetail = Option.getOrThrow(
   Schema.decodeOption(TeamDetail)({

@@ -1,9 +1,9 @@
 import { Console, Context, Effect, Layer, Option } from "effect"
 
-import type { LinearApiError } from "@/api/errors"
-import type { Team } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
 import type { TeamId } from "@/domain/id"
+import type { Team } from "@/linear/decode/team"
+import type { LinearApiError } from "@/linear/errors"
 
 import { TeamNotFoundError, TeamResolutionError, TeamService } from "@/api/team"
 import { repairStoredLink, resolveLinkedTeam } from "@/api/team/link"

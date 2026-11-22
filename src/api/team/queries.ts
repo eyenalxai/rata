@@ -1,40 +1,4 @@
-const teamFields = `
-      id
-      key
-      name
-      timezone`
-
-const teamsQuery = `query Teams($first: Int!, $after: String) {
-  teams(first: $first, after: $after, orderBy: createdAt) {
-    nodes {${teamFields}
-    }
-    pageInfo { hasNextPage endCursor }
-  }
-}`
-
-const teamByKeyQuery = `query TeamByKey($key: String!, $first: Int!, $after: String) {
-  teams(first: $first, after: $after, orderBy: createdAt, filter: { key: { eq: $key } }) {
-    nodes {${teamFields}
-    }
-    pageInfo { hasNextPage endCursor }
-  }
-}`
-
-const teamByNameQuery = `query TeamByName($name: String!, $first: Int!, $after: String) {
-  teams(first: $first, after: $after, orderBy: createdAt, filter: { name: { eqIgnoreCase: $name } }) {
-    nodes {${teamFields}
-    }
-    pageInfo { hasNextPage endCursor }
-  }
-}`
-
-const teamByIdQuery = `query TeamById($id: ID!, $first: Int!, $after: String) {
-  teams(first: $first, after: $after, orderBy: createdAt, filter: { id: { eq: $id } }) {
-    nodes {${teamFields}
-    }
-    pageInfo { hasNextPage endCursor }
-  }
-}`
+import { teamFields } from "@/linear/documents/team"
 
 const teamCreateMutation = `mutation TeamCreate($input: TeamCreateInput!, $copySettingsFromTeamId: String) {
   teamCreate(input: $input, copySettingsFromTeamId: $copySettingsFromTeamId) {
@@ -59,12 +23,4 @@ const teamDeleteMutation = `mutation TeamDelete($id: String!) {
   }
 }`
 
-export {
-  teamByIdQuery,
-  teamByKeyQuery,
-  teamByNameQuery,
-  teamCreateMutation,
-  teamDeleteMutation,
-  teamsQuery,
-  teamUpdateMutation,
-}
+export { teamCreateMutation, teamDeleteMutation, teamUpdateMutation }

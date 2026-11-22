@@ -1,20 +1,15 @@
 import { Context, Effect, Layer, Schema } from "effect"
 
-import type { LinearApiError } from "@/api/errors"
-import type { Connection } from "@/api/pagination"
 import type { ProjectAlreadyDeletedError, ProjectNotDeletedError } from "@/api/project/errors"
-import type {
-  Project,
-  ProjectCreateOptions,
-  ProjectIdentity,
-  ProjectListOptions,
-} from "@/api/project/model"
 import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
 import type { ProjectId } from "@/domain/id"
+import type { Connection } from "@/linear/connection"
+import type { Project, ProjectCreateOptions, ProjectIdentity } from "@/linear/decode/project"
+import type { LinearApiError } from "@/linear/errors"
+import type { ProjectListOptions } from "@/linear/operations/project"
 
 import { LinearClient } from "@/api/client"
-import { collectConnection, pageOrDrain, pageSize } from "@/api/pagination"
 import {
   alreadyDeletedError,
   notDeletedError,
@@ -24,16 +19,16 @@ import {
   ProjectNotFoundError,
   ProjectRestoreError,
 } from "@/api/project/errors"
-import { ProjectArchivePayload, ProjectConnection, ProjectCreatePayload } from "@/api/project/model"
 import {
-  listProjectsQuery,
-  projectByIdQuery,
   projectCreateMutation,
   projectDeleteMutation,
   projectUnarchiveMutation,
 } from "@/api/project/query"
 import { RepoTeam } from "@/api/repo-team"
 import { isUuid, projectId } from "@/domain/id"
+import { collectConnection, pageSize } from "@/linear/connection"
+import { ProjectArchivePayload, ProjectCreatePayload } from "@/linear/decode/project"
+import { LinearGateway } from "@/linear/gateway"
 
 const unwrapProjectArchive = <E>(
   payload: { readonly success: boolean; readonly entity: Project | null },
@@ -77,38 +72,20 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
   static readonly layer = Layer.effect(
     ProjectService,
     Effect.gen(function* projectServiceLayer() {
+      const gateway = yield* LinearGateway
       const client = yield* LinearClient
       const repoTeam = yield* RepoTeam
 
       const list = Effect.fn("ProjectService.list")(function* listProjects(
         options: ProjectListOptions,
       ) {
-        const variables: Record<string, unknown> = {
-          includeArchived: options.includeArchived ?? false,
-        }
-        if (options.teamId !== undefined) {
-          variables.filter = { accessibleTeams: { some: { id: { eq: options.teamId } } } }
-        }
-        const fetchPage = (after: string | null) =>
-          client
-            .execute(
-              listProjectsQuery,
-              { ...variables, first: options.limit, after },
-              Schema.Struct({ projects: ProjectConnection }),
-            )
-            .pipe(Effect.map((data) => data.projects))
-        return yield* pageOrDrain(fetchPage, options)
+        return yield* gateway.project.list(options)
       })
 
       const projectById = Effect.fn("ProjectService.projectById")(function* projectById(
         id: ProjectId,
       ) {
-        const data = yield* client.execute(
-          projectByIdQuery,
-          { id, includeArchived: true },
-          Schema.Struct({ projects: ProjectConnection }),
-        )
-        return data.projects.nodes[0]
+        return yield* gateway.project.byId(id)
       })
 
       const allByName = Effect.fn("ProjectService.allByName")(function* allByName(name: string) {

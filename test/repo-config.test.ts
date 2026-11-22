@@ -22,7 +22,8 @@ describe("RepoConfigService.write", () => {
         const service = yield* RepoConfigService
         const database = yield* Database
         yield* service.write("/repo/src", { team: "RAT", project: "rata" })
-        const rows = yield* database.drizzle.select().from(repositories).all()
+        const opened = yield* database.open
+        const rows = yield* opened.drizzle.select().from(repositories).all()
         const atRoot = yield* service.read("/repo")
         const atSub = yield* service.read("/repo/src")
         return { atRoot, atSub, rows }

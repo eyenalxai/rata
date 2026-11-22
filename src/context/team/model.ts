@@ -2,12 +2,13 @@ import type { Effect } from "effect"
 
 import { Schema } from "effect"
 
-import type { Viewer } from "@/api/client"
-import type { LinearApiError } from "@/api/errors"
 import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
-import type { TeamDetail, TeamLabel, TeamState } from "@/api/team/details"
-import type { AuthStoreError } from "@/config/auth"
+import type { AuthStoreError } from "@/config/auth/error"
 import type { RepoConfigError } from "@/config/repo"
+import type { DatabaseError } from "@/db/database"
+import type { TeamDetail, TeamLabel, TeamState } from "@/linear/decode/team"
+import type { Viewer } from "@/linear/decode/viewer"
+import type { LinearApiError } from "@/linear/errors"
 import type { ContextCacheError } from "@/local/context-cache"
 
 import { TeamId } from "@/domain/id"
@@ -50,7 +51,12 @@ type TeamDetailSnapshot = {
   readonly fetchedAt: number
 }
 
-type TeamContextError = AuthStoreError | LinearApiError | RepoConfigError | ContextCacheError
+type TeamContextError =
+  | AuthStoreError
+  | DatabaseError
+  | LinearApiError
+  | RepoConfigError
+  | ContextCacheError
 
 type TeamContextShape = {
   readonly resolve: (options: {

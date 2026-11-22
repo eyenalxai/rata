@@ -1,82 +1,90 @@
-import type { Handler } from "@test/fake-linear/model"
-import type { HttpClientRequest } from "effect/http"
+import type { MemoryIssue, MemorySeed } from "@test/fake-linear/gateway/model"
 
-import { cliLayer, lastJson } from "@test/cli-harness"
-import {
-  attachment,
-  baseDetail,
-  jsonResponse,
-  pageInfo,
-  readBody,
-  run,
-  user,
-  uuid,
-} from "@test/issue-fixtures"
+import { lastJson, runIssueMemory } from "@test/cli-harness"
+import { defaultViewer } from "@test/fake-linear/model"
 import { afterEach, describe, expect, test } from "bun:test"
-import { Effect, Option, Schema } from "effect"
-import { Command } from "effect/cli"
+import { Option, Schema } from "effect"
 
-import { IssueApi } from "@/api/issue"
-import { issueCommand } from "@/cli/issue"
+import { attachmentId, commentId, issueId, labelId, projectId, teamId, userId } from "@/domain/id"
+import { Viewer } from "@/linear/decode/viewer"
 
-const showRef = (ref: string) =>
-  Effect.gen(function* showIssue() {
-    const api = yield* IssueApi
-    return yield* api.show(ref, { comments: false })
-  })
+const viewer = Option.getOrThrow(Schema.decodeUnknownOption(Viewer)(defaultViewer))
+const uuid = "5f0c1f2a-3b4c-4d5e-8f90-1234567890ab"
 
-const showWithComments = Effect.gen(function* showIssue() {
-  const api = yield* IssueApi
-  return yield* api.show("RAT-1", { comments: true })
-})
-
-const runShow = (handler: Handler, args: readonly string[], lines: string[]) =>
-  Command.run(issueCommand, { version: "test" }).pipe(
-    Effect.provide(cliLayer(handler, args, lines)),
-    Effect.runPromise,
-  )
-
-const comment = { id: "c1", body: "First", createdAt: "2026-01-01T10:00:00.000Z", user }
-
+const team = { id: teamId("team-1"), key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
+const user = { id: userId("u1"), name: "Ada", displayName: "ada" }
+const label = { id: labelId("l1"), name: "ready-for-agent" }
+const project = { id: projectId("p1"), name: "Tracker" }
+const parent = { id: issueId("i0"), identifier: "RAT-0", title: "Map" }
+const child = {
+  id: issueId("i2"),
+  identifier: "RAT-2",
+  title: "Child",
+  state: { name: "Todo", type: "unstarted" as const },
+}
 const dependent = {
-  id: "i8",
+  id: issueId("i8"),
   identifier: "RAT-8",
   title: "Dependent",
-  state: { name: "Todo", type: "unstarted" },
+  state: { name: "Todo", type: "unstarted" as const },
 }
-
 const blocker = {
-  id: "i9",
+  id: issueId("i9"),
   identifier: "RAT-9",
   title: "Blocker",
-  state: { name: "Done", type: "completed" },
+  state: { name: "Done", type: "completed" as const },
+}
+const attachment = {
+  id: attachmentId("a1"),
+  title: "Design doc",
+  subtitle: "Notion",
+  url: "https://example.com/doc",
+  sourceType: "link",
+  createdAt: "2026-01-01T10:00:00.000Z",
+}
+const early = {
+  id: commentId("c1"),
+  body: "First",
+  createdAt: "2026-01-01T10:00:00.000Z",
+  user,
+}
+const late = {
+  id: commentId("c2"),
+  body: "Second",
+  createdAt: "2026-01-02T10:00:00.000Z",
+  user,
 }
 
-const relatedDetail = {
-  ...baseDetail,
-  relations: {
-    nodes: [{ id: "rel-1", type: "blocks", relatedIssue: dependent }],
-    pageInfo,
+const detail: MemoryIssue = {
+  summary: {
+    id: issueId(uuid),
+    identifier: "RAT-42",
+    title: "The issue",
+    url: "https://linear.app/eyenalx/issue/RAT-42/the-issue",
+    state: { name: "In Progress", type: "started" },
+    priority: "urgent",
+    createdAt: "2026-01-01T08:00:00.000Z",
+    updatedAt: "2026-01-01T09:00:00.000Z",
+    assignee: user,
+    project,
+    parent,
+    labels: { nodes: [label] },
   },
-  inverseRelations: {
-    nodes: [{ id: "rel-2", type: "blocks", issue: blocker }],
-    pageInfo,
-  },
-  attachments: { nodes: [attachment], pageInfo },
+  description: "Body",
+  team,
+  children: [child],
+  relations: [{ type: "blocks", relatedIssue: dependent }],
+  inverseRelations: [{ type: "blocks", issue: blocker }],
+  attachments: [attachment],
+  comments: [late, early],
 }
 
-const showHandler =
-  (requests: ReturnType<typeof readBody>[]) =>
-  (request: HttpClientRequest.HttpClientRequest): Response => {
-    const body = readBody(request)
-    requests.push(body)
-    if (body.query.includes("query IssueComments")) {
-      return jsonResponse({ data: { issue: { comments: { nodes: [comment], pageInfo } } } })
-    }
-    return jsonResponse({ data: { issue: relatedDetail } })
-  }
-
-const relatedHandler = (): Response => jsonResponse({ data: { issue: relatedDetail } })
+const seed = (issue: MemoryIssue = detail): MemorySeed => ({
+  viewer,
+  teams: [team],
+  labels: [],
+  issues: [issue],
+})
 
 const ShowDocument = Schema.Struct({
   comments: Schema.Array(Schema.Struct({ id: Schema.String })),
@@ -88,174 +96,140 @@ const ShowDocument = Schema.Struct({
 })
 
 const AnyShowDocument = Schema.Record(Schema.String, Schema.Unknown)
-
 const ErrorEnvelope = Schema.Struct({ error: Schema.Struct({ code: Schema.String }) })
 
 afterEach(() => {
   process.exitCode = 0
 })
 
+const showId = async (ref: string): Promise<string> => {
+  const lines: string[] = []
+  await runIssueMemory(seed(), ["show", ref, "--json"], lines)
+  const document = Option.getOrThrow(
+    Schema.decodeUnknownOption(Schema.Struct({ id: Schema.String }))(lastJson(lines)),
+  )
+  return document.id
+}
+
 describe("IssueApi show", () => {
   test("resolves identifier, UUID and URL references", async () => {
-    const captured: Record<string, unknown>[] = []
-    const handler = (request: HttpClientRequest.HttpClientRequest): Response => {
-      const body = readBody(request)
-      if (body.query.includes("query IssueShow")) {
-        captured.push(body.variables)
-      }
-      return jsonResponse({ data: { issue: baseDetail } })
-    }
-
-    await run(handler, showRef("RAT-42"))
-    await run(handler, showRef(uuid))
-    await run(handler, showRef("https://linear.app/eyenalx/issue/RAT-42/some-slug"))
-
-    expect(captured.map((variables) => variables.id)).toEqual(["RAT-42", uuid, "RAT-42"])
+    expect(await showId("RAT-42")).toBe(uuid)
+    expect(await showId(uuid)).toBe(uuid)
+    expect(await showId("https://linear.app/eyenalx/issue/RAT-42/some-slug")).toBe(uuid)
   })
 
-  test("decodes the priority token on the detail record", async () => {
-    const queries: string[] = []
-    const handler = (request: HttpClientRequest.HttpClientRequest): Response => {
-      const body = readBody(request)
-      queries.push(body.query)
-      return jsonResponse({ data: { issue: { ...baseDetail, priority: 1 } } })
-    }
+  test("reads the priority token on the detail record", async () => {
+    const lines: string[] = []
+    await runIssueMemory(seed(), ["show", "RAT-42", "--json"], lines)
 
-    const issue = await run(handler, showRef("RAT-1"))
-
-    expect(issue.priority).toBe("urgent")
-    expect(issue.updatedAt).toBe("2026-01-01T09:00:00.000Z")
-    expect(queries[0]).toContain("priority")
+    const document = Option.getOrThrow(
+      Schema.decodeUnknownOption(
+        Schema.Struct({ priority: Schema.String, updatedAt: Schema.String }),
+      )(lastJson(lines)),
+    )
+    expect(document.priority).toBe("urgent")
+    expect(document.updatedAt).toBe("2026-01-01T09:00:00.000Z")
   })
 
-  test("decodes the creation time and selects it in the detail query", async () => {
-    const queries: string[] = []
-    const handler = (request: HttpClientRequest.HttpClientRequest): Response => {
-      const body = readBody(request)
-      queries.push(body.query)
-      return jsonResponse({ data: { issue: baseDetail } })
-    }
+  test("reads the creation time", async () => {
+    const lines: string[] = []
+    await runIssueMemory(seed(), ["show", "RAT-42", "--json", "--fields", "createdAt"], lines)
 
-    const issue = await run(handler, showRef("RAT-1"))
-
-    expect(issue.createdAt).toBe("2026-01-01T08:00:00.000Z")
-    expect(queries[0]).toMatch(/priority\s+createdAt\s+updatedAt/u)
+    expect(lastJson(lines)).toEqual({ createdAt: "2026-01-01T08:00:00.000Z" })
   })
 
   test("includes comments in chronological order when requested", async () => {
-    const early = comment
-    const late = { id: "c2", body: "Second", createdAt: "2026-01-02T10:00:00.000Z", user }
-    const handler = (request: HttpClientRequest.HttpClientRequest): Response => {
-      const body = readBody(request)
-      if (body.query.includes("query IssueComments")) {
-        return jsonResponse({
-          data: { issue: { comments: { nodes: [late, early], pageInfo } } },
-        })
-      }
-      return jsonResponse({ data: { issue: baseDetail } })
-    }
+    const lines: string[] = []
+    await runIssueMemory(seed(), ["show", "RAT-42", "--json", "--comments"], lines)
 
-    const issue = await run(handler, showWithComments)
-
-    expect(issue.comments?.map((item) => String(item.id))).toEqual(["c1", "c2"])
+    const document = Option.getOrThrow(Schema.decodeUnknownOption(ShowDocument)(lastJson(lines)))
+    expect(document.comments.map((item) => item.id)).toEqual(["c1", "c2"])
   })
 
   test("exposes blocking relations in both directions", async () => {
-    const issue = await run(relatedHandler, showRef("RAT-1"))
+    const lines: string[] = []
+    await runIssueMemory(seed(), ["show", "RAT-42", "--json"], lines)
 
-    expect(issue.relations.blocks.map((target) => target.identifier)).toEqual(["RAT-8"])
-    expect(issue.relations.blockedBy.map((target) => target.identifier)).toEqual(["RAT-9"])
+    const document = Option.getOrThrow(
+      Schema.decodeUnknownOption(
+        Schema.Struct({
+          relations: Schema.Struct({
+            blocks: Schema.Array(Schema.Struct({ identifier: Schema.String })),
+            blockedBy: Schema.Array(Schema.Struct({ identifier: Schema.String })),
+          }),
+        }),
+      )(lastJson(lines)),
+    )
+    expect(document.relations.blocks.map((target) => target.identifier)).toEqual(["RAT-8"])
+    expect(document.relations.blockedBy.map((target) => target.identifier)).toEqual(["RAT-9"])
   })
 
-  test("drains every page of attachments", async () => {
-    const second = { ...attachment, id: "a2", title: "Second", url: "https://example.com/second" }
-    const variables: Record<string, unknown>[] = []
-    const handler = (request: HttpClientRequest.HttpClientRequest): Response => {
-      const body = readBody(request)
-      if (body.query.includes("query IssueAttachments")) {
-        variables.push(body.variables)
-        return jsonResponse({ data: { issue: { attachments: { nodes: [second], pageInfo } } } })
-      }
-      return jsonResponse({
-        data: {
-          issue: {
-            ...baseDetail,
-            attachments: {
-              nodes: [attachment],
-              pageInfo: { hasNextPage: true, endCursor: attachment.id },
-            },
-          },
-        },
-      })
+  test("returns every attachment", async () => {
+    const second = {
+      ...attachment,
+      id: attachmentId("a2"),
+      title: "Second",
+      url: "https://example.com/second",
     }
+    const lines: string[] = []
+    await runIssueMemory(
+      seed({ ...detail, attachments: [attachment, second] }),
+      ["show", "RAT-42", "--json"],
+      lines,
+    )
 
-    const issue = await run(handler, showRef("RAT-1"))
-
-    expect(issue.attachments.map((item) => String(item.id))).toEqual(["a1", "a2"])
-    expect(variables).toEqual([{ id: "RAT-1", first: 50, after: attachment.id }])
+    const document = Option.getOrThrow(
+      Schema.decodeUnknownOption(
+        Schema.Struct({ attachments: Schema.Array(Schema.Struct({ id: Schema.String })) }),
+      )(lastJson(lines)),
+    )
+    expect(document.attachments.map((item) => item.id)).toEqual(["a1", "a2"])
   })
 })
 
 describe("issue show", () => {
   test("returns comments, children, relations and attachments in one document", async () => {
-    const requests: ReturnType<typeof readBody>[] = []
     const lines: string[] = []
-    await runShow(showHandler(requests), ["show", "RAT-1", "--json", "--comments"], lines)
+    await runIssueMemory(seed(), ["show", "RAT-42", "--json", "--comments"], lines)
 
     const document = Option.getOrThrow(Schema.decodeUnknownOption(ShowDocument)(lastJson(lines)))
 
-    expect(document.comments.map((item) => item.id)).toEqual(["c1"])
+    expect(document.comments.map((item) => item.id)).toEqual(["c1", "c2"])
     expect(document.children.map((item) => item.identifier)).toEqual(["RAT-2"])
     expect(document.relations.blocks.map((item) => item.identifier)).toEqual(["RAT-8"])
     expect(document.attachments.map((item) => item.id)).toEqual(["a1"])
-    expect(requests.filter((request) => request.query.includes("query IssueShow"))).toHaveLength(1)
   })
 
   test("--fields createdAt selects the creation time from the detail", async () => {
-    const requests: ReturnType<typeof readBody>[] = []
     const lines: string[] = []
-    await runShow(
-      showHandler(requests),
-      ["show", "RAT-1", "--json", "--fields", "createdAt"],
-      lines,
-    )
+    await runIssueMemory(seed(), ["show", "RAT-42", "--json", "--fields", "createdAt"], lines)
 
     expect(lastJson(lines)).toEqual({ createdAt: "2026-01-01T08:00:00.000Z" })
   })
 
-  test("omits comments by default and skips the fetch", async () => {
-    const requests: ReturnType<typeof readBody>[] = []
+  test("omits comments by default", async () => {
     const lines: string[] = []
-    await runShow(showHandler(requests), ["show", "RAT-1", "--json"], lines)
+    await runIssueMemory(seed(), ["show", "RAT-42", "--json"], lines)
 
     const document = Option.getOrThrow(Schema.decodeUnknownOption(AnyShowDocument)(lastJson(lines)))
     expect(document).not.toHaveProperty("comments")
-    expect(requests.some((request) => request.query.includes("query IssueComments"))).toBe(false)
   })
 
-  test("--no-comments omits the comments and skips the fetch", async () => {
-    const requests: ReturnType<typeof readBody>[] = []
+  test("--no-comments omits the comments", async () => {
     const lines: string[] = []
-    await runShow(showHandler(requests), ["show", "RAT-1", "--json", "--no-comments"], lines)
+    await runIssueMemory(seed(), ["show", "RAT-42", "--json", "--no-comments"], lines)
 
     const document = Option.getOrThrow(Schema.decodeUnknownOption(AnyShowDocument)(lastJson(lines)))
     expect(document).not.toHaveProperty("comments")
-    expect(requests.some((request) => request.query.includes("query IssueComments"))).toBe(false)
   })
 
   test("rejects --comments with --no-comments", async () => {
-    const requests: ReturnType<typeof readBody>[] = []
     const lines: string[] = []
-    await runShow(
-      showHandler(requests),
-      ["show", "RAT-1", "--json", "--comments", "--no-comments"],
-      lines,
-    )
+    await runIssueMemory(seed(), ["show", "RAT-42", "--json", "--comments", "--no-comments"], lines)
 
     expect(
       Option.getOrThrow(Schema.decodeUnknownOption(ErrorEnvelope)(lastJson(lines))).error.code,
     ).toBe("validation")
-    expect(requests).toEqual([])
     expect(process.exitCode).toBe(2)
   })
 })

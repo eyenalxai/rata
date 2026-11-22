@@ -1,10 +1,19 @@
 import { makeFakeLinear } from "@test/fake-linear"
 import { defaultViewer } from "@test/fake-linear/model"
-import { linkError, linkTeam, makeHarness, options, rat, ratId, scratch } from "@test/link-harness"
+import {
+  linkError,
+  linkTeam,
+  makeHarness,
+  makeLinkSeed,
+  options,
+  rat,
+  ratId,
+  scratch,
+} from "@test/link-harness"
 import { describe, expect, test } from "bun:test"
 import { Option } from "effect"
 
-import { teamId } from "@/domain/id"
+import { labelId, teamId } from "@/domain/id"
 
 describe("LinkService.link", () => {
   test("stores the team UUID and key at link time", async () => {
@@ -15,7 +24,9 @@ describe("LinkService.link", () => {
   })
 
   test("resolves a team given by id and stores the key", async () => {
-    const harness = makeHarness()
+    const harness = makeHarness({
+      seed: makeLinkSeed({ teams: [{ ...rat, id: ratId }, scratch] }),
+    })
     const fake = makeFakeLinear({ teams: [{ ...rat, id: ratId }, scratch], labels: [] })
     const { result, stored } = await linkTeam(
       fake.handler,
@@ -24,7 +35,6 @@ describe("LinkService.link", () => {
     )
     expect(result.team).toEqual({ ...rat, id: ratId })
     expect(stored).toEqual(Option.some({ team: "RAT", teamId: teamId(ratId) }))
-    expect(fake.requests.some((request) => request.query.includes("query TeamById"))).toBe(true)
   })
 
   test("fails with TeamNotFoundError when the team is missing", async () => {
@@ -99,7 +109,7 @@ describe("LinkService.link", () => {
   })
 
   test("rejects --create with a team id", async () => {
-    const harness = makeHarness()
+    const harness = makeHarness({ seed: makeLinkSeed({ teams: [{ ...rat, id: ratId }] }) })
     const fake = makeFakeLinear({ teams: [{ ...rat, id: ratId }], labels: [] })
     const { error } = await linkError(
       fake.handler,
@@ -170,14 +180,17 @@ describe("LinkService.link", () => {
 
 describe("LinkService default labels", () => {
   const enhancement = {
-    id: "l-enh",
+    id: labelId("l-enh"),
     name: "enhancement",
     color: "#111111",
     teamId: teamId("team-1"),
   }
 
   test("keeps the defaults when the new team has the labels", async () => {
-    const harness = makeHarness({ config: { team: "OLD", defaultLabels: ["enhancement"] } })
+    const harness = makeHarness({
+      seed: makeLinkSeed({ labels: [enhancement] }),
+      config: { team: "OLD", defaultLabels: ["enhancement"] },
+    })
     const fake = makeFakeLinear({ teams: [rat], labels: [enhancement] })
     const { result, stored } = await linkTeam(fake.handler, harness, options({}))
     expect(result.team.key).toBe("RAT")
@@ -187,7 +200,10 @@ describe("LinkService default labels", () => {
   })
 
   test("fails and keeps the old link when a stored label is missing", async () => {
-    const harness = makeHarness({ config: { team: "OLD", defaultLabels: ["missing"] } })
+    const harness = makeHarness({
+      seed: makeLinkSeed({ labels: [enhancement] }),
+      config: { team: "OLD", defaultLabels: ["missing"] },
+    })
     const fake = makeFakeLinear({ teams: [rat], labels: [enhancement] })
     const { error, stored } = await linkError(fake.handler, harness, options({}))
     expect(error._tag).toBe("LinkError")
@@ -225,6 +241,19 @@ describe("LinkService default labels", () => {
 
   test("validates the labels when the workspace changes with the same team key", async () => {
     const harness = makeHarness({
+      seed: makeLinkSeed({
+        teams: [],
+        labels: [],
+        workspaces: {
+          "personal-key": { teams: [rat], labels: [enhancement] },
+          "work-key": {
+            teams: [{ ...rat, id: teamId("team-2") }],
+            labels: [
+              { ...enhancement, id: labelId("l-bug"), name: "bug", teamId: teamId("team-2") },
+            ],
+          },
+        },
+      }),
       config: { team: "RAT", workspace: "personal", defaultLabels: ["enhancement"] },
       env: { HOME: "/home/test" },
       profiles: [

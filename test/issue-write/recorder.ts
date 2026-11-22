@@ -1,7 +1,7 @@
 import { jsonResponse, pageInfo, summaryNode, viewer } from "@test/issue-fixtures"
 import { makeRecorder, teamDetailResponse } from "@test/issue-write/fixtures"
 
-import type { IssueInverseRelation, IssueRelation } from "@/api/issue-schema"
+import type { IssueInverseRelation, IssueRelation } from "@/linear/decode/issue"
 
 import { issueId, relationId } from "@/domain/id"
 

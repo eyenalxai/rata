@@ -1,10 +1,10 @@
 import { and, eq, gte } from "drizzle-orm"
 import { Context, Effect, Layer, Option, Schema } from "effect"
 
-import { Viewer } from "@/api/client"
-import { TeamDetail } from "@/api/team/details"
 import { Database } from "@/db/database"
 import { contextCache, viewerCache } from "@/db/schema"
+import { TeamDetail } from "@/linear/decode/team"
+import { Viewer } from "@/linear/decode/viewer"
 
 const contextCacheTtlMillis = 7 * 24 * 60 * 60 * 1000
 
@@ -76,6 +76,9 @@ class ContextCache extends Context.Service<ContextCache, ContextCacheShape>()(
     ContextCache,
     Effect.gen(function* contextCacheLayer() {
       const database = yield* Database
+      const openedDatabase = database.open.pipe(
+        Effect.mapError((cause) => new ContextCacheError({ message: cause.message, cause })),
+      )
 
       const readTeam = Effect.fn("ContextCache.readTeam")(function* readStoredTeam(
         profile: string,
@@ -83,7 +86,8 @@ class ContextCache extends Context.Service<ContextCache, ContextCacheShape>()(
         keyHash: string,
         now: number,
       ) {
-        const rows = yield* database.drizzle
+        const opened = yield* openedDatabase
+        const rows = yield* opened.drizzle
           .select()
           .from(contextCache)
           .where(
@@ -118,7 +122,8 @@ class ContextCache extends Context.Service<ContextCache, ContextCacheShape>()(
           Effect.mapError(describeEncodeFailure("team")),
         )
         const columns = { keyHash, detail: encoded, fetchedAt }
-        yield* database.drizzle
+        const opened = yield* openedDatabase
+        yield* opened.drizzle
           .insert(contextCache)
           .values({ profile, teamId, ...columns })
           .onConflictDoUpdate({
@@ -134,7 +139,8 @@ class ContextCache extends Context.Service<ContextCache, ContextCacheShape>()(
         keyHash: string,
         now: number,
       ) {
-        const rows = yield* database.drizzle
+        const opened = yield* openedDatabase
+        const rows = yield* opened.drizzle
           .select()
           .from(viewerCache)
           .where(
@@ -166,7 +172,8 @@ class ContextCache extends Context.Service<ContextCache, ContextCacheShape>()(
         const encoded = yield* Schema.encodeEffect(ViewerJson)(viewer).pipe(
           Effect.mapError(describeEncodeFailure("viewer")),
         )
-        yield* database.drizzle
+        const opened = yield* openedDatabase
+        yield* opened.drizzle
           .insert(viewerCache)
           .values({ profile, keyHash, viewer: encoded, fetchedAt })
           .onConflictDoUpdate({

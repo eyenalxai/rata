@@ -1,8 +1,8 @@
 import type { IssueSummary } from "@/api/issue-model"
-import type { IssueComment } from "@/api/issue-schema"
 import type { CommentId } from "@/domain/id"
 import type { Priority } from "@/domain/priority"
 import type { SectionReplacementAction } from "@/domain/section"
+import type { IssueComment } from "@/linear/decode/issue"
 
 type VisibilityOptions = {
   readonly waitSeconds?: number | undefined

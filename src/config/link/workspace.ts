@@ -3,11 +3,15 @@ import type { FileSystem, Path, Stdio, Terminal } from "effect"
 import { Effect, Option, Redacted, Result } from "effect"
 import { Prompt } from "effect/cli"
 
-import type { LinearClient, Viewer } from "@/api/client"
-import type { LinearApiError } from "@/api/errors"
-import type { Team, TeamCreateError, TeamService } from "@/api/team"
-import type { Auth, AuthStoreError, StoredProfile } from "@/config/auth"
+import type { TeamCreateError, TeamService } from "@/api/team"
+import type { Auth, StoredProfile } from "@/config/auth"
+import type { AuthStoreError } from "@/config/auth/error"
 import type { LinkTargetOptions } from "@/config/link/team"
+import type { DatabaseError } from "@/db/database"
+import type { Team } from "@/linear/decode/team"
+import type { Viewer } from "@/linear/decode/viewer"
+import type { LinearApiError } from "@/linear/errors"
+import type { LinearGatewayShape } from "@/linear/gateway"
 
 import { TeamNotFoundError } from "@/api/team"
 import { LinkError, resolveLinkTeam } from "@/config/link/team"
@@ -15,7 +19,7 @@ import { runPrompt } from "@/config/prompt"
 
 type LinkTargetDependencies = {
   readonly auth: Auth["Service"]
-  readonly client: LinearClient["Service"]
+  readonly gateway: LinearGatewayShape
   readonly teams: TeamService["Service"]
   readonly stdio: Stdio.Stdio
 }
@@ -48,10 +52,10 @@ type ProfileMatch = {
 }
 
 const choiceOf = Effect.fn("LinkWorkspace.choice")(function* choiceOf(
-  client: LinearClient["Service"],
+  gateway: LinearGatewayShape,
   profile: StoredProfile,
 ): Effect.fn.Return<WorkspaceChoice> {
-  const viewer = yield* Effect.result(client.viewerWithKey(profile.apiKey))
+  const viewer = yield* Effect.result(gateway.viewerWithKey(profile.apiKey))
   return {
     name: profile.name,
     isDefault: profile.isDefault,
@@ -183,7 +187,7 @@ const resolveLinkTarget = Effect.fn("LinkWorkspace.resolve")(function* resolveLi
   deps: LinkTargetDependencies,
 ): Effect.fn.Return<
   LinkTarget,
-  AuthStoreError | LinkError | LinearApiError | TeamCreateError | TeamNotFoundError,
+  AuthStoreError | DatabaseError | LinkError | LinearApiError | TeamCreateError | TeamNotFoundError,
   FileSystem.FileSystem | Path.Path | Terminal.Terminal
 > {
   const envKey = yield* deps.auth.envKey
@@ -210,7 +214,7 @@ const resolveLinkTarget = Effect.fn("LinkWorkspace.resolve")(function* resolveLi
   if (profiles.length > 0) {
     const isTerminal = yield* deps.stdio.stdinIsTerminal
     if (isTerminal) {
-      const choices = yield* Effect.forEach(profiles, (profile) => choiceOf(deps.client, profile))
+      const choices = yield* Effect.forEach(profiles, (profile) => choiceOf(deps.gateway, profile))
       const choice = yield* promptForWorkspace(choices)
       return yield* linkIn(choice.apiKey, Option.some(choice.name), options, target)
     }

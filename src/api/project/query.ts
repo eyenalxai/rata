@@ -1,31 +1,9 @@
-const projectFields = `
-      id
-      name
-      progress
-      status {
-        name
-      }
-      trashed`
-
-const listProjectsQuery = `query Projects($first: Int!, $after: String, $includeArchived: Boolean, $filter: ProjectFilter) {
-  projects(first: $first, after: $after, orderBy: createdAt, includeArchived: $includeArchived, filter: $filter) {
-    nodes {${projectFields}
-    }
-    pageInfo { hasNextPage endCursor }
-  }
-}`
+import { projectFields } from "@/linear/documents/project"
 
 const projectCreateMutation = `mutation ProjectCreate($input: ProjectCreateInput!) {
   projectCreate(input: $input) {
     success
     project {${projectFields}
-    }
-  }
-}`
-
-const projectByIdQuery = `query ProjectById($id: ID!, $includeArchived: Boolean) {
-  projects(first: 1, filter: { id: { eq: $id } }, includeArchived: $includeArchived) {
-    nodes {${projectFields}
     }
   }
 }`
@@ -46,10 +24,4 @@ const projectUnarchiveMutation = `mutation ProjectUnarchive($id: String!) {
   }
 }`
 
-export {
-  listProjectsQuery,
-  projectByIdQuery,
-  projectCreateMutation,
-  projectDeleteMutation,
-  projectUnarchiveMutation,
-}
+export { projectCreateMutation, projectDeleteMutation, projectUnarchiveMutation }

@@ -1,6 +1,5 @@
 import { Context, Effect, Layer } from "effect"
 
-import type { LinearApiError } from "@/api/errors"
 import type {
   IssueDetail,
   IssueListOptions,
@@ -24,26 +23,24 @@ import type {
   ContextStateNotFoundError,
   TeamContextError,
 } from "@/context/team/model"
-import type { UserId } from "@/domain/id"
-import type { InvalidIssueRef } from "@/domain/issue-ref"
+import type { TeamId, UserId } from "@/domain/id"
+import type { InvalidIssueRef, IssueRef } from "@/domain/issue-ref"
+import type { Connection } from "@/linear/connection"
+import type { IssueSummaryNode } from "@/linear/decode/issue"
+import type { LinearApiError } from "@/linear/errors"
+import type { IssueListOptions as LinearIssueListOptions } from "@/linear/operations/issue/filter"
 
-import { LinearClient } from "@/api/client"
-import { composeFilter, projectFilter, teamIdFilter, textFilter } from "@/api/issue-filter"
-import { collectsAllPages, sortAndLimitNodes, toSummary } from "@/api/issue-model"
-import { issueIdQuery, listQuery, prioritySort, searchQuery } from "@/api/issue-query"
-import { IssueIdResponse } from "@/api/issue-schema"
-import { ListResponse, SearchResponse } from "@/api/issue-schema/collection"
+import { sortAndLimitNodes, toSummary } from "@/api/issue-model"
 import { parseBatchRefs, requireBatchRefs } from "@/api/issue/batch"
 import { resolveAssignee, validateNamedFilters } from "@/api/issue/filter-check"
-import { makeReadOperations } from "@/api/issue/read"
+import { toIssueDetail } from "@/api/issue/read"
 import { toIssueStatus } from "@/api/issue/status"
-import { collectPages, lastPageInfo, maxPageSize, pageOrDrain } from "@/api/pagination"
 import { RepoTeam } from "@/api/repo-team"
 import { TeamContext } from "@/context/team"
 import { isUuid, issueId } from "@/domain/id"
 import { parseRefOrFail } from "@/domain/issue-ref"
-import { priorityValue } from "@/domain/priority"
-import { closedStateTypes } from "@/domain/workflow-state"
+import { maxPageSize } from "@/linear/connection"
+import { LinearGateway } from "@/linear/gateway"
 
 type IssueListError =
   | LinearApiError
@@ -58,6 +55,76 @@ type IssueListError =
   | AssigneeInputError
   | AssigneeNotFoundError
   | IssueRefNotFoundError
+
+type PreparedList = {
+  readonly requested: readonly IssueRef[] | undefined
+  readonly teamId: TeamId | undefined
+  readonly input: LinearIssueListOptions
+}
+
+type MutableListInput = {
+  -readonly [K in keyof LinearIssueListOptions]: LinearIssueListOptions[K]
+}
+
+const listInput = (
+  options: IssueListOptions,
+  values: {
+    readonly teamId: TeamId | undefined
+    readonly assigneeId: UserId | undefined
+    readonly parentId: ReturnType<typeof issueId> | undefined
+    readonly requested: readonly IssueRef[] | undefined
+  },
+): LinearIssueListOptions => {
+  const input: MutableListInput = { after: options.after, limit: options.limit }
+  if (values.teamId !== undefined) {
+    input.teamId = values.teamId
+  }
+  if (options.state !== undefined) {
+    input.state = options.state
+  }
+  if (options.stateType !== undefined) {
+    input.stateType = options.stateType
+  }
+  if (options.priority !== undefined) {
+    input.priority = options.priority
+  }
+  if (options.label !== undefined) {
+    input.label = options.label
+  }
+  if (values.assigneeId !== undefined) {
+    input.assigneeId = values.assigneeId
+  }
+  if (options.unassigned !== undefined) {
+    input.unassigned = options.unassigned
+  }
+  if (options.project !== undefined) {
+    input.project = options.project
+  }
+  if (values.parentId !== undefined) {
+    input.parentId = values.parentId
+  }
+  if (options.text !== undefined) {
+    input.text = options.text
+  }
+  if (options.unblocked !== undefined) {
+    input.unblocked = options.unblocked
+  }
+  if (values.requested !== undefined) {
+    input.ids = values.requested
+  }
+  if (options.include !== undefined) {
+    input.include = options.include
+  }
+  if (options.sort !== undefined) {
+    input.sort = options.sort
+  }
+  if (options.all !== undefined) {
+    input.all = options.all
+  }
+  return input
+}
+
+type IssueSummaryConnection = Connection<IssueSummaryNode>
 
 type IssueApiShape = {
   readonly list: (options: IssueListOptions) => Effect.Effect<IssuePage, IssueListError>
@@ -79,24 +146,20 @@ type IssueApiShape = {
   ) => Effect.Effect<IssueStatus, IssueListError>
 }
 
-const projectRefFilter = (value: string): Record<string, unknown> =>
-  isUuid(value) ? { project: { id: { eq: value } } } : projectFilter(value)
-
 class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/issue/IssueApi") {
   static readonly layer = Layer.effect(
     IssueApi,
     Effect.gen(function* issueApiLayer() {
-      const client = yield* LinearClient
+      const gateway = yield* LinearGateway
       const repoTeam = yield* RepoTeam
       const context = yield* TeamContext
-      const { show, summary } = makeReadOperations(client.execute)
 
       const resolveAssigneeId = (
         value: string,
       ): Effect.Effect<UserId, LinearApiError | AssigneeInputError | AssigneeNotFoundError> =>
         value.toLowerCase() === "me"
-          ? client.viewer.pipe(Effect.map((viewer) => viewer.id))
-          : resolveAssignee(client.execute, value)
+          ? gateway.viewer.pipe(Effect.map((viewer) => viewer.id))
+          : resolveAssignee(gateway, value)
 
       const resolveIssueId = Effect.fn("IssueApi.resolveIssueId")(function* resolveIssueId(
         input: string,
@@ -105,113 +168,51 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
         if (isUuid(ref)) {
           return issueId(ref)
         }
-        const data = yield* client.execute(issueIdQuery, { id: ref }, IssueIdResponse)
-        return data.issue.id
+        return yield* gateway.issue.id(ref)
       })
 
-      const list = Effect.fn("IssueApi.list")(function* list(options: IssueListOptions) {
+      const prepareList = Effect.fn("IssueApi.prepareList")(function* prepareList(
+        options: IssueListOptions,
+      ) {
         const requested = options.ids === undefined ? undefined : yield* parseBatchRefs(options.ids)
         const teamId =
           requested !== undefined && options.team === undefined
             ? undefined
             : yield* repoTeam.resolve(options.team)
-        const parts: Record<string, unknown>[] = []
-        if (teamId !== undefined) {
-          parts.push(teamIdFilter(teamId))
+        const assigneeId =
+          options.assignee === undefined ? undefined : yield* resolveAssigneeId(options.assignee)
+        const parentId =
+          options.parent === undefined ? undefined : yield* resolveIssueId(options.parent)
+        return {
+          requested,
+          teamId,
+          input: listInput(options, { assigneeId, parentId, requested, teamId }),
         }
-        if (options.state !== undefined) {
-          parts.push({ state: { name: { eqIgnoreCase: options.state } } })
-        }
-        if (options.stateType !== undefined) {
-          parts.push({ state: { type: { eq: options.stateType } } })
-        }
-        if (options.priority !== undefined) {
-          parts.push({ priority: { eq: priorityValue(options.priority) } })
-        }
-        if (options.label !== undefined) {
-          parts.push({ labels: { some: { name: { eqIgnoreCase: options.label } } } })
-        }
-        if (options.assignee !== undefined) {
-          const assigneeId = yield* resolveAssigneeId(options.assignee)
-          parts.push({ assignee: { id: { eq: assigneeId } } })
-        }
-        if (options.unassigned === true) {
-          parts.push({ assignee: { null: true } })
-        }
-        if (options.project !== undefined) {
-          parts.push(projectRefFilter(options.project))
-        }
-        if (options.parent !== undefined) {
-          const parentId = yield* resolveIssueId(options.parent)
-          parts.push({ parent: { id: { eq: parentId } } })
-        }
-        if (options.text !== undefined) {
-          parts.push(textFilter(options.text))
-        }
-        if (options.unblocked === true) {
-          parts.push(
-            { hasBlockedByRelations: { eq: false } },
-            { state: { type: { nin: closedStateTypes } } },
-          )
-        }
-        if (requested !== undefined) {
-          parts.push({ id: { in: requested } })
-        }
-        const filter = composeFilter(parts)
-        const sort = options.sort === undefined ? undefined : prioritySort
-        const query = listQuery({
-          relations: options.include === "relations",
-          sort: sort !== undefined,
-        })
-        const variables = (first: number, after: string | null) => ({
-          filter,
-          first,
-          after,
-          ...(sort === undefined ? {} : { sort }),
-        })
-        const checkNames = (page: IssuePage) =>
-          page.issues.length === 0 && teamId !== undefined
-            ? validateNamedFilters(client.execute, context, teamId, options).pipe(
-                Effect.map(() => page),
+      })
+
+      const finishList = (
+        options: IssueListOptions,
+        prepared: PreparedList,
+        page: IssueSummaryConnection,
+      ) => {
+        const issues = sortAndLimitNodes(page.nodes, options).map(toSummary)
+        const result: IssuePage = { issues, pageInfo: page.pageInfo }
+        const checkNames =
+          result.issues.length === 0 && prepared.teamId !== undefined
+            ? validateNamedFilters(gateway, context, prepared.teamId, options).pipe(
+                Effect.map(() => result),
               )
-            : Effect.succeed(page)
-        const complete = (page: IssuePage, nodes: readonly IssueSummary[], whole: boolean) =>
-          requested === undefined || !whole
-            ? checkNames(page)
-            : requireBatchRefs(requested, nodes).pipe(Effect.andThen(checkNames(page)))
+            : Effect.succeed(result)
+        const whole = options.after === null && !page.pageInfo.hasNextPage
+        return prepared.requested === undefined || !whole
+          ? checkNames
+          : requireBatchRefs(prepared.requested, issues).pipe(Effect.andThen(checkNames))
+      }
 
-        if (!collectsAllPages(options)) {
-          const data = yield* client.execute(
-            query,
-            variables(options.limit, options.after),
-            ListResponse,
-          )
-          const issues = sortAndLimitNodes(data.issues.nodes, options).map(toSummary)
-          return yield* complete(
-            { issues, pageInfo: data.issues.pageInfo },
-            issues,
-            options.after === null && !data.issues.pageInfo.hasNextPage,
-          )
-        }
-
-        const firstPage = yield* client.execute(
-          query,
-          variables(options.limit, options.after),
-          ListResponse,
-        )
-        const nodes = yield* collectPages(firstPage.issues, (after) =>
-          client
-            .execute(query, variables(options.limit, after), ListResponse)
-            .pipe(Effect.map((page) => page.issues)),
-        )
-        return yield* complete(
-          {
-            issues: sortAndLimitNodes(nodes, options).map(toSummary),
-            pageInfo: lastPageInfo,
-          },
-          nodes.map(toSummary),
-          options.after === null,
-        )
+      const list = Effect.fn("IssueApi.list")(function* list(options: IssueListOptions) {
+        const prepared = yield* prepareList(options)
+        const page = yield* gateway.issue.list(prepared.input)
+        return yield* finishList(options, prepared, page)
       })
 
       const search = Effect.fn("IssueApi.search")(function* search(
@@ -219,24 +220,29 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
         options: IssueSearchOptions,
       ) {
         const teamId = yield* repoTeam.resolve(options.team)
-        const fetchPage = (after: string | null) =>
-          client
-            .execute(
-              searchQuery,
-              {
-                term,
-                filter: teamIdFilter(teamId),
-                first: options.limit,
-                after,
-              },
-              SearchResponse,
-            )
-            .pipe(Effect.map((data) => data.searchIssues))
-        const page = yield* pageOrDrain(fetchPage, options)
+        const page = yield* gateway.issue.search(term, {
+          teamId,
+          after: options.after,
+          limit: options.limit,
+          ...(options.all === undefined ? {} : { all: options.all }),
+        })
         return {
           issues: page.nodes.map(toSummary),
           pageInfo: page.pageInfo,
         }
+      })
+
+      const show = Effect.fn("IssueApi.show")(function* showIssue(
+        input: string,
+        options: IssueShowOptions,
+      ) {
+        const ref = yield* parseRefOrFail(input)
+        return toIssueDetail(yield* gateway.issue.show(ref, options))
+      })
+
+      const summary = Effect.fn("IssueApi.summary")(function* readSummary(input: string) {
+        const ref = yield* parseRefOrFail(input)
+        return toSummary(yield* gateway.issue.summary(ref))
       })
 
       const status = Effect.fn("IssueApi.status")(function* status(

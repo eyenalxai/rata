@@ -6,8 +6,8 @@ import type { BulkWriteResult, BulkWriteSuccess } from "@/api/issue-write/model"
 import type { ErrorCode, TrackerError } from "@/domain/error"
 import type { PlanAction } from "@/domain/plan"
 
-import { maxPageSize } from "@/api/pagination"
 import { commandError, exitCodeOf, toTrackerError } from "@/cli/error-report"
+import { maxPageSize } from "@/linear/connection"
 
 const jsonOutput = Schema.fromJsonString(Schema.Unknown, { space: 2 })
 const defectJson = Schema.Defect()

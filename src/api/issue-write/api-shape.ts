@@ -1,7 +1,6 @@
 import type { Effect, Option } from "effect"
 
 import type { IssueSummary } from "@/api/issue-model"
-import type { IssueComment } from "@/api/issue-schema"
 import type {
   BulkWriteResult,
   IssueCreatePlan,
@@ -32,6 +31,7 @@ import type {
 } from "@/api/issue-write/write-types"
 import type { CommentId } from "@/domain/id"
 import type { Section, SectionReplacement } from "@/domain/section"
+import type { IssueComment } from "@/linear/decode/issue"
 
 type IssueWriteApiShape = {
   readonly create: (

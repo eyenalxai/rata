@@ -113,11 +113,12 @@ describe("Database", () => {
         Effect.gen(function* openDatabase() {
           const fs = yield* FileSystem.FileSystem
           const database = yield* Database
-          yield* database.drizzle
+          const opened = yield* database.open
+          yield* opened.drizzle
             .insert(repositories)
             .values({ key: "/repo", team: "RAT", workspace: "work" })
             .run()
-          const rows = yield* database.drizzle.select().from(repositories).all()
+          const rows = yield* opened.drizzle.select().from(repositories).all()
           const dataDirectory = path.join(directory, "rata")
           const directoryInfo = yield* fs.stat(dataDirectory)
           const fileInfo = yield* fs.stat(path.join(dataDirectory, "rata.sqlite"))
@@ -152,8 +153,9 @@ describe("Database", () => {
         Effect.gen(function* openDatabase() {
           const fs = yield* FileSystem.FileSystem
           const database = yield* Database
-          yield* database.drizzle.insert(profiles).values({ name: "work", apiKey: "secret" }).run()
-          const storedProfiles = yield* database.drizzle.select().from(profiles).all()
+          const opened = yield* database.open
+          yield* opened.drizzle.insert(profiles).values({ name: "work", apiKey: "secret" }).run()
+          const storedProfiles = yield* opened.drizzle.select().from(profiles).all()
           const file = path.join(directory, ".local", "share", "rata", "rata.sqlite")
           return { exists: yield* fs.exists(file), storedProfiles }
         }),
@@ -165,7 +167,11 @@ describe("Database", () => {
 
   test("fails with a clear error when the environment has no data directory", async () => {
     const error = await Effect.runPromise(
-      Database.pipe(Effect.provide(databaseLayer({})), Effect.flip),
+      Database.pipe(
+        Effect.flatMap((database) => database.open),
+        Effect.provide(databaseLayer({})),
+        Effect.flip,
+      ),
     )
 
     expect(error._tag).toBe("DatabaseError")
@@ -180,7 +186,10 @@ describe("Database", () => {
           yield* fs.makeDirectory(path.join(directory, "rata", "rata.sqlite"), {
             recursive: true,
           })
-          return yield* Database.pipe(Effect.provide(databaseLayer({ XDG_DATA_HOME: directory })))
+          return yield* Database.pipe(
+            Effect.flatMap((database) => database.open),
+            Effect.provide(databaseLayer({ XDG_DATA_HOME: directory })),
+          )
         }),
       ).pipe(Effect.provide(platformLayer), Effect.flip),
     )
@@ -195,10 +204,16 @@ describe("Database", () => {
         Effect.gen(function* reopen() {
           const layer = databaseLayer({ XDG_DATA_HOME: directory })
           yield* Database.use((database) =>
-            database.drizzle.insert(repositories).values({ key: "/repo" }).run(),
+            Effect.gen(function* writeRow() {
+              const opened = yield* database.open
+              yield* opened.drizzle.insert(repositories).values({ key: "/repo" }).run()
+            }),
           ).pipe(Effect.provide(layer))
           return yield* Database.use((database) =>
-            database.drizzle.select().from(repositories).all(),
+            Effect.gen(function* readRows() {
+              const opened = yield* database.open
+              return yield* opened.drizzle.select().from(repositories).all()
+            }),
           ).pipe(Effect.provide(layer))
         }),
       ).pipe(Effect.provide(platformLayer)),

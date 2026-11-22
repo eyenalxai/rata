@@ -2,12 +2,12 @@ import { DateTime, Effect, Option } from "effect"
 import { Command, Flag } from "effect/cli"
 import { EOL } from "node:os"
 
-import type { TeamLabel, TeamState } from "@/api/team/details"
 import type { KeySource, ResolvedAuth } from "@/config/auth"
 import type { DefaultsDocument } from "@/config/defaults"
 import type { RepoConfig } from "@/config/repo/model"
 import type { ContextDocs, TriageMap } from "@/context/docs"
 import type { ResolvedTeamContext } from "@/context/team/model"
+import type { TeamLabel, TeamState } from "@/linear/decode/team"
 
 import { OutputFields, readFields, selectObject } from "@/cli/fields"
 import { JsonOutput, reportFailure, warningLine, writeJson, writeLine } from "@/cli/output"

@@ -4,6 +4,7 @@ import {
   linkError,
   linkTeam,
   makeHarness,
+  makeLinkSeed,
   options,
   rat,
   scratch,
@@ -39,7 +40,7 @@ describe("LinkService.link prompt", () => {
     }
     const teams = [
       ...Array.from({ length: 50 }, (_, index) => ({
-        id: `team-${index + 1}`,
+        id: teamId(`team-${index + 1}`),
         key: `T${index + 1}`,
         name: `Team ${index + 1}`,
         timezone: "America/Los_Angeles",
@@ -47,14 +48,20 @@ describe("LinkService.link prompt", () => {
       last,
     ]
     const moves = Array.from({ length: 50 }, () => key("down"))
-    const harness = makeHarness(interactive([...moves, key("enter")]))
+    const harness = makeHarness({
+      seed: makeLinkSeed({ teams }),
+      ...interactive([...moves, key("enter")]),
+    })
     const fake = makeFakeLinear({ teams, labels: [] })
-    const { result } = await linkTeam(fake.handler, harness, options({ team: Option.none() }))
+    const { result, stored } = await linkTeam(
+      fake.handler,
+      harness,
+      options({ team: Option.none() }),
+    )
 
     expect(result.team).toEqual(last)
-    const pages = fake.requests.filter((request) => request.query.includes("query Teams"))
-    expect(pages).toHaveLength(2)
-    expect(pages[1]?.variables).toEqual({ first: 50, after: "team-50" })
+    expect(stored).toEqual(Option.some({ team: "T51", teamId: teamId("team-51") }))
+    expect(harness.output.some((frame) => frame.includes("T51  Team 51"))).toBe(true)
   })
 
   test("fails without listing teams when standard input is not a terminal", async () => {
@@ -65,6 +72,5 @@ describe("LinkService.link prompt", () => {
     if (error._tag === "LinkError") {
       expect(error.message).toContain("--team")
     }
-    expect(fake.requests.some((request) => request.query.includes("query Teams"))).toBe(false)
   })
 })

@@ -6,7 +6,7 @@ import { inputOf } from "@test/fake-linear/model"
 import { describe, expect, test } from "bun:test"
 import { Effect } from "effect"
 
-import type { ProjectCreateOptions } from "@/api/project/model"
+import type { ProjectCreateOptions } from "@/linear/decode/project"
 
 import { ProjectService } from "@/api/project"
 import { projectId } from "@/domain/id"
@@ -20,18 +20,6 @@ const run = <A, E>(
   options: ApiLayerOptions = {},
 ) => effect.pipe(Effect.provide(apiLayer(handler, options)), Effect.runPromise)
 
-const createProject = (options: ProjectCreateOptions) =>
-  Effect.gen(function* create() {
-    const projects = yield* ProjectService
-    return yield* projects.create(options)
-  })
-
-const resolveProject = (ref: string) =>
-  Effect.gen(function* resolve() {
-    const projects = yield* ProjectService
-    return yield* projects.resolve(ref)
-  })
-
 const requestOf = (
   requests: readonly GraphQLRequest[],
   fragment: string,
@@ -41,164 +29,11 @@ const configWithTeam = (key: string): ApiLayerOptions => ({
   repositories: [{ key: process.cwd(), team: key }],
 })
 
-describe("ProjectService.list", () => {
-  test("passes includeArchived and decodes the trashed flag", async () => {
-    const projects = [
-      { id: "project-1", name: "Tracker", progress: 0.5, status: { name: "Started" } },
-      { id: "project-2", name: "Login", progress: 0, status: { name: "Backlog" }, trashed: true },
-    ]
-    const fake = makeFakeLinear({ teams: [], labels: [], projects })
-    const page = await run(
-      fake.handler,
-      Effect.gen(function* listProjects() {
-        const service = yield* ProjectService
-        return yield* service.list({ after: null, limit: 50, includeArchived: true })
-      }),
-    )
-    expect(fake.requests[0]?.variables).toEqual({ first: 50, after: null, includeArchived: true })
-    expect(page.nodes).toEqual([
-      {
-        id: projectId("project-1"),
-        name: "Tracker",
-        progress: 0.5,
-        status: { name: "Started" },
-        trashed: false,
-      },
-      {
-        id: projectId("project-2"),
-        name: "Login",
-        progress: 0,
-        status: { name: "Backlog" },
-        trashed: true,
-      },
-    ])
+const createProject = (options: ProjectCreateOptions) =>
+  Effect.gen(function* create() {
+    const projects = yield* ProjectService
+    return yield* projects.create(options)
   })
-})
-
-describe("ProjectService.resolve", () => {
-  test("reads a project by UUID without listing", async () => {
-    const id = "0f8fad5b-d9cb-469f-a165-70867728950e"
-    const tracker = {
-      id: projectId(id),
-      name: "Tracker",
-      progress: 0.5,
-      status: { name: "Started" },
-    }
-    const fake = makeFakeLinear({ teams: [], labels: [], projects: [tracker] })
-    const found = await run(
-      fake.handler,
-      Effect.gen(function* resolve() {
-        const service = yield* ProjectService
-        return yield* service.resolve(id)
-      }),
-    )
-    expect(found).toEqual({ ...tracker, trashed: false })
-    const byId = fake.requests.find((request) => request.query.includes("query ProjectById"))
-    expect(byId?.variables).toEqual({ id, includeArchived: true })
-    expect(fake.requests.some((request) => request.query.includes("query Projects"))).toBe(false)
-  })
-
-  test("fails with the project list hint when no project matches the UUID", async () => {
-    const id = "0f8fad5b-d9cb-469f-a165-70867728950e"
-    const fake = makeFakeLinear({ teams: [], labels: [] })
-    const error = await run(fake.handler, resolveProject(id).pipe(Effect.flip))
-    expect(error._tag).toBe("ProjectNotFoundError")
-    expect(error.message).toContain("project list")
-  })
-
-  test("fails when no project matches the name", async () => {
-    const fake = makeFakeLinear({ teams: [], labels: [] })
-    const error = await run(fake.handler, resolveProject("Nope").pipe(Effect.flip))
-    expect(error._tag).toBe("ProjectNotFoundError")
-    expect(error.message).toContain("project list")
-  })
-
-  test("fails when a UUID names a trashed project", async () => {
-    const id = "0f8fad5b-d9cb-469f-a165-70867728950e"
-    const trashed = {
-      id,
-      name: "Tracker",
-      progress: 0,
-      status: { name: "Backlog" },
-      trashed: true,
-    }
-    const fake = makeFakeLinear({ teams: [], labels: [], projects: [trashed] })
-    const error = await run(fake.handler, resolveProject(id).pipe(Effect.flip))
-    expect(error._tag).toBe("ProjectAlreadyDeletedError")
-    expect(error.message).toContain("project restore")
-  })
-
-  test("fails when several live projects share the name", async () => {
-    const first = {
-      id: "project-1",
-      name: "Tracker",
-      progress: 0.5,
-      status: { name: "Started" },
-    }
-    const second = { id: "project-2", name: "tracker", progress: 0, status: { name: "Backlog" } }
-    const fake = makeFakeLinear({ teams: [], labels: [], projects: [first, second] })
-    const error = await run(fake.handler, resolveProject("Tracker").pipe(Effect.flip))
-    expect(error._tag).toBe("ProjectNameAmbiguousError")
-    expect(error.message).toContain("UUID")
-  })
-
-  test("fails when every match is in the trash", async () => {
-    const trashed = {
-      id: "project-1",
-      name: "Tracker",
-      progress: 0,
-      status: { name: "Backlog" },
-      trashed: true,
-    }
-    const fake = makeFakeLinear({ teams: [], labels: [], projects: [trashed] })
-    const error = await run(fake.handler, resolveProject("tracker").pipe(Effect.flip))
-    expect(error._tag).toBe("ProjectAlreadyDeletedError")
-    expect(error.message).toContain("project restore")
-  })
-
-  test("prefers a live project over a trashed one", async () => {
-    const live = { id: "project-1", name: "Tracker", progress: 0.5, status: { name: "Started" } }
-    const trashed = {
-      id: "project-2",
-      name: "Tracker",
-      progress: 0,
-      status: { name: "Backlog" },
-      trashed: true,
-    }
-    const fake = makeFakeLinear({ teams: [], labels: [], projects: [trashed, live] })
-    const found = await run(fake.handler, resolveProject("Tracker"))
-    expect(String(found.id)).toBe("project-1")
-  })
-
-  test("finds a project by name across every page, ignoring case", async () => {
-    const decoys = Array.from({ length: 50 }, (_, index) => ({
-      id: `project-${index + 1}`,
-      name: `Decoy ${index + 1}`,
-      progress: 0,
-      status: { name: "Backlog" },
-    }))
-    const tracker = {
-      id: projectId("project-51"),
-      name: "Tracker",
-      progress: 0.5,
-      status: { name: "Started" },
-    }
-    const fake = makeFakeLinear({ teams: [], labels: [], projects: [...decoys, tracker] })
-    const found = await run(
-      fake.handler,
-      Effect.gen(function* resolve() {
-        const service = yield* ProjectService
-        return yield* service.resolve("tracker")
-      }),
-    )
-    expect(found).toEqual({ ...tracker, trashed: false })
-    const pages = fake.requests.filter((request) => request.query.includes("query Projects"))
-    expect(pages.map((request) => request.variables)).toEqual([
-      { first: 50, after: null, includeArchived: true },
-      { first: 50, after: "project-50", includeArchived: true },
-    ])
-  })
-})
 
 describe("ProjectService.delete", () => {
   test("sends the resolved id and returns the id and name", async () => {
@@ -213,8 +48,13 @@ describe("ProjectService.delete", () => {
       fake.handler,
       Effect.gen(function* deleteProject() {
         const projects = yield* ProjectService
-        const project = yield* projects.resolve("Tracker")
-        return yield* projects.delete(project)
+        return yield* projects.delete({
+          id: projectId("project-1"),
+          name: "Tracker",
+          progress: 0.5,
+          status: { name: "Started" },
+          trashed: false,
+        })
       }),
     )
     expect(deleted).toEqual({ id: projectId("project-1"), name: "Tracker" })
@@ -273,11 +113,6 @@ describe("ProjectService.create", () => {
     expect(inputOf(create?.variables ?? {})).toEqual({
       name: "Spec: login",
       teamIds: ["team-2", id],
-    })
-    expect(requestOf(fake.requests, "query TeamByKey")?.variables).toEqual({
-      key: "OPS",
-      first: 50,
-      after: null,
     })
   })
 

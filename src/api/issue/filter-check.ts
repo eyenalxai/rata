@@ -1,40 +1,16 @@
 import { Effect, Schema } from "effect"
 
-import type { LinearClient } from "@/api/client"
-import type { LinearApiError } from "@/api/errors"
 import type { IssueListOptions } from "@/api/issue-model"
 import type { TeamContext } from "@/context/team"
 import type { TeamId } from "@/domain/id"
+import type { LinearApiError } from "@/linear/errors"
+import type { LinearGatewayShape } from "@/linear/gateway"
 
-import { collectConnection, PageInfo, pageSize } from "@/api/pagination"
 import { isUuid, UserId, userId } from "@/domain/id"
+import { pageSize } from "@/linear/connection"
 
 const filterNames = ["state", "label", "project"] as const
 type FilterName = (typeof filterNames)[number]
-
-const ProjectName = Schema.Struct({ name: Schema.String })
-const ProjectConnection = Schema.Struct({
-  nodes: Schema.Array(ProjectName),
-  pageInfo: PageInfo,
-})
-
-const UserConnection = Schema.Struct({
-  nodes: Schema.Array(Schema.Struct({ id: UserId })),
-})
-const UserResponse = Schema.Struct({ users: UserConnection })
-
-const projectsQuery = `query Projects($first: Int!, $after: String) {
-  projects(first: $first, after: $after, includeArchived: false) {
-    nodes { name }
-    pageInfo { hasNextPage endCursor }
-  }
-}`
-
-const userByIdQuery = `query UserById($id: ID!) {
-  users(filter: { id: { eq: $id } }, includeDisabled: true, first: 1) {
-    nodes { id }
-  }
-}`
 
 class FilterNameNotFoundError extends Schema.TaggedError<FilterNameNotFoundError>()(
   "FilterNameNotFoundError",
@@ -72,15 +48,11 @@ const uniqueNames = (names: readonly string[]): readonly string[] => {
 }
 
 const projectNames = (
-  execute: LinearClient["Service"]["execute"],
+  gateway: LinearGatewayShape,
 ): Effect.Effect<readonly string[], LinearApiError> =>
-  collectConnection((after) =>
-    execute(
-      projectsQuery,
-      { first: pageSize, after },
-      Schema.Struct({ projects: ProjectConnection }),
-    ).pipe(Effect.map((data) => data.projects)),
-  ).pipe(Effect.map((projects) => uniqueNames(projects.map((project) => project.name))))
+  gateway.project
+    .list({ after: null, limit: pageSize, all: true })
+    .pipe(Effect.map((projects) => uniqueNames(projects.nodes.map((project) => project.name))))
 
 const failMissing = (
   filter: FilterName,
@@ -106,7 +78,7 @@ const requireName = (
     : failMissing(filter, value, names)
 
 const validateNamedFilters = Effect.fn("IssueFilters.validateNames")(function* validateNames(
-  execute: LinearClient["Service"]["execute"],
+  gateway: LinearGatewayShape,
   context: TeamContext["Service"],
   teamId: TeamId,
   options: Pick<IssueListOptions, "state" | "label" | "project">,
@@ -118,12 +90,12 @@ const validateNamedFilters = Effect.fn("IssueFilters.validateNames")(function* v
     yield* context.resolveLabel(options.label, teamId)
   }
   if (options.project !== undefined && !isUuid(options.project)) {
-    yield* requireName("project", options.project, yield* projectNames(execute))
+    yield* requireName("project", options.project, yield* projectNames(gateway))
   }
 })
 
 const resolveAssignee = Effect.fn("IssueFilters.resolveAssignee")(function* resolveAssigneeId(
-  execute: LinearClient["Service"]["execute"],
+  gateway: LinearGatewayShape,
   value: string,
 ) {
   if (!isUuid(value)) {
@@ -131,15 +103,14 @@ const resolveAssignee = Effect.fn("IssueFilters.resolveAssignee")(function* reso
       message: "The --assignee flag accepts `me` or a user UUID.",
     })
   }
-  const data = yield* execute(userByIdQuery, { id: value }, UserResponse)
-  const user = data.users.nodes[0]
-  if (user === undefined) {
+  const found = yield* gateway.user.byId(userId(value))
+  if (found === undefined) {
     return yield* new AssigneeNotFoundError({
       id: userId(value),
       message: `No user with id ${value}.`,
     })
   }
-  return user.id
+  return found
 })
 
 export {

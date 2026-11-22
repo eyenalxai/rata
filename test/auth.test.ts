@@ -9,9 +9,12 @@ import {
   storedProfiles,
 } from "@test/auth-harness"
 import { describe, expect, test } from "bun:test"
-import { Effect, Option, Redacted } from "effect"
+import { ConfigProvider, Effect, FileSystem, Layer, Option, Path, Redacted } from "effect"
 
 import { Auth } from "@/config/auth"
+import { RepoConfigService } from "@/config/repo"
+import { RepositoryIdentity } from "@/config/repo-identity"
+import { Database, DatabaseError } from "@/db/database"
 
 const twoProfiles: readonly ProfileSeed[] = [
   { name: "default", apiKey: "default-key", isDefault: true },
@@ -246,5 +249,33 @@ describe("Auth.logout", () => {
 
     expect(result.removed).toBe(true)
     expect(result.rows).toEqual([])
+  })
+})
+
+describe("Auth database failures", () => {
+  test("does not remap a database open failure to an auth error", async () => {
+    const database = Layer.succeed(
+      Database,
+      Database.of({
+        open: Effect.fail(new DatabaseError({ message: "Could not open the database." })),
+      }),
+    )
+    const platform = Layer.mergeAll(
+      FileSystem.layerNoop({}),
+      Path.layer,
+      ConfigProvider.layer(ConfigProvider.fromEnvRecord({ HOME: "/home/test" })),
+    )
+    const identity = RepositoryIdentity.layer.pipe(Layer.provide(platform))
+    const repoConfig = RepoConfigService.layer.pipe(
+      Layer.provide(Layer.mergeAll(platform, database, identity)),
+    )
+    const auth = Auth.layer.pipe(Layer.provide(Layer.mergeAll(repoConfig, platform, database)))
+
+    const error = await Effect.gen(function* readProfiles() {
+      const service = yield* Auth
+      return yield* service.profiles
+    }).pipe(Effect.provide(auth), Effect.flip, Effect.runPromise)
+
+    expect(error._tag).toBe("DatabaseError")
   })
 })

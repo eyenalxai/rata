@@ -1,9 +1,10 @@
 import { Effect, Option } from "effect"
 
-import type { LinearApiError } from "@/api/errors"
-import type { Team, TeamNotFoundError, TeamOperations } from "@/api/team"
+import type { TeamNotFoundError, TeamOperations } from "@/api/team"
 import type { RepoConfigService } from "@/config/repo"
 import type { RepoConfig } from "@/config/repo/model"
+import type { Team } from "@/linear/decode/team"
+import type { LinearApiError } from "@/linear/errors"
 
 import { currentDirectory } from "@/config/repo"
 import { isUuid, teamId as asTeamId } from "@/domain/id"

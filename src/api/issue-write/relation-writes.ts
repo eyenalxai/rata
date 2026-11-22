@@ -9,10 +9,10 @@ import type {
 } from "@/api/issue-write/model"
 import type { makeIssueWriteResolvers } from "@/api/issue-write/resolvers"
 
-import { createRelationMutation, deleteRelationMutation } from "@/api/issue-query"
-import { CreateRelationResponse, DeleteRelationResponse } from "@/api/issue-schema"
+import { createRelationMutation, deleteRelationMutation } from "@/api/issue-write/documents"
 import { combineStatus, unwrapRelation } from "@/api/issue-write/model"
 import { linkRelationPlans, planRelationUnlinks } from "@/api/issue-write/relation-plan"
+import { CreateRelationResponse, DeleteRelationResponse } from "@/linear/decode/issue"
 
 type RelationWriteDependencies = {
   readonly client: LinearClient["Service"]

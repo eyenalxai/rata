@@ -1,12 +1,10 @@
 import { Clock, Context, Effect, Layer, Option, Redacted } from "effect"
 
-import type { Team } from "@/api/team"
 import type { TeamContextShape } from "@/context/team/model"
 import type { TeamId } from "@/domain/id"
+import type { Team } from "@/linear/decode/team"
 
-import { LinearClient } from "@/api/client"
 import { TeamResolutionError, TeamService } from "@/api/team"
-import { fetchTeamDetail } from "@/api/team/details"
 import { missingWarning, repairStoredLink, resolveLinkedTeam } from "@/api/team/link"
 import { Auth } from "@/config/auth"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
@@ -20,6 +18,7 @@ import {
 } from "@/context/team/model"
 import { isUuid, teamId as asTeamId } from "@/domain/id"
 import { findLabelByName } from "@/domain/label"
+import { LinearGateway } from "@/linear/gateway"
 import { ContextCache } from "@/local/context-cache"
 
 class TeamContext extends Context.Service<TeamContext, TeamContextShape>()(
@@ -29,7 +28,7 @@ class TeamContext extends Context.Service<TeamContext, TeamContextShape>()(
     TeamContext,
     Effect.gen(function* teamContextLayer() {
       const auth = yield* Auth
-      const client = yield* LinearClient
+      const gateway = yield* LinearGateway
       const teams = yield* TeamService
       const repoConfig = yield* RepoConfigService
       const cache = yield* ContextCache
@@ -46,7 +45,7 @@ class TeamContext extends Context.Service<TeamContext, TeamContextShape>()(
             return cached.value.viewer
           }
         }
-        const viewer = yield* client.viewer
+        const viewer = yield* gateway.viewer
         yield* cache.writeViewer(profile, keyHash, viewer, now)
         return viewer
       })
@@ -70,7 +69,7 @@ class TeamContext extends Context.Service<TeamContext, TeamContextShape>()(
           }
         }
         const resolved = identity ?? (yield* teams.byId(teamId))
-        const detail = yield* fetchTeamDetail(client.execute, resolved)
+        const detail = yield* gateway.team.details(resolved)
         yield* cache.writeTeam(profile, teamId, keyHash, detail, now)
         return { detail, ageSeconds: 0, fetchedAt: now }
       })

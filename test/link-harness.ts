@@ -1,12 +1,13 @@
 import type { ProfileSeed } from "@test/database-harness"
+import type { MemorySeed } from "@test/fake-linear/gateway/model"
 import type { Handler } from "@test/fake-linear/model"
 import type { Stdio } from "effect"
 
-import { apiLayer } from "@test/fake-linear"
-import { defaultEnv } from "@test/fake-linear/model"
+import { hybridApiLayer } from "@test/fake-linear/hybrid-layer"
+import { defaultEnv, defaultViewer } from "@test/fake-linear/model"
 import { recordingConsole } from "@test/recording-console"
 import { fakeTerminal } from "@test/terminal-harness"
-import { Console, Effect, FileSystem, Layer, Option, Path, Terminal } from "effect"
+import { Console, Effect, FileSystem, Layer, Option, Path, Schema, Terminal } from "effect"
 
 import type { LinkOptions } from "@/config/link"
 import type { RepoConfig } from "@/config/repo/model"
@@ -15,6 +16,7 @@ import { LinkService } from "@/config/link"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
 import { teamId } from "@/domain/id"
 import { storedPriority } from "@/domain/priority"
+import { Viewer } from "@/linear/decode/viewer"
 
 const ratId = teamId("0f8fad5b-d9cb-469f-a165-70867728950e")
 
@@ -27,6 +29,14 @@ const scratch = {
 }
 
 const authPath = "/home/test/.config/rata/auth.json"
+const viewer = Option.getOrThrow(Schema.decodeUnknownOption(Viewer)(defaultViewer))
+
+const makeLinkSeed = (overrides: Partial<MemorySeed> = {}): MemorySeed => ({
+  viewer,
+  teams: [rat, scratch],
+  labels: [],
+  ...overrides,
+})
 
 const interactive = (input: readonly Terminal.UserInput[]): Pick<Harness, "input" | "stdio"> => ({
   input,
@@ -35,6 +45,7 @@ const interactive = (input: readonly Terminal.UserInput[]): Pick<Harness, "input
 
 type Harness = {
   readonly config?: RepoConfig
+  readonly seed: MemorySeed
   readonly files: Map<string, string>
   readonly profiles: readonly ProfileSeed[]
   readonly stdio: Partial<Stdio.Stdio>
@@ -45,6 +56,7 @@ type Harness = {
 }
 
 const makeHarness = (overrides: Partial<Harness> = {}): Harness => ({
+  seed: makeLinkSeed(),
   files: new Map(),
   profiles: [],
   stdio: {},
@@ -77,7 +89,7 @@ const provide = <A, E>(
   effect.pipe(
     Effect.provide(
       Layer.mergeAll(
-        apiLayer(handler, {
+        hybridApiLayer(handler, harness.seed, {
           files: harness.files,
           profiles: harness.profiles,
           repositories:
@@ -139,6 +151,7 @@ export {
   linkError,
   linkTeam,
   makeHarness,
+  makeLinkSeed,
   options,
   rat,
   ratId,

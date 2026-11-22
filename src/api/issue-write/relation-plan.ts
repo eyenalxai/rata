@@ -1,7 +1,7 @@
-import type { IssueInverseRelation, IssueRelation } from "@/api/issue-schema"
 import type { ResolvedRelationTarget, WriteStatus } from "@/api/issue-write/model"
 import type { IssueId, RelationId } from "@/domain/id"
 import type { RelationKind, RelationType } from "@/domain/relation"
+import type { IssueInverseRelation, IssueRelation } from "@/linear/decode/issue"
 
 import { relationKindInfo } from "@/domain/relation"
 

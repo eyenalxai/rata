@@ -1,9 +1,17 @@
-import type { Handler } from "@test/fake-linear/model"
+import type { MemoryIssue, MemorySeed } from "@test/fake-linear/gateway/model"
 
-import { lastJson, runRoot } from "@test/cli-harness"
-import { jsonResponse, pageInfo, readBody, summaryNode, withTeamLookup } from "@test/issue-fixtures"
+import { lastJson, runRootMemory } from "@test/cli-harness"
+import { defaultViewer } from "@test/fake-linear/model"
 import { afterEach, describe, expect, test } from "bun:test"
 import { Option, Schema } from "effect"
+
+import { issueId, teamId, userId } from "@/domain/id"
+import { Viewer } from "@/linear/decode/viewer"
+
+const viewer = Option.getOrThrow(Schema.decodeUnknownOption(Viewer)(defaultViewer))
+const team = { id: teamId("team-1"), key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
+const assignee = { id: userId("u1"), name: "Ada", displayName: "ada" }
+const parent = { id: issueId("issue-RAT-7"), identifier: "RAT-7", title: "Parent" }
 
 const NextDocument = Schema.NullOr(Schema.Struct({ identifier: Schema.String }))
 
@@ -17,26 +25,46 @@ const nextDocument = (lines: readonly string[]) =>
 const errorEnvelope = (lines: readonly string[]) =>
   Option.getOrThrow(Schema.decodeUnknownOption(ErrorEnvelope)(lastJson(lines)))
 
-const prioritySort = [
-  {
-    priority: {
-      order: "Ascending",
-      noPriorityFirst: false,
-      usePrioritySortOrderTiebreaker: false,
-    },
+const issue = (input: {
+  readonly identifier: string
+  readonly priority: "urgent" | "high" | "medium" | "low" | "none"
+  readonly createdAt?: string
+  readonly parent?: typeof parent | null
+  readonly assignee?: typeof assignee | null
+}): MemoryIssue => ({
+  summary: {
+    id: issueId(`issue-${input.identifier}`),
+    identifier: input.identifier,
+    title: `Title ${input.identifier}`,
+    url: `https://linear.app/acme/issue/${input.identifier}/title`,
+    state: { name: "Todo", type: "unstarted" },
+    priority: input.priority,
+    createdAt: input.createdAt ?? "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-02T00:00:00.000Z",
+    assignee: input.assignee === undefined ? assignee : input.assignee,
+    project: null,
+    parent: input.parent ?? null,
+    labels: { nodes: [] },
   },
-  { createdAt: { order: "Ascending" } },
-]
+  description: `Body ${input.identifier}`,
+  team,
+})
 
-const nextHandler = (nodes: readonly unknown[], captured: Record<string, unknown>[]): Handler =>
-  withTeamLookup((request) => {
-    const body = readBody(request)
-    if (body.query.includes("query IssueId")) {
-      return jsonResponse({ data: { issue: { id: "parent-1" } } })
-    }
-    captured.push(body.variables)
-    return jsonResponse({ data: { issues: { nodes, pageInfo } } })
-  })
+const seed = (issues: readonly MemoryIssue[]): MemorySeed => ({
+  viewer,
+  teams: [team],
+  labels: [],
+  issues,
+})
+
+const parentIssue = issue({ identifier: "RAT-7", priority: "none" })
+
+const readyChildren = (): readonly MemoryIssue[] => [
+  parentIssue,
+  issue({ identifier: "RAT-2", priority: "urgent", parent, assignee: null }),
+  issue({ identifier: "RAT-3", priority: "medium", parent, assignee: null }),
+  issue({ identifier: "RAT-1", priority: "medium", parent, assignee: null }),
+]
 
 afterEach(() => {
   process.exitCode = 0
@@ -44,46 +72,32 @@ afterEach(() => {
 
 describe("rata next", () => {
   test("returns the most urgent ready child", async () => {
-    const captured: Record<string, unknown>[] = []
     const lines: string[] = []
-    await runRoot(
-      nextHandler(
-        [
-          { ...summaryNode("RAT-2"), priority: 1, createdAt: "2026-01-05T00:00:00.000Z" },
-          { ...summaryNode("RAT-3"), priority: 3, createdAt: "2026-01-03T00:00:00.000Z" },
-          { ...summaryNode("RAT-1"), priority: 3, createdAt: "2026-01-01T00:00:00.000Z" },
-        ],
-        captured,
-      ),
-      ["next", "--parent", "RAT-7", "--json"],
-      lines,
-    )
+    await runRootMemory(seed(readyChildren()), ["next", "--parent", "RAT-7", "--json"], lines)
 
     expect(nextDocument(lines)?.identifier).toBe("RAT-2")
-    expect(captured[0]?.filter).toEqual({
-      and: [
-        { team: { id: { eq: "team-1" } } },
-        { assignee: { null: true } },
-        { parent: { id: { eq: "parent-1" } } },
-        { hasBlockedByRelations: { eq: false } },
-        { state: { type: { nin: ["completed", "canceled"] } } },
-      ],
-    })
-    expect(captured[0]?.after).toBeNull()
-    expect(captured[0]?.sort).toEqual(prioritySort)
   })
 
   test("breaks a priority tie by the oldest createdAt", async () => {
-    const captured: Record<string, unknown>[] = []
     const lines: string[] = []
-    await runRoot(
-      nextHandler(
-        [
-          { ...summaryNode("RAT-3"), priority: 3, createdAt: "2026-01-03T00:00:00.000Z" },
-          { ...summaryNode("RAT-1"), priority: 3, createdAt: "2026-01-01T00:00:00.000Z" },
-        ],
-        captured,
-      ),
+    await runRootMemory(
+      seed([
+        parentIssue,
+        issue({
+          identifier: "RAT-3",
+          priority: "medium",
+          createdAt: "2026-01-03T00:00:00.000Z",
+          parent,
+          assignee: null,
+        }),
+        issue({
+          identifier: "RAT-1",
+          priority: "medium",
+          createdAt: "2026-01-01T00:00:00.000Z",
+          parent,
+          assignee: null,
+        }),
+      ]),
       ["next", "--parent", "RAT-7", "--json"],
       lines,
     )
@@ -91,43 +105,24 @@ describe("rata next", () => {
     expect(nextDocument(lines)?.identifier).toBe("RAT-1")
   })
 
-  test("fetches one page with the server sort before it picks one", async () => {
-    const queries: string[] = []
-    const requests: Record<string, unknown>[] = []
+  test("picks one ready child from the sorted page", async () => {
     const lines: string[] = []
-    const handler = withTeamLookup((request) => {
-      const body = readBody(request)
-      if (body.query.includes("query IssueId")) {
-        return jsonResponse({ data: { issue: { id: "parent-1" } } })
-      }
-      queries.push(body.query)
-      requests.push(body.variables)
-      return jsonResponse({
-        data: {
-          issues: {
-            nodes: [
-              { ...summaryNode("RAT-1"), priority: 4 },
-              { ...summaryNode("RAT-2"), priority: 1 },
-            ],
-            pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
-          },
-        },
-      })
-    })
-
-    await runRoot(handler, ["next", "--parent", "RAT-7", "--json"], lines)
+    await runRootMemory(
+      seed([
+        parentIssue,
+        issue({ identifier: "RAT-1", priority: "low", parent, assignee: null }),
+        issue({ identifier: "RAT-2", priority: "urgent", parent, assignee: null }),
+      ]),
+      ["next", "--parent", "RAT-7", "--json"],
+      lines,
+    )
 
     expect(nextDocument(lines)?.identifier).toBe("RAT-2")
-    expect(requests).toHaveLength(1)
-    expect(requests[0]?.after).toBeNull()
-    expect(requests[0]?.sort).toEqual(prioritySort)
-    expect(queries[0]).toContain("sort: $sort")
-    expect(queries[0]).not.toContain("orderBy: createdAt")
   })
 
   test("prints No ready ticket. and exits 0 when none is ready", async () => {
     const lines: string[] = []
-    await runRoot(nextHandler([], []), ["next", "--parent", "RAT-7"], lines)
+    await runRootMemory(seed([parentIssue]), ["next", "--parent", "RAT-7"], lines)
 
     expect(lines).toEqual(["No ready ticket."])
     expect(process.exitCode).toBe(0)
@@ -135,29 +130,29 @@ describe("rata next", () => {
 
   test("returns a null issue in JSON when none is ready", async () => {
     const lines: string[] = []
-    await runRoot(nextHandler([], []), ["next", "--parent", "RAT-7", "--json"], lines)
+    await runRootMemory(seed([parentIssue]), ["next", "--parent", "RAT-7", "--json"], lines)
 
     expect(nextDocument(lines)).toBeNull()
   })
 
   test("selects fields from the summary", async () => {
     const lines: string[] = []
-    await runRoot(
-      nextHandler([{ ...summaryNode("RAT-2"), priority: 1 }], []),
+    await runRootMemory(
+      seed(readyChildren()),
       ["next", "--parent", "RAT-7", "--json", "--fields", "identifier,createdAt"],
       lines,
     )
 
     expect(lastJson(lines)).toEqual({
       identifier: "RAT-2",
-      createdAt: "2026-01-01T08:00:00.000Z",
+      createdAt: "2026-01-01T00:00:00.000Z",
     })
   })
 
   test("returns null with --fields when none is ready", async () => {
     const lines: string[] = []
-    await runRoot(
-      nextHandler([], []),
+    await runRootMemory(
+      seed([parentIssue]),
       ["next", "--parent", "RAT-7", "--json", "--fields", "identifier"],
       lines,
     )
@@ -166,14 +161,12 @@ describe("rata next", () => {
   })
 
   test("requires --parent", async () => {
-    const captured: Record<string, unknown>[] = []
     const lines: string[] = []
-    await runRoot(nextHandler([], captured), ["next", "--json"], lines)
+    await runRootMemory(seed([]), ["next", "--json"], lines)
 
     const error = errorEnvelope(lines).error
     expect(error.code).toBe("validation")
     expect(error.hint).toBe("Pass --parent <ref>.")
-    expect(captured).toEqual([])
     expect(process.exitCode).toBe(2)
   })
 })

@@ -1,6 +1,5 @@
 import { Effect } from "effect"
 
-import type { LinearApiError } from "@/api/errors"
 import type {
   BulkTarget,
   IssueWriteApiError,
@@ -9,20 +8,30 @@ import type {
 } from "@/api/issue-write/model"
 import type { IssueId, LabelId, ProjectId, TeamId, UserId, WorkflowStateId } from "@/domain/id"
 import type { StateType, WorkflowStateNode } from "@/domain/workflow-state"
+import type { LinearApiError } from "@/linear/errors"
 
 import { toSummary } from "@/api/issue-model"
 import {
   addLabelMutation,
   bulkTargetsQuery,
   createCommentMutation,
-  issueIdQuery,
   issueStatesQuery,
-  issueSummaryQuery,
   issueTeamQuery,
-  labelsQuery,
   removeLabelMutation,
   updateIssueMutation,
-} from "@/api/issue-query"
+} from "@/api/issue-write/documents"
+import { StateNotFoundError, unwrapComment, unwrapIssue } from "@/api/issue-write/model"
+import { makeRelationResolvers } from "@/api/issue-write/relations"
+import { ProjectNotFoundError } from "@/api/project/errors"
+import {
+  isUuid,
+  issueId as asIssueId,
+  projectId as asProjectId,
+  userId as asUserId,
+} from "@/domain/id"
+import { parseRefOrFail } from "@/domain/issue-ref"
+import { stateByType } from "@/domain/workflow-state"
+import { collectConnection, collectPages, pageSize } from "@/linear/connection"
 import {
   AddLabelResponse,
   BulkTargetsResponse,
@@ -34,19 +43,8 @@ import {
   LabelsResponse,
   RemoveLabelResponse,
   UpdateIssueResponse,
-} from "@/api/issue-schema"
-import { StateNotFoundError, unwrapComment, unwrapIssue } from "@/api/issue-write/model"
-import { makeRelationResolvers } from "@/api/issue-write/relations"
-import { collectConnection, collectPages, pageSize } from "@/api/pagination"
-import { ProjectNotFoundError } from "@/api/project/errors"
-import {
-  isUuid,
-  issueId as asIssueId,
-  projectId as asProjectId,
-  userId as asUserId,
-} from "@/domain/id"
-import { parseRefOrFail } from "@/domain/issue-ref"
-import { stateByType } from "@/domain/workflow-state"
+} from "@/linear/decode/issue"
+import { issueIdQuery, issueSummaryQuery, labelsQuery } from "@/linear/documents/issue"
 
 const makeIssueWriteResolvers = ({ client, context, projects }: IssueWriteDependencies) => {
   const resolveIssueId = Effect.fn("IssueWriteApi.resolveIssueId")(function* resolveIssueId(

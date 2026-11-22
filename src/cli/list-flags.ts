@@ -1,8 +1,8 @@
 import { Effect, Option } from "effect"
 import { Flag } from "effect/cli"
 
-import { maxPageSize } from "@/api/pagination"
 import { errorLine } from "@/cli/output"
+import { maxPageSize } from "@/linear/connection"
 
 const limitFlag = Flag.Int("limit").pipe(
   Flag.withDescription(`Page size, at most ${maxPageSize}`),

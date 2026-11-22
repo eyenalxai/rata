@@ -1,8 +1,8 @@
 import { Schema } from "effect"
 
-import { IssueInverseRelationConnection, IssueRelationConnection } from "@/api/issue-schema"
-import { PageInfo } from "@/api/pagination"
 import { IssueId } from "@/domain/id"
+import { IssueInverseRelationConnection, IssueRelationConnection } from "@/linear/decode/issue"
+import { PageInfo } from "@/linear/decode/page"
 
 const RelationsResponse = Schema.Struct({
   issue: Schema.Struct({ relations: IssueRelationConnection }),

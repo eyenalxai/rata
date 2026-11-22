@@ -6,22 +6,22 @@ import type { IssueId } from "@/domain/id"
 import type { IssueRef } from "@/domain/issue-ref"
 import type { RelationKind } from "@/domain/relation"
 
-import {
-  inverseRelationsQuery,
-  issueRefsQuery,
-  relationsQuery,
-  relationsWithInverseQuery,
-} from "@/api/issue-query/relation"
+import { IssueRefNotFoundError } from "@/api/issue/batch"
+import { isUuid, issueId as asIssueId } from "@/domain/id"
+import { parseRefOrFail } from "@/domain/issue-ref"
+import { collectConnection, collectPages, pageSize } from "@/linear/connection"
 import {
   InverseRelationsResponse,
   IssueRefsResponse,
   RelationsResponse,
   RelationsWithInverseResponse,
-} from "@/api/issue-schema/relation"
-import { IssueRefNotFoundError } from "@/api/issue/batch"
-import { collectConnection, collectPages, pageSize } from "@/api/pagination"
-import { isUuid, issueId as asIssueId } from "@/domain/id"
-import { parseRefOrFail } from "@/domain/issue-ref"
+} from "@/linear/decode/relation"
+import {
+  inverseRelationsQuery,
+  issueRefsQuery,
+  relationsQuery,
+  relationsWithInverseQuery,
+} from "@/linear/documents/relation"
 
 type RelationResolverDependencies = {
   readonly client: LinearClient["Service"]
