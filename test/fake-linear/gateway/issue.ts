@@ -1,8 +1,8 @@
 import type { MemoryIssue } from "@test/fake-linear/gateway/model"
 
 import type { IssueChild, IssueSummaryNode } from "@/linear/decode/issue"
-import type { IssueDetailData, IssueShowOptions } from "@/linear/operations/issue"
 import type { IssueListOptions } from "@/linear/operations/issue/filter"
+import type { IssueDetailData, IssueShowOptions } from "@/linear/operations/issue/show"
 
 import { isUuid, relationId } from "@/domain/id"
 import { priorityRank } from "@/domain/priority"
@@ -140,12 +140,16 @@ const toDetail = (issue: MemoryIssue, options: IssueShowOptions): IssueDetailDat
     parent: summary.parent,
     team: issue.team,
     labels: summary.labels.nodes,
-    children: options.children === false ? [] : (issue.children ?? []),
-    relations: relationTargets<IssueChild>(
-      options.relations === false ? [] : (issue.relations ?? []),
-      options.relations === false ? [] : (issue.inverseRelations ?? []),
-    ),
-    attachments: options.attachments === false ? [] : (issue.attachments ?? []),
+    ...(options.children === false ? {} : { children: issue.children ?? [] }),
+    ...(options.relations === false
+      ? {}
+      : {
+          relations: relationTargets<IssueChild>(
+            issue.relations ?? [],
+            issue.inverseRelations ?? [],
+          ),
+        }),
+    ...(options.attachments === false ? {} : { attachments: issue.attachments ?? [] }),
   }
   if (!options.comments) {
     return detail

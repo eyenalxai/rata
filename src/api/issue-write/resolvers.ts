@@ -11,6 +11,15 @@ import type { StateType, WorkflowStateNode } from "@/domain/workflow-state"
 import type { LinearApiError } from "@/linear/errors"
 
 import { toSummary } from "@/api/issue-model"
+import {
+  addLabelMutation,
+  bulkTargetsQuery,
+  createCommentMutation,
+  issueStatesQuery,
+  issueTeamQuery,
+  removeLabelMutation,
+  updateIssueMutation,
+} from "@/api/issue-write/documents"
 import { StateNotFoundError, unwrapComment, unwrapIssue } from "@/api/issue-write/model"
 import { makeRelationResolvers } from "@/api/issue-write/relations"
 import { ProjectNotFoundError } from "@/api/project/errors"
@@ -35,18 +44,7 @@ import {
   RemoveLabelResponse,
   UpdateIssueResponse,
 } from "@/linear/decode/issue"
-import {
-  addLabelMutation,
-  bulkTargetsQuery,
-  createCommentMutation,
-  issueIdQuery,
-  issueStatesQuery,
-  issueSummaryQuery,
-  issueTeamQuery,
-  labelsQuery,
-  removeLabelMutation,
-  updateIssueMutation,
-} from "@/linear/documents/issue"
+import { issueIdQuery, issueSummaryQuery, labelsQuery } from "@/linear/documents/issue"
 
 const makeIssueWriteResolvers = ({ client, context, projects }: IssueWriteDependencies) => {
   const resolveIssueId = Effect.fn("IssueWriteApi.resolveIssueId")(function* resolveIssueId(

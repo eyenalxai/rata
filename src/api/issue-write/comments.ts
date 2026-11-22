@@ -16,6 +16,12 @@ import type {
 import type { CommentId, IssueId } from "@/domain/id"
 import type { IssueComment } from "@/linear/decode/issue"
 
+import {
+  commentByIdQuery,
+  createCommentMutation,
+  deleteCommentMutation,
+  updateCommentMutation,
+} from "@/api/issue-write/documents"
 import { CommentNotFoundError, unwrapComment, unwrapDelete } from "@/api/issue-write/model"
 import { unifiedDiff } from "@/domain/body/diff"
 import { dedupeCommentId } from "@/domain/comment"
@@ -25,12 +31,6 @@ import {
   DeleteCommentResponse,
   UpdateCommentResponse,
 } from "@/linear/decode/issue"
-import {
-  commentByIdQuery,
-  createCommentMutation,
-  deleteCommentMutation,
-  updateCommentMutation,
-} from "@/linear/documents/issue"
 
 type CommentDependencies = {
   readonly client: LinearClient["Service"]

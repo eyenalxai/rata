@@ -47,7 +47,7 @@ const gatewayLayer = Layer.effect(
   }),
 ).pipe(Layer.provide(authLayer), Layer.provide(FetchHttpClient.layer))
 const clientLayer = LinearClient.layer.pipe(Layer.provide(gatewayLayer))
-const teamLayer = TeamService.layer.pipe(Layer.provide(gatewayLayer))
+const teamLayer = TeamService.layer.pipe(Layer.provide(Layer.mergeAll(gatewayLayer, clientLayer)))
 const repoTeamLayer = RepoTeam.layer.pipe(Layer.provide(Layer.mergeAll(teamLayer, repoConfigLayer)))
 const contextCacheLayer = ContextCache.layer.pipe(Layer.provide(databaseLayer))
 const teamContextLayer = TeamContext.layer.pipe(
@@ -59,10 +59,10 @@ const issueLayer = IssueApi.layer.pipe(
   Layer.provide(Layer.mergeAll(gatewayLayer, repoTeamLayer, teamContextLayer)),
 )
 const labelLayer = LabelService.layer.pipe(
-  Layer.provide(Layer.mergeAll(gatewayLayer, repoTeamLayer)),
+  Layer.provide(Layer.mergeAll(gatewayLayer, clientLayer, repoTeamLayer)),
 )
 const projectLayer = ProjectService.layer.pipe(
-  Layer.provide(Layer.mergeAll(gatewayLayer, repoTeamLayer)),
+  Layer.provide(Layer.mergeAll(gatewayLayer, clientLayer, repoTeamLayer)),
 )
 const defaultsLayer = IssueDefaultsService.layer.pipe(
   Layer.provide(Layer.mergeAll(labelLayer, repoConfigLayer, repoTeamLayer)),
@@ -73,7 +73,7 @@ const linkLayer = LinkService.layer.pipe(
   Layer.provide(labelLayer),
   Layer.provide(platformLayer),
   Layer.provide(authLayer),
-  Layer.provide(clientLayer),
+  Layer.provide(gatewayLayer),
 )
 const issueWriteLayer = IssueWriteApi.layer.pipe(
   Layer.provide(

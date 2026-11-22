@@ -233,14 +233,16 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
     }),
   ).pipe(Layer.provide(Layer.mergeAll(auth, Layer.succeed(HttpClient.HttpClient, http))))
   const client = LinearClient.layer.pipe(Layer.provide(gateway))
-  const teams = TeamService.layer.pipe(Layer.provide(gateway))
+  const teams = TeamService.layer.pipe(Layer.provide(Layer.mergeAll(gateway, client)))
   const repoTeam = RepoTeam.layer.pipe(Layer.provide(Layer.mergeAll(teams, repoConfig)))
   const contextCacheLayer = ContextCache.layer.pipe(Layer.provide(database))
   const teamContext = TeamContext.layer.pipe(
     Layer.provide(Layer.mergeAll(auth, gateway, teams, repoConfig, contextCacheLayer)),
   )
-  const labels = LabelService.layer.pipe(Layer.provide(Layer.mergeAll(gateway, repoTeam)))
-  const projects = ProjectService.layer.pipe(Layer.provide(Layer.mergeAll(gateway, repoTeam)))
+  const labels = LabelService.layer.pipe(Layer.provide(Layer.mergeAll(gateway, client, repoTeam)))
+  const projects = ProjectService.layer.pipe(
+    Layer.provide(Layer.mergeAll(gateway, client, repoTeam)),
+  )
   const issue = IssueApi.layer.pipe(Layer.provide(Layer.mergeAll(gateway, repoTeam, teamContext)))
   const issueWrite = IssueWriteApi.layer.pipe(
     Layer.provide(Layer.mergeAll(client, projects, repoConfig, repoTeam, teamContext)),
@@ -249,7 +251,7 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
     Layer.provide(Layer.mergeAll(labels, repoConfig, repoTeam)),
   )
   const link = LinkService.layer.pipe(
-    Layer.provide(Layer.mergeAll(teams, labels, repoConfig, platform, auth, client)),
+    Layer.provide(Layer.mergeAll(teams, labels, repoConfig, platform, auth, gateway)),
   )
   return Layer.mergeAll(
     configLayer(options.env ?? defaultEnv),

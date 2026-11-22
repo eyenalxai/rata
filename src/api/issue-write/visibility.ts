@@ -5,9 +5,9 @@ import type { WriteVisibility } from "@/api/issue-write/write-types"
 import type { CommentId, IssueId } from "@/domain/id"
 import type { LinearApiError } from "@/linear/errors"
 
+import { childTailQuery, commentTailQuery } from "@/api/issue-write/documents"
 import { CommentId as CommentIdSchema, IssueId as IssueIdSchema } from "@/domain/id"
 import { pageSize } from "@/linear/connection"
-import { childTailQuery, commentTailQuery } from "@/linear/documents/issue"
 
 const defaultWaitSeconds = 5
 const pollInterval = Duration.millis(250)

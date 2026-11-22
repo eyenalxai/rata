@@ -36,29 +36,6 @@ const teamByIdQuery = `query TeamById($id: ID!, $first: Int!, $after: String) {
   }
 }`
 
-const teamCreateMutation = `mutation TeamCreate($input: TeamCreateInput!, $copySettingsFromTeamId: String) {
-  teamCreate(input: $input, copySettingsFromTeamId: $copySettingsFromTeamId) {
-    success
-    team {${teamFields}
-    }
-  }
-}`
-
-const teamUpdateMutation = `mutation TeamUpdate($id: String!, $input: TeamUpdateInput!) {
-  teamUpdate(id: $id, input: $input) {
-    success
-    team {${teamFields}
-    }
-  }
-}`
-
-const teamDeleteMutation = `mutation TeamDelete($id: String!) {
-  teamDelete(id: $id) {
-    success
-    entityId
-  }
-}`
-
 const teamStatesQuery = `query TeamStates($teamId: String!, $first: Int!, $after: String) {
   team(id: $teamId) {
     states(first: $first, after: $after) {
@@ -90,14 +67,12 @@ const issuePriorityValuesQuery = `query IssuePriorityValues {
 
 export {
   issuePriorityValuesQuery,
+  teamFields,
   teamByIdQuery,
   teamByKeyQuery,
   teamByNameQuery,
-  teamCreateMutation,
-  teamDeleteMutation,
   teamLabelsQuery,
   teamMembersQuery,
   teamStatesQuery,
   teamsQuery,
-  teamUpdateMutation,
 }

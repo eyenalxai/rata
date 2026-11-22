@@ -5,16 +5,18 @@ import { Context, Effect, Layer, Schema } from "effect"
 import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
 import type { Label } from "@/domain/label"
+import type { LinearClientShape } from "@/linear/client"
 import type { Connection, PageOptions } from "@/linear/connection"
 import type { LinearApiError } from "@/linear/errors"
 import type { LinearGatewayShape } from "@/linear/gateway"
 
+import { LinearClient } from "@/api/client"
+import { createLabelMutation, updateLabelMutation } from "@/api/label/queries"
 import { RepoTeam } from "@/api/repo-team"
 import { isUuid, TeamId } from "@/domain/id"
 import { findLabelByName } from "@/domain/label"
 import { collectConnection, pageSize } from "@/linear/connection"
 import { LabelPayload } from "@/linear/decode/label"
-import { createLabelMutation, updateLabelMutation } from "@/linear/documents/label"
 import { LinearGateway } from "@/linear/gateway"
 
 class LabelNotFoundError extends Schema.TaggedError<LabelNotFoundError>()("LabelNotFoundError", {
@@ -98,6 +100,7 @@ type LabelOperations = {
 
 const makeLabelOperations = (
   gateway: LinearGatewayShape,
+  client: LinearClientShape,
   repoTeam: RepoTeam["Service"],
 ): LabelOperations => {
   const list = Effect.fn("LabelService.list")(function* listLabels(
@@ -147,7 +150,7 @@ const makeLabelOperations = (
     if (options.color !== undefined) {
       input.color = options.color
     }
-    const data = yield* gateway.client.execute(
+    const data = yield* client.execute(
       createLabelMutation,
       { input },
       Schema.Struct({ issueLabelCreate: LabelPayload }),
@@ -182,7 +185,7 @@ const makeLabelOperations = (
     if (options.color !== undefined) {
       input.color = options.color
     }
-    const data = yield* gateway.client.execute(
+    const data = yield* client.execute(
       updateLabelMutation,
       { id, input },
       Schema.Struct({ issueLabelUpdate: LabelPayload }),
@@ -207,10 +210,12 @@ class LabelService extends Context.Service<
     LabelService,
     Effect.gen(function* labelServiceLayer() {
       const gateway = yield* LinearGateway
+      const client = yield* LinearClient
       const repoTeam = yield* RepoTeam
       return LabelService.of({
-        ...makeLabelOperations(gateway, repoTeam),
-        withKey: (apiKey) => makeLabelOperations(gateway.withKey(apiKey), repoTeam),
+        ...makeLabelOperations(gateway, client, repoTeam),
+        withKey: (apiKey) =>
+          makeLabelOperations(gateway.withKey(apiKey), client.withKey(apiKey), repoTeam),
       })
     }),
   )

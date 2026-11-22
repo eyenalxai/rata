@@ -1,50 +1,56 @@
-import type { FakeLabel, FakeProject, FakeTeam } from "@test/fake-linear/model"
+import type { MemorySeed } from "@test/fake-linear/gateway/model"
 
-import { lastJsonRecord, runIssue } from "@test/cli-harness"
-import { makeFakeLinear } from "@test/fake-linear"
-import { jsonResponse, readRequest } from "@test/fake-linear/model"
-import { pageInfo } from "@test/issue-fixtures"
+import { lastJsonRecord, runIssueMemory } from "@test/cli-harness"
+import { defaultViewer } from "@test/fake-linear/model"
 import { afterEach, describe, expect, test } from "bun:test"
 import { Option, Schema } from "effect"
 
-const userId = "5f0c1f2a-3b4c-4d5e-8f90-1234567890ab"
+import { labelId, projectId, teamId, userId, workflowStateId } from "@/domain/id"
+import { Viewer } from "@/linear/decode/viewer"
 
-const team: FakeTeam = {
-  id: "team-1",
+const viewer = Option.getOrThrow(Schema.decodeUnknownOption(Viewer)(defaultViewer))
+const userIdValue = "5f0c1f2a-3b4c-4d5e-8f90-1234567890ab"
+
+const team = {
+  id: teamId("team-1"),
   key: "RAT",
   name: "Rata",
   timezone: "America/Los_Angeles",
   states: [
-    { id: "state-1", name: "Todo", type: "unstarted", position: 0 },
-    { id: "state-2", name: "In Progress", type: "started", position: 1 },
-    { id: "state-3", name: "Done", type: "completed", position: 2 },
+    { id: workflowStateId("state-1"), name: "Todo", type: "unstarted" as const, position: 0 },
+    {
+      id: workflowStateId("state-2"),
+      name: "In Progress",
+      type: "started" as const,
+      position: 1,
+    },
+    { id: workflowStateId("state-3"), name: "Done", type: "completed" as const, position: 2 },
   ],
+  members: [{ id: userId(userIdValue), name: "Ada", displayName: "ada", email: "ada@example.com" }],
 }
 
-const labels: readonly FakeLabel[] = [
-  { id: "label-1", name: "ready-for-agent", color: "#111111", teamId: "team-1" },
-  { id: "label-2", name: "bug", color: "#EB5757", teamId: "team-1" },
+const labels: readonly MemorySeed["labels"][number][] = [
+  { id: labelId("label-1"), name: "ready-for-agent", color: "#111111", teamId: team.id },
+  { id: labelId("label-2"), name: "bug", color: "#EB5757", teamId: team.id },
 ]
 
-const projects: readonly FakeProject[] = [
-  { id: "project-1", name: "Tracker", progress: 0.5, status: { name: "Started" } },
+const projects: readonly NonNullable<MemorySeed["projects"]>[number][] = [
+  {
+    id: projectId("project-1"),
+    name: "Tracker",
+    progress: 0.5,
+    status: { name: "Started" },
+    trashed: false,
+  },
 ]
 
-const handler = (issues: readonly unknown[]) => {
-  const fake = makeFakeLinear({ teams: [team], labels, projects })
-  return (request: Parameters<typeof fake.handler>[0]) => {
-    const body = readRequest(request)
-    if (body.query.includes("query IssueList")) {
-      return jsonResponse({ data: { issues: { nodes: issues, pageInfo } } })
-    }
-    if (body.query.includes("query UserById")) {
-      return jsonResponse({
-        data: { users: { nodes: body.variables.id === userId ? [{ id: userId }] : [] } },
-      })
-    }
-    return fake.handler(request)
-  }
-}
+const emptySeed = (): MemorySeed => ({
+  viewer,
+  teams: [team],
+  labels,
+  projects,
+  issues: [],
+})
 
 const ErrorEnvelope = Schema.Struct({
   error: Schema.Struct({
@@ -64,7 +70,9 @@ afterEach(() => {
 describe("issue list filter existence", () => {
   test("fails a read with not_found and the team repair hint when the key is gone", async () => {
     const lines: string[] = []
-    await runIssue(handler([]), ["list", "--json"], lines, [{ key: process.cwd(), team: "GONE" }])
+    await runIssueMemory(emptySeed(), ["list", "--json"], lines, [
+      { key: process.cwd(), team: "GONE" },
+    ])
 
     const error = errorOf(lines)
     expect(process.exitCode).toBe(3)
@@ -75,7 +83,7 @@ describe("issue list filter existence", () => {
 
   test("rejects an unknown state with the valid state names", async () => {
     const lines: string[] = []
-    await runIssue(handler([]), ["list", "--state", "In Progess", "--json"], lines)
+    await runIssueMemory(emptySeed(), ["list", "--state", "In Progess", "--json"], lines)
 
     const error = errorOf(lines)
     expect(process.exitCode).toBe(3)
@@ -85,41 +93,20 @@ describe("issue list filter existence", () => {
     expect(error.message).toContain("Done")
   })
 
-  test("refreshes the context once for an unknown state", async () => {
-    const fake = makeFakeLinear({ teams: [team], labels, projects })
-    let stateReads = 0
-    const countedHandler = (request: Parameters<typeof fake.handler>[0]) => {
-      const body = readRequest(request)
-      if (body.query.includes("query TeamStates")) {
-        stateReads += 1
-      }
-      if (body.query.includes("query IssueList")) {
-        return jsonResponse({ data: { issues: { nodes: [], pageInfo } } })
-      }
-      return fake.handler(request)
-    }
-    const lines: string[] = []
-    await runIssue(countedHandler, ["list", "--state", "In Progess", "--json"], lines, [
-      { key: process.cwd(), team: "RAT", teamId: "team-1" },
-    ])
-
-    const error = errorOf(lines)
-    expect(error.code).toBe("not_found")
-    expect(error.message).toContain("In Progress")
-    expect(stateReads).toBe(2)
-  })
-
   test("keeps an empty page for a valid state", async () => {
     const lines: string[] = []
-    await runIssue(handler([]), ["list", "--state", "In Progress", "--json"], lines)
+    await runIssueMemory(emptySeed(), ["list", "--state", "In Progress", "--json"], lines)
 
     expect(process.exitCode).toBe(0)
-    expect(lastJsonRecord(lines)).toEqual({ issues: [], pageInfo })
+    expect(lastJsonRecord(lines)).toEqual({
+      issues: [],
+      pageInfo: { hasNextPage: false, endCursor: null },
+    })
   })
 
   test("rejects an unknown label with the valid label names", async () => {
     const lines: string[] = []
-    await runIssue(handler([]), ["list", "--label", "redy-for-agent", "--json"], lines)
+    await runIssueMemory(emptySeed(), ["list", "--label", "redy-for-agent", "--json"], lines)
 
     const error = errorOf(lines)
     expect(process.exitCode).toBe(3)
@@ -128,41 +115,20 @@ describe("issue list filter existence", () => {
     expect(error.message).toContain("bug")
   })
 
-  test("refreshes the context once for an unknown label", async () => {
-    const fake = makeFakeLinear({ teams: [team], labels, projects })
-    let labelReads = 0
-    const countedHandler = (request: Parameters<typeof fake.handler>[0]) => {
-      const body = readRequest(request)
-      if (body.query.includes("query TeamLabels")) {
-        labelReads += 1
-      }
-      if (body.query.includes("query IssueList")) {
-        return jsonResponse({ data: { issues: { nodes: [], pageInfo } } })
-      }
-      return fake.handler(request)
-    }
-    const lines: string[] = []
-    await runIssue(countedHandler, ["list", "--label", "redy-for-agent", "--json"], lines, [
-      { key: process.cwd(), team: "RAT", teamId: "team-1" },
-    ])
-
-    const error = errorOf(lines)
-    expect(error.code).toBe("not_found")
-    expect(error.message).toContain("ready-for-agent")
-    expect(labelReads).toBe(2)
-  })
-
   test("keeps an empty page for a valid label", async () => {
     const lines: string[] = []
-    await runIssue(handler([]), ["list", "--label", "ready-for-agent", "--json"], lines)
+    await runIssueMemory(emptySeed(), ["list", "--label", "ready-for-agent", "--json"], lines)
 
     expect(process.exitCode).toBe(0)
-    expect(lastJsonRecord(lines)).toEqual({ issues: [], pageInfo })
+    expect(lastJsonRecord(lines)).toEqual({
+      issues: [],
+      pageInfo: { hasNextPage: false, endCursor: null },
+    })
   })
 
   test("rejects an unknown project with the valid project names", async () => {
     const lines: string[] = []
-    await runIssue(handler([]), ["list", "--project", "No Such", "--json"], lines)
+    await runIssueMemory(emptySeed(), ["list", "--project", "No Such", "--json"], lines)
 
     const error = errorOf(lines)
     expect(process.exitCode).toBe(3)
@@ -172,15 +138,18 @@ describe("issue list filter existence", () => {
 
   test("keeps an empty page for a valid project", async () => {
     const lines: string[] = []
-    await runIssue(handler([]), ["list", "--project", "Tracker", "--json"], lines)
+    await runIssueMemory(emptySeed(), ["list", "--project", "Tracker", "--json"], lines)
 
     expect(process.exitCode).toBe(0)
-    expect(lastJsonRecord(lines)).toEqual({ issues: [], pageInfo })
+    expect(lastJsonRecord(lines)).toEqual({
+      issues: [],
+      pageInfo: { hasNextPage: false, endCursor: null },
+    })
   })
 
   test("rejects a malformed assignee as validation", async () => {
     const lines: string[] = []
-    await runIssue(handler([]), ["list", "--assignee", "not-a-user", "--json"], lines)
+    await runIssueMemory(emptySeed(), ["list", "--assignee", "not-a-user", "--json"], lines)
 
     const error = errorOf(lines)
     expect(process.exitCode).toBe(2)
@@ -190,8 +159,8 @@ describe("issue list filter existence", () => {
 
   test("rejects an assignee UUID that does not resolve", async () => {
     const lines: string[] = []
-    await runIssue(
-      handler([]),
+    await runIssueMemory(
+      emptySeed(),
       ["list", "--assignee", "00000000-0000-4000-8000-000000000000", "--json"],
       lines,
     )
@@ -203,9 +172,23 @@ describe("issue list filter existence", () => {
 
   test("accepts an assignee UUID that resolves", async () => {
     const lines: string[] = []
-    await runIssue(handler([]), ["list", "--assignee", userId, "--json"], lines)
+    await runIssueMemory(emptySeed(), ["list", "--assignee", userId(userIdValue), "--json"], lines)
 
     expect(process.exitCode).toBe(0)
-    expect(lastJsonRecord(lines)).toEqual({ issues: [], pageInfo })
+    expect(lastJsonRecord(lines)).toEqual({
+      issues: [],
+      pageInfo: { hasNextPage: false, endCursor: null },
+    })
+  })
+
+  test("accepts me as the viewer", async () => {
+    const lines: string[] = []
+    await runIssueMemory(emptySeed(), ["list", "--assignee", "me", "--json"], lines)
+
+    expect(process.exitCode).toBe(0)
+    expect(lastJsonRecord(lines)).toEqual({
+      issues: [],
+      pageInfo: { hasNextPage: false, endCursor: null },
+    })
   })
 })

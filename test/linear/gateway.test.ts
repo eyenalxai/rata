@@ -3,7 +3,7 @@ import type { MemoryIssue, MemorySeed } from "@test/fake-linear/gateway/model"
 import { makeMemoryGateway } from "@test/fake-linear/gateway/memory"
 import { defaultViewer } from "@test/fake-linear/model"
 import { describe, expect, test } from "bun:test"
-import { Effect, Option, Redacted, Schema } from "effect"
+import { Effect, Option, Schema } from "effect"
 
 import {
   attachmentId,
@@ -187,8 +187,8 @@ describe("LinearGateway reads", () => {
       gateway.issue.show(issueRef("RAT-4"), { comments: false }),
     )
 
-    expect(detail.relations.blocks.map((target) => target.identifier)).toEqual(["RAT-8"])
-    expect(detail.relations.blockedBy.map((target) => target.identifier)).toEqual(["RAT-9"])
+    expect(detail.relations?.blocks.map((target) => target.identifier)).toEqual(["RAT-8"])
+    expect(detail.relations?.blockedBy.map((target) => target.identifier)).toEqual(["RAT-9"])
   })
 
   test("omits comments unless requested, then sorts them", async () => {
@@ -197,6 +197,38 @@ describe("LinearGateway reads", () => {
 
     expect(lean.comments).toBeUndefined()
     expect(full.comments?.map((comment) => comment.body)).toEqual(["First", "Second"])
+  })
+
+  test("keeps a skipped connection undefined and an empty connection empty", async () => {
+    const emptyGateway = makeMemoryGateway({
+      ...seed,
+      issues: [issue({ identifier: "RAT-6" })],
+    })
+    const skipped = await Effect.runPromise(
+      emptyGateway.issue.show(issueRef("RAT-6"), {
+        comments: false,
+        children: false,
+        relations: false,
+        attachments: false,
+      }),
+    )
+    const requested = await Effect.runPromise(
+      emptyGateway.issue.show(issueRef("RAT-6"), { comments: false }),
+    )
+
+    expect(skipped).not.toHaveProperty("children")
+    expect(skipped).not.toHaveProperty("relations")
+    expect(skipped).not.toHaveProperty("attachments")
+    expect(requested.children).toEqual([])
+    expect(requested.relations).toEqual({
+      blocks: [],
+      blockedBy: [],
+      duplicates: [],
+      duplicatedBy: [],
+      related: [],
+      similar: [],
+    })
+    expect(requested.attachments).toEqual([])
   })
 
   test("keeps comments off the summary and list rows", async () => {
@@ -227,9 +259,5 @@ describe("LinearGateway reads", () => {
 
     expect(found).toBe(userId("u1"))
     expect(Option.fromUndefinedOr(missing)).toEqual(Option.none())
-  })
-
-  test("keeps the gateway shape closed over its key", () => {
-    expect(gateway.withKey(Redacted.make("another"))).toBe(gateway)
   })
 })

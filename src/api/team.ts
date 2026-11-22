@@ -2,14 +2,16 @@ import type { Redacted } from "effect"
 
 import { Context, Effect, Layer, Schema } from "effect"
 
+import type { LinearClientShape } from "@/linear/client"
 import type { Connection, PageOptions } from "@/linear/connection"
 import type { Team, TeamDetail } from "@/linear/decode/team"
 import type { LinearApiError } from "@/linear/errors"
 import type { LinearGatewayShape } from "@/linear/gateway"
 
+import { LinearClient } from "@/api/client"
+import { teamCreateMutation, teamDeleteMutation, teamUpdateMutation } from "@/api/team/queries"
 import { isUuid, teamId } from "@/domain/id"
 import { DeletePayload, TeamWritePayload } from "@/linear/decode/team"
-import { teamCreateMutation, teamDeleteMutation, teamUpdateMutation } from "@/linear/documents/team"
 import { LinearGateway } from "@/linear/gateway"
 
 class TeamNotFoundError extends Schema.TaggedError<TeamNotFoundError>()("TeamNotFoundError", {
@@ -86,7 +88,10 @@ const requireTeam = (
     ),
   )
 
-const makeTeamOperations = (gateway: LinearGatewayShape): TeamOperations => {
+const makeTeamOperations = (
+  gateway: LinearGatewayShape,
+  client: LinearClientShape,
+): TeamOperations => {
   const list = Effect.fn("TeamService.list")(function* listTeams(options: PageOptions) {
     return yield* gateway.team.list(options)
   })
@@ -139,7 +144,7 @@ const makeTeamOperations = (gateway: LinearGatewayShape): TeamOperations => {
         ? options.copySettingsFrom
         : (yield* byKey(options.copySettingsFrom)).id
     }
-    const data = yield* gateway.client.execute(
+    const data = yield* client.execute(
       teamCreateMutation,
       variables,
       Schema.Struct({ teamCreate: TeamWritePayload }),
@@ -157,7 +162,7 @@ const makeTeamOperations = (gateway: LinearGatewayShape): TeamOperations => {
     team: Team,
     timezone: string,
   ) {
-    const data = yield* gateway.client.execute(
+    const data = yield* client.execute(
       teamUpdateMutation,
       { id: team.id, input: { timezone } },
       Schema.Struct({ teamUpdate: TeamWritePayload }),
@@ -172,7 +177,7 @@ const makeTeamOperations = (gateway: LinearGatewayShape): TeamOperations => {
   })
 
   const deleteTeam = Effect.fn("TeamService.delete")(function* deleteTeam(team: Team) {
-    const data = yield* gateway.client.execute(
+    const data = yield* client.execute(
       teamDeleteMutation,
       { id: team.id },
       Schema.Struct({ teamDelete: DeletePayload }),
@@ -196,9 +201,10 @@ class TeamService extends Context.Service<TeamService, TeamServiceShape>()(
     TeamService,
     Effect.gen(function* teamServiceLayer() {
       const gateway = yield* LinearGateway
+      const client = yield* LinearClient
       return TeamService.of({
-        ...makeTeamOperations(gateway),
-        withKey: (apiKey) => makeTeamOperations(gateway.withKey(apiKey)),
+        ...makeTeamOperations(gateway, client),
+        withKey: (apiKey) => makeTeamOperations(gateway.withKey(apiKey), client.withKey(apiKey)),
       })
     }),
   )

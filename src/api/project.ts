@@ -9,6 +9,7 @@ import type { Project, ProjectCreateOptions, ProjectIdentity } from "@/linear/de
 import type { LinearApiError } from "@/linear/errors"
 import type { ProjectListOptions } from "@/linear/operations/project"
 
+import { LinearClient } from "@/api/client"
 import {
   alreadyDeletedError,
   notDeletedError,
@@ -18,15 +19,15 @@ import {
   ProjectNotFoundError,
   ProjectRestoreError,
 } from "@/api/project/errors"
-import { RepoTeam } from "@/api/repo-team"
-import { isUuid, projectId } from "@/domain/id"
-import { collectConnection, pageSize } from "@/linear/connection"
-import { ProjectArchivePayload, ProjectCreatePayload } from "@/linear/decode/project"
 import {
   projectCreateMutation,
   projectDeleteMutation,
   projectUnarchiveMutation,
-} from "@/linear/documents/project"
+} from "@/api/project/query"
+import { RepoTeam } from "@/api/repo-team"
+import { isUuid, projectId } from "@/domain/id"
+import { collectConnection, pageSize } from "@/linear/connection"
+import { ProjectArchivePayload, ProjectCreatePayload } from "@/linear/decode/project"
 import { LinearGateway } from "@/linear/gateway"
 
 const unwrapProjectArchive = <E>(
@@ -72,6 +73,7 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
     ProjectService,
     Effect.gen(function* projectServiceLayer() {
       const gateway = yield* LinearGateway
+      const client = yield* LinearClient
       const repoTeam = yield* RepoTeam
 
       const list = Effect.fn("ProjectService.list")(function* listProjects(
@@ -150,7 +152,7 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
       const deleteProject = Effect.fn("ProjectService.delete")(function* deleteProject(
         project: Project,
       ) {
-        const data = yield* gateway.client.execute(
+        const data = yield* client.execute(
           projectDeleteMutation,
           { id: project.id },
           Schema.Struct({ projectDelete: ProjectArchivePayload }),
@@ -168,7 +170,7 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
       const restoreProject = Effect.fn("ProjectService.restore")(function* restoreProject(
         project: Project,
       ) {
-        const data = yield* gateway.client.execute(
+        const data = yield* client.execute(
           projectUnarchiveMutation,
           { id: project.id },
           Schema.Struct({ projectUnarchive: ProjectArchivePayload }),
@@ -196,7 +198,7 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
         if (options.description !== undefined) {
           input.description = options.description
         }
-        const data = yield* gateway.client.execute(
+        const data = yield* client.execute(
           projectCreateMutation,
           { input },
           Schema.Struct({ projectCreate: ProjectCreatePayload }),

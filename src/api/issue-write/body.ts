@@ -15,6 +15,7 @@ import type { IssueId } from "@/domain/id"
 import type { Section } from "@/domain/section"
 
 import { ensureUnchanged, makeReadIssueBody } from "@/api/issue-write/body/snapshot"
+import { updateIssueMutation } from "@/api/issue-write/documents"
 import { unwrapIssue } from "@/api/issue-write/model"
 import { makeUpdateFields } from "@/api/issue-write/update-fields"
 import { unifiedDiff } from "@/domain/body/diff"
@@ -25,7 +26,6 @@ import {
 } from "@/domain/body/section/edit"
 import { normalizeLineEndings } from "@/domain/body/text"
 import { UpdateIssueResponse } from "@/linear/decode/issue"
-import { updateIssueMutation } from "@/linear/documents/issue"
 
 type BodyDependencies = {
   readonly client: LinearClient["Service"]

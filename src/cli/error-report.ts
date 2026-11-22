@@ -86,6 +86,7 @@ const errorRules: Record<string, ErrorRule> = {
   PriorityInputError: { code: "validation", hint: null },
   LinkError: { code: "validation", hint: null },
   AuthStoreError: { code: "auth", hint: "Run `rata auth login --with-token`." },
+  DatabaseError: { code: "internal", hint: "Run with RATA_DEBUG=1 for details." },
   PromptRequiredError: { code: "validation", hint: "Pass --yes to skip the prompt." },
   AssigneeConflictError: { code: "conflict", hint: "Pass --take to reassign it." },
 }

@@ -58,13 +58,22 @@ const unsupported = (): LinearGraphQLError =>
     details: [],
   })
 
-const teamDetail = (team: MemoryTeam): TeamDetail => ({
+const teamDetail = (team: MemoryTeam, labels: readonly MemoryLabel[]): TeamDetail => ({
   id: team.id,
   key: team.key,
   name: team.name,
   timezone: team.timezone,
   states: [...(team.states ?? [])].toSorted((left, right) => left.position - right.position),
-  labels: [...(team.labels ?? [])],
+  labels:
+    team.labels ??
+    labels
+      .filter((label) => label.teamId === team.id || label.teamId === null)
+      .map((label) => ({
+        id: label.id,
+        name: label.name,
+        color: label.color,
+        scope: label.teamId === null ? ("workspace" as const) : ("team" as const),
+      })),
   members: [...(team.members ?? [])],
   priorities: [...(team.priorities ?? defaultPriorities)].toSorted(
     (left, right) => left.priority - right.priority,
@@ -103,6 +112,7 @@ const makeMemoryGateway = (seed: MemorySeed): LinearGatewayShape => {
   const gateway: LinearGatewayShape = {
     client,
     viewer,
+    viewerWithKey: () => viewer,
     issue: {
       id: (ref) => requireIssue(String(ref)).pipe(Effect.map((issue) => issue.summary.id)),
       summary: (ref) => requireIssue(String(ref)).pipe(Effect.map((issue) => issue.summary)),
@@ -150,7 +160,7 @@ const makeMemoryGateway = (seed: MemorySeed): LinearGatewayShape => {
           ? Effect.fail(
               new LinearGraphQLError({ message: `No team with id ${team.id}.`, details: [] }),
             )
-          : Effect.succeed(teamDetail(found))
+          : Effect.succeed(teamDetail(found, labels))
       },
     },
     label: {

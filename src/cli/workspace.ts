@@ -5,10 +5,10 @@ import { EOL } from "node:os"
 import type { Viewer } from "@/linear/decode/viewer"
 import type { LinearApiError } from "@/linear/errors"
 
-import { LinearClient } from "@/api/client"
 import { OutputFields, rejectFields } from "@/cli/fields"
 import { JsonOutput, reportFailure, writeJson, writeLine } from "@/cli/output"
 import { Auth } from "@/config/auth"
+import { LinearGateway } from "@/linear/gateway"
 
 type WorkspaceEntry = {
   readonly name: string
@@ -18,10 +18,10 @@ type WorkspaceEntry = {
 
 const collectWorkspaces = Effect.fn("Workspace.collect")(function* collectWorkspaces() {
   const auth = yield* Auth
-  const client = yield* LinearClient
+  const gateway = yield* LinearGateway
   const profiles = yield* auth.profiles
   return yield* Effect.forEach(profiles, (profile) =>
-    client.viewerWithKey(profile.apiKey).pipe(
+    gateway.viewerWithKey(profile.apiKey).pipe(
       Effect.result,
       Effect.map((result): WorkspaceEntry => ({
         name: profile.name,

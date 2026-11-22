@@ -6,7 +6,7 @@ import type { LinearClientShape } from "@/linear/client"
 import type { Connection, PageOptions } from "@/linear/connection"
 import type { IssueSummaryNode } from "@/linear/decode/issue"
 import type { LinearApiError } from "@/linear/errors"
-import type { IssueListOptions, IssueSort } from "@/linear/operations/issue/filter"
+import type { IssueListOptions } from "@/linear/operations/issue/filter"
 import type { IssueDetailData, IssueShowOptions } from "@/linear/operations/issue/show"
 
 import { isUuid, issueId } from "@/domain/id"
@@ -96,11 +96,4 @@ const makeIssueOperations = (execute: LinearClientShape["execute"]): IssueReadOp
   return { id, list, search, show, summary }
 }
 
-export {
-  type IssueDetailData,
-  type IssueListOptions,
-  type IssueReadOperations,
-  type IssueShowOptions,
-  type IssueSort,
-  makeIssueOperations,
-}
+export { makeIssueOperations, type IssueReadOperations }

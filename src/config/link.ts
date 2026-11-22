@@ -8,10 +8,10 @@ import type { AuthStoreError } from "@/config/auth/error"
 import type { LinkTargetOptions, TimezoneChange } from "@/config/link/team"
 import type { RepoConfigError } from "@/config/repo"
 import type { RepoConfig } from "@/config/repo/model"
+import type { DatabaseError } from "@/db/database"
 import type { Team } from "@/linear/decode/team"
 import type { LinearApiError } from "@/linear/errors"
 
-import { LinearClient } from "@/api/client"
 import { LabelService } from "@/api/label"
 import { TeamService } from "@/api/team"
 import { Auth } from "@/config/auth"
@@ -20,6 +20,7 @@ import { resolveLinkTarget } from "@/config/link/workspace"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
 import { findLabelByName } from "@/domain/label"
 import { collectConnection, pageSize } from "@/linear/connection"
+import { LinearGateway } from "@/linear/gateway"
 
 type LinkOptions = LinkTargetOptions & {
   readonly project: Option.Option<string>
@@ -38,6 +39,7 @@ type LinkServiceShape = {
   ) => Effect.Effect<
     LinkResult,
     | AuthStoreError
+    | DatabaseError
     | LinearApiError
     | LinkError
     | RepoConfigError
@@ -61,7 +63,7 @@ class LinkService extends Context.Service<LinkService, LinkServiceShape>()(
       const teams = yield* TeamService
       const labels = yield* LabelService
       const auth = yield* Auth
-      const client = yield* LinearClient
+      const gateway = yield* LinearGateway
       const stdio = yield* Stdio.Stdio
 
       const writeConfig = Effect.fn("LinkService.writeConfig")(function* writeConfig(
@@ -125,7 +127,7 @@ class LinkService extends Context.Service<LinkService, LinkServiceShape>()(
         if (Option.isSome(invalid)) {
           return yield* invalid.value
         }
-        const target = yield* resolveLinkTarget(options, { auth, client, stdio, teams })
+        const target = yield* resolveLinkTarget(options, { auth, gateway, stdio, teams })
         const existing = yield* repoConfig.read(yield* currentDirectory)
         const storedWorkspace = Option.flatMap(existing, (config) =>
           Option.fromUndefinedOr(config.workspace),

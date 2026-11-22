@@ -5,6 +5,7 @@ import { databaseLayer } from "@test/database-harness"
 import { ConfigProvider, Effect, FileSystem, Layer, Path, Result, Schema } from "effect"
 import { HttpClient, HttpClientResponse } from "effect/http"
 
+import { LinearClient } from "@/api/client"
 import { IssueApi } from "@/api/issue"
 import { RepoTeam } from "@/api/repo-team"
 import { TeamService } from "@/api/team"
@@ -179,7 +180,8 @@ const issueLayer = (
       return LinearGateway.of(makeLinearGateway(makeClient(http, key)))
     }),
   ).pipe(Layer.provide(Layer.mergeAll(auth, Layer.succeed(HttpClient.HttpClient, http))))
-  const teamLayer = TeamService.layer.pipe(Layer.provide(gateway))
+  const client = LinearClient.layer.pipe(Layer.provide(gateway))
+  const teamLayer = TeamService.layer.pipe(Layer.provide(Layer.mergeAll(gateway, client)))
   const repoTeam = RepoTeam.layer.pipe(Layer.provide(Layer.mergeAll(teamLayer, repoConfig)))
   const contextCache = ContextCache.layer.pipe(Layer.provide(database))
   const teamContext = TeamContext.layer.pipe(

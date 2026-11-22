@@ -1,10 +1,10 @@
 import { Effect, Option, Schema, Stdio, Stream } from "effect"
 import { Command, Flag } from "effect/cli"
 
-import { LinearClient } from "@/api/client"
 import { OutputFields, rejectFields } from "@/cli/fields"
 import { JsonOutput, errorLine, reportFailure, writeJson, writeLine } from "@/cli/output"
 import { Auth } from "@/config/auth"
+import { LinearGateway } from "@/linear/gateway"
 
 class InputError extends Schema.TaggedError<InputError>()("InputError", {
   message: Schema.String,
@@ -72,7 +72,7 @@ const statusCommand = Command.make("status", { workspace: workspaceFlag }, (conf
     const json = yield* JsonOutput
     yield* rejectFields(yield* OutputFields)
     const auth = yield* Auth
-    const client = yield* LinearClient
+    const gateway = yield* LinearGateway
     const file = yield* auth.storePath
     if (Option.isSome(config.workspace)) {
       const name = config.workspace.value
@@ -84,7 +84,7 @@ const statusCommand = Command.make("status", { workspace: workspaceFlag }, (conf
           `No workspace named "${name}". Run \`rata auth login --workspace ${name} --with-token\` to add it.`,
         )
       }
-      const viewer = yield* client.viewerWithKey(profile.apiKey)
+      const viewer = yield* gateway.viewerWithKey(profile.apiKey)
       if (json) {
         return yield* writeJson({
           authenticated: true,
@@ -105,7 +105,7 @@ const statusCommand = Command.make("status", { workspace: workspaceFlag }, (conf
         "Not authenticated. Run `rata auth login --with-token`, or set LINEAR_API_KEY.",
       )
     }
-    const viewer = yield* client.viewer
+    const viewer = yield* gateway.viewer
     if (json) {
       return yield* writeJson({
         authenticated: true,
@@ -153,8 +153,8 @@ const whoamiCommand = Command.make("whoami", {}, () =>
   Effect.gen(function* whoami() {
     const json = yield* JsonOutput
     yield* rejectFields(yield* OutputFields)
-    const client = yield* LinearClient
-    const viewer = yield* client.viewer
+    const gateway = yield* LinearGateway
+    const viewer = yield* gateway.viewer
     if (json) {
       return yield* writeJson(viewer)
     }

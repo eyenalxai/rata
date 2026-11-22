@@ -13,10 +13,10 @@ import type {
   IssueProject,
   IssueState,
   IssueSummaryNode,
-  IssueTeam,
   IssueUser,
 } from "@/linear/decode/issue"
 import type { PageInfo } from "@/linear/decode/page"
+import type { IssueDetailData } from "@/linear/operations/issue/show"
 
 import { priorityRank } from "@/domain/priority"
 import { relationTargets } from "@/domain/relation"
@@ -49,25 +49,10 @@ type IssueSummary = {
 
 type IssueRelations = RelationTargets<IssueChild>
 
-type IssueDetail = {
-  readonly id: IssueId
-  readonly identifier: string
-  readonly title: string
-  readonly description: string | null
-  readonly url: string
-  readonly state: IssueState
-  readonly priority: Priority
-  readonly createdAt: string
-  readonly updatedAt: string
-  readonly assignee: IssueUser | null
-  readonly project: IssueProject | null
-  readonly parent: IssueParent | null
-  readonly team: IssueTeam
-  readonly labels: readonly IssueLabel[]
+type IssueDetail = Omit<IssueDetailData, "children" | "relations" | "attachments"> & {
   readonly children: readonly IssueChild[]
   readonly relations: IssueRelations
   readonly attachments: readonly IssueAttachment[]
-  readonly comments?: readonly IssueComment[] | undefined
 }
 
 type IssuePage = {
@@ -231,7 +216,6 @@ export {
   isListInclude,
   type ListInclude,
   listIncludes,
-  relationTargets,
   sortAndLimitNodes,
   type SortField,
   sortFields,

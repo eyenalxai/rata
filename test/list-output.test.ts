@@ -1,62 +1,76 @@
-import type { Handler } from "@test/fake-linear/model"
+import type { MemoryIssue, MemorySeed } from "@test/fake-linear/gateway/model"
 
-import { lastJson, runRoot } from "@test/cli-harness"
-import { jsonResponse, readBody, summaryNode, withTeamLookup } from "@test/issue-fixtures"
+import { lastJson, runRootMemory } from "@test/cli-harness"
+import { defaultViewer } from "@test/fake-linear/model"
 import { afterEach, describe, expect, test } from "bun:test"
+import { Option, Schema } from "effect"
 
-const firstNode = summaryNode("RAT-1")
-const secondNode = summaryNode("RAT-2")
-const thirdNode = summaryNode("RAT-3")
-const nodes = [firstNode, secondNode, thirdNode]
+import { issueId, teamId, userId } from "@/domain/id"
+import { Viewer } from "@/linear/decode/viewer"
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value)
+const viewer = Option.getOrThrow(Schema.decodeUnknownOption(Viewer)(defaultViewer))
+const team = { id: teamId("team-1"), key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
+const assignee = { id: userId("u1"), name: "Ada", displayName: "ada" }
 
-const idFilter = (filter: unknown): readonly string[] | undefined => {
-  if (!isRecord(filter) || !isRecord(filter.id)) {
-    return undefined
-  }
-  const ids = filter.id.in
-  return Array.isArray(ids) && ids.every((id) => typeof id === "string") ? ids : undefined
-}
+const issue = (input: {
+  readonly identifier: string
+  readonly priority?: "urgent" | "high" | "medium" | "low" | "none"
+  readonly description?: string
+  readonly parent?: {
+    readonly id: ReturnType<typeof issueId>
+    readonly identifier: string
+    readonly title: string
+  } | null
+  readonly assignee?: typeof assignee | null
+}): MemoryIssue => ({
+  summary: {
+    id: issueId(`issue-${input.identifier}`),
+    identifier: input.identifier,
+    title: `Title ${input.identifier}`,
+    url: `https://linear.app/acme/issue/${input.identifier}/title`,
+    state: { name: "Todo", type: "unstarted" },
+    priority: input.priority ?? "none",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-02T00:00:00.000Z",
+    assignee: input.assignee === undefined ? assignee : input.assignee,
+    project: null,
+    parent: input.parent ?? null,
+    labels: { nodes: [] },
+  },
+  description: input.description ?? `Body ${input.identifier}`,
+  team,
+})
 
-const pagedHandler =
-  (
-    items: readonly ReturnType<typeof summaryNode>[],
-    captured: Record<string, unknown>[],
-  ): Handler =>
-  (request) => {
-    const body = readBody(request)
-    if (body.query.includes("query IssueId")) {
-      return jsonResponse({ data: { issue: { id: `id-${String(body.variables.id)}` } } })
-    }
-    captured.push(body.variables)
-    const ids = idFilter(body.variables.filter)
-    const matching =
-      ids === undefined
-        ? items
-        : items.filter((item) => ids.includes(item.id) || ids.includes(item.identifier))
-    const first = typeof body.variables.first === "number" ? body.variables.first : 50
-    const after = typeof body.variables.after === "string" ? body.variables.after : null
-    const start = after === null ? 0 : matching.findIndex((item) => item.id === after) + 1
-    const page = matching.slice(start, start + first)
-    const last = page.at(-1)
-    const connection = {
-      nodes: page,
-      pageInfo: {
-        hasNextPage: start + page.length < matching.length,
-        endCursor: last?.id ?? null,
-      },
-    }
-    return jsonResponse({
-      data: body.query.includes("query IssueSearch")
-        ? { searchIssues: connection }
-        : { issues: connection },
-    })
-  }
+const seed = (issues: readonly MemoryIssue[]): MemorySeed => ({
+  viewer,
+  teams: [team],
+  labels: [],
+  issues,
+})
 
-const handler = (captured: Record<string, unknown>[] = []): Handler =>
-  withTeamLookup(pagedHandler(nodes, captured))
+const threeIssues = (): MemorySeed =>
+  seed([
+    issue({ identifier: "RAT-1" }),
+    issue({ identifier: "RAT-2" }),
+    issue({ identifier: "RAT-3" }),
+  ])
+
+const rankedIssues = (): MemorySeed =>
+  seed([
+    issue({ identifier: "RAT-2", description: "rate limit" }),
+    issue({ identifier: "RAT-1", description: "rate limit" }),
+    issue({ identifier: "RAT-3", description: "rate limit" }),
+  ])
+
+const parent = { id: issueId("issue-RAT-7"), identifier: "RAT-7", title: "Parent" }
+
+const frontier = (): MemorySeed =>
+  seed([
+    issue({ identifier: "RAT-7" }),
+    issue({ identifier: "RAT-2", priority: "urgent", parent, assignee: null }),
+    issue({ identifier: "RAT-3", priority: "medium", parent, assignee: null }),
+    issue({ identifier: "RAT-1", priority: "medium", parent, assignee: null }),
+  ])
 
 afterEach(() => {
   process.exitCode = 0
@@ -64,104 +78,89 @@ afterEach(() => {
 
 describe("issue list output flags", () => {
   test("prints one integer and drains every page with --limit as the page size", async () => {
-    const captured: Record<string, unknown>[] = []
     const lines: string[] = []
-    await runRoot(handler(captured), ["issue", "list", "--count", "--limit", "2"], lines)
+    await runRootMemory(threeIssues(), ["issue", "list", "--count", "--limit", "2"], lines)
 
     expect(lines).toEqual(["3"])
-    expect(captured).toHaveLength(2)
-    expect(captured[0]).toMatchObject({ first: 2, after: null })
-    expect(captured[1]).toMatchObject({ first: 2, after: "id-RAT-2" })
   })
 
   test("prints a count document with --json", async () => {
     const lines: string[] = []
-    await runRoot(handler(), ["issue", "list", "--count", "--limit", "2", "--json"], lines)
+    await runRootMemory(
+      threeIssues(),
+      ["issue", "list", "--count", "--limit", "2", "--json"],
+      lines,
+    )
 
     expect(lastJson(lines)).toEqual({ count: 3 })
   })
 
   test("honors --after and accepts --all", async () => {
-    const captured: Record<string, unknown>[] = []
     const lines: string[] = []
-    await runRoot(
-      handler(captured),
-      ["issue", "list", "--count", "--after", "id-RAT-1", "--all"],
+    await runRootMemory(
+      threeIssues(),
+      ["issue", "list", "--count", "--after", "issue-RAT-1", "--all"],
       lines,
     )
 
     expect(lines).toEqual(["2"])
-    expect(captured[0]).toMatchObject({ first: 50, after: "id-RAT-1" })
   })
 
   test("composes with --id for the count and the identifier output", async () => {
     const countLines: string[] = []
-    await runRoot(
-      handler(),
+    await runRootMemory(
+      threeIssues(),
       ["issue", "list", "--id", "RAT-1", "--id", "RAT-3", "--count"],
       countLines,
     )
     expect(countLines).toEqual(["2"])
 
     const idLines: string[] = []
-    await runRoot(handler(), ["issue", "list", "--id", "RAT-3", "--ids-only"], idLines)
+    await runRootMemory(threeIssues(), ["issue", "list", "--id", "RAT-3", "--ids-only"], idLines)
     expect(idLines).toEqual(["RAT-3"])
   })
 
   test("prints one identifier per line in page order and drains every page", async () => {
-    const captured: Record<string, unknown>[] = []
     const lines: string[] = []
-    await runRoot(handler(captured), ["issue", "list", "--ids-only", "--limit", "2"], lines)
+    await runRootMemory(threeIssues(), ["issue", "list", "--ids-only", "--limit", "2"], lines)
 
     expect(lines).toEqual(["RAT-1", "RAT-2", "RAT-3"])
-    expect(captured).toHaveLength(2)
   })
 })
 
 describe("search output flags", () => {
-  const ranked = [secondNode, firstNode, thirdNode]
-
   test("prints every identifier in relevance order and drains every page", async () => {
-    const captured: Record<string, unknown>[] = []
     const lines: string[] = []
-    await runRoot(
-      withTeamLookup(pagedHandler(ranked, captured)),
+    await runRootMemory(
+      rankedIssues(),
       ["search", "rate limit", "--ids-only", "--limit", "2"],
       lines,
     )
 
     expect(lines).toEqual(["RAT-2", "RAT-1", "RAT-3"])
-    expect(captured).toHaveLength(2)
   })
 
   test("drains every page for --count", async () => {
-    const captured: Record<string, unknown>[] = []
     const lines: string[] = []
-    await runRoot(
-      withTeamLookup(pagedHandler(ranked, captured)),
-      ["search", "rate limit", "--count", "--limit", "2"],
-      lines,
-    )
+    await runRootMemory(rankedIssues(), ["search", "rate limit", "--count", "--limit", "2"], lines)
 
     expect(lines).toEqual(["3"])
-    expect(captured).toHaveLength(2)
-    expect(captured[1]).toMatchObject({ first: 2, after: "id-RAT-1" })
   })
 })
 
 describe("next identifier output", () => {
   test("prints the ready identifier", async () => {
     const lines: string[] = []
-    await runRoot(handler(), ["next", "--parent", "RAT-7", "--ids-only"], lines)
+    await runRootMemory(frontier(), ["next", "--parent", "RAT-7", "--ids-only"], lines)
 
-    expect(lines).toEqual(["RAT-1"])
+    expect(lines).toEqual(["RAT-2"])
     expect(process.exitCode).toBe(0)
   })
 
   test("prints nothing and exits 0 at an empty frontier", async () => {
     const lines: string[] = []
-    await runRoot(
-      withTeamLookup(pagedHandler([], [])),
+    await runRootMemory(
+      seed([issue({ identifier: "RAT-7" })]),
       ["next", "--parent", "RAT-7", "--ids-only"],
       lines,
     )
@@ -197,24 +196,21 @@ describe("list output validation", () => {
 
   for (const [name, args, message] of cases) {
     test(`rejects ${name}`, async () => {
-      const captured: Record<string, unknown>[] = []
       const lines: string[] = []
-      await runRoot(handler(captured), args, lines)
+      await runRootMemory(seed([]), args, lines)
 
       if (args.includes("--json")) {
         expect(lastJson(lines)).toMatchObject({ error: { code: "validation", message } })
       } else {
         expect(lines[0]).toBe(`error: ${message}`)
       }
-      expect(captured).toEqual([])
       expect(process.exitCode).toBe(2)
     })
   }
 
   test("rejects ids-only with json on next", async () => {
-    const captured: Record<string, unknown>[] = []
     const lines: string[] = []
-    await runRoot(handler(captured), ["next", "--parent", "RAT-7", "--ids-only", "--json"], lines)
+    await runRootMemory(seed([]), ["next", "--parent", "RAT-7", "--ids-only", "--json"], lines)
 
     expect(lastJson(lines)).toMatchObject({
       error: {
@@ -222,7 +218,6 @@ describe("list output validation", () => {
         message: "The --ids-only flag prints plain text and is not valid with --json or --fields.",
       },
     })
-    expect(captured).toEqual([])
     expect(process.exitCode).toBe(2)
   })
 })

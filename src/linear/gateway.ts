@@ -20,8 +20,10 @@ import { makeTeamOperations } from "@/linear/operations/team"
 import { makeUserOperations } from "@/linear/operations/user"
 
 type LinearGatewayShape = {
+  // Write services keep the raw transport until the write seam moves; reads use the typed operations.
   readonly client: LinearClientShape
   readonly viewer: Effect.Effect<Viewer, LinearApiError>
+  readonly viewerWithKey: (apiKey: Redacted.Redacted) => Effect.Effect<Viewer, LinearApiError>
   readonly issue: IssueReadOperations
   readonly team: TeamReadOperations
   readonly label: LabelReadOperations
@@ -33,6 +35,7 @@ type LinearGatewayShape = {
 const makeLinearGateway = (client: LinearClientShape): LinearGatewayShape => ({
   client,
   viewer: client.viewer,
+  viewerWithKey: client.viewerWithKey,
   issue: makeIssueOperations(client.execute),
   team: makeTeamOperations(client.execute),
   label: makeLabelOperations(client.execute),
@@ -52,9 +55,6 @@ class LinearGateway extends Context.Service<LinearGateway, LinearGatewayShape>()
         return LinearGateway.of(makeLinearGateway(makeClient(http, key)))
       }),
     )
-
-  static readonly fromClient = (client: LinearClientShape): LinearGatewayShape =>
-    makeLinearGateway(client)
 }
 
 export { LinearGateway, type LinearGatewayShape, makeLinearGateway }

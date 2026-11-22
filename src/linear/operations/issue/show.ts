@@ -44,9 +44,9 @@ type IssueDetailData = Omit<
   "labels" | "children" | "relations" | "inverseRelations" | "attachments"
 > & {
   readonly labels: readonly IssueLabel[]
-  readonly children: readonly IssueChild[]
-  readonly relations: RelationTargets<IssueChild>
-  readonly attachments: readonly IssueAttachment[]
+  readonly children?: readonly IssueChild[] | undefined
+  readonly relations?: RelationTargets<IssueChild> | undefined
+  readonly attachments?: readonly IssueAttachment[] | undefined
   readonly comments?: readonly IssueComment[] | undefined
 }
 
@@ -115,7 +115,20 @@ const readIssueShow = (
         )
       : []
 
-    const detail = { ...issue, labels, children, relations, attachments }
+    const {
+      children: _children,
+      relations: _relations,
+      inverseRelations: _inverseRelations,
+      attachments: _attachments,
+      ...rest
+    } = issue
+    const detail = {
+      ...rest,
+      labels,
+      ...(connections.children ? { children } : {}),
+      ...(connections.relations ? { relations } : {}),
+      ...(connections.attachments ? { attachments } : {}),
+    }
     if (!options.comments) {
       return detail
     }

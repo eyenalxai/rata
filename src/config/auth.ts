@@ -15,6 +15,8 @@ import {
   Schema,
 } from "effect"
 
+import type { DatabaseError } from "@/db/database"
+
 import { AuthStoreError } from "@/config/auth/error"
 import { makeConfigHome } from "@/config/auth/home"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
@@ -38,14 +40,17 @@ type StoredProfile = {
 }
 
 type AuthShape = {
-  readonly resolve: Effect.Effect<Option.Option<ResolvedAuth>, AuthStoreError>
-  readonly require: Effect.Effect<ResolvedAuth, AuthStoreError>
-  readonly envKey: Effect.Effect<Option.Option<Redacted.Redacted>, AuthStoreError>
-  readonly login: (apiKey: string, workspace: string) => Effect.Effect<void, AuthStoreError>
-  readonly logout: (workspace: string) => Effect.Effect<boolean, AuthStoreError>
-  readonly use: (workspace: string) => Effect.Effect<void, AuthStoreError>
-  readonly profiles: Effect.Effect<readonly StoredProfile[], AuthStoreError>
-  readonly storePath: Effect.Effect<string, AuthStoreError>
+  readonly resolve: Effect.Effect<Option.Option<ResolvedAuth>, AuthStoreError | DatabaseError>
+  readonly require: Effect.Effect<ResolvedAuth, AuthStoreError | DatabaseError>
+  readonly envKey: Effect.Effect<Option.Option<Redacted.Redacted>, AuthStoreError | DatabaseError>
+  readonly login: (
+    apiKey: string,
+    workspace: string,
+  ) => Effect.Effect<void, AuthStoreError | DatabaseError>
+  readonly logout: (workspace: string) => Effect.Effect<boolean, AuthStoreError | DatabaseError>
+  readonly use: (workspace: string) => Effect.Effect<void, AuthStoreError | DatabaseError>
+  readonly profiles: Effect.Effect<readonly StoredProfile[], AuthStoreError | DatabaseError>
+  readonly storePath: Effect.Effect<string, AuthStoreError | DatabaseError>
 }
 
 const describeStoreFailure =
@@ -78,9 +83,7 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
       const path = yield* Path.Path
       const repoConfig = yield* RepoConfigService
 
-      const openedDatabase = database.open.pipe(
-        Effect.mapError((cause) => new AuthStoreError({ message: cause.message, cause })),
-      )
+      const openedDatabase = database.open
 
       const storePath = openedDatabase.pipe(
         Effect.map((opened) => opened.file),
@@ -257,16 +260,15 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
           .pipe(Effect.mapError(describeQueryFailure("write")))
       })
 
-      const profilesList: Effect.Effect<readonly StoredProfile[], AuthStoreError> = Effect.gen(
-        function* listStoredProfiles() {
+      const profilesList: Effect.Effect<readonly StoredProfile[], AuthStoreError | DatabaseError> =
+        Effect.gen(function* listStoredProfiles() {
           const stored = yield* loadRows()
           return stored.map((row) => ({
             name: row.name,
             apiKey: Redacted.make(row.apiKey),
             isDefault: row.isDefault === 1,
           }))
-        },
-      ).pipe(Effect.withSpan("Auth.profiles"))
+        }).pipe(Effect.withSpan("Auth.profiles"))
 
       return Auth.of({
         envKey,
