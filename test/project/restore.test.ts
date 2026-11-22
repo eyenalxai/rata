@@ -144,7 +144,7 @@ describe("project restore", () => {
       projects: [{ ...tracker, id, trashed: true }],
     })
     const lines: string[] = []
-    await runProject(fake.handler, ["restore", id, "--json"], lines)
+    await runProject(fake.handler, ["restore", id, "--format", "json"], lines)
     expect(lastJson(lines)).toEqual({ restored: { id, name: "Tracker" } })
     expect(unarchiveMutation(fake.requests)?.variables).toEqual({ id })
   })

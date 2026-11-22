@@ -11,7 +11,7 @@ import type { ErrorCode } from "@/domain/error"
 import { ProjectNameAmbiguousError } from "@/api/project/errors"
 import { TeamResolutionError } from "@/api/team"
 import { exitCodeOf, toTrackerError } from "@/cli/error-report"
-import { exitCodeOfCliError } from "@/cli/exit"
+import { exitCodeOfCliError } from "@/cli/runner"
 import { DatabaseError } from "@/db/database"
 import { ConflictError } from "@/domain/conflict"
 import { TrackerError } from "@/domain/error"
@@ -188,7 +188,7 @@ describe("the process exit code", () => {
   })
 
   test("a missing key exits 5", async () => {
-    await runRoot(unusedHandler, ["whoami", "--json"], [], undefined, {
+    await runRoot(unusedHandler, ["whoami", "--format", "json"], [], undefined, {
       env: { HOME: "/home/test" },
       profiles: [],
     })
@@ -197,7 +197,7 @@ describe("the process exit code", () => {
   })
 
   test("a forbidden request exits 5", async () => {
-    await runRoot(forbidden, ["whoami", "--json"], [])
+    await runRoot(forbidden, ["whoami", "--format", "json"], [])
 
     expect(process.exitCode).toBe(5)
   })

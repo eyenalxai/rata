@@ -7,7 +7,7 @@ import { Console, Effect, FileSystem, Layer, Path, Stdio, Terminal } from "effec
 import { Command } from "effect/cli"
 import { ChildProcessSpawner } from "effect/process"
 
-import { projectCommand } from "@/cli/project"
+import { projectCommand } from "@/cli/registry"
 import { projectId } from "@/domain/id"
 
 const tracker = {
@@ -31,6 +31,7 @@ const cliLayer = (
     Stdio.layerTest({
       args: Effect.succeed(args),
       stdinIsTerminal: Effect.succeed(stdinIsTerminal),
+      stdoutIsTerminal: Effect.succeed(true),
     }),
     Layer.succeed(Terminal.Terminal, fakeTerminal(input)),
     Layer.succeed(

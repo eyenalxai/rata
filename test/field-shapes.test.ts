@@ -9,7 +9,7 @@ import { Command } from "effect/cli"
 
 import { selectFields } from "@/cli/field/select"
 import { arrayField, objectField, scalarField } from "@/cli/field/shape"
-import { teamCommand } from "@/cli/team"
+import { teamCommand } from "@/cli/registry"
 
 const team = {
   id: "team-1",
@@ -108,7 +108,7 @@ describe("field array projection", () => {
   test("returns state names from a team detail", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
-    await runTeam(fake.handler, ["show", "--json", "--fields", "states.name"], lines)
+    await runTeam(fake.handler, ["show", "--format", "json", "--select", "states.name"], lines)
 
     expect(lastJson(lines)).toEqual({ states: ["Backlog", "Todo"] })
   })

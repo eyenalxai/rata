@@ -12,7 +12,7 @@ import path from "node:path"
 
 import type { RepoConfig } from "@/config/repo/model"
 
-import { unlinkCommand } from "@/cli/unlink"
+import { unlinkCommand } from "@/cli/registry"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
 
 const unusedHandler: Handler = () => {
@@ -47,7 +47,7 @@ const runUnlink = (
         }),
         FileSystem.layerNoop({}),
         Path.layer,
-        Stdio.layerTest({ args: Effect.succeed(args) }),
+        Stdio.layerTest({ args: Effect.succeed(args), stdoutIsTerminal: Effect.succeed(true) }),
         Layer.succeed(Terminal.Terminal, terminal),
         Layer.succeed(
           ChildProcessSpawner.ChildProcessSpawner,
@@ -89,7 +89,7 @@ describe("unlink", () => {
 
   test("prints the removed link as JSON", async () => {
     const lines: string[] = []
-    const stored = await runUnlink(["--json"], lines, [
+    const stored = await runUnlink(["--format", "json"], lines, [
       { key: process.cwd(), team: "RAT", project: "rata", workspace: "work" },
     ])
     expect(JSON.parse(lines.at(-1) ?? "")).toEqual({

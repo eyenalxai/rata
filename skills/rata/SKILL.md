@@ -13,10 +13,16 @@ this skill covers the CLI.
 
 ```bash
 command -v rata      # the binary is installed
-rata status --json   # repo, team, states, labels, triage, cache age, docs, viewer
+rata status          # repo, team, states, labels, triage, cache age, docs, viewer (JSON off a TTY)
 ```
 
 `status` works without a link. Fix a failed first command before you retry:
+
+The migrated admin commands (`auth`, `link`, `unlink`, `workspace`, `config`,
+`team`, `project`, `label`, `status`, `whoami`) accept `--format json|text`.
+JSON is their default when stdout is not a terminal. The admin reads also
+accept `--select`; the admin writes do not. The work surface (`issue`, `search`,
+`next`, `why`) keeps `--json` and `--fields` until its own ticket.
 
 - `auth`: `printf '%s' "$LINEAR_API_KEY" | rata auth login --with-token`. The key
   resolves as `LINEAR_API_KEY`, the repository workspace, then `default`;
@@ -26,7 +32,7 @@ rata status --json   # repo, team, states, labels, triage, cache age, docs, view
   that `link` writes, and `link` also sets the team timezone. A stale stored key
   is repaired on read with a warning; if `status` says it is gone, follow the
   repair hint.
-- Do not guess a workflow state name. Read it from `rata status --json`; add
+- Do not guess a workflow state name. Read it from `rata status`; add
   `--refresh` when `cache.ageSeconds` is stale or the context looks wrong.
 
 Team resolution follows the issue. A repository with a link writes against the
@@ -98,7 +104,7 @@ drops every heading that the new body leaves out, with no error.
 
 ## Errors
 
-A failed `--json` command writes one object to stderr and exits with the code of
+A failed command with JSON output writes one object to stderr and exits with the code of
 its class: 2 usage or validation, 3 not found, 4 conflict, 5 auth, 6 retryable,
 1 internal. A parse error writes code `usage`; help prints only for `--help`.
 Read `hint` and retry once. Two cases write a partial result to stdout instead:

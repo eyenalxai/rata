@@ -8,8 +8,12 @@ and the loops. `docs/agents/issue-tracker.md` covers the repository rules.
 `rata <command> [subcommand] [flags] [arguments]`
 
 - `<ref>` is an issue identifier (`ABC-42`), a UUID, or a `linear.app` URL.
-- `--json` is global: it works before or after the subcommand.
-- `--fields <paths>` selects dotted paths from a read; it needs `--json`.
+- The work surface (`issue`, `search`, `next`, `why`) uses `--json` and
+  `--fields`. Both work before or after the subcommand; `--fields` needs
+  `--json`.
+- The migrated admin commands accept `--format json|text`. JSON is their
+  default when stdout is not a terminal. The admin reads also accept
+  `--select <paths>`; the admin writes do not.
 - `--body-file -` and `--comment-file -` read stdin. `--dry-run` previews.
 - `--limit` is the page size: 50 by default, 250 at most. `--after` continues a
   page; `--all` drains every page. The repository config supplies the default
@@ -23,9 +27,9 @@ and the loops. `docs/agents/issue-tracker.md` covers the repository rules.
 A single-resource read prints that object. A list prints `{ <plural>, pageInfo }`.
 A context document keeps named sections. A write prints its result.
 
-With `--json`, a failure writes `{ "error": { "code", "message", "hint" } }` to
-stderr; `hint` is a string or `null`; `RATA_DEBUG=1` adds `details`. Human mode
-prints `error:` and `hint:`.
+With JSON output, a failure writes
+`{ "error": { "code", "message", "hint" } }` to stderr; `hint` is a string or
+`null`; `RATA_DEBUG=1` adds `details`. Human mode prints `error:` and `hint:`.
 
 Codes: `0` success, `1` internal, `2` usage or validation, `3` not found,
 `4` conflict, `5` auth, `6` retryable. A parse error writes the normal error
@@ -113,11 +117,13 @@ identifier, title, state, priority, labels, assignee, project, parent and url.
 
 ### Field selection
 
-`--fields` selects dotted paths from a read and needs `--json`. It starts at the
-resource, at each list row, at `defaults` for `config show`, and at the whole
-document for `status`. The command validates a declared shape before it reads the
-value, so an unknown path is `validation` even on an empty list or a null
-object; `details` carries `path` and `validPaths`. Writes reject it with a hint.
+`--fields` selects dotted paths from a work-surface read and needs `--json`.
+`--select` does the same for a migrated admin read. Both start at the resource,
+at each list row, at `defaults` for `config show`, and at the whole document
+for `status`. The command validates a declared shape before it reads the value,
+so an unknown path is `validation` even on an empty list or a null object;
+`details` carries `path` and `validPaths`. Writes reject field selection with a
+hint.
 
 A path through a null object returns `null`. An array is selectable whole. A
 path may cross an array: a final array segment returns the array; a later segment
@@ -125,9 +131,10 @@ maps each element; a scalar leaf returns an array of scalars (`labels.name` ->
 `["bug"]`); an object leaf returns an array of objects (`children.state` ->
 `[{ "state": ... }]`); paths that cross the same array merge. A path through an
 array of scalars is `validation`; an empty array returns `[]`. A list keeps
-`pageInfo`. Valid on `status`, `issue show`, `issue status`, `next`, `why`,
-`issue section get`, `issue list`, `search`, `team show`, `team list`,
-`label list`, `project list` and `config show`.
+`pageInfo`. `--fields` is valid on `issue show`, `issue status`, `issue section get`,
+`issue list`, `search`, `next` and `why`. `--select` is valid on `status`,
+`team show`, `team list`, `project list`, `label list`, `config show` and
+`whoami`.
 
 ### `issue show` flags
 

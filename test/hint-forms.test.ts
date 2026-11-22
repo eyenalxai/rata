@@ -1,6 +1,7 @@
 import { lastJson, runRoot } from "@test/cli-harness"
 import { makeRecorder } from "@test/issue-write/fixtures"
 import { afterEach, describe, expect, test } from "bun:test"
+import { Effect } from "effect"
 
 const unusedRecorder = () =>
   makeRecorder(() => {
@@ -71,6 +72,16 @@ describe("the known wrong flags teach the canonical command", () => {
     expect(process.exitCode).toBe(2)
   })
 
+  test("a leading --format value does not hide the canonical hint", async () => {
+    const lines: string[] = []
+    await run(["--format", "json", "issue", "create", "--blocked-by", "RAT-2"], lines)
+    expect(lines).toEqual([
+      "error: The --blocked-by flag is not supported by issue create.",
+      "hint: Create the issue, then run rata issue link <new-ref> --blocked-by RAT-2.",
+    ])
+    expect(process.exitCode).toBe(2)
+  })
+
   test("a known wrong flag does not print the full help", async () => {
     const lines: string[] = []
     await run(["issue", "update", "RAT-1", "--label", "bug"], lines)
@@ -92,11 +103,91 @@ describe("the known wrong flags teach the canonical command", () => {
   })
 })
 
+describe("the new output flags stay on the migrated surface", () => {
+  test("the work-surface help keeps --json and --fields", async () => {
+    const help = await helpOf(["issue", "update", "--help"])
+    expect(help).toContain("--json")
+    expect(help).toContain("--fields")
+    expect(help).not.toContain("--format")
+    expect(help).not.toContain("--select")
+  })
+
+  test("an admin write help keeps --format and hides the read flags", async () => {
+    const help = await helpOf(["team", "create", "--help"])
+    expect(help).toContain("--format")
+    expect(help).not.toContain("--select")
+    expect(help).not.toContain("--json")
+    expect(help).not.toContain("--fields")
+  })
+
+  test("an admin read help keeps --format and --select", async () => {
+    const help = await helpOf(["whoami", "--help"])
+    expect(help).toContain("--format")
+    expect(help).toContain("--select")
+  })
+
+  test("an admin group help keeps --format and hides --select", async () => {
+    const help = await helpOf(["team", "--help"])
+    expect(help).toContain("--format")
+    expect(help).not.toContain("--select")
+  })
+
+  test("the work surface rejects --format with a usage error", async () => {
+    const lines: string[] = []
+    await run(["issue", "show", "RAT-1", "--format", "json"], lines)
+    expect(lines.join("\n")).toContain("--format and --select flags are not supported")
+    expect(process.exitCode).toBe(2)
+  })
+
+  test("the work surface keeps its text parse error off a terminal", async () => {
+    const lines: string[] = []
+    await runRoot(unusedRecorder().handler, ["issue", "show"], lines, [], {
+      stdio: { stdoutIsTerminal: Effect.succeed(false) },
+    })
+    expect(lines.join("\n")).toContain("error:")
+    expect(lines.join("\n")).not.toContain('"error"')
+  })
+
+  test("a bare invocation prints help off a terminal", async () => {
+    const lines: string[] = []
+    await runRoot(unusedRecorder().handler, [], lines, [], {
+      stdio: { stdoutIsTerminal: Effect.succeed(false) },
+    })
+    expect(lines.join("\n")).toContain("USAGE")
+    expect(process.exitCode).toBe(0)
+  })
+
+  test("a bare group prints help off a terminal", async () => {
+    const lines: string[] = []
+    await runRoot(unusedRecorder().handler, ["issue"], lines, [], {
+      stdio: { stdoutIsTerminal: Effect.succeed(false) },
+    })
+    expect(lines.join("\n")).toContain("USAGE")
+    expect(process.exitCode).toBe(0)
+  })
+
+  test("a bare admin group prints help off a terminal", async () => {
+    const lines: string[] = []
+    await runRoot(unusedRecorder().handler, ["team"], lines, [], {
+      stdio: { stdoutIsTerminal: Effect.succeed(false) },
+    })
+    expect(lines.join("\n")).toContain("USAGE")
+    expect(process.exitCode).toBe(0)
+  })
+
+  test("a root --format before --help is accepted", async () => {
+    const lines: string[] = []
+    await runRoot(unusedRecorder().handler, ["--format", "text", "--help"], lines)
+    expect(lines.join("\n")).toContain("USAGE")
+    expect(process.exitCode).toBe(0)
+  })
+})
+
 describe("the write help carries the agent notes block", () => {
   test("issue update", async () => {
     const help = await helpOf(["issue", "update", "--help"])
     expect(help).toContain("AGENT NOTES")
-    expect(help).toContain("--json prints one JSON document.")
+    expect(help).toContain("Run `rata <command> --help` for the flags of this command.")
     expect(help).toContain("--dry-run prints the actions without writing.")
     expect(help).toContain("--body-file - reads the body from standard input.")
     expect(help).toContain("A list returns one page. Use --all to drain every page.")

@@ -59,7 +59,7 @@ const falseLiterals = Schema.Literals(["false", "no", "off", "0", "n"])
 const isTrueLiteral = Schema.is(trueLiterals)
 const isFalseLiteral = Schema.is(falseLiterals)
 
-const valueFlags = new Set(["--fields", "--log-level", "--completions"])
+const valueFlags = new Set(["--fields", "--format", "--select", "--log-level", "--completions"])
 const booleanFlags = new Set(["--json", "--help", "-h", "--version", "-v", "--wizard"])
 const actionFlags = new Set(["--help", "-h", "--version", "-v", "--wizard", "--completions"])
 

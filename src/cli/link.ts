@@ -1,8 +1,8 @@
 import { Effect, Option } from "effect"
-import { Command, Flag } from "effect/cli"
+import { Flag } from "effect/cli"
 
-import { OutputFields, rejectFields } from "@/cli/fields"
-import { JsonOutput, reportFailure, writeJson, writeLine } from "@/cli/output"
+import { objectField, scalarField } from "@/cli/field/shape"
+import { defineCommand, resourceOutput } from "@/cli/spec"
 import { LinkService } from "@/config/link"
 import { machineTimezone } from "@/domain/timezone"
 
@@ -31,50 +31,9 @@ const nameFlag = Flag.String("name").pipe(
   Flag.optional,
 )
 
-const linkCommand = Command.make(
-  "link",
-  {
-    team: teamFlag,
-    project: projectFlag,
-    workspace: workspaceFlag,
-    create: createFlag,
-    name: nameFlag,
-  },
-  (config) =>
-    Effect.gen(function* link() {
-      const json = yield* JsonOutput
-      yield* rejectFields(yield* OutputFields)
-      const service = yield* LinkService
-      const result = yield* service.link({
-        team: config.team,
-        project: config.project,
-        workspace: config.workspace,
-        create: config.create,
-        name: config.name,
-        timezone: machineTimezone(),
-      })
-      if (json) {
-        return yield* writeJson({
-          team: result.team,
-          project: Option.getOrNull(result.project),
-          workspace: Option.getOrNull(result.workspace),
-          timezone: Option.getOrNull(result.timezone),
-        })
-      }
-      yield* writeLine(`Linked ${result.team.key}: ${result.team.name} (${result.team.id})`)
-      if (Option.isSome(result.timezone)) {
-        yield* writeLine(
-          `Updated timezone: ${result.timezone.value.previous} -> ${result.timezone.value.current}`,
-        )
-      }
-      yield* writeLine("")
-      yield* writeLine("Next steps:")
-      yield* writeLine("  - Confirm the connection: `rata whoami`.")
-      return yield* writeLine("  - List the issues: `rata issue list`.")
-    }).pipe(Effect.catch(reportFailure)),
-).pipe(
-  Command.withDescription("Bind this repository to a Linear team and set its timezone"),
-  Command.withExamples([
+const linkSpec = defineCommand("link", {
+  summary: "Bind this repository to a Linear team and set its timezone",
+  examples: [
     {
       command: "rata link",
       description: "Choose the workspace and the team interactively",
@@ -91,8 +50,57 @@ const linkCommand = Command.make(
       command: "rata link --workspace work --team RAT",
       description: "Link to a team in the work workspace",
     },
-  ]),
-  Command.withGlobalFlags([JsonOutput, OutputFields]),
-)
+  ],
+  input: {
+    team: teamFlag,
+    project: projectFlag,
+    workspace: workspaceFlag,
+    create: createFlag,
+    name: nameFlag,
+  },
+  output: resourceOutput(
+    objectField({
+      team: scalarField,
+      project: scalarField,
+      workspace: scalarField,
+      timezone: scalarField,
+    }),
+  ),
+  run: (input) =>
+    Effect.gen(function* link() {
+      const service = yield* LinkService
+      const result = yield* service.link({
+        team: input.team,
+        project: input.project,
+        workspace: input.workspace,
+        create: input.create,
+        name: input.name,
+        timezone: machineTimezone(),
+      })
+      const timezone = Option.getOrNull(result.timezone)
+      const text = [`Linked ${result.team.key}: ${result.team.name} (${result.team.id})`]
+      if (Option.isSome(result.timezone)) {
+        text.push(
+          `Updated timezone: ${result.timezone.value.previous} -> ${result.timezone.value.current}`,
+        )
+      }
+      text.push(
+        "",
+        "Next steps:",
+        "  - Confirm the connection: `rata whoami`.",
+        "  - List the issues: `rata issue list`.",
+      )
+      return {
+        kind: "resource",
+        value: {
+          team: result.team,
+          project: Option.getOrNull(result.project),
+          workspace: Option.getOrNull(result.workspace),
+          timezone,
+        },
+        text,
+      }
+    }),
+})
 
-export { linkCommand }
+export { linkSpec }

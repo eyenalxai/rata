@@ -1,56 +1,65 @@
 import { Effect, Option } from "effect"
-import { Command } from "effect/cli"
 
-import { OutputFields, rejectFields } from "@/cli/fields"
-import { JsonOutput, errorLine, reportFailure, writeJson, writeLine } from "@/cli/output"
+import { objectField, scalarField } from "@/cli/field/shape"
+import { defineCommand, resourceOutput } from "@/cli/spec"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
+import { TrackerError } from "@/domain/error"
 
-const reportNotLinked = errorLine(
-  "not_linked",
-  "No repository link. Run `rata link` to link this repository.",
-)
-
-const unlinkCommand = Command.make("unlink", {}, () =>
-  Effect.gen(function* unlink() {
-    const json = yield* JsonOutput
-    yield* rejectFields(yield* OutputFields)
-    const repoConfig = yield* RepoConfigService
-    const directory = yield* currentDirectory
-    const existing = yield* repoConfig.read(directory)
-    if (Option.isNone(existing)) {
-      return yield* reportNotLinked
-    }
-    const removed = yield* repoConfig.remove(directory)
-    if (!removed) {
-      return yield* reportNotLinked
-    }
-    const link = existing.value
-    if (json) {
-      return yield* writeJson({
-        team: link.team ?? null,
-        project: link.project ?? null,
-        workspace: link.workspace ?? null,
-      })
-    }
-    return yield* writeLine(
-      link.team === undefined
-        ? "Unlinked this repository."
-        : `Unlinked ${link.team} from this repository.`,
-    )
-  }).pipe(Effect.catch(reportFailure)),
-).pipe(
-  Command.withDescription("Remove the stored link of this repository"),
-  Command.withExamples([
+const unlinkSpec = defineCommand("unlink", {
+  summary: "Remove the stored link of this repository",
+  examples: [
     {
       command: "rata unlink",
       description: "Remove the stored team, project and workspace of this repository",
     },
     {
-      command: "rata unlink --json",
+      command: "rata unlink --format json",
       description: "Print the removed link as JSON",
     },
-  ]),
-  Command.withGlobalFlags([JsonOutput, OutputFields]),
-)
+  ],
+  input: {},
+  output: resourceOutput(
+    objectField({
+      team: scalarField,
+      project: scalarField,
+      workspace: scalarField,
+    }),
+  ),
+  run: () =>
+    Effect.gen(function* unlink() {
+      const repoConfig = yield* RepoConfigService
+      const directory = yield* currentDirectory
+      const existing = yield* repoConfig.read(directory)
+      if (Option.isNone(existing)) {
+        return yield* new TrackerError({
+          code: "not_linked",
+          message: "No repository link. Run `rata link` to link this repository.",
+          hint: null,
+        })
+      }
+      const removed = yield* repoConfig.remove(directory)
+      if (!removed) {
+        return yield* new TrackerError({
+          code: "not_linked",
+          message: "No repository link. Run `rata link` to link this repository.",
+          hint: null,
+        })
+      }
+      const link = existing.value
+      return {
+        kind: "resource",
+        value: {
+          team: link.team ?? null,
+          project: link.project ?? null,
+          workspace: link.workspace ?? null,
+        },
+        text: [
+          link.team === undefined
+            ? "Unlinked this repository."
+            : `Unlinked ${link.team} from this repository.`,
+        ],
+      }
+    }),
+})
 
-export { unlinkCommand }
+export { unlinkSpec }

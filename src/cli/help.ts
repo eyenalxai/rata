@@ -3,9 +3,11 @@ import type { HelpDoc } from "effect/cli"
 import { Context } from "effect"
 import { CliOutput, Command } from "effect/cli"
 
+import { isWorkSurfaceName } from "@/cli/format"
+
 const agentNotes = [
   "AGENT NOTES",
-  "  --json prints one JSON document.",
+  "  Run `rata <command> --help` for the flags of this command.",
   "  --dry-run prints the actions without writing.",
   "  --body-file - reads the body from standard input.",
   "  A list returns one page. Use --all to drain every page.",
@@ -15,11 +17,34 @@ const AgentNotes = Context.Reference<boolean>("rata-cli/cli/help/AgentNotes", {
   defaultValue: () => false,
 })
 
+const Selectable = Context.Reference<boolean>("rata-cli/cli/help/Selectable", {
+  defaultValue: () => false,
+})
+
 const withAgentNotes = <Name extends string, Input, E, R, ContextInput>(
   command: Command.Command<Name, Input, ContextInput, E, R>,
 ): Command.Command<Name, Input, ContextInput, E, R> => Command.annotate(command, AgentNotes, true)
 
+const withSelectable = <Name extends string, Input, E, R, ContextInput>(
+  command: Command.Command<Name, Input, ContextInput, E, R>,
+): Command.Command<Name, Input, ContextInput, E, R> => Command.annotate(command, Selectable, true)
+
 const defaultFormatter = CliOutput.defaultFormatter()
+const filterGlobalFlags = (doc: HelpDoc.HelpDoc): HelpDoc.HelpDoc => {
+  const command = doc.usage.trim().split(/\s+/u)[1]
+  const isWorkSurface = isWorkSurfaceName(command)
+  const selectable = Context.get(doc.annotations, Selectable)
+  const globalFlags = doc.globalFlags?.filter((flag) => {
+    if (flag.name === "format") {
+      return !isWorkSurface
+    }
+    if (flag.name === "select") {
+      return !isWorkSurface && selectable
+    }
+    return true
+  })
+  return { ...doc, ...(globalFlags === undefined ? {} : { globalFlags }) }
+}
 
 let suppressHelp = false
 
@@ -32,7 +57,7 @@ const helpFormatter: CliOutput.Formatter = {
     if (suppressHelp) {
       return ""
     }
-    const text = defaultFormatter.formatHelpDoc(doc)
+    const text = defaultFormatter.formatHelpDoc(filterGlobalFlags(doc))
     return Context.get(doc.annotations, AgentNotes) ? `${text}\n\n${agentNotes}` : text
   },
   formatCliError: defaultFormatter.formatCliError,
@@ -43,4 +68,4 @@ const helpFormatter: CliOutput.Formatter = {
 
 const helpLayer = CliOutput.layer(helpFormatter)
 
-export { helpLayer, setSuppressHelp, withAgentNotes }
+export { helpLayer, Selectable, setSuppressHelp, withAgentNotes, withSelectable }

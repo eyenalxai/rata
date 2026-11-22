@@ -9,8 +9,7 @@ import { Effect } from "effect"
 import { Command } from "effect/cli"
 
 import { searchCommand } from "@/cli/issue"
-import { labelCommand } from "@/cli/label"
-import { projectCommand } from "@/cli/project"
+import { labelCommand, projectCommand } from "@/cli/registry"
 
 const team = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
 const otherTeam = { id: "team-2", key: "OPS", name: "Operations", timezone: "America/New_York" }
@@ -69,7 +68,7 @@ describe("project list team default", () => {
     ]
     const fake = makeFakeLinear({ teams: [team], labels: [], projects })
     const lines: string[] = []
-    await runProject(fake.handler, ["list", "--json"], lines)
+    await runProject(fake.handler, ["list", "--format", "json"], lines)
 
     expect(lastJson(lines)).toEqual({
       projects,
@@ -93,7 +92,7 @@ describe("project list team default", () => {
     ]
     const fake = makeFakeLinear({ teams: [team, otherTeam], labels: [], projects })
     const lines: string[] = []
-    await runProject(fake.handler, ["list", "--team", "OPS", "--json"], lines)
+    await runProject(fake.handler, ["list", "--team", "OPS", "--format", "json"], lines)
 
     const request = fake.requests.find((entry) => entry.query.includes("query Projects"))
     expect(request?.variables.filter).toEqual({
@@ -116,7 +115,7 @@ describe("label list team default", () => {
     const labels = [{ id: "label-1", name: "ready-for-agent", color: "#111111", teamId: "team-1" }]
     const fake = makeFakeLinear({ teams: [team], labels })
     const lines: string[] = []
-    await runLabel(fake.handler, ["list", "--json"], lines)
+    await runLabel(fake.handler, ["list", "--format", "json"], lines)
 
     expect(lastJson(lines)).toEqual({
       labels: [{ id: "label-1", name: "ready-for-agent", color: "#111111" }],
@@ -133,7 +132,7 @@ describe("label list team default", () => {
     ]
     const fake = makeFakeLinear({ teams: [team, otherTeam], labels })
     const lines: string[] = []
-    await runLabel(fake.handler, ["list", "--team", "OPS", "--json"], lines)
+    await runLabel(fake.handler, ["list", "--team", "OPS", "--format", "json"], lines)
 
     const request = fake.requests.find((entry) => entry.query.includes("query Labels"))
     expect(request?.variables).toEqual({ teamId: "team-2", first: 50, after: null })

@@ -1,12 +1,12 @@
 import { Effect, Result } from "effect"
-import { Argument, Command } from "effect/cli"
+import { Argument } from "effect/cli"
 import { EOL } from "node:os"
 
 import type { Viewer } from "@/linear/decode/viewer"
 import type { LinearApiError } from "@/linear/errors"
 
-import { OutputFields, rejectFields } from "@/cli/fields"
-import { JsonOutput, reportFailure, writeJson, writeLine } from "@/cli/output"
+import { arrayField, objectField, scalarField } from "@/cli/field/shape"
+import { defineCommand, resourceOutput } from "@/cli/spec"
 import { Auth } from "@/config/auth"
 import { LinearGateway } from "@/linear/gateway"
 
@@ -36,61 +36,68 @@ const nameArgument = Argument.String("name").pipe(
   Argument.withDescription("Workspace profile name"),
 )
 
-const listCommand = Command.make("list", {}, () =>
-  Effect.gen(function* listWorkspaces() {
-    const json = yield* JsonOutput
-    yield* rejectFields(yield* OutputFields)
-    const workspaces = yield* collectWorkspaces()
-    if (json) {
-      return yield* writeJson({
+const workspaceListSpec = defineCommand("list", {
+  summary: "List the stored workspaces with their viewer and organization",
+  input: {},
+  output: resourceOutput(
+    objectField({
+      workspaces: arrayField(
+        objectField({
+          name: scalarField,
+          default: scalarField,
+          viewer: scalarField,
+          error: scalarField,
+        }),
+      ),
+    }),
+  ),
+  run: () =>
+    Effect.gen(function* listWorkspaces() {
+      const workspaces = yield* collectWorkspaces()
+      const value = {
         workspaces: workspaces.map((workspace) => ({
           name: workspace.name,
           default: workspace.default,
           viewer: Result.isSuccess(workspace.result) ? workspace.result.success : null,
           error: Result.isFailure(workspace.result) ? workspace.result.failure.message : null,
         })),
-      })
-    }
-    if (workspaces.length === 0) {
-      return yield* writeLine("No stored workspaces.")
-    }
-    return yield* writeLine(
-      workspaces
-        .map((workspace) =>
-          Result.isSuccess(workspace.result)
-            ? `${workspace.default ? "*" : " "} ${workspace.name}\t${workspace.result.success.name} <${workspace.result.success.email}>\t${workspace.result.success.organization.name}`
-            : `${workspace.default ? "*" : " "} ${workspace.name}\t! ${workspace.result.failure.message}`,
-        )
-        .join(EOL),
-    )
-  }).pipe(Effect.catch(reportFailure)),
-).pipe(Command.withDescription("List the stored workspaces with their viewer and organization"))
+      }
+      const text =
+        workspaces.length === 0
+          ? ["No stored workspaces."]
+          : [
+              workspaces
+                .map((workspace) =>
+                  Result.isSuccess(workspace.result)
+                    ? `${workspace.default ? "*" : " "} ${workspace.name}\t${workspace.result.success.name} <${workspace.result.success.email}>\t${workspace.result.success.organization.name}`
+                    : `${workspace.default ? "*" : " "} ${workspace.name}\t! ${workspace.result.failure.message}`,
+                )
+                .join(EOL),
+            ]
+      return { kind: "resource", value, text }
+    }),
+})
 
-const useCommand = Command.make("use", { name: nameArgument }, (config) =>
-  Effect.gen(function* useWorkspace() {
-    const json = yield* JsonOutput
-    yield* rejectFields(yield* OutputFields)
-    const auth = yield* Auth
-    yield* auth.use(config.name)
-    if (json) {
-      return yield* writeJson({ default: config.name })
-    }
-    return yield* writeLine(`Default workspace: ${config.name}.`)
-  }).pipe(Effect.catch(reportFailure)),
-).pipe(
-  Command.withDescription("Set the default workspace profile"),
-  Command.withExamples([
+const workspaceUseSpec = defineCommand("use", {
+  summary: "Set the default workspace profile",
+  examples: [
     {
       command: "rata workspace use work",
       description: "Use the work profile when no repository selects one",
     },
-  ]),
-)
+  ],
+  input: { name: nameArgument },
+  output: resourceOutput(objectField({ default: scalarField })),
+  run: (input) =>
+    Effect.gen(function* useWorkspace() {
+      const auth = yield* Auth
+      yield* auth.use(input.name)
+      return {
+        kind: "resource",
+        value: { default: input.name },
+        text: [`Default workspace: ${input.name}.`],
+      }
+    }),
+})
 
-const workspaceCommand = Command.make("workspace").pipe(
-  Command.withDescription("Manage the stored Linear workspace profiles"),
-  Command.withSubcommands([listCommand, useCommand]),
-  Command.withGlobalFlags([JsonOutput, OutputFields]),
-)
-
-export { collectWorkspaces, workspaceCommand }
+export { collectWorkspaces, workspaceListSpec, workspaceUseSpec }

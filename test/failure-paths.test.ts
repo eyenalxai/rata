@@ -53,7 +53,7 @@ afterEach(async () => {
 describe("failure paths", () => {
   test("reports a missing key as an auth error", async () => {
     const directory = await temporaryDirectory()
-    const result = await run(["whoami", "--json"], {
+    const result = await run(["whoami"], {
       HOME: directory,
       XDG_DATA_HOME: path.join(directory, "data"),
     })
@@ -63,7 +63,7 @@ describe("failure paths", () => {
   })
 
   test("reports a database-open failure as internal for whoami", async () => {
-    const result = await run(["whoami", "--json"], {
+    const result = await run(["whoami"], {
       HOME: "/proc",
       XDG_DATA_HOME: "/proc/data",
     })

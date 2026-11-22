@@ -78,7 +78,7 @@ afterEach(() => {
 describe("team list pages", () => {
   test("returns one page with pageInfo and continues from --after", async () => {
     const first: string[] = []
-    await runRootMemory(seed(), ["team", "list", "--limit", "1", "--json"], first)
+    await runRootMemory(seed(), ["team", "list", "--limit", "1", "--format", "json"], first)
     expect(lastJson(first)).toEqual({
       teams: [team],
       pageInfo: { hasNextPage: true, endCursor: "team-1" },
@@ -87,7 +87,7 @@ describe("team list pages", () => {
     const second: string[] = []
     await runRootMemory(
       seed(),
-      ["team", "list", "--limit", "1", "--after", "team-1", "--json"],
+      ["team", "list", "--limit", "1", "--after", "team-1", "--format", "json"],
       second,
     )
     expect(lastJson(second)).toEqual({
@@ -115,7 +115,7 @@ describe("team list pages", () => {
 describe("project list pages", () => {
   test("returns one page with pageInfo", async () => {
     const lines: string[] = []
-    await runRootMemory(seed(), ["project", "list", "--limit", "1", "--json"], lines)
+    await runRootMemory(seed(), ["project", "list", "--limit", "1", "--format", "json"], lines)
     expect(lastJson(lines)).toEqual({
       projects: [projects[0]],
       pageInfo: { hasNextPage: true, endCursor: "project-1" },
@@ -139,7 +139,7 @@ describe("project list pages", () => {
     const lines: string[] = []
     await runRootMemory(
       seed({ projects: trashedProjects }),
-      ["project", "list", "--include-archived", "--json"],
+      ["project", "list", "--include-archived", "--format", "json"],
       lines,
     )
     expect(lastJson(lines)).toEqual({
@@ -158,7 +158,11 @@ describe("project list pages", () => {
 describe("label list pages", () => {
   test("returns one page with pageInfo", async () => {
     const lines: string[] = []
-    await runRootMemory(seed(), ["label", "list", "--team", "RAT", "--limit", "1", "--json"], lines)
+    await runRootMemory(
+      seed(),
+      ["label", "list", "--team", "RAT", "--limit", "1", "--format", "json"],
+      lines,
+    )
     expect(lastJson(lines)).toEqual({
       labels: [{ id: labelId("label-1"), name: "ready-for-agent", color: "#111111" }],
       pageInfo: { hasNextPage: true, endCursor: "label-1" },
