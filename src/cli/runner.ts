@@ -267,6 +267,7 @@ const runCli = <Name extends string, Input, ContextInput, E, R>(
 
 export {
   Format,
+  supportsSelect,
   OutputSelect,
   buildCommand,
   buildGroup,

@@ -33,14 +33,13 @@ const workSurfaceCommands = new Set(["issue", "search", "next", "why"])
 const filterGlobalFlags = (doc: HelpDoc.HelpDoc): HelpDoc.HelpDoc => {
   const command = doc.usage.trim().split(/\s+/u)[1]
   const isWorkSurface = command !== undefined && workSurfaceCommands.has(command)
-  const isLeaf = doc.subcommands === undefined || doc.subcommands.length === 0
   const selectable = Context.get(doc.annotations, Selectable)
   const globalFlags = doc.globalFlags?.filter((flag) => {
     if (flag.name === "format") {
       return !isWorkSurface
     }
     if (flag.name === "select") {
-      return !isWorkSurface && (!isLeaf || selectable)
+      return !isWorkSurface && selectable
     }
     return true
   })
