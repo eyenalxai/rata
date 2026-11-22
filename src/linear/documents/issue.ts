@@ -1,5 +1,6 @@
 import {
   attachmentFields,
+  childFields,
   commentFields,
   listRelationFields,
   summaryFields,
@@ -94,23 +95,79 @@ const aliasVariables = (count: number): string =>
     ", ",
   )
 
-const workingAttachmentsPageQuery = (count: number, first: number): string =>
-  `query IssueWorkingAttachments(${aliasVariables(count)}) {
+const aliasConnectionPageQuery = (input: {
+  readonly name: string
+  readonly count: number
+  readonly field: string
+  readonly first: number
+  readonly selection: string
+  readonly arguments?: string | undefined
+}): string => {
+  const extra = input.arguments === undefined ? "" : `, ${input.arguments}`
+  return `query ${input.name}(${aliasVariables(input.count)}) {
 ${Array.from(
-  { length: count },
+  { length: input.count },
   (_, index) =>
-    `  issue${index}: issue(id: $id${index}) { attachments(first: ${first}, after: $after${index}) { nodes { ${attachmentFields} } pageInfo { hasNextPage endCursor } } }`,
+    `  issue${index}: issue(id: $id${index}) { ${input.field}(first: ${input.first}, after: $after${index}${extra}) { ${input.selection} pageInfo { hasNextPage endCursor } } }`,
 ).join("\n")}
 }`
+}
+
+const workingLabelsPageQuery = (count: number, first: number): string =>
+  aliasConnectionPageQuery({
+    name: "IssueWorkingLabels",
+    count,
+    field: "labels",
+    first,
+    selection: "nodes { id name }",
+  })
+
+const workingRelationsPageQuery = (count: number, first: number): string =>
+  aliasConnectionPageQuery({
+    name: "IssueWorkingRelations",
+    count,
+    field: "relations",
+    first,
+    selection: "nodes { id type relatedIssue { id identifier title state { name type } } }",
+  })
+
+const workingInverseRelationsPageQuery = (count: number, first: number): string =>
+  aliasConnectionPageQuery({
+    name: "IssueWorkingInverseRelations",
+    count,
+    field: "inverseRelations",
+    first,
+    selection: "nodes { id type issue { id identifier title state { name type } } }",
+  })
+
+const workingChildrenPageQuery = (count: number, first: number, full: boolean): string =>
+  aliasConnectionPageQuery({
+    name: full ? "IssueFullWorkingChildren" : "IssueWorkingChildren",
+    count,
+    field: "children",
+    first,
+    selection: `nodes {${childFields(full)}
+    }`,
+  })
+
+const workingAttachmentsPageQuery = (count: number, first: number): string =>
+  aliasConnectionPageQuery({
+    name: "IssueWorkingAttachments",
+    count,
+    field: "attachments",
+    first,
+    selection: `nodes { ${attachmentFields} }`,
+  })
 
 const workingCommentsPageQuery = (count: number, first: number): string =>
-  `query IssueWorkingComments(${aliasVariables(count)}) {
-${Array.from(
-  { length: count },
-  (_, index) =>
-    `  issue${index}: issue(id: $id${index}) { comments(first: ${first}, after: $after${index}, orderBy: createdAt) { nodes { ${commentFields} } pageInfo { hasNextPage endCursor } } }`,
-).join("\n")}
-}`
+  aliasConnectionPageQuery({
+    name: "IssueWorkingComments",
+    count,
+    field: "comments",
+    first,
+    selection: `nodes { ${commentFields} }`,
+    arguments: "orderBy: createdAt",
+  })
 
 const labelsQuery = `query IssueLabels($id: String!, $first: Int!, $after: String) {
   issue(id: $id) {
@@ -150,7 +207,11 @@ export {
   prioritySort,
   searchQuery,
   workingAttachmentsPageQuery,
+  workingChildrenPageQuery,
   workingCommentsPageQuery,
+  workingInverseRelationsPageQuery,
+  workingLabelsPageQuery,
+  workingRelationsPageQuery,
   workingSetQuery,
   workingSummaryQuery,
 }

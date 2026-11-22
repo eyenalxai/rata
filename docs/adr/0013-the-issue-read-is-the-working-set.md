@@ -35,8 +35,11 @@ needs a compact pointer, not a flood of descriptions.
   size, `--after` continues and `--all` drains. It returns no descriptions.
 - A page holds up to 250 refs in summary mode, 5 in working mode and 3 in full
   mode. The query nests its connections, and Linear caps one query at 10,000
-  complexity points. Children are capped at 50, relations at 25 per direction,
-  attachments at 25, comments at 10 and child blockers at 5.
+  complexity points. The first page of each connection uses a safe bound; every
+  requested connection then drains its remaining pages with one batched request
+  per connection page. `--full` drains relations; it does not stop at 25 per
+  direction. Children, relations, labels, attachments and comments are not
+  silently capped.
 - `issue show`, `issue view`, `issue status`, `next`, `why`, `--json`, `--fields`,
   `--count`, `--ids-only` and `--include` exit 2 with a `usage` error.
 

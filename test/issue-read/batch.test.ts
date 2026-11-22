@@ -46,6 +46,14 @@ describe("issue <ref>...", () => {
     })
   })
 
+  test("reports a missing ref in a mixed batch as not_found", async () => {
+    const lines: string[] = []
+    await runIssueMemory(seed(), ["RAT-1", "RAT-404", "RAT-2", "--format", "json"], lines)
+
+    expect(lastJsonRecord(lines)).toMatchObject({ error: { code: "not_found" } })
+    expect(process.exitCode).toBe(3)
+  })
+
   test("reports a missing ref as not_found", async () => {
     const lines: string[] = []
     await runIssueMemory(seed(), ["RAT-404", "--format", "json"], lines)

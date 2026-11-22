@@ -2,7 +2,7 @@ import { Effect } from "effect"
 import { Argument, Flag } from "effect/cli"
 import { EOL } from "node:os"
 
-import type { IssueReadMode } from "@/tracker/model"
+import type { IssueReadMode } from "@/domain/issue-read"
 
 import { formatReadDocument } from "@/cli/issue/format"
 import { issueReadShapes } from "@/cli/issue/shape"
@@ -56,7 +56,7 @@ const readSpec = defineCommand("issue", {
     full: fullFlag,
     comments: commentsFlag,
   },
-  output: [selectOutput(issueReadShapes.full), collectionOutput(issueReadShapes.full)],
+  selectable: true,
   outputFor: (input) => {
     const shape = input.summary
       ? issueReadShapes.summary

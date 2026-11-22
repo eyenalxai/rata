@@ -143,8 +143,9 @@ array of scalars is `validation`; an empty array returns `[]`. A list keeps
 mutually exclusive. Many refs print `{ "items", "pageInfo" }`; each page of refs
 is one list request, not one detail read per ref. Under Linear's 10,000-point
 query cap, a page holds up to 250 refs in summary mode, 5 in working mode and 3
-in full mode. Nested connections are capped at 50 children, 25 relations per
-direction, 25 attachments and 10 comments; child blocker connections hold up to 5.
+in full mode. Every requested connection is drained: children, relations, labels,
+attachments and comments each fetch their remaining pages in one batched request
+per connection page.
 
 ### `issue list` flags
 

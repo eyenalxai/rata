@@ -58,8 +58,9 @@ type CommandSpec<Name extends string, Config extends CliCommand.Command.Config, 
   readonly summary: string
   readonly examples?: readonly CliCommand.Command.Example[] | undefined
   readonly input: Config
-  readonly output: OutputSpecs
+  readonly output?: OutputSpecs | undefined
   readonly outputFor?: ((input: CliCommand.Command.Config.Infer<Config>) => OutputSpecs) | undefined
+  readonly selectable?: boolean | undefined
   readonly control?:
     | ((input: CliCommand.Command.Config.Infer<Config>) => RunnerControlInput)
     | undefined
@@ -95,10 +96,11 @@ const defineCommand = <
     readonly summary: string
     readonly examples?: readonly CliCommand.Command.Example[] | undefined
     readonly input: Config
-    readonly output: OutputSpecs
+    readonly output?: OutputSpecs | undefined
     readonly outputFor?:
       | ((input: CliCommand.Command.Config.Infer<Config>) => OutputSpecs)
       | undefined
+    readonly selectable?: boolean | undefined
     readonly control?:
       | ((input: CliCommand.Command.Config.Infer<Config>) => RunnerControlInput)
       | undefined
@@ -112,8 +114,9 @@ const defineCommand = <
   summary: spec.summary,
   ...(spec.examples === undefined ? {} : { examples: spec.examples }),
   input: spec.input,
-  output: spec.output,
+  ...(spec.output === undefined ? {} : { output: spec.output }),
   ...(spec.outputFor === undefined ? {} : { outputFor: spec.outputFor }),
+  ...(spec.selectable === undefined ? {} : { selectable: spec.selectable }),
   ...(spec.control === undefined ? {} : { control: spec.control }),
   run: (input, control) => spec.run(input, control).pipe(Effect.mapError(toTrackerError)),
 })

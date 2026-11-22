@@ -33,7 +33,7 @@ import { sortAndLimitNodes, toSummary } from "@/tracker/model"
 import { parseBatchRefs, requireBatchRefs } from "@/tracker/read/batch"
 import { validateNamedFilters } from "@/tracker/read/filter-check"
 import { listInput } from "@/tracker/read/list-input"
-import { toWorkingSet } from "@/tracker/read/working-set"
+import { toFullWorkingSet, toWorkingSet } from "@/tracker/read/working-set"
 import { requireTeamId, resolveAssigneeId, resolveIssueId } from "@/tracker/resolve"
 
 type IssueListError =
@@ -151,24 +151,33 @@ class IssueReader extends Context.Service<IssueReader, IssueReaderShape>()(
         const requested = yield* parseBatchRefs(refs)
         const page = yield* gateway.issue.workingSet(requested, options)
         yield* requireBatchRefs(requested, page.nodes)
-        const byRef = new Map(
-          page.nodes.flatMap((node) => [
-            [String(node.id), node] as const,
-            [node.identifier, node] as const,
-          ]),
-        )
-        const nodes = []
-        for (const ref of requested) {
-          const node = byRef.get(ref)
-          if (node === undefined) {
-            return yield* Effect.die(`The working-set read lost the issue ${ref}.`)
-          }
-          nodes.push(node)
+        const order = <Node extends { readonly id: string; readonly identifier: string }>(
+          nodes: readonly Node[],
+        ) =>
+          Effect.gen(function* orderWorkingNodes() {
+            const byRef = new Map(
+              nodes.flatMap((node) => [[node.id, node] as const, [node.identifier, node] as const]),
+            )
+            const ordered: Node[] = []
+            for (const ref of requested) {
+              const node = byRef.get(ref)
+              if (node === undefined) {
+                return yield* Effect.die(`The working-set read lost the issue ${ref}.`)
+              }
+              ordered.push(node)
+            }
+            return ordered
+          })
+        if (page.mode === "summary") {
+          const nodes = yield* order(page.nodes)
+          return { items: nodes.map(toSummary), pageInfo: page.pageInfo }
         }
-        return {
-          items: nodes.map((node) => toWorkingSet(node, options)),
-          pageInfo: page.pageInfo,
+        if (page.mode === "full") {
+          const nodes = yield* order(page.nodes)
+          return { items: nodes.map(toFullWorkingSet), pageInfo: page.pageInfo }
         }
+        const nodes = yield* order(page.nodes)
+        return { items: nodes.map(toWorkingSet), pageInfo: page.pageInfo }
       })
 
       return IssueReader.of({ list, search, workingSet })

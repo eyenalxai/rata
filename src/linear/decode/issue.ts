@@ -219,6 +219,7 @@ export {
   type IssueInverseRelation,
   IssueInverseRelationConnection,
   type IssueLabel,
+  IssueLabelConnection,
   type IssueParent,
   type IssueProject,
   type IssueRelation,

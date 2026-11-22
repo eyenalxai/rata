@@ -93,13 +93,14 @@ repository `workspace` of the repository config, the `default` profile.
 
 ## One spelling per operation
 
-Each operation has one spelling. The other spellings fail with a `validation`
-error and one hint that names the canonical one.
+Each operation has one spelling. A removed read form fails with a `usage` error;
+a wrong write form fails with a `validation` error. One hint names the canonical
+form.
 
 | Operation           | Canonical form                                                        | Rejected form                |
 | ------------------- | --------------------------------------------------------------------- | ---------------------------- |
 | Read an issue       | `rata issue <ref>`                                                    | `rata issue show <ref>`      |
-| Read the header     | `rata issue <ref> --summary`                                          | `rata issue status <ref>`    |
+| Read the summary    | `rata issue <ref> --summary`                                          | `rata issue status <ref>`    |
 | Read many issues    | `rata issue <ref> <ref> ...`                                          | repeated `issue <ref>` calls |
 | Comment on an issue | `rata issue comment create <ref> --body-file -`                       | `rata issue comment <ref>`   |
 | Assign an issue     | `rata issue assign <ref> --assignee <me\|none\|id> [--take]`          | `rata issue assign <ref> me` |
@@ -136,7 +137,7 @@ document keeps its named sections. A write prints its result object.
 | `config show`                             | `{ defaults }`                                                                                                                                   |
 | A write                                   | The write result object                                                                                                                          |
 
-The working set carries the header fields, the parsed `sections`, `blocked` and
+The working set carries the summary fields, the parsed `sections`, `blocked` and
 `blockedBy`, the Linear `github` attachments as `prs`, lean `children` with
 `blocked` and `blockedBy`, `frontier` (open, unblocked, unassigned children),
 `nextChild` (the first frontier row) and `comments: null`. `--comments` fills the
@@ -937,12 +938,12 @@ Many refs print `{ "items": [...], "pageInfo": { ... } }`. One ref prints the
 working-set object at the top level.
 
 The working-set query nests its connections. Linear caps one query at 10,000
-complexity points, so the batch size and each connection are bounded: one page
-holds up to 250 refs in `--summary` mode, 5 refs in the working mode and 3 refs
-in `--full` mode. The nested connections hold up to 50 children, 25 relations per
-direction, 25 attachments and 10 comments; child blocker connections hold up to 5. The read is one list request per page. Attachment and comment connections
-follow their next pages in one batched request per connection page; the other
-connections are capped.
+complexity points, so the page size and the first page of each connection use
+safe bounds: one page holds up to 250 refs in `--summary` mode, 5 refs in the
+working mode and 3 refs in `--full` mode. When a requested connection has a next
+page, rata drains it with one batched request per connection page, merges the
+rows, then computes `frontier`, `nextChild` and `blockedBy`. Children, relations,
+labels, attachments and comments are all drained; no output is silently capped.
 
 The PR projection reads the Linear `github` attachments. Each PR carries its
 number, repo, url, status, draft flag, reviews, conflict flag, `mergedAt` and

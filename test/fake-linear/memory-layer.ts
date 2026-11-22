@@ -2,7 +2,7 @@ import type { CacheSeed, ProfileSeed, RepositorySeed } from "@test/database-harn
 import type { MemorySeed } from "@test/fake-linear/gateway/model"
 
 import { databaseLayer } from "@test/database-harness"
-import { memoryGatewayLayer } from "@test/fake-linear/gateway/memory"
+import { memoryGatewayLayer } from "@test/fake-linear/gateway/layer"
 import { defaultEnv } from "@test/fake-linear/model"
 import { ConfigProvider, Effect, FileSystem, Layer, Path, Stdio } from "effect"
 

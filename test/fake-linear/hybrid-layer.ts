@@ -3,7 +3,7 @@ import type { MemorySeed } from "@test/fake-linear/gateway/model"
 import type { Handler } from "@test/fake-linear/model"
 
 import { databaseLayer } from "@test/database-harness"
-import { memoryGatewayLayer } from "@test/fake-linear/gateway/memory"
+import { memoryGatewayLayer } from "@test/fake-linear/gateway/layer"
 import { defaultEnv } from "@test/fake-linear/model"
 import { ConfigProvider, Effect, FileSystem, Layer, Path, Stdio } from "effect"
 import { HttpClient, HttpClientResponse } from "effect/http"

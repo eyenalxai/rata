@@ -186,12 +186,16 @@ describe("LinearGateway reads", () => {
     const page = await Effect.runPromise(
       gateway.issue.workingSet([issueRef("RAT-4")], { comments: false, mode: "working" }),
     )
+    expect(page.mode).toBe("working")
+    if (page.mode !== "working") {
+      throw new Error("expected the working mode")
+    }
     const detail = page.nodes[0]
 
-    expect(detail?.relations?.nodes.map((relation) => relation.relatedIssue.identifier)).toEqual([
+    expect(detail?.relations.nodes.map((relation) => relation.relatedIssue.identifier)).toEqual([
       "RAT-8",
     ])
-    expect(detail?.inverseRelations?.nodes.map((relation) => relation.issue.identifier)).toEqual([
+    expect(detail?.inverseRelations.nodes.map((relation) => relation.issue.identifier)).toEqual([
       "RAT-9",
     ])
   })
@@ -203,6 +207,9 @@ describe("LinearGateway reads", () => {
     const full = await Effect.runPromise(
       gateway.issue.workingSet([issueRef("RAT-4")], { comments: true, mode: "working" }),
     )
+    if (lean.mode !== "working" || full.mode !== "working") {
+      throw new Error("expected the working mode")
+    }
 
     expect(lean.nodes[0]?.comments).toBeUndefined()
     expect(full.nodes[0]?.comments?.nodes.map((comment) => comment.body)).toEqual([

@@ -49,10 +49,23 @@ const workingSummaryFields = `
       assignee { id name displayName }
       project { id name }
       parent { id identifier title }
-      labels(first: ${workingLimits.labels}) { nodes { id name } }`
+      labels(first: ${workingLimits.labels}) { nodes { id name } pageInfo { hasNextPage endCursor } }`
 
-const childSummaryFields = (labels: number): string => `
-          id
+const leanChildFields = () => {
+  const { inverseRelations } = relationFields(workingLimits.childRelations)
+  return `id
+          identifier
+          title
+          state { name type }
+          priority
+          createdAt
+          assignee { id name displayName }
+          ${inverseRelations}`
+}
+
+const fullChildFields = () => {
+  const { inverseRelations } = relationFields(workingLimits.childRelations)
+  return `id
           identifier
           title
           url
@@ -63,25 +76,28 @@ const childSummaryFields = (labels: number): string => `
           assignee { id name displayName }
           project { id name }
           parent { id identifier title }
-          labels(first: ${labels}) { nodes { id name } }`
-
-const workingChildFields = (full: boolean): string => {
-  const { inverseRelations } = relationFields(workingLimits.childRelations)
-  return `${childSummaryFields(full ? workingLimits.childLabels : 1)}
+          labels(first: ${workingLimits.childLabels}) { nodes { id name } pageInfo { hasNextPage endCursor } }
           ${inverseRelations}`
 }
+
+const childFields = (full: boolean): string => (full ? fullChildFields() : leanChildFields())
+
+const childrenConnection = (full: boolean, first: number): string =>
+  `children(first: ${first}) { nodes {${childFields(full)}
+    } pageInfo { hasNextPage endCursor } }`
 
 const workingFields = (full: boolean): string =>
   `    relations(first: ${workingLimits.relations}) { nodes { id type relatedIssue { id identifier title state { name type } } } pageInfo { hasNextPage endCursor } }
     inverseRelations(first: ${workingLimits.relations}) { nodes { id type issue { id identifier title state { name type } } } pageInfo { hasNextPage endCursor } }
-    children(first: ${workingLimits.children}) { nodes {${workingChildFields(full)}
-    } pageInfo { hasNextPage endCursor } }
+    ${childrenConnection(full, workingLimits.children)}
     attachments(first: ${workingLimits.attachments}) { nodes { ${attachmentFields} } pageInfo { hasNextPage endCursor } }`
 
 const commentFields = `id body createdAt user { id name displayName }`
 
 export {
   attachmentFields,
+  childFields,
+  childrenConnection,
   commentFields,
   listRelationFields,
   summaryFields,

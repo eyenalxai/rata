@@ -1,7 +1,13 @@
 import type { MemoryIssue } from "@test/fake-linear/gateway/model"
 
 import type { IssueChild, IssueSummaryNode } from "@/linear/decode/issue"
-import type { IssueWorkingNode } from "@/linear/decode/issue/working-set"
+import type {
+  IssueFullWorkingNode,
+  IssueWorkingChildFullNode,
+  IssueWorkingChildNode,
+  IssueWorkingNode,
+  WorkingSummaryNode,
+} from "@/linear/decode/issue/working-set"
 import type { IssueListOptions } from "@/linear/operations/issue/filter"
 
 import { isUuid, relationId } from "@/domain/id"
@@ -161,6 +167,7 @@ const childSummary = (child: IssueChild, issues: readonly MemoryIssue[]): IssueS
       project: null,
       parent: null,
       labels: { nodes: [] },
+      inverseRelations: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } },
     }
   }
   return {
@@ -169,37 +176,84 @@ const childSummary = (child: IssueChild, issues: readonly MemoryIssue[]): IssueS
   }
 }
 
+const labelConnection = (summary: IssueSummaryNode) => ({
+  nodes: summary.labels.nodes,
+  pageInfo: { hasNextPage: false, endCursor: null },
+})
+
+const inverseOf = (summary: IssueSummaryNode) =>
+  summary.inverseRelations ?? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } }
+
+const summaryNode = (issue: MemoryIssue): WorkingSummaryNode => ({
+  ...issue.summary,
+  labels: labelConnection(issue.summary),
+})
+
+const leanChildNode = (summary: IssueSummaryNode): IssueWorkingChildNode => ({
+  id: summary.id,
+  identifier: summary.identifier,
+  title: summary.title,
+  state: summary.state,
+  priority: summary.priority,
+  createdAt: summary.createdAt,
+  assignee: summary.assignee,
+  inverseRelations: inverseOf(summary),
+})
+
+const fullChildNode = (summary: IssueSummaryNode): IssueWorkingChildFullNode => ({
+  ...summary,
+  labels: labelConnection(summary),
+  inverseRelations: inverseOf(summary),
+})
+
+const commentsOf = (issue: MemoryIssue, requested: boolean) =>
+  requested
+    ? {
+        comments: {
+          nodes: [...(issue.comments ?? [])].toSorted((left, right) =>
+            left.createdAt < right.createdAt ? -1 : left.createdAt > right.createdAt ? 1 : 0,
+          ),
+          pageInfo: { hasNextPage: false, endCursor: null },
+        },
+      }
+    : {}
+
 const toWorking = (
   issue: MemoryIssue,
   issues: readonly MemoryIssue[],
-  options: { readonly comments: boolean; readonly mode: "summary" | "working" | "full" },
-): IssueWorkingNode => {
-  if (options.mode === "summary") {
-    return { ...issue.summary }
-  }
-  return {
-    ...issue.summary,
-    ...relationConnections(issue),
-    description: issue.description,
-    children: {
-      nodes: (issue.children ?? []).map((child) => childSummary(child, issues)),
-      pageInfo: { hasNextPage: false, endCursor: null },
-    },
-    attachments: {
-      nodes: issue.attachments ?? [],
-      pageInfo: { hasNextPage: false, endCursor: null },
-    },
-    ...(options.comments
-      ? {
-          comments: {
-            nodes: [...(issue.comments ?? [])].toSorted((left, right) =>
-              left.createdAt < right.createdAt ? -1 : left.createdAt > right.createdAt ? 1 : 0,
-            ),
-            pageInfo: { hasNextPage: false, endCursor: null },
-          },
-        }
-      : {}),
-  }
-}
+  options: { readonly comments: boolean },
+): IssueWorkingNode => ({
+  ...summaryNode(issue),
+  description: issue.description,
+  children: {
+    nodes: (issue.children ?? []).map((item) => leanChildNode(childSummary(item, issues))),
+    pageInfo: { hasNextPage: false, endCursor: null },
+  },
+  ...relationConnections(issue),
+  attachments: {
+    nodes: issue.attachments ?? [],
+    pageInfo: { hasNextPage: false, endCursor: null },
+  },
+  ...commentsOf(issue, options.comments),
+})
 
-export { byPriority, matchesIssue, toWorking, withRelations }
+const toFullWorking = (
+  issue: MemoryIssue,
+  issues: readonly MemoryIssue[],
+  options: { readonly comments: boolean },
+): IssueFullWorkingNode => ({
+  ...summaryNode(issue),
+  description: issue.description,
+  children: {
+    nodes: (issue.children ?? []).map((item) => fullChildNode(childSummary(item, issues))),
+    pageInfo: { hasNextPage: false, endCursor: null },
+  },
+  ...relationConnections(issue),
+  attachments: {
+    nodes: issue.attachments ?? [],
+    pageInfo: { hasNextPage: false, endCursor: null },
+  },
+  ...commentsOf(issue, options.comments),
+})
+
+export { byPriority, matchesIssue, summaryNode, toFullWorking, toWorking, withRelations }

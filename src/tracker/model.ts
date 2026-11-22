@@ -1,4 +1,5 @@
 import type { IssueId } from "@/domain/id"
+import type { IssueReadMode } from "@/domain/issue-read"
 import type { PullRequest } from "@/domain/pr"
 import type { Priority } from "@/domain/priority"
 import type { RelationTargets } from "@/domain/relation"
@@ -91,8 +92,6 @@ type IssueWorkingSetFull = IssueWorkingSetBase<IssueWorkingChildFull> & {
   readonly relations: IssueRelations
 }
 
-type IssueReadMode = "summary" | "working" | "full"
-
 type IssueReadDocument = IssueSummary | IssueWorkingSet | IssueWorkingSetFull
 
 type IssueWorkingSetOptions = {
@@ -172,7 +171,10 @@ const byCreatedAt = (
   return 0
 }
 
-const byPriority = (left: IssueSummaryNode, right: IssueSummaryNode): number => {
+const byPriority = (
+  left: { readonly priority: Priority; readonly createdAt: string },
+  right: { readonly priority: Priority; readonly createdAt: string },
+): number => {
   const rank = priorityRank(left.priority) - priorityRank(right.priority)
   return rank === 0 ? byCreatedAt(left, right) : rank
 }
@@ -201,7 +203,6 @@ export {
   type IssueListOptions,
   type IssuePage,
   type IssueReadDocument,
-  type IssueReadMode,
   type IssueRelations,
   type IssueSearchOptions,
   type IssueSummary,
