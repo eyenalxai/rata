@@ -96,6 +96,9 @@ const makeRecorder = (respond: (request: GraphQLRequest) => Response): Recorder 
   const handler: Handler = (httpRequest: HttpClientRequest.HttpClientRequest) => {
     const request = readRequest(httpRequest)
     requests.push(request)
+    if (request.query.includes("query IssueTeam")) {
+      return jsonResponse({ data: { issue: { team: { id: "team-1" } } } })
+    }
     return respond(request)
   }
   return { handler, requests }

@@ -39,8 +39,11 @@ const otherTeam: MemoryTeam = {
   key: "OPS",
   name: "Operations",
   timezone: "America/New_York",
-  states: [],
-  labels: [],
+  states: [
+    { id: workflowStateId("s-review"), name: "Review", type: "started", position: 1 },
+    { id: workflowStateId("s-ops-done"), name: "Shipped", type: "completed", position: 2 },
+  ],
+  labels: [{ id: labelId("l-ops"), name: "ops-label", color: "#00AA00", scope: "team" }],
   members: [],
   priorities: [...defaultPriorities],
 }
@@ -60,6 +63,17 @@ const seed: MemorySeed = {
       ),
       description: null,
       team: { id: team.id, key: team.key, name: team.name },
+    },
+    {
+      summary: Option.getOrThrow(
+        Schema.decodeUnknownOption(IssueSummaryNode)({
+          ...summaryNode("OPS-1"),
+          id: issueId("6f0c1f2a-3b4c-4d5e-8f90-1234567890ab"),
+          assignee: null,
+        }),
+      ),
+      description: null,
+      team: { id: otherTeam.id, key: otherTeam.key, name: otherTeam.name },
     },
   ],
 }
@@ -122,6 +136,24 @@ describe("IssueWriter context", () => {
     expect(plan.team).toBe("OLD")
   })
 
+  test("uses the issue team for a single write in another team", async () => {
+    const result = await Effect.gen(function* crossTeamWrites() {
+      const resolver = yield* ContextResolver
+      const writer = yield* IssueWriter
+      const context = yield* resolver.resolve({})
+      const labels = yield* writer.addLabels(context, "OPS-1", ["ops-label"], {
+        dryRun: true,
+      })
+      const update = yield* writer.planUpdate(context, "OPS-1", { state: "Review" })
+      const close = yield* writer.close(context, "OPS-1", undefined, { dryRun: true })
+      return { close, labels, update }
+    }).pipe(Effect.provide(memoryApiLayer(seed, { env, repositories })), Effect.runPromise)
+
+    expect(result.labels.actions[0]).toMatchObject({ action: "add-label", status: "updated" })
+    expect(result.update.changes).toMatchObject({ state: "Review" })
+    expect(result.close.actions[0]).toMatchObject({ action: "close", status: "updated" })
+  })
+
   test("closes an issue in an unlinked repository from the issue team", async () => {
     const result = await Effect.gen(function* closeUnlinked() {
       const resolver = yield* ContextResolver
@@ -132,6 +164,22 @@ describe("IssueWriter context", () => {
 
     expect(result.status).toBe("updated")
     expect(result.actions[0]).toMatchObject({ action: "close", status: "updated" })
+  })
+
+  test("applies a close and a reopen in an unlinked repository", async () => {
+    const result = await Effect.gen(function* closeAndReopen() {
+      const resolver = yield* ContextResolver
+      const writer = yield* IssueWriter
+      const context = yield* resolver.resolve({})
+      const close = yield* writer.close(context, "RAT-1")
+      const reopen = yield* writer.reopen(context, "RAT-1")
+      return { close, reopen }
+    }).pipe(Effect.provide(memoryApiLayer(seed, { env, repositories: [] })), Effect.runPromise)
+
+    expect(result.close.status).toBe("updated")
+    expect(result.close.issue.state.name).toBe("Done")
+    expect(result.reopen.status).toBe("updated")
+    expect(result.reopen.issue.state.name).toBe("Todo")
   })
 
   test("adds a label in an unlinked repository from the issue team", async () => {

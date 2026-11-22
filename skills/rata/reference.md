@@ -65,6 +65,17 @@ document is an unhealthy `docs.triage` with a warning; `status` still prints the
 rest. An unknown state or label refreshes the context once, then fails
 `not_found` with the valid names.
 
+A command resolves the repository context once: root, profile, team identity
+and cached detail, states, labels, defaults and the stale-link warning. The
+viewer is lazy. `--assignee me` loads the cached viewer only for that read; a
+read without it does not.
+
+Writes follow the issue. A linked repository writes against the linked team.
+Without a link, state and label writes fall back to the issue's team. A single
+write on an issue in another team uses that issue's team, even when the
+repository is linked. A write that repairs a stale link prints the warning, as
+`list` and `search` do. Bulk label writes resolve each child team's labels.
+
 ## Teams, projects and labels
 
 `team list [--limit] [--after] [--all]`; `team show [<ref>]` gives states, labels,
@@ -207,7 +218,10 @@ default 5, 0 disables) and `--dry-run`.
 
 `--title`, `--body` or `--body-file -`, `--state`, `--assignee`, `--project`,
 `--parent`, `--priority`, `--append`, `--sections-file`, `--comment` or
-`--comment-file -`, `--dry-run` and `--if-unchanged`.
+`--comment-file -`, `--dry-run` and `--if-unchanged`. `--state` and
+`--sections-file` with `--state` use the issue's team when it differs from the
+linked team, or when the repository has no link; a repaired link prints the
+warning.
 
 `--append` adds the body with a blank separator. `--if-unchanged <updatedAt>`
 fails with `conflict` when the issue changed since that read. `--comment`

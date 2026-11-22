@@ -30,10 +30,12 @@ stay in `tracker/write/documents.ts`; they do not move into the read gateway.
 
 Write operations resolve state and label names against `context.states` and
 `context.labels`. An unknown name refreshes the context once and then fails with
-the valid names. When the context has no linked team, a write resolves the
-issue's team for that state or label lookup; the old command behavior is kept.
-Bulk label writes resolve each label name against the team of each child, so a
-mixed-team batch uses each team's label ids.
+the valid names. A single write resolves the issue's team for a state or label lookup when that
+team differs from the linked team, and when the context has no linked team.
+This is the documented exception to the one-context rule; commands that operate
+on the linked team keep the one-context guarantee. Bulk label writes resolve
+each label name against the team of each child, so a mixed-team batch uses each
+team's label ids.
 
 `requireTeamId` and the other team lookups share one error rule: a missing
 linked team is `not_found` and no link is `not_linked`. `issue create` without a
@@ -46,14 +48,17 @@ loads the cached viewer only when a command asks for it, such as
 they ignored both before.
 
 The stale-link warning travels on the context. `list` and `search` print it, as
-the old `RepoTeam.resolve` path did. `close`, `reopen` and label writes print it
-when they resolve the repository link.
+the old `RepoTeam.resolve` path did. `close`, `reopen`, the label writes,
+`issue update --state` and `issue update --sections-file --state` print it when
+they resolve the repository link.
 
 ## Consequences
 
-- One context resolution serves a command when the team is linked. An unlinked
-  write resolves the issue's team once for its state or label lookup.
-- A linked write uses the linked team. An unlinked write falls back to the issue
+- One context resolution serves a command when the team is linked. A single
+  write on an issue in another team, and an unlinked write, resolve the issue's
+  team for the state or label lookup. That is the documented exception.
+- A write on an issue in the linked team uses it. A single write on an issue in
+  another team uses that issue's team. An unlinked write falls back to the issue
   team, so existing command behavior survives.
 - A mixed-team bulk label write cannot reuse the linked team's label ids.
 - `issue create --dry-run` keeps printing the stored `config.team` text.

@@ -17,7 +17,7 @@ const makeIssueWrites = (resolvers: WriteResolvers) => {
   ) {
     const summary = yield* resolvers.readIssueSummary(ref)
     const resolved = yield* resolvers.resolveIssueLabels(context, summary.id, names)
-    const current = summary.labels
+    const current = yield* resolvers.collectIssueLabels(summary.id)
     const present = new Set(current.map((label) => label.id))
     const actions: WriteAction[] = []
     const seen = new Set<string>()
@@ -59,7 +59,7 @@ const makeIssueWrites = (resolvers: WriteResolvers) => {
   ) {
     const summary = yield* resolvers.readIssueSummary(ref)
     const resolved = yield* resolvers.resolveIssueLabels(context, summary.id, names)
-    const current = summary.labels
+    const current = yield* resolvers.collectIssueLabels(summary.id)
     const present = new Set(current.map((label) => label.id))
     const actions: WriteAction[] = []
     const seen = new Set<string>()

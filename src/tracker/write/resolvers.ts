@@ -55,17 +55,17 @@ const makeIssueWriteResolvers = ({ client, contexts, gateway }: IssueWriteDepend
 
   const issueTeamContext = Effect.fn("IssueWriter.issueTeamContext")(
     function* resolveIssueTeamContext(context: ResolvedContext, issueId: IssueId) {
-      if (context.team !== null) {
+      const teamId = yield* gateway.issue.teamId(issueId)
+      if (context.team?.identity.id === teamId) {
         return context
       }
-      const ref = yield* parseRefOrFail(String(issueId))
-      const detail = yield* gateway.issue.show(ref, {
-        attachments: false,
-        children: false,
-        comments: false,
-        relations: false,
-      })
-      return yield* contexts.resolve({ teamId: detail.team.id, viewer: false })
+      return yield* contexts.resolve({ teamId, viewer: false })
+    },
+  )
+
+  const collectIssueLabels = Effect.fn("IssueWriter.collectIssueLabels")(
+    function* collectIssueLabels(issueId: IssueId) {
+      return yield* gateway.issue.labels(issueId)
     },
   )
 
@@ -245,6 +245,7 @@ const makeIssueWriteResolvers = ({ client, contexts, gateway }: IssueWriteDepend
     ...makeRelationResolvers({ client }),
     addLabel,
     collectChildTargets,
+    collectIssueLabels,
     postComment,
     readIssueSummary,
     removeLabel,

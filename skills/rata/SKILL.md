@@ -29,6 +29,13 @@ rata status --json   # repo, team, states, labels, triage, cache age, docs, view
 - Do not guess a workflow state name. Read it from `rata status --json`; add
   `--refresh` when `cache.ageSeconds` is stale or the context looks wrong.
 
+Team resolution follows the issue. A repository with a link writes against the
+linked team. Without a link, a state or label write falls back to the team of
+the issue. A single write on an issue in another team uses that issue's team,
+even when the repository is linked. A write that resolves and repairs a stale
+link prints the warning. `--assignee me` loads the viewer only when the command
+needs it; reads without that flag do not.
+
 ## One spelling per operation
 
 | Operation       | Canonical form                                               | Rejected form                |
