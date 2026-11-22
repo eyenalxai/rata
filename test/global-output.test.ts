@@ -1,12 +1,13 @@
 import type { Handler } from "@test/fake-linear/model"
 
-import { cliLayer, lastJson, runIssue } from "@test/cli-harness"
+import { cliLayer, lastJson, runIssue, runRoot } from "@test/cli-harness"
 import { makeFakeLinear } from "@test/fake-linear"
+import { defaultViewer } from "@test/fake-linear/model"
 import { afterEach, describe, expect, test } from "bun:test"
 import { Effect } from "effect"
 import { Command } from "effect/cli"
 
-import { teamCommand } from "@/cli/team"
+import { teamCommand } from "@/cli/registry"
 
 const team = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
 
@@ -36,6 +37,19 @@ describe("global output flags", () => {
     expect(lastJson(lines)).toEqual({
       teams: [team],
       pageInfo: { hasNextPage: false, endCursor: "team-1" },
+    })
+  })
+
+  test("migrates whoami to the JSON default off a terminal", async () => {
+    const fake = makeFakeLinear({ teams: [team], labels: [] })
+    const lines: string[] = []
+    await runRoot(fake.handler, ["whoami"], lines, [], {
+      stdio: { stdoutIsTerminal: Effect.succeed(false) },
+    })
+
+    expect(lastJson(lines)).toMatchObject({
+      name: defaultViewer.name,
+      email: defaultViewer.email,
     })
   })
 

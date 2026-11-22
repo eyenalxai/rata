@@ -9,7 +9,7 @@ import { Command } from "effect/cli"
 
 import { selectFields } from "@/cli/field/select"
 import { arrayField, objectField, scalarField } from "@/cli/field/shape"
-import { teamCommand } from "@/cli/team"
+import { teamCommand } from "@/cli/registry"
 
 const team = {
   id: "team-1",

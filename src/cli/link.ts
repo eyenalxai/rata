@@ -1,10 +1,7 @@
 import { Effect, Option } from "effect"
-import { Command, Flag } from "effect/cli"
+import { Flag } from "effect/cli"
 
 import { objectField, scalarField } from "@/cli/field/shape"
-import { OutputFields } from "@/cli/fields"
-import { JsonOutput } from "@/cli/output"
-import { Format, buildCommand, OutputSelect } from "@/cli/runner"
 import { defineCommand, resourceOutput } from "@/cli/spec"
 import { LinkService } from "@/config/link"
 import { machineTimezone } from "@/domain/timezone"
@@ -34,78 +31,76 @@ const nameFlag = Flag.String("name").pipe(
   Flag.optional,
 )
 
-const linkCommand = buildCommand(
-  defineCommand("link", {
-    summary: "Bind this repository to a Linear team and set its timezone",
-    examples: [
-      {
-        command: "rata link",
-        description: "Choose the workspace and the team interactively",
-      },
-      {
-        command: "rata link --team RAT --project rata",
-        description: "Link the repository to a team found in the stored workspaces",
-      },
-      {
-        command: 'rata link --team SCR --create --name "Scratch"',
-        description: "Create the team, then link the repository",
-      },
-      {
-        command: "rata link --workspace work --team RAT",
-        description: "Link to a team in the work workspace",
-      },
-    ],
-    input: {
-      team: teamFlag,
-      project: projectFlag,
-      workspace: workspaceFlag,
-      create: createFlag,
-      name: nameFlag,
+const linkSpec = defineCommand("link", {
+  summary: "Bind this repository to a Linear team and set its timezone",
+  examples: [
+    {
+      command: "rata link",
+      description: "Choose the workspace and the team interactively",
     },
-    output: resourceOutput(
-      objectField({
-        team: scalarField,
-        project: scalarField,
-        workspace: scalarField,
-        timezone: scalarField,
-      }),
-    ),
-    run: (input) =>
-      Effect.gen(function* link() {
-        const service = yield* LinkService
-        const result = yield* service.link({
-          team: input.team,
-          project: input.project,
-          workspace: input.workspace,
-          create: input.create,
-          name: input.name,
-          timezone: machineTimezone(),
-        })
-        const timezone = Option.getOrNull(result.timezone)
-        const text = [`Linked ${result.team.key}: ${result.team.name} (${result.team.id})`]
-        if (Option.isSome(result.timezone)) {
-          text.push(
-            `Updated timezone: ${result.timezone.value.previous} -> ${result.timezone.value.current}`,
-          )
-        }
+    {
+      command: "rata link --team RAT --project rata",
+      description: "Link the repository to a team found in the stored workspaces",
+    },
+    {
+      command: 'rata link --team SCR --create --name "Scratch"',
+      description: "Create the team, then link the repository",
+    },
+    {
+      command: "rata link --workspace work --team RAT",
+      description: "Link to a team in the work workspace",
+    },
+  ],
+  input: {
+    team: teamFlag,
+    project: projectFlag,
+    workspace: workspaceFlag,
+    create: createFlag,
+    name: nameFlag,
+  },
+  output: resourceOutput(
+    objectField({
+      team: scalarField,
+      project: scalarField,
+      workspace: scalarField,
+      timezone: scalarField,
+    }),
+  ),
+  run: (input) =>
+    Effect.gen(function* link() {
+      const service = yield* LinkService
+      const result = yield* service.link({
+        team: input.team,
+        project: input.project,
+        workspace: input.workspace,
+        create: input.create,
+        name: input.name,
+        timezone: machineTimezone(),
+      })
+      const timezone = Option.getOrNull(result.timezone)
+      const text = [`Linked ${result.team.key}: ${result.team.name} (${result.team.id})`]
+      if (Option.isSome(result.timezone)) {
         text.push(
-          "",
-          "Next steps:",
-          "  - Confirm the connection: `rata whoami`.",
-          "  - List the issues: `rata issue list`.",
+          `Updated timezone: ${result.timezone.value.previous} -> ${result.timezone.value.current}`,
         )
-        return {
-          kind: "resource",
-          value: {
-            team: result.team,
-            project: Option.getOrNull(result.project),
-            workspace: Option.getOrNull(result.workspace),
-            timezone,
-          },
-          text,
-        }
-      }),
-  }),
-).pipe(Command.withGlobalFlags([JsonOutput, OutputFields, Format, OutputSelect]))
+      }
+      text.push(
+        "",
+        "Next steps:",
+        "  - Confirm the connection: `rata whoami`.",
+        "  - List the issues: `rata issue list`.",
+      )
+      return {
+        kind: "resource",
+        value: {
+          team: result.team,
+          project: Option.getOrNull(result.project),
+          workspace: Option.getOrNull(result.workspace),
+          timezone,
+        },
+        text,
+      }
+    }),
+})
 
-export { linkCommand }
+export { linkSpec }

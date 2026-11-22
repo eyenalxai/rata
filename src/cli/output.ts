@@ -241,7 +241,6 @@ const reportFailure = (error: unknown) =>
 
 export {
   JsonOutput,
-  bulkJsonResult,
   dryRunFlag,
   errorLine,
   nextPageHint,

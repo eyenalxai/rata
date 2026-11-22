@@ -168,6 +168,14 @@ export default defineConfig({
       },
     },
     {
+      // main.ts is the application entry point. It owns the layer graph, so
+      // providing the final platform layer there is the intended boundary.
+      files: ["src/main.ts"],
+      rules: {
+        "effecttsgo/strict-effect-provide": "off",
+      },
+    },
+    {
       files: ["test/**/*.ts"],
       rules: {
         // Test callbacks are native async functions that await `Effect.runPromise`;

@@ -29,6 +29,14 @@ describe("project delete", () => {
     expect(deleteMutation(fake.requests)).toBeUndefined()
   })
 
+  test("keeps the Aborted line when JSON is selected", async () => {
+    const fake = makeFakeLinear({ teams: [], labels: [], projects: [tracker] })
+    const lines: string[] = []
+    await runProject(fake.handler, ["delete", "Tracker", "--format", "json"], lines, [typed("no")])
+    expect(lines).toEqual(["Aborted."])
+    expect(deleteMutation(fake.requests)).toBeUndefined()
+  })
+
   test("fails without a TTY and points at --yes", async () => {
     const fake = makeFakeLinear({ teams: [], labels: [], projects: [tracker] })
     const lines: string[] = []

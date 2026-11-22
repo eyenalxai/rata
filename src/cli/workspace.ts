@@ -1,14 +1,11 @@
 import { Effect, Result } from "effect"
-import { Argument, Command } from "effect/cli"
+import { Argument } from "effect/cli"
 import { EOL } from "node:os"
 
 import type { Viewer } from "@/linear/decode/viewer"
 import type { LinearApiError } from "@/linear/errors"
 
 import { arrayField, objectField, scalarField } from "@/cli/field/shape"
-import { OutputFields } from "@/cli/fields"
-import { JsonOutput } from "@/cli/output"
-import { Format, buildCommand, buildGroup, OutputSelect } from "@/cli/runner"
 import { defineCommand, resourceOutput } from "@/cli/spec"
 import { Auth } from "@/config/auth"
 import { LinearGateway } from "@/linear/gateway"
@@ -39,7 +36,7 @@ const nameArgument = Argument.String("name").pipe(
   Argument.withDescription("Workspace profile name"),
 )
 
-const listSpec = defineCommand("list", {
+const workspaceListSpec = defineCommand("list", {
   summary: "List the stored workspaces with their viewer and organization",
   input: {},
   output: resourceOutput(
@@ -81,7 +78,7 @@ const listSpec = defineCommand("list", {
     }),
 })
 
-const useSpec = defineCommand("use", {
+const workspaceUseSpec = defineCommand("use", {
   summary: "Set the default workspace profile",
   examples: [
     {
@@ -103,9 +100,4 @@ const useSpec = defineCommand("use", {
     }),
 })
 
-const workspaceCommand = buildGroup("workspace", "Manage the stored Linear workspace profiles", [
-  buildCommand(listSpec),
-  buildCommand(useSpec),
-]).pipe(Command.withGlobalFlags([JsonOutput, OutputFields, Format, OutputSelect]))
-
-export { collectWorkspaces, workspaceCommand }
+export { collectWorkspaces, workspaceListSpec, workspaceUseSpec }

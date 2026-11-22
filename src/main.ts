@@ -11,21 +11,25 @@ import { LabelService } from "@/api/label"
 import { ProjectService } from "@/api/project"
 import { RepoTeam } from "@/api/repo-team"
 import { TeamService } from "@/api/team"
-import { authCommand, whoamiCommand } from "@/cli/auth"
-import { configCommand } from "@/cli/config"
 import { helpLayer } from "@/cli/help"
-import { issueCommand, searchCommand } from "@/cli/issue"
-import { labelCommand } from "@/cli/label"
-import { linkCommand } from "@/cli/link"
-import { nextCommand } from "@/cli/next"
-import { projectCommand } from "@/cli/project"
-import { createRoot } from "@/cli/registry"
+import {
+  authCommand,
+  configCommand,
+  createRoot,
+  issueCommand,
+  labelCommand,
+  linkCommand,
+  nextCommand,
+  projectCommand,
+  searchCommand,
+  statusCommand,
+  teamCommand,
+  unlinkCommand,
+  whoamiCommand,
+  whyCommand,
+  workspaceCommand,
+} from "@/cli/registry"
 import { runCli } from "@/cli/runner"
-import { statusCommand } from "@/cli/status"
-import { teamCommand } from "@/cli/team"
-import { unlinkCommand } from "@/cli/unlink"
-import { whyCommand } from "@/cli/why"
-import { workspaceCommand } from "@/cli/workspace"
 import { Auth } from "@/config/auth"
 import { IssueDefaultsService } from "@/config/defaults"
 import { LinkService } from "@/config/link"
@@ -168,7 +172,6 @@ const root = createRoot([
 ])
 
 const program = runCli("0.10.0", root).pipe(
-  // oxlint-disable-next-line effecttsgo/strict-effect-provide -- This is the application entry point; it owns the layer graph.
   Effect.provide(Layer.mergeAll(platformLayer, helpLayer)),
 )
 

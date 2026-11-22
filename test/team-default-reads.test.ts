@@ -9,8 +9,7 @@ import { Effect } from "effect"
 import { Command } from "effect/cli"
 
 import { searchCommand } from "@/cli/issue"
-import { labelCommand } from "@/cli/label"
-import { projectCommand } from "@/cli/project"
+import { labelCommand, projectCommand } from "@/cli/registry"
 
 const team = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
 const otherTeam = { id: "team-2", key: "OPS", name: "Operations", timezone: "America/New_York" }

@@ -1,16 +1,26 @@
 import { Effect, Option, Predicate } from "effect"
 
 import type { FieldPath, FieldShape } from "@/cli/field/shape"
-import type { CommandOutput, OutputFormat, OutputSpec } from "@/cli/spec"
+import type { CommandOutput, OutputFormat, OutputSpec, OutputSpecs } from "@/cli/spec"
 
-import { exitCodeOf, toTrackerError } from "@/cli/error-report"
+import { toTrackerError } from "@/cli/error-report"
 import { selectItems, selectObject } from "@/cli/fields"
-import { bulkJsonResult, writeJson, writeLine } from "@/cli/output"
+import { writeJson, writeLine } from "@/cli/output"
 import { TrackerError } from "@/domain/error"
 
 type RenderOptions = {
   readonly format: OutputFormat
   readonly select: Option.Option<readonly FieldPath[]>
+}
+
+const internalError = (message: string): TrackerError =>
+  new TrackerError({ code: "internal", message, hint: null })
+
+const isSpecList = (spec: OutputSpecs): spec is readonly OutputSpec[] => Array.isArray(spec)
+
+const specFor = (spec: OutputSpecs, kind: OutputSpec["kind"]): OutputSpec | undefined => {
+  const specs = isSpecList(spec) ? spec : [spec]
+  return specs.find((item) => item.kind === kind)
 }
 
 const valueAt = (value: unknown, path: readonly string[]): unknown => {
@@ -47,13 +57,11 @@ const selectResource = (
     }
     const target = valueAt(value, at)
     if (target === undefined) {
-      return yield* new TrackerError({
-        code: "internal",
-        message: `The output has no value at ${at.join(".")}.`,
-        hint: null,
-      })
+      return yield* internalError(`The output has no value at ${at.join(".")}.`)
     }
-    const selected = yield* selectObject(fields, shape, target)
+    const selected = yield* selectObject(fields, shape, target).pipe(
+      Effect.mapError(toTrackerError),
+    )
     return valueWith(value, at, selected)
   })
 
@@ -84,70 +92,48 @@ const renderCollection = (
     if (options.format === "text") {
       return yield* Effect.forEach(output.text, writeLine, { discard: true })
     }
-    const items = yield* selectItems(options.select, spec.shape, output.items)
+    const items = yield* selectItems(options.select, spec.shape, output.items).pipe(
+      Effect.mapError(toTrackerError),
+    )
     return yield* writeJson({ [output.key]: items, pageInfo: output.pageInfo })
   })
 
-const bulkExitCode = (results: CommandOutput & { readonly kind: "bulk" }): number => {
-  const firstFailure = results.results.find((result) => result.status === "failed")
-  return firstFailure === undefined ? 0 : exitCodeOf(toTrackerError(firstFailure.error).code)
-}
-
 const renderOutput = (
   output: CommandOutput,
-  spec: OutputSpec,
+  outputSpec: OutputSpecs,
   options: RenderOptions,
-): Effect.Effect<number, Error> =>
+): Effect.Effect<number, TrackerError> =>
   Effect.gen(function* renderCommandOutput() {
     switch (output.kind) {
       case "resource": {
-        if (spec.kind !== "resource") {
-          return yield* new TrackerError({
-            code: "internal",
-            message: "The command returned a resource for a different output shape.",
-            hint: null,
-          })
+        const spec = specFor(outputSpec, "resource")
+        if (spec?.kind !== "resource") {
+          return yield* internalError(
+            "The command returned a resource for a different output shape.",
+          )
         }
         yield* renderResource(output, spec, options)
         return 0
       }
       case "collection": {
-        if (spec.kind !== "collection") {
-          return yield* new TrackerError({
-            code: "internal",
-            message: "The command returned a collection for a different output shape.",
-            hint: null,
-          })
+        const spec = specFor(outputSpec, "collection")
+        if (spec?.kind !== "collection") {
+          return yield* internalError(
+            "The command returned a collection for a different output shape.",
+          )
         }
         yield* renderCollection(output, spec, options)
         return 0
       }
       case "text": {
-        yield* options.format === "text"
-          ? Effect.forEach(output.lines, writeLine, { discard: true })
-          : writeJson({ lines: output.lines })
-        return 0
-      }
-      case "plan": {
-        yield* options.format === "text"
-          ? Effect.forEach(output.text, writeLine, { discard: true })
-          : writeJson({ dryRun: true, actions: output.steps })
-        return 0
-      }
-      case "bulk": {
-        yield* options.format === "text"
-          ? Effect.forEach(output.text, writeLine, { discard: true })
-          : writeJson({
-              dryRun: output.dryRun,
-              results: output.results.map(bulkJsonResult),
-            })
-        return bulkExitCode(output)
-      }
-      case "none": {
+        if (specFor(outputSpec, "text") === undefined) {
+          return yield* internalError("The command returned text for a different output shape.")
+        }
+        yield* Effect.forEach(output.lines, writeLine, { discard: true })
         return 0
       }
       default: {
-        return 0
+        return yield* internalError("The runner received an output kind it cannot render.")
       }
     }
   })

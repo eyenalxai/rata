@@ -8,7 +8,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { Effect } from "effect"
 import { Command } from "effect/cli"
 
-import { labelCommand } from "@/cli/label"
+import { labelCommand } from "@/cli/registry"
 
 const runLabel = (
   handler: Handler,

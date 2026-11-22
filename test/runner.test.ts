@@ -7,7 +7,7 @@ import { ChildProcessSpawner } from "effect/process"
 import { arrayField, objectField, scalarField } from "@/cli/field/shape"
 import { OutputFields } from "@/cli/fields"
 import { helpLayer } from "@/cli/help"
-import { bodyFileFlag, ifUnchangedFlag } from "@/cli/input"
+import { bodyFileFlag, bodyFlag, ifUnchangedFlag } from "@/cli/input"
 import { JsonOutput, dryRunFlag } from "@/cli/output"
 import { Format, OutputSelect, buildCommand, buildGroup, runCli } from "@/cli/runner"
 import { defineCommand, selectOutput } from "@/cli/spec"
@@ -48,8 +48,8 @@ const dryRunSpec = defineCommand("dry-run", {
 
 const bodySpec = defineCommand("body", {
   summary: "Report the body",
-  input: { bodyFile: bodyFileFlag },
-  control: (input) => ({ bodyFile: input.bodyFile }),
+  input: { body: bodyFlag, bodyFile: bodyFileFlag },
+  control: (input) => ({ body: input.body, bodyFile: input.bodyFile }),
   output: selectOutput(objectField({ body: scalarField })),
   run: (_input, control) =>
     Effect.succeed({
@@ -221,6 +221,13 @@ describe("the command runner", () => {
     expect(lastJson(lines)).toEqual({ dryRun: true })
   })
 
+  test("--body reaches the command through the control", async () => {
+    const lines: string[] = []
+    await run(["body", "--body", "inline text"], lines)
+
+    expect(lastJson(lines)).toEqual({ body: "inline text" })
+  })
+
   test("--body-file reads the file before the command runs", async () => {
     const lines: string[] = []
     await run(["body", "--body-file", "notes.md"], lines, {
@@ -254,7 +261,7 @@ describe("the command runner", () => {
   test("a parse error writes one usage error object and no help", async () => {
     const lines: string[] = []
     const errors: string[] = []
-    await runRoot(["echo", "--bogus"], lines, {}, errors)
+    await runRoot(["echo", "--bogus", "--json"], lines, {}, errors)
 
     expect(lines).toEqual([])
     expect(errors).toHaveLength(1)

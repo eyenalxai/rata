@@ -11,13 +11,21 @@ import type {
   CommandSpec,
   OutputFormat,
   OutputSpec,
+  OutputSpecs,
   RunnerControlInput,
 } from "@/cli/spec"
 
 import { dropEmptyLine } from "@/cli/console"
 import { commandError, exitCodeOf, toTrackerError } from "@/cli/error-report"
 import { OutputFields, parseFieldPaths } from "@/cli/fields"
-import { setSuppressHelp } from "@/cli/help"
+import {
+  formatFromArgs,
+  hasNewOutputFlag,
+  helpRequested,
+  isBareInvocation,
+  isWorkSurfaceCommand,
+} from "@/cli/format"
+import { setSuppressHelp, withSelectable } from "@/cli/help"
 import { readBodyInput } from "@/cli/input"
 import { JsonOutput, reportTrackerError } from "@/cli/output"
 import { detectInvalidForm, jsonEnabled, reportInvalidForm } from "@/cli/pre-parse"
@@ -27,7 +35,7 @@ import { TrackerError } from "@/domain/error"
 
 const Format = GlobalFlag.Setting("format")({
   flag: Flag.Literals("format", outputFormats).pipe(
-    Flag.withDescription("Output format. JSON is the default when stdout is not a terminal"),
+    Flag.withDescription("Output format"),
     Flag.withMetavar("json|text"),
     Flag.optional,
   ),
@@ -39,34 +47,6 @@ const OutputSelect = GlobalFlag.Setting("select")({
     Flag.optional,
   ),
 })
-
-const formatFromArgs = (args: readonly string[], stdoutIsTerminal: boolean): OutputFormat => {
-  for (let index = 0; index < args.length; index += 1) {
-    const token = args[index]
-    if (token === undefined || token === "--") {
-      break
-    }
-    if (token === "--format") {
-      const value = args[index + 1]
-      if (value === "json" || value === "text") {
-        return value
-      }
-    }
-    if (token.startsWith("--format=")) {
-      const value = token.slice("--format=".length)
-      if (value === "json" || value === "text") {
-        return value
-      }
-    }
-  }
-  if (jsonEnabled(args)) {
-    return "json"
-  }
-  return stdoutIsTerminal ? "text" : "json"
-}
-
-const helpRequested = (args: readonly string[]): boolean =>
-  args.includes("--help") || args.includes("-h")
 
 const exitCodeOfCliError = (error: CliError.CliError): number =>
   error._tag === "ShowHelp" && error.errors.length === 0 ? 0 : exitCodeOf("usage")
@@ -119,8 +99,14 @@ const resolveFormat = (
   return "text"
 }
 
-const supportsSelect = (output: OutputSpec): boolean =>
-  output.kind === "collection" || (output.kind === "resource" && output.select !== undefined)
+const isSpecList = (output: OutputSpecs): output is readonly OutputSpec[] => Array.isArray(output)
+
+const supportsSelect = (output: OutputSpecs): boolean => {
+  const specs = isSpecList(output) ? output : [output]
+  return specs.some(
+    (spec) => spec.kind === "collection" || (spec.kind === "resource" && spec.select !== undefined),
+  )
+}
 
 const parseSelector = (
   flag: "--fields" | "--select",
@@ -139,19 +125,13 @@ const parseSelector = (
   }
   const parsed = parseFieldPaths(value)
   if (Result.isFailure(parsed)) {
-    return Effect.fail(
-      new TrackerError({
-        code: "validation",
-        message: parsed.failure.message,
-        hint: parsed.failure.hint ?? null,
-      }),
-    )
+    return Effect.fail(toTrackerError(parsed.failure))
   }
   return Effect.succeed(parsed.success)
 }
 
 const resolveSelect = (
-  output: OutputSpec,
+  output: OutputSpecs,
   fields: Option.Option<string>,
   select: Option.Option<string>,
   format: OutputFormat,
@@ -207,7 +187,10 @@ const runSpec = <Name extends string, Config extends CliCommand.Command.Config, 
     return yield* Effect.gen(function* executeSpec() {
       const select = yield* resolveSelect(spec.output, fields, selectedFields, format)
       const runnerInput: RunnerControlInput = spec.control?.(input) ?? {}
-      const body = yield* readBodyInput(runnerInput.bodyFile ?? OptionValue.none())
+      const body = yield* readBodyInput(
+        runnerInput.body ?? OptionValue.none(),
+        runnerInput.bodyFile ?? OptionValue.none(),
+      )
       const control: CommandControl = {
         format,
         select,
@@ -220,16 +203,18 @@ const runSpec = <Name extends string, Config extends CliCommand.Command.Config, 
       return yield* Effect.sync(() => {
         process.exitCode = code
       })
-    }).pipe(Effect.catch((error) => reportRunFailure(error, format)))
+    }).pipe(Effect.catch((error: TrackerError) => reportRunFailure(error, format)))
   })
 
 const buildCommand = <Name extends string, Config extends CliCommand.Command.Config, R>(
   spec: CommandSpec<Name, Config, R>,
-) =>
-  Command.make(spec.name, spec.input, (input) => runSpec(spec, input)).pipe(
+) => {
+  const command = Command.make(spec.name, spec.input, (input) => runSpec(spec, input)).pipe(
     Command.withDescription(spec.summary),
     Command.withExamples(spec.examples ?? []),
   )
+  return supportsSelect(spec.output) ? withSelectable(command) : command
+}
 
 const buildGroup = <
   const Name extends string,
@@ -250,11 +235,23 @@ const runCli = <Name extends string, Input, ContextInput, E, R>(
     const args = yield* stdio.args
     const stdoutIsTerminal = yield* stdio.stdoutIsTerminal
     const format = formatFromArgs(args, stdoutIsTerminal)
+    setSuppressHelp(false)
     const invalid = detectInvalidForm(args)
     if (invalid !== undefined) {
-      return yield* reportInvalidForm(invalid, format === "json")
+      return yield* reportInvalidForm(invalid, jsonEnabled(args))
     }
-    setSuppressHelp(format === "json" && !helpRequested(args))
+    if (!helpRequested(args) && isWorkSurfaceCommand(args) && hasNewOutputFlag(args)) {
+      return yield* reportRunFailure(
+        new TrackerError({
+          code: "usage",
+          message: "The --format and --select flags are not supported by this command.",
+          hint: "Use --json for JSON output; --fields applies to reads.",
+        }),
+        jsonEnabled(args) ? "json" : "text",
+      )
+    }
+    const allowHelp = helpRequested(args) || isBareInvocation(root, args)
+    setSuppressHelp(format === "json" && !allowHelp)
     const console = yield* Console.Console
     return yield* Command.runWith(root, { version, renderErrors: false })(args).pipe(
       Effect.provideService(Console.Console, dropEmptyLine(console)),

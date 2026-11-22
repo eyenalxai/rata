@@ -1,10 +1,7 @@
 import { Effect, Option, Schema, Stdio, Stream } from "effect"
-import { Command, Flag } from "effect/cli"
+import { Flag } from "effect/cli"
 
 import { objectField, scalarField } from "@/cli/field/shape"
-import { OutputFields, rejectFields } from "@/cli/fields"
-import { JsonOutput, reportFailure, writeJson, writeLine } from "@/cli/output"
-import { Format, buildCommand, buildGroup, OutputSelect } from "@/cli/runner"
 import { defineCommand, resourceOutput } from "@/cli/spec"
 import { Auth } from "@/config/auth"
 import { TrackerError } from "@/domain/error"
@@ -182,26 +179,36 @@ const logoutSpec = defineCommand("logout", {
     }),
 })
 
-const authCommand = buildGroup("auth", "Manage Linear authentication", [
-  buildCommand(loginSpec),
-  buildCommand(statusSpec),
-  buildCommand(logoutSpec),
-]).pipe(Command.withGlobalFlags([JsonOutput, OutputFields, Format, OutputSelect]))
+const organizationShape = objectField({
+  id: scalarField,
+  name: scalarField,
+  urlKey: scalarField,
+})
 
-const whoamiCommand = Command.make("whoami", {}, () =>
-  Effect.gen(function* whoami() {
-    const json = yield* JsonOutput
-    yield* rejectFields(yield* OutputFields)
-    const gateway = yield* LinearGateway
-    const viewer = yield* gateway.viewer
-    if (json) {
-      return yield* writeJson(viewer)
-    }
-    return yield* writeLine(`${viewer.name} <${viewer.email}>`)
-  }).pipe(Effect.catch(reportFailure)),
-).pipe(
-  Command.withDescription("Print the authenticated Linear viewer"),
-  Command.withGlobalFlags([JsonOutput, OutputFields]),
-)
+const viewerShape = objectField({
+  id: scalarField,
+  name: scalarField,
+  displayName: scalarField,
+  email: scalarField,
+  active: scalarField,
+  admin: scalarField,
+  organization: organizationShape,
+})
 
-export { authCommand, whoamiCommand }
+const whoamiSpec = defineCommand("whoami", {
+  summary: "Print the authenticated Linear viewer",
+  input: {},
+  output: resourceOutput(viewerShape),
+  run: () =>
+    Effect.gen(function* whoami() {
+      const gateway = yield* LinearGateway
+      const viewer = yield* gateway.viewer
+      return {
+        kind: "resource",
+        value: viewer,
+        text: [`${viewer.name} <${viewer.email}>`],
+      }
+    }),
+})
+
+export { loginSpec, logoutSpec, statusSpec, whoamiSpec }

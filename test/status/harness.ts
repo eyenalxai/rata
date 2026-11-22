@@ -9,7 +9,7 @@ import { Command } from "effect/cli"
 import { ChildProcessSpawner } from "effect/process"
 import path from "node:path"
 
-import { statusCommand } from "@/cli/status"
+import { statusCommand } from "@/cli/registry"
 
 const terminal = Terminal.make({
   columns: Effect.succeed(80),

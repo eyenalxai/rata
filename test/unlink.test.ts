@@ -12,7 +12,7 @@ import path from "node:path"
 
 import type { RepoConfig } from "@/config/repo/model"
 
-import { unlinkCommand } from "@/cli/unlink"
+import { unlinkCommand } from "@/cli/registry"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
 
 const unusedHandler: Handler = () => {

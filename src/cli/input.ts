@@ -1,9 +1,17 @@
-import { Effect, Option } from "effect"
+import type { Option } from "effect"
+
+import { Effect } from "effect"
 import { Flag } from "effect/cli"
 
 import { resolveBody } from "@/cli/body"
+import { toTrackerError } from "@/cli/error-report"
 import { TrackerError } from "@/domain/error"
 import { maxPageSize } from "@/linear/connection"
+
+const bodyFlag = Flag.String("body").pipe(
+  Flag.withDescription("Body text in markdown"),
+  Flag.optional,
+)
 
 const bodyFileFlag = Flag.String("body-file").pipe(
   Flag.withDescription("Read the body from a file. Use - for standard input"),
@@ -15,8 +23,10 @@ const ifUnchangedFlag = Flag.String("if-unchanged").pipe(
   Flag.optional,
 )
 
-const readBodyInput = (bodyFile: Option.Option<string>) =>
-  resolveBody({ body: "body", file: "body-file" }, Option.none(), bodyFile)
+const readBodyInput = (body: Option.Option<string>, bodyFile: Option.Option<string>) =>
+  resolveBody({ body: "body", file: "body-file" }, body, bodyFile).pipe(
+    Effect.mapError(toTrackerError),
+  )
 
 const requirePageSize = (limit: number): Effect.Effect<number, TrackerError> => {
   if (limit < 1) {
@@ -40,4 +50,4 @@ const requirePageSize = (limit: number): Effect.Effect<number, TrackerError> => 
   return Effect.succeed(limit)
 }
 
-export { bodyFileFlag, ifUnchangedFlag, readBodyInput, requirePageSize }
+export { bodyFileFlag, bodyFlag, ifUnchangedFlag, readBodyInput, requirePageSize }
