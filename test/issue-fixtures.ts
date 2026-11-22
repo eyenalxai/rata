@@ -12,7 +12,9 @@ import { TeamService } from "@/api/team"
 import { Auth } from "@/config/auth"
 import { RepoConfigService } from "@/config/repo"
 import { RepositoryIdentity } from "@/config/repo-identity"
+import { TeamContext } from "@/context/team"
 import { attachmentId, issueId, labelId, projectId, teamId, userId } from "@/domain/id"
+import { ContextCache } from "@/local/context-cache"
 
 const uuid = "5f0c1f2a-3b4c-4d5e-8f90-1234567890ab"
 
@@ -168,7 +170,11 @@ const issueLayer = (
   )
   const teamLayer = TeamService.layer.pipe(Layer.provide(client))
   const repoTeam = RepoTeam.layer.pipe(Layer.provide(Layer.mergeAll(teamLayer, repoConfig)))
-  return IssueApi.layer.pipe(Layer.provide(Layer.mergeAll(client, repoTeam)))
+  const contextCache = ContextCache.layer.pipe(Layer.provide(database))
+  const teamContext = TeamContext.layer.pipe(
+    Layer.provide(Layer.mergeAll(auth, client, teamLayer, repoConfig, contextCache)),
+  )
+  return IssueApi.layer.pipe(Layer.provide(Layer.mergeAll(client, repoTeam, teamContext)))
 }
 
 const run = <A, E>(

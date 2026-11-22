@@ -228,4 +228,4 @@ class LinearClient extends Context.Service<LinearClient, LinearClientShape>()(
   )
 }
 
-export { LinearClient, type Viewer }
+export { LinearClient, Viewer }

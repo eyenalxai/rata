@@ -1,5 +1,5 @@
 import { jsonResponse, pageInfo, summaryNode } from "@test/issue-fixtures"
-import { makeRecorder, requestOf, run } from "@test/issue-write/fixtures"
+import { makeRecorder, requestOf, run, teamDetailResponse } from "@test/issue-write/fixtures"
 import { describe, expect, test } from "bun:test"
 import { Effect } from "effect"
 
@@ -7,6 +7,15 @@ import { IssueWriteApi } from "@/api/issue-write"
 
 const labelsHandler = (current: readonly { id: string; name: string }[] = []) =>
   makeRecorder((request) => {
+    const detail = teamDetailResponse(request, {
+      labels: [
+        { id: "l1", name: "ready-for-agent", color: "#111111", teamId: "team-1" },
+        { id: "l-bug", name: "Bug", color: "#EB5757", teamId: "team-1" },
+      ],
+    })
+    if (detail !== undefined) {
+      return detail
+    }
     if (request.query.includes("query IssueSummary")) {
       return jsonResponse({
         data: { issue: { ...summaryNode("RAT-1"), labels: { nodes: current } } },
@@ -130,7 +139,7 @@ describe("IssueWriteApi labels", () => {
         return yield* Effect.flip(api.addLabels("RAT-1", ["nope"]))
       }),
     )
-    expect(error._tag).toBe("LabelNotFoundError")
+    expect(error._tag).toBe("ContextLabelNotFoundError")
     expect(requestOf(recorder, "mutation AddLabel")).toBeUndefined()
   })
 })

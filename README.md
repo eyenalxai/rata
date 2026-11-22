@@ -54,7 +54,7 @@ pbpaste | rata auth login --with-token   # store a Linear API key
 pbpaste | rata auth login --with-token --workspace work  # store a key as a profile
 rata workspace list                      # list profiles: viewer and organization
 rata workspace use work                  # select the default profile
-rata status                              # show the repo, workspace, team and viewer in one call
+rata status                              # show the repo, team context, docs and viewer in one call
 rata team list                           # list teams: key, name, id
 rata team show RAT                       # show a team's states, labels, members and priorities
 rata team create --name "Scratch" --key SCR   # create a team
@@ -122,22 +122,22 @@ A read of one resource prints the resource object. A collection prints
 `{ <plural>, pageInfo }`. A context document keeps its named sections. A write
 prints its result object.
 
-| Command                                      | JSON                                                                                                                        |
-| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `issue show <ref>`                           | The issue object with `description`, `children`, `relations` and `attachments`; `comments` with `--comments`                |
-| `issue show <ref> --summary`                 | The summary object                                                                                                          |
-| `issue status <ref>`                         | The summary plus `blocked`, `blockedBy`, `prs` and `nextChild`; `--with-body`, `--comments` and `--children` add their keys |
-| `next --parent <ref>`                        | The summary of the ready child, or `null`; `--ids-only` prints the identifier or nothing                                    |
-| `why <ref>`                                  | The summary plus `blocked` and `blockedBy`                                                                                  |
-| `team show [<ref>]`                          | The team object                                                                                                             |
-| `issue section get <ref> "<heading>"`        | The section object: `heading`, `level`, `content`                                                                           |
-| `issue list`, `search`                       | `{ issues, pageInfo }`                                                                                                      |
-| `issue list --count`, `search --count`       | `{ count }`                                                                                                                 |
-| `issue list --ids-only`, `search --ids-only` | Plain text: one identifier per line                                                                                         |
-| `team list`, `project list`, `label list`    | `{ <plural>, pageInfo }`                                                                                                    |
-| `status`                                     | The named sections `repository`, `workspace`, `viewer`, `team`, `project`, `defaults` and `warning`                         |
-| `config show`                                | `{ defaults }`                                                                                                              |
-| A write                                      | The write result object                                                                                                     |
+| Command                                      | JSON                                                                                                                                         |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `issue show <ref>`                           | The issue object with `description`, `children`, `relations` and `attachments`; `comments` with `--comments`                                 |
+| `issue show <ref> --summary`                 | The summary object                                                                                                                           |
+| `issue status <ref>`                         | The summary plus `blocked`, `blockedBy`, `prs` and `nextChild`; `--with-body`, `--comments` and `--children` add their keys                  |
+| `next --parent <ref>`                        | The summary of the ready child, or `null`; `--ids-only` prints the identifier or nothing                                                     |
+| `why <ref>`                                  | The summary plus `blocked` and `blockedBy`                                                                                                   |
+| `team show [<ref>]`                          | The team object                                                                                                                              |
+| `issue section get <ref> "<heading>"`        | The section object: `heading`, `level`, `content`                                                                                            |
+| `issue list`, `search`                       | `{ issues, pageInfo }`                                                                                                                       |
+| `issue list --count`, `search --count`       | `{ count }`                                                                                                                                  |
+| `issue list --ids-only`, `search --ids-only` | Plain text: one identifier per line                                                                                                          |
+| `team list`, `project list`, `label list`    | `{ <plural>, pageInfo }`                                                                                                                     |
+| `status`                                     | Named sections: `repository`, `workspace`, `viewer`, `team`, `project`, `defaults`, `states`, `labels`, `triage`, `cache`, `docs`, `warning` |
+| `config show`                                | `{ defaults }`                                                                                                                               |
+| A write                                      | The write result object                                                                                                                      |
 
 Every issue read carries `createdAt` and `updatedAt`. `--fields` starts at the
 object in the table: the resource for a read, each row for a list. For
@@ -158,7 +158,10 @@ rata --json issue list
 rata issue list --json
 ```
 
-With `--json`, every command prints one stable JSON document. With `--json`, a
+With `--json`, every command prints one stable JSON document. A reordered table parses by header name. A headerless or incomplete
+document is an unhealthy `docs.triage` with a warning; `status` still prints the
+rest. The first state or label resolution after a cache miss fetches the full
+team detail; later calls use the cache. With `--json`, a
 failure writes one JSON object to stderr and leaves stdout empty. Two cases are
 the exceptions: a bulk write reports one result per issue on stdout, and
 `issue update --comment` writes the issue update and the `error` object on
@@ -226,20 +229,43 @@ Rata's own output is plain text. Effect's help and error presenter honor
 
 `rata status` shows the context in one call: the repository root, the selected
 workspace profile and where its API key came from, the linked team, the default
-project, the issue defaults, the viewer and the organization. It works without a
-link: the team line then reads `not linked (run rata link)` and the command
-exits 0. Without an API key it fails with an `auth` error.
+project, the issue defaults, the team states and labels, the triage map, the
+cache age, the tracker document health, the viewer and the organization. It
+works without a link: the team line then reads `not linked (run rata link)` and
+the command exits 0. Without an API key it fails with an `auth` error.
 
-A read resolves the stored team by id, key, then name. A stale key that resolves
-is repaired in place, and the command prints a warning that names the old and new
-keys. When the stored team no longer exists, `status` still reports the rest of
-the context: it exits 0, sets `team` and `defaults` to `null`, and adds a
-`warning` that names the key and the repair: run `rata team list`, then
-`rata link --team <key>`. Human output prints the warning on stderr.
+The context cache holds the team detail in the local SQLite database for seven
+days. The detail holds the states, labels, members and priorities. The cache key
+is the workspace profile, the team UUID and a SHA-256 hash of the API key. A warm
+read makes no Linear request. A changed key misses the cache because the hash
+changed. `status --refresh` reads Linear and replaces the cache. A team stored by
+an old key only resolves by key, then by name, and `status` repairs the link to
+the team UUID.
+
+A read resolves the stored team by UUID, then by key, then by name. A stale team
+UUID or key that resolves is repaired in place, and the command prints a warning
+that names the old and new values. The fallback runs on a cache miss, after
+expiry, or on `status --refresh`. A warm cache can keep serving the stored UUID
+for up to seven days. When the stored team no longer exists, `status` still
+reports the rest of the context: it exits 0, sets `team`, `defaults` and `cache`
+to `null`, sets `states` and `labels` to empty, and adds a `warning` that names
+the key and the repair: run `rata team list`, then `rata link --team <key>`. The
+triage map and the document health stay. Human output prints the warning on
+stderr.
+
+`docs` reports the health of `docs/agents/issue-tracker.md` and
+`docs/agents/triage-labels.md`. `exists` says whether the file is present,
+`healthy` is `true`, `false`, or `null` when the file is missing, and `warning`
+names the repair. `triage` is the role-to-label map parsed from the triage
+document. A reordered table parses by header name. A headerless or incomplete
+document is an unhealthy `docs.triage` with a warning; `status` still prints the
+rest. The first state or label resolution after a cache miss fetches the full
+team detail; later calls use the cache.
 
 ```bash
 rata status
 rata status --json
+rata status --refresh
 ```
 
 Human output:
@@ -251,6 +277,11 @@ api key:   profile personal (default)
 team:      JYO (Jyoti)
 project:   none
 defaults:  none
+states:    Backlog, Todo, In Progress, Done, Canceled
+labels:    bug, enhancement, needs-triage, ready-for-agent
+triage:    7 roles (/home/ada/Projects/jyoti/docs/agents/triage-labels.md)
+cache:     0s old
+docs:      tracker ok, triage ok
 viewer:    Ada <ada@example.com>
 org:       Acme (acme)
 ```
@@ -264,6 +295,38 @@ org:       Acme (acme)
   "team": { "id": "t1", "key": "JYO", "name": "Jyoti" },
   "project": null,
   "defaults": { "assignee": "me", "labels": ["enhancement"], "priority": "medium" },
+  "states": [
+    { "id": "s1", "name": "Todo", "type": "unstarted", "position": 1 },
+    { "id": "s2", "name": "In Progress", "type": "started", "position": 2 }
+  ],
+  "labels": [{ "id": "l1", "name": "enhancement", "color": "#5E6AD2", "scope": "team" }],
+  "triage": {
+    "source": "/home/ada/Projects/jyoti/docs/agents/triage-labels.md",
+    "roles": {
+      "bug": "bug",
+      "enhancement": "enhancement",
+      "needs-triage": "needs-triage",
+      "needs-info": "needs-info",
+      "ready-for-agent": "ready-for-agent",
+      "ready-for-human": "ready-for-human",
+      "wontfix": "wontfix"
+    }
+  },
+  "cache": { "ageSeconds": 0, "fetchedAt": "2026-11-22T00:00:00.000Z" },
+  "docs": {
+    "tracker": {
+      "path": "/home/ada/Projects/jyoti/docs/agents/issue-tracker.md",
+      "exists": true,
+      "healthy": true,
+      "warning": null
+    },
+    "triage": {
+      "path": "/home/ada/Projects/jyoti/docs/agents/triage-labels.md",
+      "exists": true,
+      "healthy": true,
+      "warning": null
+    }
+  },
   "warning": null,
   "viewer": {
     "id": "u1",
@@ -278,8 +341,10 @@ org:       Acme (acme)
 `keySource` is `env` for `LINEAR_API_KEY`, `repo` for the `workspace` in the
 repository config, and `default` for the default profile. `team` and `project`
 are `null` when unset. `defaults` holds the repository issue defaults; each
-field is `null` or empty when it is unset. `warning` is `null` unless the
-stored team key changed or is missing.
+field is `null` or empty when it is unset. `states` and `labels` come from the
+context cache. `cache` is `null` without a team; `ageSeconds` counts from
+the last Linear read. `warning` is `null` unless the stored team key changed or
+is missing, or a document is unhealthy.
 
 ## Paging lists
 
@@ -712,9 +777,10 @@ the machine reports. It calls `teamUpdate` only when the timezone differs, and
 it reports the change. When the timezone matches, or the machine reports none,
 `link` makes no update.
 
-`link` records the workspace profile and the team in the repository config. The
-explicit `--workspace` wins. A team found by `--team` records the profile that
-holds it. Without a profile, `link` keeps the `workspace` of an existing config.
+`link` records the workspace profile and the team in the repository config. It
+stores the team key and the team UUID, so later reads use the UUID. The explicit
+`--workspace` wins. A team found by `--team` records the profile that holds it.
+Without a profile, `link` keeps the `workspace` of an existing config.
 
 `--json` prints one stable document with the linked team and the repository
 config:

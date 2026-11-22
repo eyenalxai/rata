@@ -1,10 +1,17 @@
 import type { ApiLayerOptions } from "@test/fake-linear"
-import type { GraphQLRequest, Handler } from "@test/fake-linear/model"
+import type {
+  FakeLabel,
+  FakePriority,
+  FakeTeam,
+  FakeTeamMember,
+  GraphQLRequest,
+  Handler,
+} from "@test/fake-linear/model"
 import type { HttpClientRequest } from "effect/http"
 
 import { apiLayer } from "@test/fake-linear"
-import { readRequest } from "@test/fake-linear/model"
-import { jsonResponse, summaryNode } from "@test/issue-fixtures"
+import { defaultPriorities, readRequest } from "@test/fake-linear/model"
+import { jsonResponse, pageInfo, summaryNode } from "@test/issue-fixtures"
 import { Effect } from "effect"
 
 import type { IssueWriteApi } from "@/api/issue-write"
@@ -18,6 +25,56 @@ const states = [
   { id: "s-progress", name: "In Progress", type: "started" },
   { id: "s-done", name: "Done", type: "completed" },
 ]
+
+type TeamDetailSeed = {
+  readonly team?: FakeTeam | undefined
+  readonly states?:
+    | readonly {
+        readonly id: string
+        readonly name: string
+        readonly type: string
+        readonly position?: number | undefined
+      }[]
+    | undefined
+  readonly labels?: readonly FakeLabel[] | undefined
+  readonly members?: readonly FakeTeamMember[] | undefined
+  readonly priorities?: readonly FakePriority[] | undefined
+}
+
+const teamDetailResponse = (
+  request: GraphQLRequest,
+  seed: TeamDetailSeed = {},
+): Response | undefined => {
+  const selectedTeam = seed.team ?? team
+  if (request.query.includes("query TeamById")) {
+    return jsonResponse({ data: { teams: { nodes: [selectedTeam], pageInfo } } })
+  }
+  if (request.query.includes("query TeamStates")) {
+    const nodes = (seed.states ?? states).map((state, index) => ({
+      ...state,
+      position: "position" in state ? (state.position ?? index) : index,
+    }))
+    return jsonResponse({ data: { team: { states: { nodes, pageInfo } } } })
+  }
+  if (request.query.includes("query TeamLabels")) {
+    const nodes = (seed.labels ?? []).map((label) => ({
+      id: label.id,
+      name: label.name,
+      color: label.color,
+      team: label.teamId === null ? null : { id: label.teamId },
+    }))
+    return jsonResponse({ data: { issueLabels: { nodes, pageInfo } } })
+  }
+  if (request.query.includes("query TeamMembers")) {
+    return jsonResponse({
+      data: { team: { members: { nodes: seed.members ?? [], pageInfo } } },
+    })
+  }
+  if (request.query.includes("query IssuePriorityValues")) {
+    return jsonResponse({ data: { issuePriorityValues: seed.priorities ?? defaultPriorities } })
+  }
+  return undefined
+}
 
 const issueCreated = (): Response =>
   jsonResponse({ data: { issueCreate: { success: true, issue: summaryNode("RAT-1") } } })
@@ -64,4 +121,5 @@ export {
   run,
   states,
   team,
+  teamDetailResponse,
 }

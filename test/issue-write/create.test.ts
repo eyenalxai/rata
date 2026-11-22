@@ -8,6 +8,7 @@ import {
   run,
   states,
   team,
+  teamDetailResponse,
 } from "@test/issue-write/fixtures"
 import { describe, expect, test } from "bun:test"
 import { Effect, FileSystem, Layer, Option, Stdio, Stream } from "effect"
@@ -17,6 +18,12 @@ import { resolveBody } from "@/cli/body"
 
 const createHandler = () =>
   makeRecorder((request) => {
+    const detail = teamDetailResponse(request, {
+      labels: [{ id: "l1", name: "ready-for-agent", color: "#111111", teamId: "team-1" }],
+    })
+    if (detail !== undefined) {
+      return detail
+    }
     if (request.query.includes("query TeamByKey")) {
       return jsonResponse({ data: { teams: { nodes: [team], pageInfo } } })
     }
@@ -65,6 +72,12 @@ const createHandler = () =>
 
 const minimalCreateHandler = () =>
   makeRecorder((request) => {
+    const detail = teamDetailResponse(request, {
+      labels: [{ id: "l1", name: "ready-for-agent", color: "#111111", teamId: "team-1" }],
+    })
+    if (detail !== undefined) {
+      return detail
+    }
     if (request.query.includes("query TeamByKey")) {
       return jsonResponse({ data: { teams: { nodes: [team], pageInfo } } })
     }

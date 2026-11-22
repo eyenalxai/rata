@@ -7,18 +7,18 @@ import { Console, Effect, Option } from "effect"
 
 import { RepoTeam } from "@/api/repo-team"
 import { RepoConfigService } from "@/config/repo"
-import { teamId as makeTeamId } from "@/domain/id"
+import { teamId } from "@/domain/id"
 
-const team = { id: makeTeamId("team-1"), key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
+const team = { id: teamId("team-1"), key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
 
 const resolveWith = async (repositories: readonly RepositorySeed[]) => {
   const stderr: string[] = []
   const result = await Effect.gen(function* resolveTeam() {
     const repoTeam = yield* RepoTeam
     const repoConfig = yield* RepoConfigService
-    const teamId = yield* repoTeam.resolve()
+    const resolved = yield* repoTeam.resolve()
     const stored = yield* repoConfig.read(process.cwd())
-    return { teamId, stored }
+    return { teamId: resolved, stored }
   }).pipe(
     Effect.provide(
       apiLayer(makeFakeLinear({ teams: [team], labels: [] }).handler, { repositories }),
@@ -32,12 +32,12 @@ const resolveWith = async (repositories: readonly RepositorySeed[]) => {
 describe("RepoTeam stale links", () => {
   test("repairs a stale key by team id and warns", async () => {
     const result = await resolveWith([
-      { key: process.cwd(), team: "OLD", teamId: "team-1", project: "rata" },
+      { key: process.cwd(), team: "OLD", teamId: teamId("team-1"), project: "rata" },
     ])
 
     expect(String(result.teamId)).toBe("team-1")
     expect(result.stored).toEqual(
-      Option.some({ team: "RAT", teamId: makeTeamId("team-1"), project: "rata" }),
+      Option.some({ team: "RAT", teamId: teamId("team-1"), project: "rata" }),
     )
     expect(result.stderr).toEqual([
       "warning: The stored team key OLD is stale. Repaired the link to RAT.",
@@ -48,9 +48,23 @@ describe("RepoTeam stale links", () => {
     const result = await resolveWith([{ key: process.cwd(), team: "Rata" }])
 
     expect(String(result.teamId)).toBe("team-1")
-    expect(result.stored).toEqual(Option.some({ team: "RAT", teamId: makeTeamId("team-1") }))
+    expect(result.stored).toEqual(Option.some({ team: "RAT", teamId: teamId("team-1") }))
     expect(result.stderr).toEqual([
       "warning: The stored team key Rata is stale. Repaired the link to RAT.",
+    ])
+  })
+
+  test("falls back to the key when the stored id is stale and warns", async () => {
+    const result = await resolveWith([
+      { key: process.cwd(), team: "RAT", teamId: "gone-id", project: "rata" },
+    ])
+
+    expect(result.teamId).toBe(teamId("team-1"))
+    expect(result.stored).toEqual(
+      Option.some({ team: "RAT", teamId: teamId("team-1"), project: "rata" }),
+    )
+    expect(result.stderr).toEqual([
+      "warning: The stored team id gone-id is stale. Repaired the link to RAT.",
     ])
   })
 
@@ -58,7 +72,7 @@ describe("RepoTeam stale links", () => {
     const result = await resolveWith([{ key: process.cwd(), team: "RAT" }])
 
     expect(String(result.teamId)).toBe("team-1")
-    expect(result.stored).toEqual(Option.some({ team: "RAT", teamId: makeTeamId("team-1") }))
+    expect(result.stored).toEqual(Option.some({ team: "RAT", teamId: teamId("team-1") }))
     expect(result.stderr).toEqual([])
   })
 

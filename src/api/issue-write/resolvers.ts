@@ -21,7 +21,6 @@ import {
   issueTeamQuery,
   labelsQuery,
   removeLabelMutation,
-  teamStatesQuery,
   updateIssueMutation,
 } from "@/api/issue-query"
 import {
@@ -34,12 +33,10 @@ import {
   IssueTeamResponse,
   LabelsResponse,
   RemoveLabelResponse,
-  TeamStatesResponse,
   UpdateIssueResponse,
 } from "@/api/issue-schema"
 import { StateNotFoundError, unwrapComment, unwrapIssue } from "@/api/issue-write/model"
 import { makeRelationResolvers } from "@/api/issue-write/relations"
-import { labelNotFoundError } from "@/api/label"
 import { collectConnection, collectPages, pageSize } from "@/api/pagination"
 import { ProjectNotFoundError } from "@/api/project/errors"
 import {
@@ -49,10 +46,9 @@ import {
   userId as asUserId,
 } from "@/domain/id"
 import { parseRefOrFail } from "@/domain/issue-ref"
-import { findLabelByName } from "@/domain/label"
-import { stateByName, stateByType } from "@/domain/workflow-state"
+import { stateByType } from "@/domain/workflow-state"
 
-const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDependencies) => {
+const makeIssueWriteResolvers = ({ client, context, projects }: IssueWriteDependencies) => {
   const resolveIssueId = Effect.fn("IssueWriteApi.resolveIssueId")(function* resolveIssueId(
     input: string,
   ) {
@@ -159,22 +155,6 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
     return match.id
   })
 
-  const stateIdByName = Effect.fn("IssueWriteApi.stateIdByName")(function* stateIdByName(
-    states: readonly WorkflowStateNode[],
-    teamId: TeamId,
-    name: string,
-  ): Effect.fn.Return<WorkflowStateId, StateNotFoundError> {
-    const state = stateByName(states, name)
-    if (state === undefined) {
-      return yield* new StateNotFoundError({
-        state: name,
-        teamId,
-        message: `No workflow state named ${name} in team ${teamId}.`,
-      })
-    }
-    return state.id
-  })
-
   const stateIdByType = Effect.fn("IssueWriteApi.stateIdByType")(function* stateIdByType(
     states: readonly WorkflowStateNode[],
     teamId: TeamId,
@@ -193,12 +173,8 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
 
   const teamStateIdByName = Effect.fn("IssueWriteApi.teamStateIdByName")(
     function* teamStateIdByName(teamId: TeamId, name: string) {
-      const states = yield* collectConnection((after) =>
-        client
-          .execute(teamStatesQuery, { teamId, first: pageSize, after }, TeamStatesResponse)
-          .pipe(Effect.map((data) => data.team.states)),
-      )
-      return yield* stateIdByName(states, teamId, name)
+      const state = yield* context.resolveState(name, teamId)
+      return state.id
     },
   )
 
@@ -219,10 +195,18 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
     return { states, teamId }
   })
 
+  const resolveIssueTeamId = Effect.fn("IssueWriteApi.resolveIssueTeamId")(
+    function* resolveIssueTeamId(issueId: IssueId) {
+      const data = yield* client.execute(issueTeamQuery, { id: issueId }, IssueTeamResponse)
+      return data.issue.team.id
+    },
+  )
+
   const issueStateIdByName = Effect.fn("IssueWriteApi.issueStateIdByName")(
     function* issueStateIdByName(issueId: IssueId, name: string) {
-      const team = yield* issueStates(issueId)
-      return yield* stateIdByName(team.states, team.teamId, name)
+      const teamId = yield* resolveIssueTeamId(issueId)
+      const state = yield* context.resolveState(name, teamId)
+      return state.id
     },
   )
 
@@ -244,16 +228,11 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
     teamId: TeamId,
     names: readonly string[],
   ): Effect.fn.Return<readonly ResolvedLabel[], IssueWriteApiError> {
-    const available = yield* collectConnection((after) =>
-      labels.listAvailable(teamId, { after, limit: pageSize }),
+    const resolved: readonly ResolvedLabel[] = yield* Effect.forEach(names, (name) =>
+      context
+        .resolveLabel(name, teamId)
+        .pipe(Effect.map((label) => ({ id: label.id, name: label.name }))),
     )
-    const resolved: readonly ResolvedLabel[] = yield* Effect.forEach(names, (name) => {
-      const match = findLabelByName(available, name)
-      if (match === undefined) {
-        return Effect.fail(labelNotFoundError(teamId, name))
-      }
-      return Effect.succeed({ id: match.id, name: match.name })
-    })
     return resolved
   })
 
@@ -268,13 +247,6 @@ const makeIssueWriteResolvers = ({ client, labels, projects }: IssueWriteDepende
     )
     return yield* unwrapComment(data.commentCreate)
   })
-
-  const resolveIssueTeamId = Effect.fn("IssueWriteApi.resolveIssueTeamId")(
-    function* resolveIssueTeamId(issueId: IssueId) {
-      const data = yield* client.execute(issueTeamQuery, { id: issueId }, IssueTeamResponse)
-      return data.issue.team.id
-    },
-  )
 
   return {
     ...makeRelationResolvers({ client }),

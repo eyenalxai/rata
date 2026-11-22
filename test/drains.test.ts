@@ -31,12 +31,18 @@ const labelsHandler = () =>
         data: { issue: { labels: { nodes: [], pageInfo } } },
       })
     }
-    if (request.query.includes("query AvailableLabels")) {
+    if (request.query.includes("query TeamById")) {
+      return jsonResponse({ data: { teams: { nodes: [team], pageInfo } } })
+    }
+    if (request.query.includes("query TeamStates")) {
+      return jsonResponse({ data: { team: { states: { nodes: [], pageInfo } } } })
+    }
+    if (request.query.includes("query TeamLabels")) {
       return request.variables.after === null
         ? jsonResponse({
             data: {
               issueLabels: {
-                nodes: [{ id: "l1", name: "bug", color: "#111111" }],
+                nodes: [{ id: "l1", name: "bug", color: "#111111", team: { id: "team-1" } }],
                 pageInfo: { hasNextPage: true, endCursor: "l1" },
               },
             },
@@ -44,11 +50,19 @@ const labelsHandler = () =>
         : jsonResponse({
             data: {
               issueLabels: {
-                nodes: [{ id: "l2", name: "ready-for-agent", color: "#111111" }],
+                nodes: [
+                  { id: "l2", name: "ready-for-agent", color: "#111111", team: { id: "team-1" } },
+                ],
                 pageInfo,
               },
             },
           })
+    }
+    if (request.query.includes("query TeamMembers")) {
+      return jsonResponse({ data: { team: { members: { nodes: [], pageInfo } } } })
+    }
+    if (request.query.includes("query IssuePriorityValues")) {
+      return jsonResponse({ data: { issuePriorityValues: [] } })
     }
     if (request.query.includes("mutation AddLabel")) {
       return jsonResponse({
@@ -63,13 +77,25 @@ const createHandler = () =>
     if (request.query.includes("query TeamByKey")) {
       return jsonResponse({ data: { teams: { nodes: [team], pageInfo } } })
     }
+    if (request.query.includes("query TeamById")) {
+      return jsonResponse({ data: { teams: { nodes: [team], pageInfo } } })
+    }
+    if (request.query.includes("query TeamLabels")) {
+      return jsonResponse({ data: { issueLabels: { nodes: [], pageInfo } } })
+    }
+    if (request.query.includes("query TeamMembers")) {
+      return jsonResponse({ data: { team: { members: { nodes: [], pageInfo } } } })
+    }
+    if (request.query.includes("query IssuePriorityValues")) {
+      return jsonResponse({ data: { issuePriorityValues: [] } })
+    }
     if (request.query.includes("query TeamStates")) {
       return request.variables.after === null
         ? jsonResponse({
             data: {
               team: {
                 states: {
-                  nodes: [{ id: "s-backlog", name: "Backlog", type: "backlog" }],
+                  nodes: [{ id: "s-backlog", name: "Backlog", type: "backlog", position: 0 }],
                   pageInfo: { hasNextPage: true, endCursor: "s-backlog" },
                 },
               },
@@ -79,7 +105,7 @@ const createHandler = () =>
             data: {
               team: {
                 states: {
-                  nodes: [{ id: "s-todo", name: "Todo", type: "unstarted" }],
+                  nodes: [{ id: "s-todo", name: "Todo", type: "unstarted", position: 1 }],
                   pageInfo,
                 },
               },
@@ -143,7 +169,7 @@ const closeHandler = () =>
                 team: {
                   id: "team-1",
                   states: {
-                    nodes: [{ id: "s-todo", name: "Todo", type: "unstarted" }],
+                    nodes: [{ id: "s-todo", name: "Todo", type: "unstarted", position: 1 }],
                     pageInfo: { hasNextPage: true, endCursor: "s-todo" },
                   },
                 },
@@ -181,9 +207,7 @@ describe("label drains", () => {
       id: "id-RAT-1",
       labelId: "l2",
     })
-    const pages = recorder.requests.filter((request) =>
-      request.query.includes("query AvailableLabels"),
-    )
+    const pages = recorder.requests.filter((request) => request.query.includes("query TeamLabels"))
     expect(pages[0]?.variables).toEqual({ teamId: "team-1", first: 50, after: null })
     expect(pages[1]?.variables).toEqual({ teamId: "team-1", first: 50, after: "l1" })
   })

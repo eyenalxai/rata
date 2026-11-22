@@ -5,11 +5,17 @@ import type { LinearApiError } from "@/api/errors"
 import type { IssueSummary } from "@/api/issue-model"
 import type { IssueComment, IssueSummaryNode } from "@/api/issue-schema"
 import type { IssueRefNotFoundError } from "@/api/issue/batch"
-import type { LabelNotFoundError, LabelService } from "@/api/label"
+import type { LabelNotFoundError } from "@/api/label"
 import type { ProjectService } from "@/api/project"
 import type { ProjectNotFoundError } from "@/api/project/errors"
 import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
+import type { TeamContext } from "@/context/team"
+import type {
+  ContextLabelNotFoundError,
+  ContextStateNotFoundError,
+  TeamContextError,
+} from "@/context/team/model"
 import type { SectionBatchError } from "@/domain/body/section/edit"
 import type { SectionLookupError } from "@/domain/body/section/model"
 import type { ConflictError } from "@/domain/conflict"
@@ -50,7 +56,7 @@ class AssigneeConflictError extends Schema.TaggedError<AssigneeConflictError>()(
 
 type IssueWriteDependencies = {
   readonly client: LinearClient["Service"]
-  readonly labels: LabelService["Service"]
+  readonly context: TeamContext["Service"]
   readonly projects: ProjectService["Service"]
 }
 
@@ -131,6 +137,8 @@ type IssueWriteApiError =
   | IssueRefNotFoundError
   | IssueWriteError
   | ConflictError
+  | ContextLabelNotFoundError
+  | ContextStateNotFoundError
   | LabelNotFoundError
   | LinearApiError
   | ProjectNotFoundError
@@ -138,6 +146,7 @@ type IssueWriteApiError =
   | SectionBatchError
   | SectionLookupError
   | StateNotFoundError
+  | TeamContextError
   | TeamNotFoundError
   | TeamResolutionError
 

@@ -1,4 +1,4 @@
-import type { ProfileSeed, RepositorySeed } from "@test/database-harness"
+import type { CacheSeed, ProfileSeed, RepositorySeed } from "@test/database-harness"
 import type {
   FakeLabel,
   FakePriority,
@@ -37,6 +37,8 @@ import { IssueDefaultsService } from "@/config/defaults"
 import { LinkService } from "@/config/link"
 import { RepoConfigService } from "@/config/repo"
 import { RepositoryIdentity } from "@/config/repo-identity"
+import { TeamContext } from "@/context/team"
+import { ContextCache } from "@/local/context-cache"
 
 const handleQuery = (
   graphql: GraphQLRequest,
@@ -191,6 +193,7 @@ type ApiLayerOptions = {
   readonly env?: Readonly<Record<string, string>>
   readonly repositories?: readonly RepositorySeed[]
   readonly profiles?: readonly ProfileSeed[]
+  readonly cache?: CacheSeed
 }
 
 const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
@@ -208,7 +211,7 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
     makeDirectory: () => Effect.void,
   })
   const platform = Layer.mergeAll(fs, Path.layer, Stdio.layerTest(options.stdio ?? {}))
-  const database = databaseLayer(options.repositories, options.profiles)
+  const database = databaseLayer(options.repositories, options.profiles, options.cache)
   const identity = RepositoryIdentity.layer.pipe(Layer.provide(platform))
   const repoConfig = RepoConfigService.layer.pipe(
     Layer.provide(Layer.mergeAll(platform, database, identity)),
@@ -219,11 +222,15 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
   )
   const teams = TeamService.layer.pipe(Layer.provide(client))
   const repoTeam = RepoTeam.layer.pipe(Layer.provide(Layer.mergeAll(teams, repoConfig)))
+  const contextCacheLayer = ContextCache.layer.pipe(Layer.provide(database))
+  const teamContext = TeamContext.layer.pipe(
+    Layer.provide(Layer.mergeAll(auth, client, teams, repoConfig, contextCacheLayer)),
+  )
   const labels = LabelService.layer.pipe(Layer.provide(Layer.mergeAll(client, repoTeam)))
   const projects = ProjectService.layer.pipe(Layer.provide(Layer.mergeAll(client, repoTeam)))
-  const issue = IssueApi.layer.pipe(Layer.provide(Layer.mergeAll(client, repoTeam)))
+  const issue = IssueApi.layer.pipe(Layer.provide(Layer.mergeAll(client, repoTeam, teamContext)))
   const issueWrite = IssueWriteApi.layer.pipe(
-    Layer.provide(Layer.mergeAll(client, labels, projects, repoConfig, repoTeam)),
+    Layer.provide(Layer.mergeAll(client, projects, repoConfig, repoTeam, teamContext)),
   )
   const defaults = IssueDefaultsService.layer.pipe(
     Layer.provide(Layer.mergeAll(labels, repoConfig, repoTeam)),
@@ -237,6 +244,8 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
     client,
     teams,
     repoTeam,
+    contextCacheLayer,
+    teamContext,
     labels,
     projects,
     issue,

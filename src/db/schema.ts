@@ -1,4 +1,4 @@
-import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core"
+import { integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core"
 
 const profiles = sqliteTable("profiles", {
   name: text("name").primaryKey(),
@@ -17,4 +17,27 @@ const repositories = sqliteTable("repositories", {
   defaultPriority: integer("default_priority"),
 })
 
-export { profiles, repositories }
+const contextCache = sqliteTable(
+  "context_cache",
+  {
+    profile: text("profile").notNull(),
+    teamId: text("team_id").notNull(),
+    keyHash: text("key_hash").notNull(),
+    detail: text("detail").notNull(),
+    fetchedAt: integer("fetched_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.profile, table.teamId, table.keyHash] })],
+)
+
+const viewerCache = sqliteTable(
+  "viewer_cache",
+  {
+    profile: text("profile").notNull(),
+    keyHash: text("key_hash").notNull(),
+    viewer: text("viewer").notNull(),
+    fetchedAt: integer("fetched_at").notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.profile, table.keyHash] })],
+)
+
+export { contextCache, profiles, repositories, viewerCache }

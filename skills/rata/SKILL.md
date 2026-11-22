@@ -13,7 +13,7 @@ this skill covers the CLI.
 
 ```bash
 command -v rata      # the binary is installed
-rata status --json   # repo, workspace, key source, team, defaults and viewer
+rata status --json   # repo, team, states, labels, triage, cache age, docs, viewer
 ```
 
 `status` works without a link. Fix a failed first command before you retry:
@@ -26,7 +26,8 @@ rata status --json   # repo, workspace, key source, team, defaults and viewer
   that `link` writes, and `link` also sets the team timezone. A stale stored key
   is repaired on read with a warning; if `status` says it is gone, follow the
   repair hint.
-- Do not guess a workflow state name. Read it from `rata team show --json`.
+- Do not guess a workflow state name. Read it from `rata status --json`; add
+  `--refresh` when `cache.ageSeconds` is stale or the context looks wrong.
 
 ## One spelling per operation
 

@@ -47,7 +47,11 @@ const handler = (issues: readonly unknown[]) => {
 }
 
 const ErrorEnvelope = Schema.Struct({
-  error: Schema.Struct({ code: Schema.String, hint: Schema.NullOr(Schema.String) }),
+  error: Schema.Struct({
+    code: Schema.String,
+    message: Schema.String,
+    hint: Schema.NullOr(Schema.String),
+  }),
 })
 
 const errorOf = (lines: readonly string[]) =>
@@ -76,9 +80,33 @@ describe("issue list filter existence", () => {
     const error = errorOf(lines)
     expect(process.exitCode).toBe(3)
     expect(error.code).toBe("not_found")
-    expect(error.hint).toContain("Todo")
-    expect(error.hint).toContain("In Progress")
-    expect(error.hint).toContain("Done")
+    expect(error.message).toContain("Todo")
+    expect(error.message).toContain("In Progress")
+    expect(error.message).toContain("Done")
+  })
+
+  test("refreshes the context once for an unknown state", async () => {
+    const fake = makeFakeLinear({ teams: [team], labels, projects })
+    let stateReads = 0
+    const countedHandler = (request: Parameters<typeof fake.handler>[0]) => {
+      const body = readRequest(request)
+      if (body.query.includes("query TeamStates")) {
+        stateReads += 1
+      }
+      if (body.query.includes("query IssueList")) {
+        return jsonResponse({ data: { issues: { nodes: [], pageInfo } } })
+      }
+      return fake.handler(request)
+    }
+    const lines: string[] = []
+    await runIssue(countedHandler, ["list", "--state", "In Progess", "--json"], lines, [
+      { key: process.cwd(), team: "RAT", teamId: "team-1" },
+    ])
+
+    const error = errorOf(lines)
+    expect(error.code).toBe("not_found")
+    expect(error.message).toContain("In Progress")
+    expect(stateReads).toBe(2)
   })
 
   test("keeps an empty page for a valid state", async () => {
@@ -96,8 +124,32 @@ describe("issue list filter existence", () => {
     const error = errorOf(lines)
     expect(process.exitCode).toBe(3)
     expect(error.code).toBe("not_found")
-    expect(error.hint).toContain("ready-for-agent")
-    expect(error.hint).toContain("bug")
+    expect(error.message).toContain("ready-for-agent")
+    expect(error.message).toContain("bug")
+  })
+
+  test("refreshes the context once for an unknown label", async () => {
+    const fake = makeFakeLinear({ teams: [team], labels, projects })
+    let labelReads = 0
+    const countedHandler = (request: Parameters<typeof fake.handler>[0]) => {
+      const body = readRequest(request)
+      if (body.query.includes("query TeamLabels")) {
+        labelReads += 1
+      }
+      if (body.query.includes("query IssueList")) {
+        return jsonResponse({ data: { issues: { nodes: [], pageInfo } } })
+      }
+      return fake.handler(request)
+    }
+    const lines: string[] = []
+    await runIssue(countedHandler, ["list", "--label", "redy-for-agent", "--json"], lines, [
+      { key: process.cwd(), team: "RAT", teamId: "team-1" },
+    ])
+
+    const error = errorOf(lines)
+    expect(error.code).toBe("not_found")
+    expect(error.message).toContain("ready-for-agent")
+    expect(labelReads).toBe(2)
   })
 
   test("keeps an empty page for a valid label", async () => {
