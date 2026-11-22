@@ -23,8 +23,8 @@ describe("workflow state", () => {
     expect(stateTypes).not.toContain(invalid)
   })
 
-  test("treats completed and canceled as closed", () => {
-    expect(closedStateTypes).toEqual(["completed", "canceled"])
+  test("treats terminal states as closed", () => {
+    expect(closedStateTypes).toEqual(["completed", "canceled", "duplicate"])
     for (const type of closedStateTypes) {
       expect(isClosedState(type)).toBe(true)
     }

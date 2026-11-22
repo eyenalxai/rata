@@ -32,9 +32,9 @@ they explore the codebase. Use these terms; do not drift to synonyms.
 - **Workflow state** (short: **state**): a team's status for an issue, for
   example `Triage`, `Backlog`, `Todo`, `In Progress`, `Done`, `Canceled`. Each
   state has a **state type**: `triage`, `backlog`, `unstarted`, `started`,
-  `completed`, `canceled`. Avoid: status.
+  `completed`, `canceled`, `duplicate`. Avoid: status.
 - **Open** / **closed**: an issue is **open** when its state type is not
-  `completed` and not `canceled`; otherwise it is **closed**.
+  `completed`, `canceled` or `duplicate`; otherwise it is **closed**.
 - **Priority**: how urgent an issue is. Values, most urgent first: `urgent`,
   `high`, `medium`, `low`; `none` means no priority is set. Avoid: severity,
   importance.

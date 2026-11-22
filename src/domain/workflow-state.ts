@@ -2,12 +2,20 @@ import { Schema } from "effect"
 
 import { WorkflowStateId } from "@/domain/id"
 
-const stateTypes = ["triage", "backlog", "unstarted", "started", "completed", "canceled"] as const
+const stateTypes = [
+  "triage",
+  "backlog",
+  "unstarted",
+  "started",
+  "completed",
+  "canceled",
+  "duplicate",
+] as const
 type StateType = (typeof stateTypes)[number]
 
 const StateTypeSchema = Schema.Literals(stateTypes)
 
-const closedStateTypes: readonly StateType[] = ["completed", "canceled"]
+const closedStateTypes: readonly StateType[] = ["completed", "canceled", "duplicate"]
 
 const WorkflowState = Schema.Struct({
   name: Schema.String,
