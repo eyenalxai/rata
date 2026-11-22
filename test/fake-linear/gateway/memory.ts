@@ -8,7 +8,7 @@ import type {
 
 import { byPriority, matchesIssue, toDetail, withRelations } from "@test/fake-linear/gateway/issue"
 import { defaultPriorities } from "@test/fake-linear/gateway/model"
-import { Effect, Layer, Redacted } from "effect"
+import { Effect, Layer, Option, Redacted, Schema } from "effect"
 
 import type { Connection } from "@/linear/connection"
 import type { TeamDetail } from "@/linear/decode/team"
@@ -98,7 +98,36 @@ const makeMemoryGateway = (seed: MemorySeed): LinearGatewayShape => {
       : Effect.succeed(issue)
   }
 
-  const execute = (() => Effect.fail(unsupported())) as LinearGatewayShape["client"]["execute"]
+  const updateIssueState = (variables: Record<string, unknown>) => {
+    const input = Option.getOrUndefined(
+      Schema.decodeUnknownOption(Schema.Struct({ stateId: Schema.String }))(variables.input),
+    )
+    if (input === undefined) {
+      return Effect.fail(unsupported())
+    }
+    const index = issues.findIndex((issue) => String(issue.summary.id) === String(variables.id))
+    const issue = issues[index]
+    const state =
+      issue === undefined
+        ? undefined
+        : (teams.find((team) => team.id === issue.team.id)?.states ?? []).find(
+            (candidate) => candidate.id === input.stateId,
+          )
+    if (issue === undefined || state === undefined) {
+      return Effect.fail(unsupported())
+    }
+    const updated: MemoryIssue = {
+      ...issue,
+      summary: { ...issue.summary, state: { name: state.name, type: state.type } },
+    }
+    issues[index] = updated
+    return Effect.succeed({ issueUpdate: { success: true, issue: updated.summary } })
+  }
+
+  const execute = ((query: string, variables: Record<string, unknown>) =>
+    query.includes("mutation UpdateIssue")
+      ? updateIssueState(variables)
+      : Effect.fail(unsupported())) as LinearGatewayShape["client"]["execute"]
   const executeWithKey = (() =>
     Effect.fail(unsupported())) as LinearGatewayShape["client"]["executeWithKey"]
   const viewer = Effect.succeed(seed.viewer)
@@ -128,6 +157,9 @@ const makeMemoryGateway = (seed: MemorySeed): LinearGatewayShape => {
     issue: {
       id: (ref) => requireIssue(String(ref)).pipe(Effect.map((issue) => issue.summary.id)),
       summary: (ref) => requireIssue(String(ref)).pipe(Effect.map((issue) => issue.summary)),
+      labels: (ref) =>
+        requireIssue(String(ref)).pipe(Effect.map((issue) => issue.summary.labels.nodes)),
+      teamId: (issueId) => requireIssue(String(issueId)).pipe(Effect.map((issue) => issue.team.id)),
       show: (ref, options) =>
         requireIssue(String(ref)).pipe(Effect.map((issue) => toDetail(issue, options))),
       list: (options) => {

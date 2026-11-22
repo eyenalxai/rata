@@ -81,6 +81,9 @@ const minimalCreateHandler = () =>
     if (request.query.includes("query TeamByKey")) {
       return jsonResponse({ data: { teams: { nodes: [team], pageInfo } } })
     }
+    if (request.query.includes("query Viewer")) {
+      return jsonResponse({ data: { viewer } })
+    }
     if (request.query.includes("mutation CreateIssue")) {
       return issueCreated()
     }

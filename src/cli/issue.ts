@@ -2,7 +2,6 @@ import { Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 
 import { IssueApi } from "@/api/issue"
-import { isListInclude, listIncludes, sortFields } from "@/api/issue-model"
 import { OutputFields, readFields } from "@/cli/fields"
 import { withAgentNotes } from "@/cli/help"
 import { issueLabelCommand } from "@/cli/issue-label"
@@ -27,6 +26,7 @@ import {
 import { JsonOutput, errorLine, reportFailure, validatePageSize } from "@/cli/output"
 import { resolvePriority } from "@/cli/priority"
 import { stateTypes } from "@/domain/workflow-state"
+import { isListInclude, listIncludes, sortFields } from "@/tracker/model"
 
 const optionalText = (name: string, description: string) =>
   Flag.String(name).pipe(Flag.withDescription(description), Flag.optional)

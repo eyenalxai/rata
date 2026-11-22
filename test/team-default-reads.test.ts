@@ -2,7 +2,7 @@ import type { Handler } from "@test/fake-linear/model"
 
 import { cliLayer, lastJson } from "@test/cli-harness"
 import { makeFakeLinear } from "@test/fake-linear"
-import { readRequest } from "@test/fake-linear/model"
+import { defaultViewer, readRequest } from "@test/fake-linear/model"
 import { jsonResponse, summaryNode } from "@test/issue-fixtures"
 import { afterEach, describe, expect, test } from "bun:test"
 import { Effect } from "effect"
@@ -154,10 +154,35 @@ describe("issue search pages", () => {
     const variables: Record<string, unknown>[] = []
     const handler: Handler = (request) => {
       const body = readRequest(request)
+      if (body.query.includes("query Viewer")) {
+        return jsonResponse({ data: { viewer: defaultViewer } })
+      }
       if (body.query.includes("query TeamByKey")) {
         return jsonResponse({
           data: { teams: { nodes: [team], pageInfo: { hasNextPage: false, endCursor: null } } },
         })
+      }
+      if (body.query.includes("query TeamStates")) {
+        return jsonResponse({
+          data: {
+            team: { states: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } } },
+          },
+        })
+      }
+      if (body.query.includes("query TeamLabels")) {
+        return jsonResponse({
+          data: { issueLabels: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } } },
+        })
+      }
+      if (body.query.includes("query TeamMembers")) {
+        return jsonResponse({
+          data: {
+            team: { members: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } } },
+          },
+        })
+      }
+      if (body.query.includes("query IssuePriorityValues")) {
+        return jsonResponse({ data: { issuePriorityValues: [] } })
       }
       variables.push(body.variables)
       return jsonResponse({

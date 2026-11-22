@@ -721,6 +721,27 @@ valid. rata adds the `#` when it is missing and keeps the case.
 `"created": true` or `"created": false` when `--if-not-exists` returns an
 existing label.
 
+## Context and team resolution
+
+One command resolves one context: the repository root, the profile, the team and
+its cached detail, the states, the labels, the defaults and the stale-link
+warning. The reader and writer take that context as an argument.
+
+A team-scoped single write uses the issue's team when it differs from the linked
+team, or when the repository has no link. Otherwise it uses the linked team.
+Cross-team bulk label writes resolve the label names against each child's team.
+The old `label`, `project` and `config` commands still use the migration adapter
+`RepoTeam`; that is a ticket-scoped migration path, not a compatibility
+guarantee.
+
+`show`, `summary` and `why` do not read the viewer and do not repair the
+repository link. `list` and `search` print the stale-link warning. So do
+`close`, `reopen`, the label writes, `issue update --state`, and
+`issue update --sections-file --state` when they resolve the repository link.
+
+The read gateway exposes its raw client for writes. The write documents stay in
+`src/tracker/write/documents.ts`; they do not enter the read gateway.
+
 ## Linking a repository
 
 `rata link` binds this repository to a Linear team:

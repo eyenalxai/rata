@@ -1,10 +1,10 @@
 import { Config, Console, Effect, Option, Predicate, Result, Schema } from "effect"
 import { Flag, GlobalFlag } from "effect/cli"
 
-import type { IssueSummary } from "@/api/issue-model"
-import type { BulkWriteResult, BulkWriteSuccess } from "@/api/issue-write/model"
 import type { ErrorCode, TrackerError } from "@/domain/error"
 import type { PlanAction } from "@/domain/plan"
+import type { IssueSummary } from "@/tracker/model"
+import type { BulkWriteResult, BulkWriteSuccess } from "@/tracker/write/model"
 
 import { commandError, exitCodeOf, toTrackerError } from "@/cli/error-report"
 import { maxPageSize } from "@/linear/connection"

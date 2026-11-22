@@ -145,6 +145,16 @@ describe("the process exit code", () => {
     expect(exitCodeOfCliError(parseError)).toBe(2)
   })
 
+  test("issue create without a linked team exits 2", async () => {
+    const lines: string[] = []
+    await runIssue(unusedHandler, ["create", "--title", "T", "--json"], lines, [])
+
+    expect(process.exitCode).toBe(2)
+    expect(JSON.parse(lines.at(-1) ?? "")).toMatchObject({
+      error: { code: "not_linked" },
+    })
+  })
+
   test("a bad limit exits 2", async () => {
     await runIssue(unusedHandler, ["list", "--limit", "0", "--json"], [])
 

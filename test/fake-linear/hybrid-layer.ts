@@ -20,10 +20,13 @@ import { IssueDefaultsService } from "@/config/defaults"
 import { LinkService } from "@/config/link"
 import { RepoConfigService } from "@/config/repo"
 import { RepositoryIdentity } from "@/config/repo-identity"
+import { ContextResolver } from "@/context/resolve"
 import { TeamContext } from "@/context/team"
 import { makeClient } from "@/linear/client"
 import { LinearAuthError } from "@/linear/errors"
 import { ContextCache } from "@/local/context-cache"
+import { IssueReader } from "@/tracker/read"
+import { IssueWriter } from "@/tracker/write"
 
 const configLayer = (env: Readonly<Record<string, string>>) =>
   ConfigProvider.layer(ConfigProvider.fromEnvRecord(env))
@@ -64,18 +67,21 @@ const hybridApiLayer = (handler: Handler, seed: MemorySeed, options: ApiLayerOpt
     }),
   ).pipe(Layer.provide(Layer.mergeAll(auth, Layer.succeed(HttpClient.HttpClient, http))))
   const teams = TeamService.layer.pipe(Layer.provide(Layer.mergeAll(gateway, client)))
-  const repoTeam = RepoTeam.layer.pipe(Layer.provide(Layer.mergeAll(teams, repoConfig)))
   const contextCacheLayer = ContextCache.layer.pipe(Layer.provide(database))
-  const teamContext = TeamContext.layer.pipe(
-    Layer.provide(Layer.mergeAll(auth, gateway, teams, repoConfig, contextCacheLayer)),
+  const contextResolver = ContextResolver.layer.pipe(
+    Layer.provide(Layer.mergeAll(auth, gateway, teams, repoConfig, identity, contextCacheLayer)),
   )
+  const repoTeam = RepoTeam.layer.pipe(Layer.provide(Layer.mergeAll(teams, repoConfig)))
+  const teamContext = TeamContext.layer.pipe(Layer.provide(contextResolver))
   const labels = LabelService.layer.pipe(Layer.provide(Layer.mergeAll(gateway, client, repoTeam)))
   const projects = ProjectService.layer.pipe(
     Layer.provide(Layer.mergeAll(gateway, client, repoTeam)),
   )
-  const issue = IssueApi.layer.pipe(Layer.provide(Layer.mergeAll(gateway, repoTeam, teamContext)))
+  const reader = IssueReader.layer.pipe(Layer.provide(Layer.mergeAll(gateway, contextResolver)))
+  const writer = IssueWriter.layer.pipe(Layer.provide(Layer.mergeAll(gateway, contextResolver)))
+  const issue = IssueApi.layer.pipe(Layer.provide(Layer.mergeAll(contextResolver, reader)))
   const issueWrite = IssueWriteApi.layer.pipe(
-    Layer.provide(Layer.mergeAll(client, projects, repoConfig, repoTeam, teamContext)),
+    Layer.provide(Layer.mergeAll(contextResolver, writer)),
   )
   const defaults = IssueDefaultsService.layer.pipe(
     Layer.provide(Layer.mergeAll(labels, repoConfig, repoTeam)),
@@ -91,7 +97,10 @@ const hybridApiLayer = (handler: Handler, seed: MemorySeed, options: ApiLayerOpt
     teams,
     repoTeam,
     contextCacheLayer,
+    contextResolver,
     teamContext,
+    reader,
+    writer,
     labels,
     projects,
     issue,

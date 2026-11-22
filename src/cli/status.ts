@@ -13,11 +13,12 @@ import { OutputFields, readFields, selectObject } from "@/cli/fields"
 import { JsonOutput, reportFailure, warningLine, writeJson, writeLine } from "@/cli/output"
 import { statusShape } from "@/cli/status/shape"
 import { Auth } from "@/config/auth"
-import { defaultsDocument, formatDefaults, issueDefaults } from "@/config/defaults"
+import { defaultsDocument, formatDefaults } from "@/config/defaults"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
 import { RepositoryIdentity } from "@/config/repo-identity"
 import { readContextDocs } from "@/context/docs"
 import { TeamContext } from "@/context/team"
+import { issueDefaults } from "@/domain/issue-defaults"
 
 type StatusViewer = {
   readonly id: string

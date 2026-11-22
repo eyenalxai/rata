@@ -1,7 +1,7 @@
 import { Effect, Option, Result } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 
-import type { BulkWriteSuccess, WriteAction } from "@/api/issue-write/model"
+import type { BulkWriteSuccess, WriteAction } from "@/tracker/write/model"
 
 import { IssueWriteApi } from "@/api/issue-write"
 import { OutputFields, rejectFields } from "@/cli/fields"

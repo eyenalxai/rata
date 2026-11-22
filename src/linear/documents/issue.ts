@@ -78,6 +78,14 @@ const issueIdQuery = `query IssueId($id: String!) {
   }
 }`
 
+const issueTeamQuery = `query IssueTeam($id: String!) {
+  issue(id: $id) {
+    team {
+      id
+    }
+  }
+}`
+
 const issueSummaryQuery = `query IssueSummary($id: String!) {
   issue(id: $id) {${summaryFields}
   }
@@ -125,6 +133,7 @@ export {
   commentsQuery,
   issueIdQuery,
   issueSummaryQuery,
+  issueTeamQuery,
   labelsQuery,
   listQuery,
   prioritySort,

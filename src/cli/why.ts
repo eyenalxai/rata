@@ -2,10 +2,10 @@ import { Effect } from "effect"
 import { Argument, Command } from "effect/cli"
 
 import { IssueApi } from "@/api/issue"
-import { isBlocked, toBlockers, toIssueSummary } from "@/api/issue-model"
 import { OutputFields, readFields, selectObject } from "@/cli/fields"
 import { issueWhyShape } from "@/cli/issue/shape"
 import { JsonOutput, reportFailure, writeJson, writeLine } from "@/cli/output"
+import { isBlocked, toBlockers, toIssueSummary } from "@/tracker/model"
 
 const refArgument = Argument.String("ref").pipe(
   Argument.withDescription("Issue reference: an identifier, a UUID, or a linear.app URL"),

@@ -1,12 +1,12 @@
 import { Effect, Option } from "effect"
 import { Command, Flag } from "effect/cli"
 
+import type { PlanAction } from "@/domain/plan"
 import type {
   IssueUpdateOptions,
   IssueUpdatePlan,
   IssueUpdateWriteOptions,
-} from "@/api/issue-write/write-types"
-import type { PlanAction } from "@/domain/plan"
+} from "@/tracker/write/write-types"
 
 import { IssueWriteApi } from "@/api/issue-write"
 import { resolveBody } from "@/cli/body"

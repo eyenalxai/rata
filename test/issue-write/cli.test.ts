@@ -14,6 +14,9 @@ describe("rata issue create state", () => {
   test("reports the valid states after one refresh", async () => {
     const team = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
     const recorder = makeRecorder((request) => {
+      if (request.query.includes("query Viewer")) {
+        return jsonResponse({ data: { viewer } })
+      }
       const detail = teamDetailResponse(request)
       if (detail !== undefined) {
         return detail

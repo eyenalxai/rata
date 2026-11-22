@@ -1,7 +1,7 @@
 import { Effect, Result } from "effect"
 
-import type { IssueSummary } from "@/api/issue-model"
 import type { IssueWriteApi } from "@/api/issue-write"
+import type { IssueSummary } from "@/tracker/model"
 
 import { toTrackerError } from "@/cli/error-report"
 import { reportTrackerError, writeJson, writeLine } from "@/cli/output"

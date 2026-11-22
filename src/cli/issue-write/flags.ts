@@ -1,7 +1,7 @@
 import { Effect, Option } from "effect"
 import { Argument, Flag } from "effect/cli"
 
-import type { WriteVisibility } from "@/api/issue-write/write-types"
+import type { WriteVisibility } from "@/tracker/write/write-types"
 
 import { resolveBody } from "@/cli/body"
 import { errorLine, warningLine } from "@/cli/output"

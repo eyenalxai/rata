@@ -2,8 +2,8 @@ import type { Option } from "effect"
 
 import { Effect } from "effect"
 
-import type { IssuePage, IssueSummary } from "@/api/issue-model"
 import type { FieldPath, FieldShape } from "@/cli/field/shape"
+import type { IssuePage, IssueSummary } from "@/tracker/model"
 
 import { selectItems } from "@/cli/fields"
 import { nextPageHint, writeJson, writeLine } from "@/cli/output"

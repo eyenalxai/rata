@@ -1,5 +1,5 @@
 import { inputOf } from "@test/fake-linear/model"
-import { jsonResponse, pageInfo, summaryNode } from "@test/issue-fixtures"
+import { jsonResponse, pageInfo, summaryNode, viewer } from "@test/issue-fixtures"
 import {
   issueCreated,
   issueUpdated,
@@ -32,6 +32,9 @@ const labelsHandler = () =>
       })
     }
     if (request.query.includes("query TeamById")) {
+      return jsonResponse({ data: { teams: { nodes: [team], pageInfo } } })
+    }
+    if (request.query.includes("query TeamByKey")) {
       return jsonResponse({ data: { teams: { nodes: [team], pageInfo } } })
     }
     if (request.query.includes("query TeamStates")) {
@@ -74,6 +77,9 @@ const labelsHandler = () =>
 
 const createHandler = () =>
   makeRecorder((request) => {
+    if (request.query.includes("query Viewer")) {
+      return jsonResponse({ data: { viewer } })
+    }
     if (request.query.includes("query TeamByKey")) {
       return jsonResponse({ data: { teams: { nodes: [team], pageInfo } } })
     }
@@ -161,27 +167,36 @@ const closeHandler = () =>
     if (request.query.includes("query IssueId")) {
       return jsonResponse({ data: { issue: { id: "i1" } } })
     }
-    if (request.query.includes("query IssueStates")) {
+    if (request.query.includes("query TeamByKey")) {
+      return jsonResponse({ data: { teams: { nodes: [team], pageInfo } } })
+    }
+    if (request.query.includes("query TeamLabels")) {
+      return jsonResponse({ data: { issueLabels: { nodes: [], pageInfo } } })
+    }
+    if (request.query.includes("query TeamMembers")) {
+      return jsonResponse({ data: { team: { members: { nodes: [], pageInfo } } } })
+    }
+    if (request.query.includes("query IssuePriorityValues")) {
+      return jsonResponse({ data: { issuePriorityValues: [] } })
+    }
+    if (request.query.includes("query TeamStates")) {
       return request.variables.after === null
         ? jsonResponse({
             data: {
-              issue: {
-                team: {
-                  id: "team-1",
-                  states: {
-                    nodes: [{ id: "s-todo", name: "Todo", type: "unstarted", position: 1 }],
-                    pageInfo: { hasNextPage: true, endCursor: "s-todo" },
-                  },
+              team: {
+                states: {
+                  nodes: [{ id: "s-todo", name: "Todo", type: "unstarted", position: 1 }],
+                  pageInfo: { hasNextPage: true, endCursor: "s-todo" },
                 },
               },
             },
           })
         : jsonResponse({
             data: {
-              issue: {
-                team: {
-                  id: "team-1",
-                  states: { nodes: [{ id: "s-done", name: "Done", type: "completed" }], pageInfo },
+              team: {
+                states: {
+                  nodes: [{ id: "s-done", name: "Done", type: "completed", position: 2 }],
+                  pageInfo,
                 },
               },
             },
@@ -255,8 +270,8 @@ describe("workflow-state drains", () => {
     expect(inputOf(requestOf(recorder, "mutation UpdateIssue")?.variables ?? {})).toEqual({
       stateId: "s-done",
     })
-    const pages = recorder.requests.filter((request) => request.query.includes("query IssueStates"))
+    const pages = recorder.requests.filter((request) => request.query.includes("query TeamStates"))
     expect(pages).toHaveLength(2)
-    expect(pages[1]?.variables).toEqual({ id: "id-RAT-1", first: 50, after: "s-todo" })
+    expect(pages[1]?.variables).toEqual({ teamId: "team-1", first: 50, after: "s-todo" })
   })
 })

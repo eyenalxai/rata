@@ -1,0 +1,97 @@
+import { Effect } from "effect"
+
+import type { LinearClientShape } from "@/linear/client"
+import type {
+  IssueRelationChange,
+  IssueRelationChanges,
+  WriteAction,
+  WriteOptions,
+} from "@/tracker/write/model"
+import type { makeIssueWriteResolvers } from "@/tracker/write/resolvers"
+
+import { CreateRelationResponse, DeleteRelationResponse } from "@/linear/decode/issue"
+import { createRelationMutation, deleteRelationMutation } from "@/tracker/write/documents"
+import { combineStatus, unwrapRelation } from "@/tracker/write/model"
+import { linkRelationPlans, planRelationUnlinks } from "@/tracker/write/relation-plan"
+
+type RelationWriteDependencies = {
+  readonly client: LinearClientShape
+  readonly resolvers: ReturnType<typeof makeIssueWriteResolvers>
+}
+
+const makeRelationWrites = ({ client, resolvers }: RelationWriteDependencies) => {
+  const link = Effect.fn("IssueWriter.link")(function* link(
+    ref: string,
+    changes: IssueRelationChanges,
+    options: WriteOptions = {},
+  ) {
+    const resolved = yield* resolvers.resolveRelations(ref, changes)
+    const relations = yield* resolvers.collectRelations(resolved.issueId)
+    const plans = linkRelationPlans(
+      resolved.issueId,
+      resolved.targets,
+      relations.outgoing,
+      relations.incoming,
+    )
+    const actions: readonly WriteAction[] = plans.map((plan) => ({
+      action: "link",
+      target: ref,
+      status: plan.status,
+      changes: { relation: plan.kind, issue: plan.target },
+    }))
+    const status = combineStatus(actions)
+    if (options.dryRun === true) {
+      return { status, changes: [], actions }
+    }
+    const applied: IssueRelationChange[] = []
+    for (const plan of plans) {
+      if (plan.status === "skipped") {
+        applied.push({ action: "skipped", kind: plan.kind, target: plan.target })
+        continue
+      }
+      yield* client
+        .execute(createRelationMutation, { input: plan.input }, CreateRelationResponse)
+        .pipe(Effect.flatMap((data) => unwrapRelation(data.issueRelationCreate)))
+      applied.push({ action: "created", kind: plan.kind, target: plan.target })
+    }
+    return { status, changes: applied, actions }
+  })
+
+  const unlink = Effect.fn("IssueWriter.unlink")(function* unlink(
+    ref: string,
+    changes: IssueRelationChanges,
+    options: WriteOptions = {},
+  ) {
+    const resolved = yield* resolvers.resolveRelations(ref, changes)
+    const relations = yield* resolvers.collectRelations(resolved.issueId)
+    const plans = planRelationUnlinks(resolved.targets, relations.outgoing, relations.incoming)
+    const actions: readonly WriteAction[] = plans.map((plan) => ({
+      action: "unlink",
+      target: ref,
+      status: plan.status,
+      changes: { relation: plan.kind, issue: plan.target },
+    }))
+    const status = combineStatus(actions)
+    if (options.dryRun === true) {
+      return { status, changes: [], actions }
+    }
+    const applied: IssueRelationChange[] = []
+    for (const plan of plans) {
+      if (plan.status === "skipped") {
+        applied.push({ action: "skipped", kind: plan.kind, target: plan.target })
+        continue
+      }
+      for (const relationId of plan.relationIds) {
+        yield* client
+          .execute(deleteRelationMutation, { id: relationId }, DeleteRelationResponse)
+          .pipe(Effect.flatMap((data) => unwrapRelation(data.issueRelationDelete)))
+        applied.push({ action: "deleted", kind: plan.kind, target: plan.target })
+      }
+    }
+    return { status, changes: applied, actions }
+  })
+
+  return { link, unlink }
+}
+
+export { makeRelationWrites, type RelationWriteDependencies }

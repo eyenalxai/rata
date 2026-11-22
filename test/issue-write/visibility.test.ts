@@ -1,5 +1,5 @@
 import { lastJson, runIssue } from "@test/cli-harness"
-import { jsonResponse, pageInfo, user } from "@test/issue-fixtures"
+import { jsonResponse, pageInfo, user, viewer } from "@test/issue-fixtures"
 import { issueCreated, makeRecorder, requestOf, run, team } from "@test/issue-write/fixtures"
 import { afterEach, describe, expect, test } from "bun:test"
 import { Effect } from "effect"
@@ -38,6 +38,21 @@ const emptyComments = () => jsonResponse({ data: { issue: { comments: { nodes: [
 
 const createHandler = (children: () => Response) =>
   makeRecorder((request) => {
+    if (request.query.includes("query Viewer")) {
+      return jsonResponse({ data: { viewer } })
+    }
+    if (request.query.includes("query TeamStates")) {
+      return jsonResponse({ data: { team: { states: { nodes: [], pageInfo } } } })
+    }
+    if (request.query.includes("query TeamLabels")) {
+      return jsonResponse({ data: { issueLabels: { nodes: [], pageInfo } } })
+    }
+    if (request.query.includes("query TeamMembers")) {
+      return jsonResponse({ data: { team: { members: { nodes: [], pageInfo } } } })
+    }
+    if (request.query.includes("query IssuePriorityValues")) {
+      return jsonResponse({ data: { issuePriorityValues: [] } })
+    }
     if (request.query.includes("query TeamByKey")) {
       return jsonResponse({ data: { teams: { nodes: [team], pageInfo } } })
     }

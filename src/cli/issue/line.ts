@@ -1,4 +1,4 @@
-import type { IssueSummary } from "@/api/issue-model"
+import type { IssueSummary } from "@/tracker/model"
 
 const formatIssueLine = (issue: IssueSummary): string => {
   const assignee = issue.assignee?.name ?? "unassigned"

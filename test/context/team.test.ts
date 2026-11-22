@@ -9,7 +9,7 @@ import { Clock, Effect, Option, Schema } from "effect"
 import type { StateType } from "@/domain/workflow-state"
 
 import { hashApiKey } from "@/context/key-hash"
-import { TeamContext } from "@/context/team"
+import { ContextResolver } from "@/context/resolve"
 import { TeamDetail } from "@/linear/decode/team"
 import { Viewer } from "@/linear/decode/viewer"
 import { contextCacheTtlMillis } from "@/local/context-cache"
@@ -98,14 +98,14 @@ const warmCache = async (overrides: {
   }
 }
 
-describe("TeamContext resolution", () => {
+describe("ContextResolver resolution", () => {
   test("reads once on a miss and then serves the cache", async () => {
     const fake = makeFakeLinear(seed)
     const result = await Effect.gen(function* readTwice() {
-      const context = yield* TeamContext
-      const first = yield* context.resolve({ refresh: false })
+      const context = yield* ContextResolver
+      const first = yield* context.resolve({})
       const afterFirst = fake.requests.length
-      const second = yield* context.resolve({ refresh: false })
+      const second = yield* context.resolve({})
       return { first, second, afterFirst, afterSecond: fake.requests.length }
     }).pipe(Effect.provide(apiLayer(fake.handler, { repositories: repository })), Effect.runPromise)
 
@@ -121,8 +121,8 @@ describe("TeamContext resolution", () => {
     const fetchedAt = await now()
     const stale = await warmCache({ fetchedAt: fetchedAt - contextCacheTtlMillis - 1000 })
     const result = await Effect.gen(function* readExpired() {
-      const context = yield* TeamContext
-      return yield* context.resolve({ refresh: false })
+      const context = yield* ContextResolver
+      return yield* context.resolve({})
     }).pipe(
       Effect.provide(apiLayer(fake.handler, { repositories: repository, cache: stale })),
       Effect.runPromise,
@@ -136,10 +136,10 @@ describe("TeamContext resolution", () => {
     const fake = makeFakeLinear(seed)
     const oldCache = await warmCache({ keyHash: hashApiKey("old-key") })
     const result = await Effect.gen(function* readWithNewKey() {
-      const context = yield* TeamContext
-      const first = yield* context.resolve({ refresh: false })
+      const context = yield* ContextResolver
+      const first = yield* context.resolve({})
       const afterFirst = fake.requests.length
-      const second = yield* context.resolve({ refresh: false })
+      const second = yield* context.resolve({})
       return { first, second, afterFirst, afterSecond: fake.requests.length }
     }).pipe(
       Effect.provide(
@@ -160,8 +160,8 @@ describe("TeamContext resolution", () => {
   test("treats another profile as a cache miss", async () => {
     const fake = makeFakeLinear(seed)
     const result = await Effect.gen(function* readWithProfile() {
-      const context = yield* TeamContext
-      return yield* context.resolve({ refresh: false })
+      const context = yield* ContextResolver
+      return yield* context.resolve({})
     }).pipe(
       Effect.provide(
         apiLayer(fake.handler, {
@@ -181,8 +181,8 @@ describe("TeamContext resolution", () => {
   test("falls back to the key when the stored UUID is stale", async () => {
     const fake = makeFakeLinear(seed)
     const result = await Effect.gen(function* readStaleId() {
-      const context = yield* TeamContext
-      return yield* context.resolve({ refresh: false })
+      const context = yield* ContextResolver
+      return yield* context.resolve({})
     }).pipe(
       Effect.provide(
         apiLayer(fake.handler, {
@@ -200,8 +200,8 @@ describe("TeamContext resolution", () => {
   test("uses the team UUID stored by link", async () => {
     const fake = makeFakeLinear(seed)
     const result = await Effect.gen(function* readWarm() {
-      const context = yield* TeamContext
-      return yield* context.resolve({ refresh: false })
+      const context = yield* ContextResolver
+      return yield* context.resolve({})
     }).pipe(
       Effect.provide(
         apiLayer(fake.handler, { repositories: repository, cache: await warmCache({}) }),
@@ -212,82 +212,5 @@ describe("TeamContext resolution", () => {
     expect(fake.requests).toHaveLength(0)
     expect(result.team?.detail.id).toBe(detail.id)
     expect(result.team?.detail.key).toBe(team.key)
-  })
-})
-
-describe("TeamContext name resolution", () => {
-  test("refreshes once when a state is missing from the cache", async () => {
-    const fake = makeFakeLinear(seed)
-    const partial = await warmCache({
-      detail: { ...detail, states: detail.states.filter((state) => state.name === "Done") },
-    })
-    const result = await Effect.gen(function* resolveTodo() {
-      const context = yield* TeamContext
-      return yield* context.resolveState("todo")
-    }).pipe(
-      Effect.provide(apiLayer(fake.handler, { repositories: repository, cache: partial })),
-      Effect.runPromise,
-    )
-
-    expect(fake.requests.length).toBeGreaterThan(0)
-    expect(result.name).toBe("Todo")
-  })
-
-  test("fails with the valid state names after one refresh", async () => {
-    const fake = makeFakeLinear(seed)
-    const result = await Effect.gen(function* resolveUnknown() {
-      const context = yield* TeamContext
-      return yield* Effect.flip(context.resolveState("Nope"))
-    }).pipe(
-      Effect.provide(
-        apiLayer(fake.handler, { repositories: repository, cache: await warmCache({}) }),
-      ),
-      Effect.runPromise,
-    )
-
-    expect(fake.requests.length).toBeGreaterThan(0)
-    expect(result._tag).toBe("ContextStateNotFoundError")
-    if (result._tag === "ContextStateNotFoundError") {
-      expect(result.message).toContain("Todo")
-      expect(result.message).toContain("In Progress")
-      expect(result.message).toContain("Done")
-      expect(result.valid).toEqual(["Todo", "In Progress", "Done"])
-    }
-  })
-
-  test("refreshes once when a label is missing from the cache", async () => {
-    const fake = makeFakeLinear(seed)
-    const partial = await warmCache({
-      detail: { ...detail, labels: detail.labels.filter((label) => label.name === "bug") },
-    })
-    const result = await Effect.gen(function* resolveEnhancement() {
-      const context = yield* TeamContext
-      return yield* context.resolveLabel("Enhancement")
-    }).pipe(
-      Effect.provide(apiLayer(fake.handler, { repositories: repository, cache: partial })),
-      Effect.runPromise,
-    )
-
-    expect(fake.requests.length).toBeGreaterThan(0)
-    expect(result.name).toBe("enhancement")
-  })
-
-  test("fails with the valid label names after one refresh", async () => {
-    const fake = makeFakeLinear(seed)
-    const result = await Effect.gen(function* resolveUnknown() {
-      const context = yield* TeamContext
-      return yield* Effect.flip(context.resolveLabel("nope"))
-    }).pipe(
-      Effect.provide(
-        apiLayer(fake.handler, { repositories: repository, cache: await warmCache({}) }),
-      ),
-      Effect.runPromise,
-    )
-
-    expect(result._tag).toBe("ContextLabelNotFoundError")
-    if (result._tag === "ContextLabelNotFoundError") {
-      expect(result.message).toContain("bug")
-      expect(result.message).toContain("enhancement")
-    }
   })
 })

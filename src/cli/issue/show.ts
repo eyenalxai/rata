@@ -1,7 +1,7 @@
 import { Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 
-import type { IssueDetail } from "@/api/issue-model"
+import type { IssueDetail } from "@/tracker/model"
 
 import { IssueApi } from "@/api/issue"
 import { OutputFields, readFields, selectObject } from "@/cli/fields"

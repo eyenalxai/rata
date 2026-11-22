@@ -169,6 +169,10 @@ const IssueIdResponse = Schema.Struct({ issue: Schema.Struct({ id: IssueId }) })
 
 const IssueSummaryResponse = Schema.Struct({ issue: IssueSummaryNode })
 
+const IssueTeamResponse = Schema.Struct({
+  issue: Schema.Struct({ team: Schema.Struct({ id: TeamId }) }),
+})
+
 const ChildrenResponse = Schema.Struct({
   issue: Schema.Struct({ children: IssueChildConnection }),
 })
@@ -197,25 +201,6 @@ const AttachmentsResponse = Schema.Struct({
 
 const WorkflowState = WorkflowStateNode
 type WorkflowState = typeof WorkflowState.Type
-
-const WorkflowStateConnection = Schema.Struct({
-  nodes: Schema.Array(WorkflowState),
-  pageInfo: PageInfo,
-})
-
-const TeamStatesResponse = Schema.Struct({
-  team: Schema.Struct({ states: WorkflowStateConnection }),
-})
-
-const IssueStatesResponse = Schema.Struct({
-  issue: Schema.Struct({
-    team: Schema.Struct({ id: TeamId, states: WorkflowStateConnection }),
-  }),
-})
-
-const IssueTeamResponse = Schema.Struct({
-  issue: Schema.Struct({ team: Schema.Struct({ id: TeamId }) }),
-})
 
 const IssueMutationPayload = Schema.Struct({
   success: Schema.Boolean,
@@ -272,16 +257,14 @@ export {
   type IssueRelation,
   IssueRelationConnection,
   type IssueState,
-  IssueStatesResponse,
   IssueSummaryNode,
   IssueSummaryResponse,
-  type IssueTeam,
   IssueTeamResponse,
+  type IssueTeam,
   type IssueUser,
   LabelsResponse,
   RemoveLabelResponse,
   ShowResponse,
-  TeamStatesResponse,
   UpdateCommentResponse,
   UpdateIssueResponse,
   type WorkflowState,

@@ -62,18 +62,22 @@ upstream version.
 
 ## Layout
 
-| Path           | Responsibility                                                    |
-| -------------- | ----------------------------------------------------------------- |
-| `src/main.ts`  | The `rata` binary entry point and the root command.               |
-| `src/cli/`     | One module per command group. Parsing, output, exit codes.        |
-| `src/api/`     | The Linear GraphQL client and its typed operations.               |
-| `src/domain/`  | Pure logic: references, labels, priorities, prompts, timezones.   |
-| `src/config/`  | Auth and repository configuration.                                |
-| `src/db/`      | The local SQLite store: Drizzle schema and the database service.  |
-| `drizzle/`     | Committed Drizzle migrations.                                     |
-| `test/`        | Behaviour tests for the tricky logic.                             |
-| `skills/`      | Agent skills for driving rata, installable with `npx skills add`. |
-| `docs/agents/` | Skill configuration: tracker, triage labels, domain docs.         |
+| Path           | Responsibility                                                        |
+| -------------- | --------------------------------------------------------------------- |
+| `src/main.ts`  | The `rata` binary entry point and the root command.                   |
+| `src/cli/`     | One module per command group. Parsing, output, exit codes.            |
+| `src/api/`     | Legacy service adapters for the current command surface.              |
+| `src/domain/`  | Pure logic: references, labels, priorities, prompts, timezones.       |
+| `src/linear/`  | The Linear HTTP client, GraphQL documents, decoders and read gateway. |
+| `src/local/`   | The SQLite context cache for teams and viewers.                       |
+| `src/context/` | `ResolvedContext` and the one context resolution per command.         |
+| `src/tracker/` | The issue reader, writer, plan engine and ref resolution.             |
+| `src/config/`  | Auth and repository configuration.                                    |
+| `src/db/`      | The local SQLite store: Drizzle schema and the database service.      |
+| `drizzle/`     | Committed Drizzle migrations.                                         |
+| `test/`        | Behaviour tests for the tricky logic.                                 |
+| `skills/`      | Agent skills for driving rata, installable with `npx skills add`.     |
+| `docs/agents/` | Skill configuration: tracker, triage labels, domain docs.             |
 
 ## File naming
 

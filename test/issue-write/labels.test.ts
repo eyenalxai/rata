@@ -130,6 +130,64 @@ describe("IssueWriteApi labels", () => {
     })
   })
 
+  test("reads every label page before planning add and remove", async () => {
+    const all = Array.from({ length: 60 }, (_, index) => ({
+      id: index === 59 ? "l-bug" : `l-${index}`,
+      name: index === 59 ? "bug" : `label-${index}`,
+      color: "#111111",
+    }))
+    const recorder = makeRecorder((request) => {
+      const detail = teamDetailResponse(request, {
+        labels: [{ id: "l-bug", name: "bug", color: "#EB5757", teamId: "team-1" }],
+      })
+      if (detail !== undefined) {
+        return detail
+      }
+      if (request.query.includes("query IssueSummary")) {
+        return jsonResponse({
+          data: { issue: { ...summaryNode("RAT-1"), labels: { nodes: all.slice(0, 50) } } },
+        })
+      }
+      if (request.query.includes("query IssueLabels")) {
+        const after = request.variables.after
+        const start = after === null ? 0 : all.findIndex((label) => label.id === after) + 1
+        const page = all.slice(start, start + 50)
+        return jsonResponse({
+          data: {
+            issue: {
+              labels: {
+                nodes: page,
+                pageInfo: {
+                  hasNextPage: start + page.length < all.length,
+                  endCursor: page.at(-1)?.id ?? null,
+                },
+              },
+            },
+          },
+        })
+      }
+      if (request.query.includes("mutation AddLabel")) {
+        return jsonResponse({
+          data: { issueAddLabel: { success: true, issue: summaryNode("RAT-1") } },
+        })
+      }
+      return jsonResponse({ errors: [{ message: `Unexpected query: ${request.query}` }] }, 400)
+    })
+    const result = await run(
+      recorder.handler,
+      Effect.gen(function* addExistingLabel() {
+        const api = yield* IssueWriteApi
+        return yield* api.addLabels("RAT-1", ["bug"], { dryRun: true })
+      }),
+    )
+
+    expect(result.status).toBe("skipped")
+    expect(requestOf(recorder, "mutation AddLabel")).toBeUndefined()
+    expect(
+      recorder.requests.filter((request) => request.query.includes("query IssueLabels")),
+    ).toHaveLength(2)
+  })
+
   test("fails before any mutation when the label does not exist", async () => {
     const recorder = labelsHandler()
     const error = await run(

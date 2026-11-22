@@ -4,18 +4,25 @@ import type { IssueId, TeamId } from "@/domain/id"
 import type { IssueRef } from "@/domain/issue-ref"
 import type { LinearClientShape } from "@/linear/client"
 import type { Connection, PageOptions } from "@/linear/connection"
-import type { IssueSummaryNode } from "@/linear/decode/issue"
+import type { IssueLabel, IssueSummaryNode } from "@/linear/decode/issue"
 import type { LinearApiError } from "@/linear/errors"
 import type { IssueListOptions } from "@/linear/operations/issue/filter"
 import type { IssueDetailData, IssueShowOptions } from "@/linear/operations/issue/show"
 
 import { isUuid, issueId } from "@/domain/id"
-import { pageOrDrain } from "@/linear/connection"
+import { collectConnection, pageOrDrain, pageSize } from "@/linear/connection"
 import { ListResponse, SearchResponse } from "@/linear/decode/collection"
-import { IssueIdResponse, IssueSummaryResponse } from "@/linear/decode/issue"
+import {
+  IssueIdResponse,
+  IssueSummaryResponse,
+  IssueTeamResponse,
+  LabelsResponse,
+} from "@/linear/decode/issue"
 import {
   issueIdQuery,
   issueSummaryQuery,
+  issueTeamQuery,
+  labelsQuery,
   listQuery,
   prioritySort,
   searchQuery,
@@ -38,6 +45,8 @@ type IssueReadOperations = {
     options: IssueShowOptions,
   ) => Effect.Effect<IssueDetailData, LinearApiError>
   readonly summary: (ref: IssueRef) => Effect.Effect<IssueSummaryNode, LinearApiError>
+  readonly labels: (ref: IssueRef | IssueId) => Effect.Effect<readonly IssueLabel[], LinearApiError>
+  readonly teamId: (issueId: IssueId) => Effect.Effect<TeamId, LinearApiError>
 }
 
 const makeIssueOperations = (execute: LinearClientShape["execute"]): IssueReadOperations => {
@@ -59,6 +68,19 @@ const makeIssueOperations = (execute: LinearClientShape["execute"]): IssueReadOp
     options: IssueShowOptions,
   ) {
     return yield* readIssueShow(execute, ref, options)
+  })
+
+  const teamId = Effect.fn("LinearIssue.teamId")(function* readTeamId(refId: IssueId) {
+    const data = yield* execute(issueTeamQuery, { id: refId }, IssueTeamResponse)
+    return data.issue.team.id
+  })
+
+  const labels = Effect.fn("LinearIssue.labels")(function* readLabels(ref: IssueRef | IssueId) {
+    return yield* collectConnection((after) =>
+      execute(labelsQuery, { id: ref, first: pageSize, after }, LabelsResponse).pipe(
+        Effect.map((data) => data.issue.labels),
+      ),
+    )
   })
 
   const list = Effect.fn("LinearIssue.list")(function* listIssues(options: IssueListOptions) {
@@ -93,7 +115,7 @@ const makeIssueOperations = (execute: LinearClientShape["execute"]): IssueReadOp
     return yield* pageOrDrain(fetchPage, options)
   })
 
-  return { id, list, search, show, summary }
+  return { id, labels, list, search, show, summary, teamId }
 }
 
 export { makeIssueOperations, type IssueReadOperations }
