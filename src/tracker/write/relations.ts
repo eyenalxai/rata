@@ -50,7 +50,7 @@ const requireIssueId = (
 }
 
 const makeRelationResolvers = ({ client }: RelationResolverDependencies) => {
-  const resolveIssueIds = Effect.fn("IssueWriteApi.resolveIssueIds")(function* resolveIssueIds(
+  const resolveIssueIds = Effect.fn("IssueWriter.resolveIssueIds")(function* resolveIssueIds(
     refs: readonly IssueRef[],
   ) {
     const ids = new Map<string, IssueId>()
@@ -80,7 +80,7 @@ const makeRelationResolvers = ({ client }: RelationResolverDependencies) => {
     return ids
   })
 
-  const resolveRelations = Effect.fn("IssueWriteApi.resolveRelations")(function* resolveRelations(
+  const resolveRelations = Effect.fn("IssueWriter.resolveRelations")(function* resolveRelations(
     ref: string,
     changes: IssueRelationChanges,
   ) {
@@ -105,7 +105,7 @@ const makeRelationResolvers = ({ client }: RelationResolverDependencies) => {
     return { issueId: sourceId, targets }
   })
 
-  const collectRelations = Effect.fn("IssueWriteApi.collectRelations")(function* collectRelations(
+  const collectRelations = Effect.fn("IssueWriter.collectRelations")(function* collectRelations(
     issueId: IssueId,
   ) {
     const combined = yield* client.execute(

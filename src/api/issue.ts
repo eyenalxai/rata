@@ -1,7 +1,7 @@
-import { Context, Effect, Layer } from "effect"
+import { Console, Context, Effect, Layer } from "effect"
 
 import type { ResolvedContext } from "@/context/model"
-import type { ContextResolveError } from "@/context/resolve"
+import type { ContextResolveError, ResolveOptions } from "@/context/resolve/model"
 import type { InvalidIssueRef } from "@/domain/issue-ref"
 import type { LinearApiError } from "@/linear/errors"
 import type {
@@ -38,6 +38,9 @@ type IssueApiShape = {
   ) => Effect.Effect<IssueStatus, IssueListError>
 }
 
+const reportWarning = (context: ResolvedContext): Effect.Effect<void> =>
+  context.warning === null ? Effect.void : Console.error(`warning: ${context.warning}`)
+
 class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/issue/IssueApi") {
   static readonly layer = Layer.effect(
     IssueApi,
@@ -46,19 +49,32 @@ class IssueApi extends Context.Service<IssueApi, IssueApiShape>()("rata-cli/api/
       const reader = yield* IssueReader
 
       const withContext = <A, E>(
-        options: { readonly team?: string | undefined },
+        options: ResolveOptions,
         run: (context: ResolvedContext) => Effect.Effect<A, E>,
-      ) => contexts.resolve(options).pipe(Effect.flatMap(run))
+      ): Effect.Effect<A, E | ContextResolveError> =>
+        contexts.resolve(options).pipe(Effect.flatMap(run))
 
       return IssueApi.of({
         list: (options) =>
-          withContext({ team: options.team }, (context) => reader.list(context, options)),
+          withContext({ team: options.team, viewer: false }, (context) =>
+            reportWarning(context).pipe(Effect.andThen(reader.list(context, options))),
+          ),
         search: (term, options) =>
-          withContext({ team: options.team }, (context) => reader.search(context, term, options)),
-        show: (ref, options) => withContext({}, (context) => reader.show(context, ref, options)),
+          withContext({ team: options.team, viewer: false }, (context) =>
+            reportWarning(context).pipe(Effect.andThen(reader.search(context, term, options))),
+          ),
+        show: (ref, options) =>
+          withContext({ viewer: false, withTeam: false }, (context) =>
+            reader.show(context, ref, options),
+          ),
         status: (ref, options) =>
-          withContext({}, (context) => reader.status(context, ref, options)),
-        summary: (ref) => withContext({}, (context) => reader.summary(context, ref)),
+          withContext({ viewer: false, withTeam: false }, (context) =>
+            reader.status(context, ref, options),
+          ),
+        summary: (ref) =>
+          withContext({ viewer: false, withTeam: false }, (context) =>
+            reader.summary(context, ref),
+          ),
       })
     }),
   )

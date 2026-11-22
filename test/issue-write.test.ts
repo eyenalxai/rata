@@ -88,6 +88,7 @@ describe("IssueWriteApi team resolution", () => {
         const api = yield* IssueWriteApi
         return yield* Effect.flip(api.create({ title: "T" }))
       }),
+      { repositories: [] },
     )
     expect(error._tag).toBe("TeamResolutionError")
     expect(requestOf(recorder, "mutation CreateIssue")).toBeUndefined()

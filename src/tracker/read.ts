@@ -6,7 +6,7 @@ import type {
   ContextStateNotFoundError,
   ResolvedContext,
 } from "@/context/model"
-import type { ContextResolveError } from "@/context/resolve"
+import type { ContextResolveError } from "@/context/resolve/model"
 import type { IssueId, TeamId } from "@/domain/id"
 import type { InvalidIssueRef } from "@/domain/issue-ref"
 import type { Connection } from "@/linear/connection"
@@ -125,6 +125,7 @@ class IssueReader extends Context.Service<IssueReader, IssueReaderShape>()(
       })
 
       const finishList = Effect.fn("IssueReader.finishList")(function* finishList(
+        context: ResolvedContext,
         options: IssueListOptions,
         prepared: PreparedList,
         page: IssueSummaryConnection,
@@ -132,7 +133,7 @@ class IssueReader extends Context.Service<IssueReader, IssueReaderShape>()(
         const issues = sortAndLimitNodes(page.nodes, options).map(toSummary)
         const result: IssuePage = { issues, pageInfo: page.pageInfo }
         if (result.issues.length === 0 && prepared.teamId !== undefined) {
-          yield* validateNamedFilters(gateway, contexts, prepared.teamId, options)
+          yield* validateNamedFilters(gateway, contexts, context, options)
         }
         const whole = options.after === null && !page.pageInfo.hasNextPage
         if (prepared.requested !== undefined && whole) {
@@ -151,7 +152,7 @@ class IssueReader extends Context.Service<IssueReader, IssueReaderShape>()(
       ) {
         const prepared = yield* prepareList(context, options, overrides)
         const page = yield* gateway.issue.list(prepared.input)
-        return yield* finishList(options, prepared, page)
+        return yield* finishList(context, options, prepared, page)
       })
 
       const list = Effect.fn("IssueReader.list")(function* list(

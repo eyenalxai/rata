@@ -1,8 +1,13 @@
 import { Effect } from "effect"
 
-import type { ContextLabelNotFoundError, ContextStateNotFoundError } from "@/context/model"
-import type { ContextResolveError, ContextResolver } from "@/context/resolve"
-import type { TeamId } from "@/domain/id"
+import type { TeamResolutionError } from "@/api/team"
+import type {
+  ContextLabelNotFoundError,
+  ContextStateNotFoundError,
+  ResolvedContext,
+} from "@/context/model"
+import type { ContextResolver } from "@/context/resolve"
+import type { ContextResolveError } from "@/context/resolve/model"
 import type { LinearApiError } from "@/linear/errors"
 import type { LinearGatewayShape } from "@/linear/gateway"
 import type { FilterName } from "@/tracker/error"
@@ -59,7 +64,7 @@ const requireName = (
 const validateNamedFilters = Effect.fn("TrackerFilters.validateNames")(function* validateNames(
   gateway: LinearGatewayShape,
   resolver: ContextResolver["Service"],
-  teamId: TeamId,
+  context: ResolvedContext,
   options: Pick<IssueListOptions, "state" | "label" | "project">,
 ): Effect.fn.Return<
   void,
@@ -68,12 +73,13 @@ const validateNamedFilters = Effect.fn("TrackerFilters.validateNames")(function*
   | ContextStateNotFoundError
   | FilterNameNotFoundError
   | LinearApiError
+  | TeamResolutionError
 > {
   if (options.state !== undefined) {
-    yield* resolveStateName(resolver, teamId, options.state)
+    yield* resolveStateName(resolver, context, options.state)
   }
   if (options.label !== undefined) {
-    yield* resolveLabelName(resolver, teamId, options.label)
+    yield* resolveLabelName(resolver, context, options.label)
   }
   if (options.project !== undefined && !isUuid(options.project)) {
     yield* requireName("project", options.project, yield* projectNames(gateway))

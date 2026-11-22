@@ -55,7 +55,7 @@ const createChanges = (
 })
 
 const makeCommentWrites = ({ client, resolvers, visibility }: CommentDependencies) => {
-  const findComment = Effect.fn("IssueWriteApi.findComment")(function* findComment(
+  const findComment = Effect.fn("IssueWriter.findComment")(function* findComment(
     commentId: CommentId,
   ): Effect.fn.Return<Option.Option<IssueComment>, IssueWriteApiError> {
     const data = yield* client.execute(
@@ -75,7 +75,7 @@ const makeCommentWrites = ({ client, resolvers, visibility }: CommentDependencie
       )
       .pipe(Effect.flatMap((data) => unwrapComment(data.commentCreate)))
 
-  const resolveCreate = Effect.fn("IssueWriteApi.resolveCommentCreate")(
+  const resolveCreate = Effect.fn("IssueWriter.resolveCommentCreate")(
     function* resolveCommentCreate(ref: string, options: CommentCreateOptions) {
       const issueId = yield* resolvers.resolveIssueId(ref)
       const id =
@@ -85,23 +85,21 @@ const makeCommentWrites = ({ client, resolvers, visibility }: CommentDependencie
     },
   )
 
-  const planCommentCreate = Effect.fn("IssueWriteApi.planCommentCreate")(
-    function* planCommentCreate(
-      ref: string,
-      body: string,
-      options: CommentCreateOptions = {},
-    ): Effect.fn.Return<CommentCreatePlan, IssueWriteApiError> {
-      const resolved = yield* resolveCreate(ref, options)
-      return {
-        status: Option.isSome(resolved.existing) ? "skipped" : "created",
-        action: "comment-create",
-        target: ref,
-        changes: createChanges(body, options, resolved.id),
-      }
-    },
-  )
+  const planCommentCreate = Effect.fn("IssueWriter.planCommentCreate")(function* planCommentCreate(
+    ref: string,
+    body: string,
+    options: CommentCreateOptions = {},
+  ): Effect.fn.Return<CommentCreatePlan, IssueWriteApiError> {
+    const resolved = yield* resolveCreate(ref, options)
+    return {
+      status: Option.isSome(resolved.existing) ? "skipped" : "created",
+      action: "comment-create",
+      target: ref,
+      changes: createChanges(body, options, resolved.id),
+    }
+  })
 
-  const commentCreate = Effect.fn("IssueWriteApi.commentCreate")(function* commentCreate(
+  const commentCreate = Effect.fn("IssueWriter.commentCreate")(function* commentCreate(
     ref: string,
     body: string,
     options: CommentCreateOptions = {},
@@ -131,14 +129,14 @@ const makeCommentWrites = ({ client, resolvers, visibility }: CommentDependencie
     return { status: "created", comment: attempt.success, visible }
   })
 
-  const existingComment = Effect.fn("IssueWriteApi.existingComment")(function* existingComment(
+  const existingComment = Effect.fn("IssueWriter.existingComment")(function* existingComment(
     commentId: CommentId,
   ): Effect.fn.Return<IssueComment, IssueWriteApiError> {
     const current = yield* findComment(commentId)
     return yield* Effect.fromOption(current, () => missingComment(commentId))
   })
 
-  const commentUpdate = Effect.fn("IssueWriteApi.commentUpdate")(function* commentUpdate(
+  const commentUpdate = Effect.fn("IssueWriter.commentUpdate")(function* commentUpdate(
     commentId: CommentId,
     body: string,
     options: CommentUpdateOptions = {},
@@ -161,16 +159,14 @@ const makeCommentWrites = ({ client, resolvers, visibility }: CommentDependencie
     return { dryRun: false, status: "updated", comment }
   })
 
-  const planCommentDelete = Effect.fn("IssueWriteApi.planCommentDelete")(
-    function* planCommentDelete(
-      commentId: CommentId,
-    ): Effect.fn.Return<CommentDeletePlan, IssueWriteApiError> {
-      const comment = yield* existingComment(commentId)
-      return { action: "comment-delete", target: commentId, comment }
-    },
-  )
+  const planCommentDelete = Effect.fn("IssueWriter.planCommentDelete")(function* planCommentDelete(
+    commentId: CommentId,
+  ): Effect.fn.Return<CommentDeletePlan, IssueWriteApiError> {
+    const comment = yield* existingComment(commentId)
+    return { action: "comment-delete", target: commentId, comment }
+  })
 
-  const commentDelete = Effect.fn("IssueWriteApi.commentDelete")(function* commentDelete(
+  const commentDelete = Effect.fn("IssueWriter.commentDelete")(function* commentDelete(
     commentId: CommentId,
   ): Effect.fn.Return<CommentDeleteResult, IssueWriteApiError> {
     yield* existingComment(commentId)

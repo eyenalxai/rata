@@ -20,7 +20,7 @@ type RelationWriteDependencies = {
 }
 
 const makeRelationWrites = ({ client, resolvers }: RelationWriteDependencies) => {
-  const link = Effect.fn("IssueWriteApi.link")(function* link(
+  const link = Effect.fn("IssueWriter.link")(function* link(
     ref: string,
     changes: IssueRelationChanges,
     options: WriteOptions = {},
@@ -57,7 +57,7 @@ const makeRelationWrites = ({ client, resolvers }: RelationWriteDependencies) =>
     return { status, changes: applied, actions }
   })
 
-  const unlink = Effect.fn("IssueWriteApi.unlink")(function* unlink(
+  const unlink = Effect.fn("IssueWriter.unlink")(function* unlink(
     ref: string,
     changes: IssueRelationChanges,
     options: WriteOptions = {},

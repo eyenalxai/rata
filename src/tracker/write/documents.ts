@@ -99,26 +99,6 @@ const commentTailQuery = `query IssueCommentTail($id: String!, $last: Int!) {
   }
 }`
 
-const issueStatesQuery = `query IssueStates($id: String!, $first: Int!, $after: String) {
-  issue(id: $id) {
-    team {
-      id
-      states(first: $first, after: $after, orderBy: createdAt) {
-        nodes { id name type }
-        pageInfo { hasNextPage endCursor }
-      }
-    }
-  }
-}`
-
-const issueTeamQuery = `query IssueTeam($id: String!) {
-  issue(id: $id) {
-    team {
-      id
-    }
-  }
-}`
-
 export {
   addLabelMutation,
   bulkTargetsQuery,
@@ -130,8 +110,6 @@ export {
   createRelationMutation,
   deleteCommentMutation,
   deleteRelationMutation,
-  issueStatesQuery,
-  issueTeamQuery,
   removeLabelMutation,
   updateCommentMutation,
   updateIssueMutation,

@@ -1,6 +1,13 @@
 import { inputOf } from "@test/fake-linear/model"
-import { jsonResponse, pageInfo, summaryNode, viewer } from "@test/issue-fixtures"
-import { issueUpdated, makeRecorder, requestOf, run, states } from "@test/issue-write/fixtures"
+import { jsonResponse, summaryNode, viewer } from "@test/issue-fixtures"
+import {
+  issueUpdated,
+  makeRecorder,
+  requestOf,
+  run,
+  states,
+  teamDetailResponse,
+} from "@test/issue-write/fixtures"
 import { describe, expect, test } from "bun:test"
 import { Effect } from "effect"
 
@@ -16,16 +23,15 @@ const stateHandler = (
   stateType = "started",
 ) =>
   makeRecorder((request) => {
+    const detail = teamDetailResponse(request, { states: workflowStates })
+    if (detail !== undefined) {
+      return detail
+    }
     if (request.query.includes("query IssueSummary")) {
       return jsonResponse({ data: { issue: summaryWith(stateType) } })
     }
     if (request.query.includes("query IssueId")) {
       return jsonResponse({ data: { issue: { id: "i1" } } })
-    }
-    if (request.query.includes("query IssueStates")) {
-      return jsonResponse({
-        data: { issue: { team: { id: "team-1", states: { nodes: workflowStates, pageInfo } } } },
-      })
     }
     if (request.query.includes("mutation UpdateIssue")) {
       return issueUpdated()
@@ -35,6 +41,10 @@ const stateHandler = (
 
 const closeCommentHandler = () =>
   makeRecorder((request) => {
+    const detail = teamDetailResponse(request, { states })
+    if (detail !== undefined) {
+      return detail
+    }
     if (request.query.includes("query IssueSummary")) {
       return jsonResponse({ data: { issue: summaryWith("started") } })
     }
@@ -54,11 +64,6 @@ const closeCommentHandler = () =>
             },
           },
         },
-      })
-    }
-    if (request.query.includes("query IssueStates")) {
-      return jsonResponse({
-        data: { issue: { team: { id: "team-1", states: { nodes: states, pageInfo } } } },
       })
     }
     if (request.query.includes("mutation UpdateIssue")) {
@@ -172,11 +177,15 @@ describe("IssueWriteApi state resolution", () => {
   })
 
   test("close dry run reports the same status as the write on a completed issue", async () => {
-    const recorder = makeRecorder((request) =>
-      request.query.includes("query IssueSummary")
+    const recorder = makeRecorder((request) => {
+      const detail = teamDetailResponse(request, { states })
+      if (detail !== undefined) {
+        return detail
+      }
+      return request.query.includes("query IssueSummary")
         ? jsonResponse({ data: { issue: summaryWith("completed") } })
-        : jsonResponse({ errors: [{ message: `Unexpected query: ${request.query}` }] }, 400),
-    )
+        : jsonResponse({ errors: [{ message: `Unexpected query: ${request.query}` }] }, 400)
+    })
     const plan = await run(
       recorder.handler,
       Effect.gen(function* closeDryRunCompleted() {
@@ -219,6 +228,10 @@ describe("IssueWriteApi state resolution", () => {
 
   test("skips the comment when the issue is already completed", async () => {
     const recorder = makeRecorder((request) => {
+      const detail = teamDetailResponse(request, { states })
+      if (detail !== undefined) {
+        return detail
+      }
       if (request.query.includes("query IssueSummary")) {
         return jsonResponse({ data: { issue: summaryWith("completed") } })
       }

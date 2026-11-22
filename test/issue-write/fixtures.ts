@@ -46,7 +46,11 @@ const teamDetailResponse = (
   seed: TeamDetailSeed = {},
 ): Response | undefined => {
   const selectedTeam = seed.team ?? team
-  if (request.query.includes("query TeamById")) {
+  if (
+    request.query.includes("query TeamById") ||
+    request.query.includes("query TeamByKey") ||
+    request.query.includes("query TeamByName")
+  ) {
     return jsonResponse({ data: { teams: { nodes: [selectedTeam], pageInfo } } })
   }
   if (request.query.includes("query TeamStates")) {
@@ -97,10 +101,14 @@ const makeRecorder = (respond: (request: GraphQLRequest) => Response): Recorder 
   return { handler, requests }
 }
 
+const defaultOptions: ApiLayerOptions = {
+  repositories: [{ key: process.cwd(), team: "RAT" }],
+}
+
 const run = <A, E>(
   handler: Handler,
   effect: Effect.Effect<A, E, IssueWriteApi>,
-  options: ApiLayerOptions = {},
+  options: ApiLayerOptions = defaultOptions,
 ): Promise<A> => effect.pipe(Effect.provide(apiLayer(handler, options)), Effect.runPromise)
 
 const configWithTeam = (key: string): ApiLayerOptions => ({

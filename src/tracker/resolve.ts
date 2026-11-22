@@ -1,7 +1,8 @@
 import { Effect } from "effect"
 
-import type { ResolvedContext } from "@/context/model"
-import type { ContextResolveError, ContextResolver } from "@/context/resolve"
+import type { ResolvedContext, ResolvedTeam } from "@/context/model"
+import type { ContextResolver } from "@/context/resolve"
+import type { ContextResolveError } from "@/context/resolve/model"
 import type { IssueId, TeamId, UserId } from "@/domain/id"
 import type { InvalidIssueRef, IssueRef } from "@/domain/issue-ref"
 import type { TeamLabel, TeamState } from "@/linear/decode/team"
@@ -20,31 +21,28 @@ import { isUuid, issueId, userId } from "@/domain/id"
 import { parseRefOrFail } from "@/domain/issue-ref"
 import { AssigneeInputError, AssigneeNotFoundError } from "@/tracker/error"
 
-type ContextTeamId = Pick<ResolvedContext, "storedTeam" | "storedTeamId" | "team">
-
-type AssigneeContext = {
-  readonly viewer: { readonly id: UserId }
-}
-
 type ResolvedIssueRef = {
   readonly ref: IssueRef
   readonly id: IssueId
 }
 
+const requireTeam = (context: ResolvedContext): Effect.Effect<ResolvedTeam, TeamResolutionError> =>
+  context.team === null
+    ? Effect.fail(new TeamResolutionError({ message: "No team. Pass --team, or run `rata link`." }))
+    : Effect.succeed(context.team)
+
 const requireTeamId = (
-  context: ContextTeamId,
+  context: ResolvedContext,
 ): Effect.Effect<TeamId, TeamNotFoundError | TeamResolutionError> => {
   if (context.team !== null) {
     return Effect.succeed(context.team.identity.id)
   }
-  if (context.storedTeamId !== null) {
-    return Effect.succeed(context.storedTeamId)
-  }
-  if (context.storedTeam !== null) {
+  if (context.teamMissing) {
+    const stored = context.storedTeam ?? "the linked team"
     return Effect.fail(
       new TeamNotFoundError({
-        key: context.storedTeam,
-        message: `No team with key ${context.storedTeam}.`,
+        key: stored,
+        message: isUuid(stored) ? `No team with id ${stored}.` : `No team with key ${stored}.`,
       }),
     )
   }
@@ -69,11 +67,13 @@ const resolveIssueRef = (
 
 const resolveAssigneeId = (
   gateway: LinearGatewayShape,
-  context: AssigneeContext,
+  context: ResolvedContext,
   value: string,
 ): Effect.Effect<UserId, LinearApiError | AssigneeInputError | AssigneeNotFoundError> => {
   if (value.toLowerCase() === "me") {
-    return Effect.succeed(context.viewer.id)
+    return context.viewer === null
+      ? gateway.viewer.pipe(Effect.map((viewer) => viewer.id))
+      : Effect.succeed(context.viewer.id)
   }
   if (!isUuid(value)) {
     return Effect.fail(
@@ -92,90 +92,98 @@ const resolveAssigneeId = (
   )
 }
 
+const refreshContext = (
+  resolver: ContextResolver["Service"],
+  context: ResolvedContext,
+): Effect.Effect<ResolvedContext, ContextResolveError> =>
+  resolver.resolve({
+    refresh: true,
+    viewer: false,
+    ...(context.team === null ? {} : { team: context.team.identity.key }),
+  })
+
 const missingState = (
   name: string,
-  teamKey: string,
-  teamId: TeamId,
+  team: ResolvedTeam,
   states: readonly TeamState[],
 ): ContextStateNotFoundError => {
   const valid = states.map((state) => state.name)
   return new ContextStateNotFoundError({
     value: name,
-    teamId,
+    teamId: team.identity.id,
     valid,
-    message: `No workflow state named ${name} in team ${teamKey}. ${validNameText("states", valid)}`,
+    message: `No workflow state named ${name} in team ${team.identity.key}. ${validNameText("states", valid)}`,
   })
 }
 
 const missingLabel = (
   name: string,
-  teamKey: string,
-  teamId: TeamId,
+  team: ResolvedTeam,
   labels: readonly TeamLabel[],
 ): ContextLabelNotFoundError => {
   const valid = labels.map((label) => label.name)
   return new ContextLabelNotFoundError({
     value: name,
-    teamId,
+    teamId: team.identity.id,
     valid,
-    message: `No label named ${name} in team ${teamKey}. ${validNameText("labels", valid)}`,
+    message: `No label named ${name} in team ${team.identity.key}. ${validNameText("labels", valid)}`,
   })
 }
 
 const resolveStateName = (
   resolver: ContextResolver["Service"],
-  teamId: TeamId,
+  context: ResolvedContext,
   name: string,
-): Effect.Effect<TeamState, ContextResolveError | ContextStateNotFoundError> =>
+): Effect.Effect<
+  TeamState,
+  ContextResolveError | ContextStateNotFoundError | TeamResolutionError
+> =>
   Effect.gen(function* resolveState() {
-    const first = yield* resolver.teamDetail(teamId, false)
-    const found = findStateByName(first.detail.states, name)
+    yield* requireTeam(context)
+    const found = findStateByName(context.states, name)
     if (found !== undefined) {
       return found
     }
-    const refreshed = yield* resolver.teamDetail(teamId, true)
-    const afterRefresh = findStateByName(refreshed.detail.states, name)
+    const refreshed = yield* refreshContext(resolver, context)
+    const freshTeam = yield* requireTeam(refreshed)
+    const afterRefresh = findStateByName(refreshed.states, name)
     if (afterRefresh !== undefined) {
       return afterRefresh
     }
-    return yield* missingState(
-      name,
-      refreshed.detail.key,
-      refreshed.detail.id,
-      refreshed.detail.states,
-    )
+    return yield* missingState(name, freshTeam, refreshed.states)
   })
 
 const resolveLabelName = (
   resolver: ContextResolver["Service"],
-  teamId: TeamId,
+  context: ResolvedContext,
   name: string,
-): Effect.Effect<TeamLabel, ContextResolveError | ContextLabelNotFoundError> =>
+): Effect.Effect<
+  TeamLabel,
+  ContextResolveError | ContextLabelNotFoundError | TeamResolutionError
+> =>
   Effect.gen(function* resolveLabel() {
-    const first = yield* resolver.teamDetail(teamId, false)
-    const found = findLabelByName(first.detail.labels, name)
+    yield* requireTeam(context)
+    const found = findLabelByName(context.labels, name)
     if (found !== undefined) {
       return found
     }
-    const refreshed = yield* resolver.teamDetail(teamId, true)
-    const afterRefresh = findLabelByName(refreshed.detail.labels, name)
+    const refreshed = yield* refreshContext(resolver, context)
+    const freshTeam = yield* requireTeam(refreshed)
+    const afterRefresh = findLabelByName(refreshed.labels, name)
     if (afterRefresh !== undefined) {
       return afterRefresh
     }
-    return yield* missingLabel(
-      name,
-      refreshed.detail.key,
-      refreshed.detail.id,
-      refreshed.detail.labels,
-    )
+    return yield* missingLabel(name, freshTeam, refreshed.labels)
   })
 
 const resolveLabels = (
   resolver: ContextResolver["Service"],
-  teamId: TeamId,
+  context: ResolvedContext,
   names: readonly string[],
-): Effect.Effect<readonly TeamLabel[], ContextResolveError | ContextLabelNotFoundError> =>
-  Effect.forEach(names, (name) => resolveLabelName(resolver, teamId, name))
+): Effect.Effect<
+  readonly TeamLabel[],
+  ContextResolveError | ContextLabelNotFoundError | TeamResolutionError
+> => Effect.forEach(names, (name) => resolveLabelName(resolver, context, name))
 
 export {
   requireTeamId,

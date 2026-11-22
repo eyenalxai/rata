@@ -1,7 +1,6 @@
 import { Schema } from "effect"
 
 import type { KeySource } from "@/config/auth"
-import type { TeamId } from "@/domain/id"
 import type { IssueDefaults } from "@/domain/issue-defaults"
 import type { Team, TeamDetail, TeamLabel, TeamState } from "@/linear/decode/team"
 import type { Viewer } from "@/linear/decode/viewer"
@@ -28,7 +27,14 @@ class ContextLabelNotFoundError extends Schema.TaggedError<ContextLabelNotFoundE
   },
 ) {}
 
-type ContextTeam = {
+class ContextViewerMissingError extends Schema.TaggedError<ContextViewerMissingError>()(
+  "ContextViewerMissingError",
+  {
+    message: Schema.String,
+  },
+) {}
+
+type ResolvedTeam = {
   readonly identity: Team
   readonly detail: TeamDetail
   readonly ageSeconds: number
@@ -39,21 +45,15 @@ type ResolvedContext = {
   readonly root: string
   readonly profile: string | null
   readonly keySource: KeySource
-  readonly viewer: Viewer
-  readonly team: ContextTeam | null
+  readonly viewer: Viewer | null
+  readonly team: ResolvedTeam | null
   readonly states: readonly TeamState[]
   readonly labels: readonly TeamLabel[]
   readonly defaults: IssueDefaults
   readonly project: string | null
   readonly storedTeam: string | null
-  readonly storedTeamId: TeamId | null
+  readonly teamMissing: boolean
   readonly warning: string | null
-}
-
-type TeamDetailSnapshot = {
-  readonly detail: TeamDetail
-  readonly ageSeconds: number
-  readonly fetchedAt: number
 }
 
 const findStateByName = (states: readonly TeamState[], name: string): TeamState | undefined =>
@@ -71,11 +71,11 @@ const validNameText = (subject: "labels" | "states", names: readonly string[]): 
 export {
   ContextLabelNotFoundError,
   ContextStateNotFoundError,
-  type ContextTeam,
+  ContextViewerMissingError,
   findLabelByName,
   findStateByName,
   type ResolvedContext,
-  type TeamDetailSnapshot,
+  type ResolvedTeam,
   teamAge,
   validNameText,
 }

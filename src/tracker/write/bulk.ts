@@ -1,5 +1,6 @@
 import { Effect, Result } from "effect"
 
+import type { ResolvedContext } from "@/context/model"
 import type { TeamId } from "@/domain/id"
 import type { LabelMode } from "@/domain/label"
 import type { IssueSummary } from "@/tracker/model"
@@ -30,14 +31,17 @@ const updatedResult = (target: BulkTarget, issue: IssueSummary): BulkWriteResult
 })
 
 const makeBulkWrites = (resolvers: WriteResolvers) => {
-  const assignChildren = Effect.fn("IssueWriteApi.assignChildren")(function* assignChildren(
+  const assignChildren = Effect.fn("IssueWriter.assignChildren")(function* assignChildren(
+    context: ResolvedContext,
     parentRef: string,
     assignee: string,
     options: WriteOptions = {},
   ) {
     const targets = yield* resolvers.collectChildTargets(parentRef)
-    const targetId = isNoneValue(assignee) ? null : yield* resolvers.resolveAssignee(assignee)
-    const viewerId = targetId === null ? null : yield* resolvers.viewerId()
+    const targetId = isNoneValue(assignee)
+      ? null
+      : yield* resolvers.resolveAssignee(context, assignee)
+    const viewerId = targetId === null ? null : yield* resolvers.viewerId(context)
     const results: BulkWriteResult[] = []
     for (const target of targets) {
       const currentId = target.summary.assignee?.id ?? null
@@ -82,7 +86,8 @@ const makeBulkWrites = (resolvers: WriteResolvers) => {
     return results
   })
 
-  const labelsPerTeam = Effect.fn("IssueWriteApi.labelsPerTeam")(function* labelsPerTeam(
+  const labelsPerTeam = Effect.fn("IssueWriter.labelsPerTeam")(function* labelsPerTeam(
+    context: ResolvedContext,
     targets: readonly BulkTarget[],
     names: readonly string[],
   ) {
@@ -91,12 +96,12 @@ const makeBulkWrites = (resolvers: WriteResolvers) => {
       if (resolved.has(target.teamId)) {
         continue
       }
-      resolved.set(target.teamId, yield* resolvers.resolveLabels(target.teamId, names))
+      resolved.set(target.teamId, yield* resolvers.resolveLabels(context, names))
     }
     return resolved
   })
 
-  const applyLabels = Effect.fn("IssueWriteApi.applyLabels")(function* applyLabels(
+  const applyLabels = Effect.fn("IssueWriter.applyLabels")(function* applyLabels(
     target: BulkTarget,
     labels: readonly ResolvedLabel[],
     mode: LabelMode,
@@ -121,14 +126,15 @@ const makeBulkWrites = (resolvers: WriteResolvers) => {
     }
   })
 
-  const writeChildLabels = Effect.fn("IssueWriteApi.writeChildLabels")(function* writeChildLabels(
+  const writeChildLabels = Effect.fn("IssueWriter.writeChildLabels")(function* writeChildLabels(
+    context: ResolvedContext,
     mode: LabelMode,
     parentRef: string,
     names: readonly string[],
     options: WriteOptions,
   ) {
     const targets = yield* resolvers.collectChildTargets(parentRef)
-    const perTeam = yield* labelsPerTeam(targets, names)
+    const perTeam = yield* labelsPerTeam(context, targets, names)
     const results: BulkWriteResult[] = []
     for (const target of targets) {
       const wanted = perTeam.get(target.teamId) ?? []
@@ -157,23 +163,25 @@ const makeBulkWrites = (resolvers: WriteResolvers) => {
     return results
   })
 
-  const addLabelsToChildren = Effect.fn("IssueWriteApi.addLabelsToChildren")(
+  const addLabelsToChildren = Effect.fn("IssueWriter.addLabelsToChildren")(
     function* addLabelsToChildren(
+      context: ResolvedContext,
       parentRef: string,
       names: readonly string[],
       options: WriteOptions = {},
     ) {
-      return yield* writeChildLabels("add", parentRef, names, options)
+      return yield* writeChildLabels(context, "add", parentRef, names, options)
     },
   )
 
-  const removeLabelsFromChildren = Effect.fn("IssueWriteApi.removeLabelsFromChildren")(
+  const removeLabelsFromChildren = Effect.fn("IssueWriter.removeLabelsFromChildren")(
     function* removeLabelsFromChildren(
+      context: ResolvedContext,
       parentRef: string,
       names: readonly string[],
       options: WriteOptions = {},
     ) {
-      return yield* writeChildLabels("remove", parentRef, names, options)
+      return yield* writeChildLabels(context, "remove", parentRef, names, options)
     },
   )
 

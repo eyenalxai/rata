@@ -1,5 +1,6 @@
 import { Effect } from "effect"
 
+import type { ResolvedContext } from "@/context/model"
 import type { SectionReplacement } from "@/domain/section"
 import type { LinearClientShape } from "@/linear/client"
 import type { IssueWriteApiError } from "@/tracker/write/model"
@@ -28,8 +29,9 @@ const makeSectionWrites = ({ client, resolvers }: SectionDependencies) => {
   const readIssueBody = makeReadIssueBody(client)
   const resolveUpdateFields = makeUpdateFields(resolvers)
 
-  const resolveSectionsUpdate = Effect.fn("IssueWriteApi.resolveSectionsUpdate")(
+  const resolveSectionsUpdate = Effect.fn("IssueWriter.resolveSectionsUpdate")(
     function* resolveSectionsUpdate(
+      context: ResolvedContext,
       ref: string,
       options: IssueUpdateSectionsOptions,
       sections: readonly SectionReplacement[],
@@ -39,7 +41,7 @@ const makeSectionWrites = ({ client, resolvers }: SectionDependencies) => {
       yield* ensureUnchanged(issueBody.identifier, issueBody.updatedAt, writeOptions.ifUnchanged)
       const current = issueBody.description ?? ""
       const replaced = yield* Effect.fromResult(replaceSectionsInText(current, sections))
-      const input = yield* resolveUpdateFields(issueBody.id, options)
+      const input = yield* resolveUpdateFields(context, options)
       if (replaced.body !== current) {
         input.description = replaced.body
       }
@@ -53,14 +55,15 @@ const makeSectionWrites = ({ client, resolvers }: SectionDependencies) => {
     },
   )
 
-  const planUpdateSections = Effect.fn("IssueWriteApi.planUpdateSections")(
+  const planUpdateSections = Effect.fn("IssueWriter.planUpdateSections")(
     function* planUpdateSections(
+      context: ResolvedContext,
       ref: string,
       options: IssueUpdateSectionsOptions,
       sections: readonly SectionReplacement[],
       writeOptions: IssueUpdateWriteOptions = {},
     ): Effect.fn.Return<IssueUpdateSectionsPlan, IssueWriteApiError> {
-      const resolved = yield* resolveSectionsUpdate(ref, options, sections, writeOptions)
+      const resolved = yield* resolveSectionsUpdate(context, ref, options, sections, writeOptions)
       return {
         status: Object.keys(resolved.input).length === 0 ? "skipped" : "updated",
         updatedAt: resolved.issueBody.updatedAt,
@@ -70,13 +73,14 @@ const makeSectionWrites = ({ client, resolvers }: SectionDependencies) => {
     },
   )
 
-  const updateSections = Effect.fn("IssueWriteApi.updateSections")(function* updateSections(
+  const updateSections = Effect.fn("IssueWriter.updateSections")(function* updateSections(
+    context: ResolvedContext,
     ref: string,
     options: IssueUpdateSectionsOptions,
     sections: readonly SectionReplacement[],
     writeOptions: IssueUpdateWriteOptions = {},
   ): Effect.fn.Return<IssueUpdateSectionsResult, IssueWriteApiError> {
-    const resolved = yield* resolveSectionsUpdate(ref, options, sections, writeOptions)
+    const resolved = yield* resolveSectionsUpdate(context, ref, options, sections, writeOptions)
     if (Object.keys(resolved.input).length === 0) {
       const issue = yield* resolvers.readIssueSummary(ref)
       return {

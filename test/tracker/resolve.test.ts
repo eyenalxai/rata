@@ -125,6 +125,29 @@ describe("tracker ref resolution", () => {
     expect(counting.counts.byKey()).toBe(0)
   })
 
+  test("fails with not_found when the linked team is gone", async () => {
+    const counting = countingGateway(seed)
+    const error = await Effect.gen(function* resolveMissingTeam() {
+      const resolver = yield* ContextResolver
+      const context = yield* resolver.resolve({})
+      return yield* Effect.flip(requireTeamId(context))
+    }).pipe(
+      Effect.provide(
+        memoryApiLayer(seed, {
+          env,
+          gateway: counting.gateway,
+          repositories: [{ key: process.cwd(), team: "GONE" }],
+        }),
+      ),
+      Effect.runPromise,
+    )
+
+    expect(error._tag).toBe("TeamNotFoundError")
+    if (error._tag === "TeamNotFoundError") {
+      expect(error.key).toBe("GONE")
+    }
+  })
+
   test("resolves me and a user UUID as an assignee", async () => {
     const counting = countingGateway(seed)
     const result = await withLayer(
@@ -168,7 +191,8 @@ describe("tracker ref resolution", () => {
       counting,
       Effect.gen(function* resolveState() {
         const resolver = yield* ContextResolver
-        return yield* resolveStateName(resolver, teamId("team-1"), "todo")
+        const context = yield* resolver.resolve({})
+        return yield* resolveStateName(resolver, context, "todo")
       }),
     )
 
@@ -205,9 +229,9 @@ describe("tracker ref resolution", () => {
     }
     const result = await Effect.gen(function* resolveCachedState() {
       const resolver = yield* ContextResolver
-      yield* resolver.resolve({})
+      const context = yield* resolver.resolve({})
       counting.counts.reset()
-      return yield* resolveStateName(resolver, teamId("team-1"), "Todo")
+      return yield* resolveStateName(resolver, context, "Todo")
     }).pipe(
       Effect.provide(memoryApiLayer(seed, { cache, env, gateway: counting.gateway, repositories })),
       Effect.runPromise,
@@ -224,7 +248,8 @@ describe("tracker ref resolution", () => {
       counting,
       Effect.gen(function* resolveUnknownState() {
         const resolver = yield* ContextResolver
-        return yield* Effect.flip(resolveStateName(resolver, teamId("team-1"), "Nope"))
+        const context = yield* resolver.resolve({})
+        return yield* Effect.flip(resolveStateName(resolver, context, "Nope"))
       }),
     )
 
@@ -242,8 +267,9 @@ describe("tracker ref resolution", () => {
       counting,
       Effect.gen(function* resolveLabels() {
         const resolver = yield* ContextResolver
-        const found = yield* resolveLabelName(resolver, teamId("team-1"), "READY-FOR-AGENT")
-        const error = yield* Effect.flip(resolveLabelName(resolver, teamId("team-1"), "nope"))
+        const context = yield* resolver.resolve({})
+        const found = yield* resolveLabelName(resolver, context, "READY-FOR-AGENT")
+        const error = yield* Effect.flip(resolveLabelName(resolver, context, "nope"))
         return { error, found }
       }),
     )

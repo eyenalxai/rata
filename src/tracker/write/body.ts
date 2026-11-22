@@ -1,5 +1,6 @@
 import { Effect } from "effect"
 
+import type { ResolvedContext } from "@/context/model"
 import type { IssueId } from "@/domain/id"
 import type { Section } from "@/domain/section"
 import type { LinearClientShape } from "@/linear/client"
@@ -74,7 +75,7 @@ const makeBodyWrites = ({ client, resolvers }: BodyDependencies) => {
   const readIssueBody = makeReadIssueBody(client)
   const resolveUpdateFields = makeUpdateFields(resolvers)
 
-  const writeBody = Effect.fn("IssueWriteApi.writeBody")(function* writeBody(
+  const writeBody = Effect.fn("IssueWriter.writeBody")(function* writeBody(
     issueId: IssueId,
     body: string,
   ) {
@@ -86,7 +87,8 @@ const makeBodyWrites = ({ client, resolvers }: BodyDependencies) => {
     return yield* unwrapIssue(data.issueUpdate)
   })
 
-  const readSection = Effect.fn("IssueWriteApi.readSection")(function* readSection(
+  const readSection = Effect.fn("IssueWriter.readSection")(function* readSection(
+    _context: ResolvedContext,
     ref: string,
     heading: string,
   ): Effect.fn.Return<Section, IssueWriteApiError> {
@@ -129,7 +131,8 @@ const makeBodyWrites = ({ client, resolvers }: BodyDependencies) => {
       }
     })
 
-  const appendSection = Effect.fn("IssueWriteApi.appendSection")(function* appendSection(
+  const appendSection = Effect.fn("IssueWriter.appendSection")(function* appendSection(
+    _context: ResolvedContext,
     ref: string,
     heading: string,
     body: string,
@@ -145,7 +148,8 @@ const makeBodyWrites = ({ client, resolvers }: BodyDependencies) => {
     )
   })
 
-  const replaceSection = Effect.fn("IssueWriteApi.replaceSection")(function* replaceSection(
+  const replaceSection = Effect.fn("IssueWriter.replaceSection")(function* replaceSection(
+    _context: ResolvedContext,
     ref: string,
     heading: string,
     body: string,
@@ -154,7 +158,8 @@ const makeBodyWrites = ({ client, resolvers }: BodyDependencies) => {
     return yield* changeSection("section-replace", ref, heading, body, options, replaceInText)
   })
 
-  const resolveUpdate = Effect.fn("IssueWriteApi.resolveUpdate")(function* resolveUpdate(
+  const resolveUpdate = Effect.fn("IssueWriter.resolveUpdate")(function* resolveUpdate(
+    context: ResolvedContext,
     ref: string,
     options: IssueUpdateOptions,
     writeOptions: IssueUpdateWriteOptions,
@@ -165,7 +170,7 @@ const makeBodyWrites = ({ client, resolvers }: BodyDependencies) => {
     if (issueBody !== undefined) {
       yield* ensureUnchanged(issueBody.identifier, issueBody.updatedAt, writeOptions.ifUnchanged)
     }
-    const input = yield* resolveUpdateFields(issueId, options)
+    const input = yield* resolveUpdateFields(context, options)
     if (options.body !== undefined) {
       input.description =
         options.append === true
@@ -175,12 +180,13 @@ const makeBodyWrites = ({ client, resolvers }: BodyDependencies) => {
     return { issueId, input, issueBody }
   })
 
-  const planUpdate = Effect.fn("IssueWriteApi.planUpdate")(function* planUpdate(
+  const planUpdate = Effect.fn("IssueWriter.planUpdate")(function* planUpdate(
+    context: ResolvedContext,
     ref: string,
     options: IssueUpdateOptions,
     writeOptions: IssueUpdateWriteOptions = {},
   ): Effect.fn.Return<IssueUpdatePlan, IssueWriteApiError> {
-    const resolved = yield* resolveUpdate(ref, options, writeOptions)
+    const resolved = yield* resolveUpdate(context, ref, options, writeOptions)
     const summary = resolved.issueBody ?? (yield* resolvers.readIssueSummary(ref))
     const current = resolved.issueBody?.description ?? ""
     const diff =
@@ -190,12 +196,13 @@ const makeBodyWrites = ({ client, resolvers }: BodyDependencies) => {
     return { identifier: summary.identifier, changes: updateChanges(options), diff }
   })
 
-  const update = Effect.fn("IssueWriteApi.update")(function* update(
+  const update = Effect.fn("IssueWriter.update")(function* update(
+    context: ResolvedContext,
     ref: string,
     options: IssueUpdateOptions,
     writeOptions: IssueUpdateWriteOptions = {},
   ): Effect.fn.Return<IssueSummary, IssueWriteApiError> {
-    const resolved = yield* resolveUpdate(ref, options, writeOptions)
+    const resolved = yield* resolveUpdate(context, ref, options, writeOptions)
     if (Object.keys(resolved.input).length === 0) {
       return yield* resolvers.readIssueSummary(ref)
     }

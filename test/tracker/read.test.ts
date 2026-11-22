@@ -4,8 +4,9 @@ import { countingGateway } from "@test/fake-linear/gateway/counting"
 import { memoryApiLayer } from "@test/fake-linear/memory-layer"
 import { defaultPriorities, defaultViewer } from "@test/fake-linear/model"
 import { summaryNode } from "@test/issue-fixtures"
+import { recordingConsoleWithErrors } from "@test/recording-console"
 import { describe, expect, test } from "bun:test"
-import { Effect, Option, Schema } from "effect"
+import { Console, Effect, Option, Schema } from "effect"
 
 import { IssueApi } from "@/api/issue"
 import { ContextResolver } from "@/context/resolve"
@@ -115,6 +116,43 @@ describe("IssueReader", () => {
 })
 
 describe("IssueReader context use", () => {
+  test("show and summary do not resolve the viewer or the link", async () => {
+    const counting = countingGateway(seed)
+    await program(
+      counting,
+      Effect.gen(function* showAndSummary() {
+        const api = yield* IssueApi
+        yield* api.show("RAT-1", { comments: false })
+        yield* api.summary("RAT-1")
+      }),
+    )
+
+    expect(counting.counts.viewer()).toBe(0)
+    expect(counting.counts.details()).toBe(0)
+    expect(counting.counts.byId()).toBe(0)
+  })
+
+  test("list prints the stale-link warning", async () => {
+    const counting = countingGateway(seed)
+    const errors: string[] = []
+    await Effect.gen(function* listStale() {
+      const api = yield* IssueApi
+      yield* api.list({ after: null, limit: 50 })
+    }).pipe(
+      Effect.provide(
+        memoryApiLayer(seed, {
+          env,
+          gateway: counting.gateway,
+          repositories: [{ key: process.cwd(), team: "OLD", teamId: "team-1" }],
+        }),
+      ),
+      Effect.provideService(Console.Console, recordingConsoleWithErrors([], errors)),
+      Effect.runPromise,
+    )
+
+    expect(errors).toEqual(["warning: The stored team key OLD is stale. Repaired the link to RAT."])
+  })
+
   test("the adapter resolves once for two list calls", async () => {
     const counting = countingGateway(seed)
     await program(
@@ -126,7 +164,7 @@ describe("IssueReader context use", () => {
       }),
     )
 
-    expect(counting.counts.viewer()).toBe(1)
+    expect(counting.counts.viewer()).toBe(0)
     expect(counting.counts.details()).toBe(1)
     expect(counting.counts.byId()).toBe(1)
   })
@@ -141,9 +179,9 @@ describe("IssueReader context use", () => {
       }),
     )
 
-    expect(counting.counts.viewer()).toBe(1)
-    expect(counting.counts.details()).toBe(1)
-    expect(counting.counts.byId()).toBe(1)
+    expect(counting.counts.viewer()).toBe(0)
+    expect(counting.counts.details()).toBe(0)
+    expect(counting.counts.byId()).toBe(0)
   })
 
   test("an unknown state filter refreshes the team detail once", async () => {

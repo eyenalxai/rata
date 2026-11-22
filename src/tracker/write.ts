@@ -21,10 +21,13 @@ class IssueWriter extends Context.Service<IssueWriter, IssueWriterShape>()(
     IssueWriter,
     Effect.gen(function* issueWriterLayer() {
       const gateway = yield* LinearGateway
+      // Writes use the raw transport on purpose: the read gateway exposes its client, and the write documents stay in tracker/write/documents.ts until a write gateway lands.
       const client = gateway.client
       const contexts = yield* ContextResolver
       const resolvers = makeIssueWriteResolvers({ client, contexts, gateway })
       const visibility = makeVisibilityChecks({ client })
+      const comments = makeCommentWrites({ client, resolvers, visibility })
+      const relations = makeRelationWrites({ client, resolvers })
 
       return IssueWriter.of({
         ...makeIssueWrites(resolvers),
@@ -32,8 +35,16 @@ class IssueWriter extends Context.Service<IssueWriter, IssueWriterShape>()(
         ...makeBodyWrites({ client, resolvers }),
         ...makeSectionWrites({ client, resolvers }),
         ...makeCreateWrites({ client, resolvers, visibility }),
-        ...makeCommentWrites({ client, resolvers, visibility }),
-        ...makeRelationWrites({ client, resolvers }),
+        commentCreate: (_context, ref, body, options) => comments.commentCreate(ref, body, options),
+        planCommentCreate: (_context, ref, body, options) =>
+          comments.planCommentCreate(ref, body, options),
+        commentUpdate: (_context, commentId, body, options) =>
+          comments.commentUpdate(commentId, body, options),
+        commentDelete: (_context, commentId) => comments.commentDelete(commentId),
+        planCommentDelete: (_context, commentId) => comments.planCommentDelete(commentId),
+        findComment: (_context, commentId) => comments.findComment(commentId),
+        link: (_context, ref, changes, options) => relations.link(ref, changes, options),
+        unlink: (_context, ref, changes, options) => relations.unlink(ref, changes, options),
       })
     }),
   )

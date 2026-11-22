@@ -61,7 +61,7 @@ const verifyVisible = <A extends { readonly id: string }>(
 }
 
 const makeVisibilityChecks = ({ client }: VisibilityDependencies) => {
-  const waitForChild = Effect.fn("IssueWriteApi.waitForChild")(function* waitForChild(
+  const waitForChild = Effect.fn("IssueWriter.waitForChild")(function* waitForChild(
     parentId: IssueId,
     childId: IssueId,
     waitSeconds: number | undefined,
@@ -73,7 +73,7 @@ const makeVisibilityChecks = ({ client }: VisibilityDependencies) => {
     )
   })
 
-  const waitForComment = Effect.fn("IssueWriteApi.waitForComment")(function* waitForComment(
+  const waitForComment = Effect.fn("IssueWriter.waitForComment")(function* waitForComment(
     issueId: IssueId,
     commentId: CommentId,
     waitSeconds: number | undefined,

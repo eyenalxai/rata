@@ -52,13 +52,13 @@ const dedupeLabels = (labels: readonly ResolvedLabel[]): readonly ResolvedLabel[
 }
 
 const makeCreateWrites = ({ client, resolvers, visibility }: CreateDependencies) => {
-  const resolve = Effect.fn("IssueWriteApi.resolveCreate")(function* resolveCreate(
+  const resolve = Effect.fn("IssueWriter.resolveCreate")(function* resolveCreate(
     context: ResolvedContext,
     options: IssueCreateOptions,
   ) {
     const teamId = yield* requireTeamId(context)
     const names = labelsFor(options, context.defaults)
-    const resolved = names.length === 0 ? [] : yield* resolvers.resolveLabels(teamId, names)
+    const resolved = names.length === 0 ? [] : yield* resolvers.resolveLabels(context, names)
     const labels = dedupeLabels(resolved)
 
     const input: Record<string, unknown> = { teamId, title: options.title }
@@ -69,7 +69,7 @@ const makeCreateWrites = ({ client, resolvers, visibility }: CreateDependencies)
       input.labelIds = labels.map((label) => label.id)
     }
     if (options.state !== undefined) {
-      input.stateId = yield* resolvers.teamStateIdByName(teamId, options.state)
+      input.stateId = yield* resolvers.teamStateIdByName(context, options.state)
     }
     let parentId: IssueId | null = null
     if (options.parent !== undefined) {
@@ -82,10 +82,7 @@ const makeCreateWrites = ({ client, resolvers, visibility }: CreateDependencies)
     }
     const assignee = assigneeFor(options, context.defaults)
     if (assignee !== null) {
-      input.assigneeId =
-        assignee.toLowerCase() === "me"
-          ? context.viewer.id
-          : yield* resolvers.resolveAssignee(assignee)
+      input.assigneeId = yield* resolvers.resolveAssignee(context, assignee)
     }
     const priority = priorityFor(options, context.defaults)
     if (priority !== null) {
@@ -96,7 +93,7 @@ const makeCreateWrites = ({ client, resolvers, visibility }: CreateDependencies)
       input,
       parentId,
       plan: {
-        team: options.team ?? context.team?.identity.key ?? context.storedTeam ?? teamId,
+        team: options.team ?? context.storedTeam ?? teamId,
         title: options.title,
         labels: labels.map((label) => label.name),
         assignee,
@@ -105,7 +102,7 @@ const makeCreateWrites = ({ client, resolvers, visibility }: CreateDependencies)
     }
   })
 
-  const create = Effect.fn("IssueWriteApi.create")(function* create(
+  const create = Effect.fn("IssueWriter.create")(function* create(
     context: ResolvedContext,
     options: IssueCreateOptions,
   ) {
@@ -119,7 +116,7 @@ const makeCreateWrites = ({ client, resolvers, visibility }: CreateDependencies)
     return { issue, visible }
   })
 
-  const planCreate = Effect.fn("IssueWriteApi.planCreate")(function* planCreate(
+  const planCreate = Effect.fn("IssueWriter.planCreate")(function* planCreate(
     context: ResolvedContext,
     options: IssueCreateOptions,
   ) {

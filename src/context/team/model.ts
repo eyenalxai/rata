@@ -1,22 +1,16 @@
 import type { Effect } from "effect"
 
-import type { ContextResolveError } from "@/context/resolve"
-import type { TeamDetail } from "@/linear/decode/team"
+import type { ContextViewerMissingError, ResolvedTeam } from "@/context/model"
+import type { ContextResolveError } from "@/context/resolve/model"
 import type { Viewer } from "@/linear/decode/viewer"
 
-type TeamContextTeam = {
-  readonly detail: TeamDetail
-  readonly ageSeconds: number
-  readonly fetchedAt: number
-}
-
 type ResolvedTeamContext = {
-  readonly team: TeamContextTeam | null
+  readonly team: ResolvedTeam | null
   readonly viewer: Viewer
   readonly warning: string | null
 }
 
-type TeamContextError = ContextResolveError
+type TeamContextError = ContextResolveError | ContextViewerMissingError
 
 type TeamContextShape = {
   readonly resolve: (options: {
@@ -24,9 +18,4 @@ type TeamContextShape = {
   }) => Effect.Effect<ResolvedTeamContext, TeamContextError>
 }
 
-export {
-  type ResolvedTeamContext,
-  type TeamContextError,
-  type TeamContextShape,
-  type TeamContextTeam,
-}
+export { type ResolvedTeamContext, type TeamContextError, type TeamContextShape }

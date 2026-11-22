@@ -24,7 +24,7 @@ const ensureUnchanged = (
       )
 
 const makeReadIssueBody = (client: LinearClientShape) =>
-  Effect.fn("IssueWriteApi.readIssueBody")(function* readIssueBody(input: string): Effect.fn.Return<
+  Effect.fn("IssueWriter.readIssueBody")(function* readIssueBody(input: string): Effect.fn.Return<
     {
       readonly id: IssueId
       readonly identifier: string

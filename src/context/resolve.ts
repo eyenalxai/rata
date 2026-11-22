@@ -1,53 +1,29 @@
 import { Clock, Context, Effect, Layer, Option, Redacted, Ref } from "effect"
 
-import type { TeamNotFoundError } from "@/api/team"
-import type { AuthStoreError } from "@/config/auth/error"
 import type { RepoConfig } from "@/config/repo/model"
-import type { ContextTeam, ResolvedContext, TeamDetailSnapshot } from "@/context/model"
-import type { DatabaseError } from "@/db/database"
+import type { ResolvedContext } from "@/context/model"
+import type {
+  ContextResolveError,
+  ContextResolverShape,
+  LinkedTeam,
+  ResolveOptions,
+} from "@/context/resolve/model"
 import type { TeamId } from "@/domain/id"
 import type { Team } from "@/linear/decode/team"
-import type { LinearApiError } from "@/linear/errors"
-import type { ContextCacheError } from "@/local/context-cache"
 
-import { TeamResolutionError, TeamService } from "@/api/team"
+import { TeamService } from "@/api/team"
 import { missingWarning, repairStoredLink, resolveLinkedTeam } from "@/api/team/link"
 import { Auth } from "@/config/auth"
 import { currentDirectory, RepoConfigError, RepoConfigService } from "@/config/repo"
 import { RepositoryIdentity } from "@/config/repo-identity"
 import { hashApiKey } from "@/context/key-hash"
+import { profileKey, resolveKey } from "@/context/memo-key"
 import { teamAge } from "@/context/model"
+import { requireTeamError } from "@/context/team-error"
 import { isUuid, teamId as asTeamId } from "@/domain/id"
 import { issueDefaults } from "@/domain/issue-defaults"
 import { LinearGateway } from "@/linear/gateway"
 import { ContextCache } from "@/local/context-cache"
-
-type ContextResolveError =
-  | AuthStoreError
-  | ContextCacheError
-  | DatabaseError
-  | LinearApiError
-  | RepoConfigError
-  | TeamNotFoundError
-  | TeamResolutionError
-
-type ResolveOptions = {
-  readonly refresh?: boolean | undefined
-  readonly team?: string | undefined
-  readonly requireTeam?: boolean | undefined
-}
-
-type ContextResolverShape = {
-  readonly resolve: (
-    options?: ResolveOptions,
-  ) => Effect.Effect<ResolvedContext, ContextResolveError>
-  readonly teamDetail: (
-    teamId: TeamId,
-    refresh: boolean,
-  ) => Effect.Effect<TeamDetailSnapshot, ContextResolveError>
-}
-
-const profileKey = (profile: string | null): string => profile ?? "env"
 
 class ContextResolver extends Context.Service<ContextResolver, ContextResolverShape>()(
   "rata-cli/context/resolve/ContextResolver",
@@ -92,6 +68,12 @@ class ContextResolver extends Context.Service<ContextResolver, ContextResolverSh
           const cached = yield* cache.readTeam(profile, teamId, keyHash, now)
           if (Option.isSome(cached)) {
             return {
+              identity: {
+                id: cached.value.detail.id,
+                key: cached.value.detail.key,
+                name: cached.value.detail.name,
+                timezone: cached.value.detail.timezone,
+              },
               detail: cached.value.detail,
               ageSeconds: teamAge(cached.value.fetchedAt, now),
               fetchedAt: cached.value.fetchedAt,
@@ -101,7 +83,12 @@ class ContextResolver extends Context.Service<ContextResolver, ContextResolverSh
         const resolved = team ?? (yield* teams.byId(teamId))
         const detail = yield* gateway.team.details(resolved)
         yield* cache.writeTeam(profile, teamId, keyHash, detail, now)
-        return { detail, ageSeconds: 0, fetchedAt: now }
+        return {
+          identity: resolved,
+          detail,
+          ageSeconds: 0,
+          fetchedAt: now,
+        }
       })
 
       const locateRoot = Effect.fn("ContextResolver.locateRoot")(function* locateRepositoryRoot() {
@@ -135,12 +122,9 @@ class ContextResolver extends Context.Service<ContextResolver, ContextResolverSh
           keyHash: string,
           refresh: boolean,
           now: number,
-        ): Effect.fn.Return<
-          { readonly team: TeamDetailSnapshot | null; readonly warning: string | null },
-          ContextResolveError
-        > {
+        ): Effect.fn.Return<LinkedTeam, ContextResolveError> {
           if (config === undefined || (config.team === undefined && config.teamId === undefined)) {
-            return { team: null, warning: null }
+            return { missing: false, team: null, warning: null }
           }
           const storedId =
             config.teamId ??
@@ -150,7 +134,14 @@ class ContextResolver extends Context.Service<ContextResolver, ContextResolverSh
             if (Option.isSome(cached)) {
               const warning = yield* repairStoredLink(repoConfig, config, cached.value.detail)
               return {
+                missing: false,
                 team: {
+                  identity: {
+                    id: cached.value.detail.id,
+                    key: cached.value.detail.key,
+                    name: cached.value.detail.name,
+                    timezone: cached.value.detail.timezone,
+                  },
                   detail: cached.value.detail,
                   ageSeconds: teamAge(cached.value.fetchedAt, now),
                   fetchedAt: cached.value.fetchedAt,
@@ -161,10 +152,14 @@ class ContextResolver extends Context.Service<ContextResolver, ContextResolverSh
           }
           const linked = yield* resolveLinkedTeam(config, teams)
           if (linked.kind === "unlinked") {
-            return { team: null, warning: null }
+            return { missing: false, team: null, warning: null }
           }
           if (linked.kind === "missing") {
-            return { team: null, warning: missingWarning(linked.stored, linked.isId) }
+            return {
+              missing: true,
+              team: null,
+              warning: missingWarning(linked.stored, linked.isId),
+            }
           }
           const loaded = yield* loadDetail(
             linked.linked.team.id,
@@ -175,10 +170,60 @@ class ContextResolver extends Context.Service<ContextResolver, ContextResolverSh
             now,
           ).pipe(Effect.catchTag("TeamNotFoundError", () => Effect.succeed(null)))
           if (loaded === null) {
-            return { team: null, warning: missingWarning(linked.linked.team.key) }
+            return {
+              missing: true,
+              team: null,
+              warning: missingWarning(linked.linked.team.key),
+            }
           }
           const warning = yield* repairStoredLink(repoConfig, config, loaded.detail)
-          return { team: loaded, warning }
+          return { missing: false, team: loaded, warning }
+        },
+      )
+
+      const loadConfig = (withTeam: boolean) =>
+        Effect.gen(function* loadRepositoryConfig() {
+          if (!withTeam) {
+            return Option.none<RepoConfig>()
+          }
+          return yield* repoConfig.read(yield* currentDirectory)
+        })
+
+      const loadViewerFor = (
+        options: ResolveOptions,
+        profile: string,
+        keyHash: string,
+        now: number,
+      ) =>
+        options.viewer === false
+          ? Effect.succeed(null)
+          : loadViewer(profile, keyHash, options.refresh === true, now)
+
+      const resolveContextTeam = Effect.fn("ContextResolver.resolveContextTeam")(
+        function* resolveContextTeam(
+          options: ResolveOptions,
+          config: RepoConfig | undefined,
+          profile: string,
+          keyHash: string,
+          now: number,
+        ) {
+          if (options.withTeam === false) {
+            return { missing: false, team: null, warning: null }
+          }
+          if (options.team === undefined) {
+            return yield* resolveLinked(config, profile, keyHash, options.refresh === true, now)
+          }
+          return {
+            missing: false,
+            team: yield* loadTeamByRef(
+              options.team,
+              profile,
+              keyHash,
+              options.refresh === true,
+              now,
+            ),
+            warning: null,
+          }
         },
       )
 
@@ -190,64 +235,35 @@ class ContextResolver extends Context.Service<ContextResolver, ContextResolverSh
         const profile = Option.getOrNull(resolvedAuth.profile)
         const keyHash = hashApiKey(Redacted.value(resolvedAuth.key))
         const root = yield* locateRoot()
-        const config = Option.getOrUndefined(yield* repoConfig.read(yield* currentDirectory))
-        const viewer = yield* loadViewer(
+        const withTeam = options.withTeam !== false
+        const config = Option.getOrUndefined(yield* loadConfig(withTeam))
+        const viewer = yield* loadViewerFor(options, profileKey(profile), keyHash, now)
+        const resolvedTeam = yield* resolveContextTeam(
+          options,
+          config,
           profileKey(profile),
           keyHash,
-          options.refresh === true,
           now,
         )
-        const resolvedTeam =
-          options.team === undefined
-            ? yield* resolveLinked(
-                config,
-                profileKey(profile),
-                keyHash,
-                options.refresh === true,
-                now,
-              )
-            : {
-                team: yield* loadTeamByRef(
-                  options.team,
-                  profileKey(profile),
-                  keyHash,
-                  options.refresh === true,
-                  now,
-                ),
-                warning: null,
-              }
         if (options.requireTeam === true && resolvedTeam.team === null) {
-          return yield* new TeamResolutionError({
-            message: "No team. Pass --team, or run `rata link`.",
-          })
+          return yield* requireTeamError(
+            resolvedTeam.missing,
+            config?.team ?? config?.teamId ?? null,
+          )
         }
         const detail = resolvedTeam.team?.detail ?? null
-        const team: ContextTeam | null =
-          resolvedTeam.team === null || detail === null
-            ? null
-            : {
-                identity: {
-                  id: detail.id,
-                  key: detail.key,
-                  name: detail.name,
-                  timezone: detail.timezone,
-                },
-                detail,
-                ageSeconds: resolvedTeam.team.ageSeconds,
-                fetchedAt: resolvedTeam.team.fetchedAt,
-              }
         return {
           root,
           profile,
           keySource: resolvedAuth.keySource,
           viewer,
-          team,
+          team: resolvedTeam.team,
           states: detail?.states ?? [],
           labels: detail?.labels ?? [],
           defaults: issueDefaults(config),
           project: config?.project ?? null,
           storedTeam: config?.team ?? config?.teamId ?? null,
-          storedTeamId: config?.teamId ?? null,
+          teamMissing: resolvedTeam.missing,
           warning: resolvedTeam.warning,
         }
       })
@@ -255,13 +271,11 @@ class ContextResolver extends Context.Service<ContextResolver, ContextResolverSh
       const resolve = Effect.fn("ContextResolver.resolve")(function* resolveContext(
         options: ResolveOptions = {},
       ) {
-        const key = options.team ?? ""
+        const key = resolveKey(options)
         const cached = (yield* Ref.get(memo)).get(key)
         if (options.refresh !== true && cached !== undefined) {
           if (options.requireTeam === true && cached.team === null) {
-            return yield* new TeamResolutionError({
-              message: "No team. Pass --team, or run `rata link`.",
-            })
+            return yield* requireTeamError(cached.teamMissing, cached.storedTeam)
           }
           return cached
         }
@@ -273,23 +287,9 @@ class ContextResolver extends Context.Service<ContextResolver, ContextResolverSh
         return context
       })
 
-      const teamDetail = Effect.fn("ContextResolver.teamDetail")(function* readTeamDetail(
-        teamId: TeamId,
-        refresh: boolean,
-      ) {
-        if (refresh) {
-          yield* Ref.set(memo, new Map())
-        }
-        const resolvedAuth = yield* auth.require
-        const now = yield* Clock.currentTimeMillis
-        const profile = Option.getOrNull(resolvedAuth.profile)
-        const keyHash = hashApiKey(Redacted.value(resolvedAuth.key))
-        return yield* loadDetail(teamId, null, profileKey(profile), keyHash, refresh, now)
-      })
-
-      return ContextResolver.of({ resolve, teamDetail })
+      return ContextResolver.of({ resolve })
     }),
   )
 }
 
-export { ContextResolver, type ContextResolveError, type ContextResolverShape, type ResolveOptions }
+export { ContextResolver }

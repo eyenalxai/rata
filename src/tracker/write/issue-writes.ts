@@ -1,5 +1,6 @@
 import { Effect } from "effect"
 
+import type { ResolvedContext } from "@/context/model"
 import type { WriteAction, WriteOptions, WriteStatus } from "@/tracker/write/model"
 import type { makeIssueWriteResolvers } from "@/tracker/write/resolvers"
 
@@ -8,14 +9,14 @@ import { AssigneeConflictError, combineStatus, isNoneValue } from "@/tracker/wri
 type WriteResolvers = ReturnType<typeof makeIssueWriteResolvers>
 
 const makeIssueWrites = (resolvers: WriteResolvers) => {
-  const addLabels = Effect.fn("IssueWriteApi.addLabels")(function* addLabels(
+  const addLabels = Effect.fn("IssueWriter.addLabels")(function* addLabels(
+    context: ResolvedContext,
     ref: string,
     names: readonly string[],
     options: WriteOptions = {},
   ) {
     const summary = yield* resolvers.readIssueSummary(ref)
-    const teamId = yield* resolvers.resolveIssueTeamId(summary.id)
-    const resolved = yield* resolvers.resolveLabels(teamId, names)
+    const resolved = yield* resolvers.resolveLabels(context, names)
     const current = yield* resolvers.collectIssueLabels(summary.id)
     const present = new Set(current.map((label) => label.id))
     const actions: WriteAction[] = []
@@ -50,14 +51,14 @@ const makeIssueWrites = (resolvers: WriteResolvers) => {
     return { status: combineStatus(actions), issue, actions }
   })
 
-  const removeLabels = Effect.fn("IssueWriteApi.removeLabels")(function* removeLabels(
+  const removeLabels = Effect.fn("IssueWriter.removeLabels")(function* removeLabels(
+    context: ResolvedContext,
     ref: string,
     names: readonly string[],
     options: WriteOptions = {},
   ) {
     const summary = yield* resolvers.readIssueSummary(ref)
-    const teamId = yield* resolvers.resolveIssueTeamId(summary.id)
-    const resolved = yield* resolvers.resolveLabels(teamId, names)
+    const resolved = yield* resolvers.resolveLabels(context, names)
     const current = yield* resolvers.collectIssueLabels(summary.id)
     const present = new Set(current.map((label) => label.id))
     const actions: WriteAction[] = []
@@ -92,7 +93,8 @@ const makeIssueWrites = (resolvers: WriteResolvers) => {
     return { status: combineStatus(actions), issue, actions }
   })
 
-  const close = Effect.fn("IssueWriteApi.close")(function* close(
+  const close = Effect.fn("IssueWriter.close")(function* close(
+    context: ResolvedContext,
     ref: string,
     body?: string,
     options: WriteOptions = {},
@@ -128,11 +130,12 @@ const makeIssueWrites = (resolvers: WriteResolvers) => {
     if (commented) {
       yield* resolvers.postComment(summary.id, body)
     }
-    const issue = yield* resolvers.setStateByType(summary.id, "completed")
+    const issue = yield* resolvers.setStateByType(context, summary.id, "completed")
     return { status, issue, actions }
   })
 
-  const reopen = Effect.fn("IssueWriteApi.reopen")(function* reopen(
+  const reopen = Effect.fn("IssueWriter.reopen")(function* reopen(
+    context: ResolvedContext,
     ref: string,
     options: WriteOptions = {},
   ) {
@@ -149,19 +152,24 @@ const makeIssueWrites = (resolvers: WriteResolvers) => {
     if (alreadyOpen || options.dryRun === true) {
       return { status: combineStatus(actions), issue: summary, actions }
     }
-    const issue = yield* resolvers.setStateByType(summary.id, "unstarted")
+    const issue = yield* resolvers.setStateByType(context, summary.id, "unstarted")
     return { status: combineStatus(actions), issue, actions }
   })
 
-  const assign = Effect.fn("IssueWriteApi.assign")(function* assign(
+  const assign = Effect.fn("IssueWriter.assign")(function* assign(
+    context: ResolvedContext,
     ref: string,
     assignee: string,
     options: WriteOptions = {},
   ) {
     const summary = yield* resolvers.readIssueSummary(ref)
-    const targetId = isNoneValue(assignee) ? null : yield* resolvers.resolveAssignee(assignee)
+    const targetId = isNoneValue(assignee)
+      ? null
+      : yield* resolvers.resolveAssignee(context, assignee)
     const viewerId =
-      targetId === null || assignee.toLowerCase() === "me" ? targetId : yield* resolvers.viewerId()
+      targetId === null || assignee.toLowerCase() === "me"
+        ? targetId
+        : yield* resolvers.viewerId(context)
     const currentId = summary.assignee?.id ?? null
     if (
       targetId !== null &&
@@ -191,7 +199,8 @@ const makeIssueWrites = (resolvers: WriteResolvers) => {
     return { status, issue, actions }
   })
 
-  const unassign = Effect.fn("IssueWriteApi.unassign")(function* unassign(
+  const unassign = Effect.fn("IssueWriter.unassign")(function* unassign(
+    _context: ResolvedContext,
     ref: string,
     options: WriteOptions = {},
   ) {
