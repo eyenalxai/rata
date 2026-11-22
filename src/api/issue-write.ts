@@ -38,27 +38,38 @@ class IssueWriteApi extends Context.Service<IssueWriteApi, IssueWriteApiShape>()
       const contexts = yield* ContextResolver
       const writer = yield* IssueWriter
       const cached = yield* Ref.make<Option.Option<ResolvedContext>>(Option.none())
+      const warned = yield* Ref.make(false)
 
       const withContext = <A, E>(
         options: ResolveOptions,
         run: (context: ResolvedContext) => Effect.Effect<A, E>,
+        report = false,
       ): Effect.Effect<A, E | ContextResolveError> =>
         Effect.gen(function* runWithContext() {
           const current = yield* Ref.get(cached)
-          if (Option.isSome(current) && covers(current.value, options)) {
-            return yield* run(current.value)
+          const context =
+            Option.isSome(current) && covers(current.value, options)
+              ? current.value
+              : yield* contexts.resolve(options)
+          if (Option.isNone(current) || !covers(current.value, options)) {
+            yield* Ref.set(cached, Option.some(context))
+            yield* Ref.set(warned, false)
           }
-          const context = yield* contexts.resolve(options)
-          yield* Ref.set(cached, Option.some(context))
+          if (report && context.warning !== null && !(yield* Ref.get(warned))) {
+            yield* reportWarning(context)
+            yield* Ref.set(warned, true)
+          }
           return yield* run(context)
         })
 
       return IssueWriteApi.of({
         addLabels: (ref, names, options) =>
-          withContext(team, (context) => writer.addLabels(context, ref, names, options)),
+          withContext(team, (context) => writer.addLabels(context, ref, names, options), true),
         addLabelsToChildren: (parentRef, names, options) =>
-          withContext(team, (context) =>
-            writer.addLabelsToChildren(context, parentRef, names, options),
+          withContext(
+            team,
+            (context) => writer.addLabelsToChildren(context, parentRef, names, options),
+            true,
           ),
         appendSection: (ref, heading, body, options) =>
           withContext(identity, (context) =>
@@ -71,7 +82,7 @@ class IssueWriteApi extends Context.Service<IssueWriteApi, IssueWriteApiShape>()
             writer.assignChildren(context, parentRef, assignee, options),
           ),
         close: (ref, body, options) =>
-          withContext(team, (context) => writer.close(context, ref, body, options)),
+          withContext(team, (context) => writer.close(context, ref, body, options), true),
         commentCreate: (ref, body, options) =>
           withContext(identity, (context) => writer.commentCreate(context, ref, body, options)),
         commentDelete: (commentId) =>
@@ -81,8 +92,10 @@ class IssueWriteApi extends Context.Service<IssueWriteApi, IssueWriteApiShape>()
             writer.commentUpdate(context, commentId, body, options),
           ),
         create: (options) =>
-          withContext({ requireTeam: true, team: options.team }, (context) =>
-            reportWarning(context).pipe(Effect.andThen(writer.create(context, options))),
+          withContext(
+            { requireTeam: true, team: options.team, viewer: false },
+            (context) => writer.create(context, options),
+            true,
           ),
         findComment: (commentId) =>
           withContext(identity, (context) => writer.findComment(context, commentId)),
@@ -93,27 +106,35 @@ class IssueWriteApi extends Context.Service<IssueWriteApi, IssueWriteApiShape>()
         planCommentDelete: (commentId) =>
           withContext(identity, (context) => writer.planCommentDelete(context, commentId)),
         planCreate: (options) =>
-          withContext({ requireTeam: true, team: options.team }, (context) =>
-            reportWarning(context).pipe(Effect.andThen(writer.planCreate(context, options))),
+          withContext(
+            { requireTeam: true, team: options.team, viewer: false },
+            (context) => writer.planCreate(context, options),
+            true,
           ),
         planUpdate: (ref, options, writeOptions) =>
-          withContext(needsTeam(options) ? team : identity, (context) =>
-            writer.planUpdate(context, ref, options, writeOptions),
+          withContext(
+            needsTeam(options) ? team : identity,
+            (context) => writer.planUpdate(context, ref, options, writeOptions),
+            needsTeam(options),
           ),
         planUpdateSections: (ref, options, sections, writeOptions) =>
-          withContext(needsTeam(options) ? team : identity, (context) =>
-            writer.planUpdateSections(context, ref, options, sections, writeOptions),
+          withContext(
+            needsTeam(options) ? team : identity,
+            (context) => writer.planUpdateSections(context, ref, options, sections, writeOptions),
+            needsTeam(options),
           ),
         readSection: (ref, heading) =>
           withContext(identity, (context) => writer.readSection(context, ref, heading)),
         removeLabels: (ref, names, options) =>
-          withContext(team, (context) => writer.removeLabels(context, ref, names, options)),
+          withContext(team, (context) => writer.removeLabels(context, ref, names, options), true),
         removeLabelsFromChildren: (parentRef, names, options) =>
-          withContext(team, (context) =>
-            writer.removeLabelsFromChildren(context, parentRef, names, options),
+          withContext(
+            team,
+            (context) => writer.removeLabelsFromChildren(context, parentRef, names, options),
+            true,
           ),
         reopen: (ref, options) =>
-          withContext(team, (context) => writer.reopen(context, ref, options)),
+          withContext(team, (context) => writer.reopen(context, ref, options), true),
         replaceSection: (ref, heading, body, options) =>
           withContext(identity, (context) =>
             writer.replaceSection(context, ref, heading, body, options),
@@ -123,12 +144,16 @@ class IssueWriteApi extends Context.Service<IssueWriteApi, IssueWriteApiShape>()
         unlink: (ref, changes, options) =>
           withContext(identity, (context) => writer.unlink(context, ref, changes, options)),
         update: (ref, options, writeOptions) =>
-          withContext(needsTeam(options) ? team : identity, (context) =>
-            writer.update(context, ref, options, writeOptions),
+          withContext(
+            needsTeam(options) ? team : identity,
+            (context) => writer.update(context, ref, options, writeOptions),
+            needsTeam(options),
           ),
         updateSections: (ref, options, sections, writeOptions) =>
-          withContext(needsTeam(options) ? team : identity, (context) =>
-            writer.updateSections(context, ref, options, sections, writeOptions),
+          withContext(
+            needsTeam(options) ? team : identity,
+            (context) => writer.updateSections(context, ref, options, sections, writeOptions),
+            needsTeam(options),
           ),
       })
     }),

@@ -2,7 +2,6 @@ import { Context, Effect, Layer } from "effect"
 
 import type { TeamContextShape } from "@/context/team/model"
 
-import { ContextViewerMissingError as ContextViewerMissingErrorClass } from "@/context/model"
 import { ContextResolver } from "@/context/resolve"
 
 class TeamContext extends Context.Service<TeamContext, TeamContextShape>()(
@@ -17,14 +16,10 @@ class TeamContext extends Context.Service<TeamContext, TeamContextShape>()(
         readonly refresh: boolean
       }) {
         const context = yield* resolver.resolve({ refresh: options.refresh })
-        if (context.viewer === null) {
-          return yield* new ContextViewerMissingErrorClass({
-            message: "The viewer did not resolve for the team context.",
-          })
-        }
+        const viewer = yield* resolver.viewer(context)
         return {
           team: context.team,
-          viewer: context.viewer,
+          viewer,
           warning: context.warning,
         }
       })

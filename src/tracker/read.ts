@@ -109,7 +109,7 @@ class IssueReader extends Context.Service<IssueReader, IssueReaderShape>()(
         const assigneeId =
           options.assignee === undefined
             ? undefined
-            : yield* resolveAssigneeId(gateway, context, options.assignee)
+            : yield* resolveAssigneeId(gateway, contexts, context, options.assignee)
         const parentId =
           overrides.parentId ??
           (options.parent === undefined

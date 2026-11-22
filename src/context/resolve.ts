@@ -14,11 +14,12 @@ import type { Team } from "@/linear/decode/team"
 import { TeamService } from "@/api/team"
 import { missingWarning, repairStoredLink, resolveLinkedTeam } from "@/api/team/link"
 import { Auth } from "@/config/auth"
-import { currentDirectory, RepoConfigError, RepoConfigService } from "@/config/repo"
+import { RepoConfigService } from "@/config/repo"
 import { RepositoryIdentity } from "@/config/repo-identity"
 import { hashApiKey } from "@/context/key-hash"
 import { profileKey, resolveKey } from "@/context/memo-key"
 import { teamAge } from "@/context/model"
+import { makeContextSources } from "@/context/resolve/sources"
 import { requireTeamError } from "@/context/team-error"
 import { isUuid, teamId as asTeamId } from "@/domain/id"
 import { issueDefaults } from "@/domain/issue-defaults"
@@ -56,6 +57,12 @@ class ContextResolver extends Context.Service<ContextResolver, ContextResolverSh
         return viewer
       })
 
+      const { loadConfig, loadViewerFor, locateRoot } = makeContextSources({
+        identity,
+        loadViewer,
+        repoConfig,
+      })
+
       const loadDetail = Effect.fn("ContextResolver.loadDetail")(function* loadTeamDetail(
         teamId: TeamId,
         team: Team | null,
@@ -89,17 +96,6 @@ class ContextResolver extends Context.Service<ContextResolver, ContextResolverSh
           ageSeconds: 0,
           fetchedAt: now,
         }
-      })
-
-      const locateRoot = Effect.fn("ContextResolver.locateRoot")(function* locateRepositoryRoot() {
-        const location = yield* identity
-          .locate(yield* currentDirectory)
-          .pipe(
-            Effect.mapError(
-              (error) => new RepoConfigError({ message: error.message, cause: error }),
-            ),
-          )
-        return location.root
       })
 
       const loadTeamByRef = Effect.fn("ContextResolver.loadTeamByRef")(
@@ -181,24 +177,6 @@ class ContextResolver extends Context.Service<ContextResolver, ContextResolverSh
         },
       )
 
-      const loadConfig = (withTeam: boolean) =>
-        Effect.gen(function* loadRepositoryConfig() {
-          if (!withTeam) {
-            return Option.none<RepoConfig>()
-          }
-          return yield* repoConfig.read(yield* currentDirectory)
-        })
-
-      const loadViewerFor = (
-        options: ResolveOptions,
-        profile: string,
-        keyHash: string,
-        now: number,
-      ) =>
-        options.viewer === false
-          ? Effect.succeed(null)
-          : loadViewer(profile, keyHash, options.refresh === true, now)
-
       const resolveContextTeam = Effect.fn("ContextResolver.resolveContextTeam")(
         function* resolveContextTeam(
           options: ResolveOptions,
@@ -209,6 +187,20 @@ class ContextResolver extends Context.Service<ContextResolver, ContextResolverSh
         ) {
           if (options.withTeam === false) {
             return { missing: false, team: null, warning: null }
+          }
+          if (options.teamId !== undefined) {
+            return {
+              missing: false,
+              team: yield* loadDetail(
+                options.teamId,
+                null,
+                profile,
+                keyHash,
+                options.refresh === true,
+                now,
+              ),
+              warning: null,
+            }
           }
           if (options.team === undefined) {
             return yield* resolveLinked(config, profile, keyHash, options.refresh === true, now)
@@ -268,6 +260,19 @@ class ContextResolver extends Context.Service<ContextResolver, ContextResolverSh
         }
       })
 
+      const viewer = Effect.fn("ContextResolver.viewer")(function* resolveViewer(
+        context: ResolvedContext,
+      ) {
+        if (context.viewer !== null) {
+          return context.viewer
+        }
+        const resolvedAuth = yield* auth.require
+        const now = yield* Clock.currentTimeMillis
+        const profile = Option.getOrNull(resolvedAuth.profile)
+        const keyHash = hashApiKey(Redacted.value(resolvedAuth.key))
+        return yield* loadViewer(profileKey(profile), keyHash, false, now)
+      })
+
       const resolve = Effect.fn("ContextResolver.resolve")(function* resolveContext(
         options: ResolveOptions = {},
       ) {
@@ -287,7 +292,7 @@ class ContextResolver extends Context.Service<ContextResolver, ContextResolverSh
         return context
       })
 
-      return ContextResolver.of({ resolve })
+      return ContextResolver.of({ resolve, viewer })
     }),
   )
 }

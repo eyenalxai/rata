@@ -5,6 +5,7 @@ const profileKey = (profile: string | null): string => profile ?? "env"
 const resolveKey = (options: ResolveOptions): string =>
   [
     options.team ?? "",
+    options.teamId ?? "",
     options.viewer === false ? "no-viewer" : "viewer",
     options.withTeam === false ? "no-team" : "team",
   ].join("|")

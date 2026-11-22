@@ -1,6 +1,7 @@
 import { Effect } from "effect"
 
 import type { ResolvedContext } from "@/context/model"
+import type { IssueId } from "@/domain/id"
 import type { makeIssueWriteResolvers } from "@/tracker/write/resolvers"
 import type { IssueUpdateOptions } from "@/tracker/write/write-types"
 
@@ -9,6 +10,7 @@ import { priorityValue } from "@/domain/priority"
 const makeUpdateFields = (resolvers: ReturnType<typeof makeIssueWriteResolvers>) =>
   Effect.fn("IssueWriter.resolveUpdateFields")(function* resolveUpdateFields(
     context: ResolvedContext,
+    issueId: IssueId,
     options: IssueUpdateOptions,
   ) {
     const input: Record<string, unknown> = {}
@@ -16,7 +18,7 @@ const makeUpdateFields = (resolvers: ReturnType<typeof makeIssueWriteResolvers>)
       input.title = options.title
     }
     if (options.state !== undefined) {
-      input.stateId = yield* resolvers.teamStateIdByName(context, options.state)
+      input.stateId = yield* resolvers.issueStateIdByName(context, issueId, options.state)
     }
     if (options.assignee !== undefined) {
       input.assigneeId = yield* resolvers.resolveAssignee(context, options.assignee)

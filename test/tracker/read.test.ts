@@ -116,6 +116,20 @@ describe("IssueReader", () => {
 })
 
 describe("IssueReader context use", () => {
+  test("list resolves the viewer only for --assignee me", async () => {
+    const counting = countingGateway(seed)
+    await program(
+      counting,
+      Effect.gen(function* listMine() {
+        const api = yield* IssueApi
+        yield* api.list({ after: null, assignee: "me", limit: 50 })
+      }),
+    )
+
+    expect(counting.counts.viewer()).toBe(1)
+    expect(counting.counts.details()).toBe(1)
+  })
+
   test("show and summary do not resolve the viewer or the link", async () => {
     const counting = countingGateway(seed)
     await program(

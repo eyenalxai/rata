@@ -156,9 +156,10 @@ describe("tracker ref resolution", () => {
         const resolver = yield* ContextResolver
         const gateway = yield* LinearGateway
         const context = yield* resolver.resolve({})
-        const me = yield* resolveAssigneeId(gateway, context, "me")
+        const me = yield* resolveAssigneeId(gateway, resolver, context, "me")
         const uuid = yield* resolveAssigneeId(
           gateway,
+          resolver,
           context,
           "5f0c1f2a-3b4c-4d5e-8f90-1234567890ab",
         )
@@ -178,7 +179,7 @@ describe("tracker ref resolution", () => {
         const resolver = yield* ContextResolver
         const gateway = yield* LinearGateway
         const context = yield* resolver.resolve({})
-        return yield* Effect.flip(resolveAssigneeId(gateway, context, "ada"))
+        return yield* Effect.flip(resolveAssigneeId(gateway, resolver, context, "ada"))
       }),
     )
 

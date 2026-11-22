@@ -3,7 +3,6 @@ import { Effect } from "effect"
 import type { ResolvedContext } from "@/context/model"
 import type { IssueId, LabelId, ProjectId, TeamId, UserId, WorkflowStateId } from "@/domain/id"
 import type { StateType, WorkflowStateNode } from "@/domain/workflow-state"
-import type { LinearApiError } from "@/linear/errors"
 import type {
   BulkTarget,
   IssueWriteApiError,
@@ -12,7 +11,6 @@ import type {
 } from "@/tracker/write/model"
 
 import { ProjectNotFoundError } from "@/api/project/errors"
-import { TeamResolutionError } from "@/api/team"
 import { isUuid, projectId as asProjectId, userId as asUserId } from "@/domain/id"
 import { parseRefOrFail } from "@/domain/issue-ref"
 import { stateByType } from "@/domain/workflow-state"
@@ -21,13 +19,15 @@ import {
   AddLabelResponse,
   BulkTargetsResponse,
   CreateCommentResponse,
-  LabelsResponse,
   RemoveLabelResponse,
   UpdateIssueResponse,
 } from "@/linear/decode/issue"
-import { labelsQuery } from "@/linear/documents/issue"
 import { toSummary } from "@/tracker/model"
-import { resolveLabels as resolveLabelNames, resolveStateName } from "@/tracker/resolve"
+import {
+  requireTeamId,
+  resolveLabels as resolveLabelNames,
+  resolveStateName,
+} from "@/tracker/resolve"
 import {
   addLabelMutation,
   bulkTargetsQuery,
@@ -53,13 +53,19 @@ const makeIssueWriteResolvers = ({ client, contexts, gateway }: IssueWriteDepend
     return toSummary(yield* gateway.issue.summary(ref))
   })
 
-  const collectIssueLabels = Effect.fn("IssueWriter.collectIssueLabels")(
-    function* collectIssueLabels(issueId: IssueId) {
-      return yield* collectConnection((after) =>
-        client
-          .execute(labelsQuery, { id: issueId, first: pageSize, after }, LabelsResponse)
-          .pipe(Effect.map((data) => data.issue.labels)),
-      )
+  const issueTeamContext = Effect.fn("IssueWriter.issueTeamContext")(
+    function* resolveIssueTeamContext(context: ResolvedContext, issueId: IssueId) {
+      if (context.team !== null) {
+        return context
+      }
+      const ref = yield* parseRefOrFail(String(issueId))
+      const detail = yield* gateway.issue.show(ref, {
+        attachments: false,
+        children: false,
+        comments: false,
+        relations: false,
+      })
+      return yield* contexts.resolve({ teamId: detail.team.id, viewer: false })
     },
   )
 
@@ -110,17 +116,17 @@ const makeIssueWriteResolvers = ({ client, contexts, gateway }: IssueWriteDepend
   const resolveAssignee = Effect.fn("IssueWriter.resolveAssignee")(function* resolveAssignee(
     context: ResolvedContext,
     value: string,
-  ): Effect.fn.Return<UserId, LinearApiError> {
+  ): Effect.fn.Return<UserId, IssueWriteApiError> {
     if (value.toLowerCase() === "me") {
-      return context.viewer === null ? (yield* client.viewer).id : context.viewer.id
+      return (yield* contexts.viewer(context)).id
     }
     return asUserId(value)
   })
 
   const viewerId = Effect.fn("IssueWriter.viewerId")(function* viewerId(
     context: ResolvedContext,
-  ): Effect.fn.Return<UserId, LinearApiError> {
-    return context.viewer === null ? (yield* client.viewer).id : context.viewer.id
+  ): Effect.fn.Return<UserId, IssueWriteApiError> {
+    return (yield* contexts.viewer(context)).id
   })
 
   const resolveProjectId = Effect.fn("IssueWriter.resolveProjectId")(function* resolveProjectId(
@@ -166,17 +172,22 @@ const makeIssueWriteResolvers = ({ client, contexts, gateway }: IssueWriteDepend
     return state.id
   })
 
+  const issueStateIdByName = Effect.fn("IssueWriter.issueStateIdByName")(
+    function* issueStateIdByName(context: ResolvedContext, issueId: IssueId, name: string) {
+      const target = yield* issueTeamContext(context, issueId)
+      const state = yield* resolveStateName(contexts, target, name)
+      return state.id
+    },
+  )
+
   const setStateByType = Effect.fn("IssueWriter.setStateByType")(function* setStateByType(
     context: ResolvedContext,
     issueId: IssueId,
     type: StateType,
   ) {
-    if (context.team === null) {
-      return yield* new TeamResolutionError({
-        message: "No team. Pass --team, or run `rata link`.",
-      })
-    }
-    const stateId = yield* stateIdByType(context.states, context.team.identity.id, type)
+    const target = yield* issueTeamContext(context, issueId)
+    const teamId = yield* requireTeamId(target)
+    const stateId = yield* stateIdByType(target.states, teamId, type)
     const data = yield* client.execute(
       updateIssueMutation,
       { id: issueId, input: { stateId } },
@@ -192,6 +203,31 @@ const makeIssueWriteResolvers = ({ client, contexts, gateway }: IssueWriteDepend
     const resolved = yield* resolveLabelNames(contexts, context, names)
     return resolved.map((label) => ({ id: label.id, name: label.name }))
   })
+
+  const resolveTeamLabels = Effect.fn("IssueWriter.resolveTeamLabels")(function* resolveTeamLabels(
+    context: ResolvedContext,
+    teamId: TeamId,
+    names: readonly string[],
+  ): Effect.fn.Return<readonly ResolvedLabel[], IssueWriteApiError> {
+    const target =
+      context.team?.identity.id === teamId
+        ? context
+        : yield* contexts.resolve({ teamId, viewer: false })
+    const resolved = yield* resolveLabelNames(contexts, target, names)
+    return resolved.map((label) => ({ id: label.id, name: label.name }))
+  })
+
+  const resolveIssueLabels = Effect.fn("IssueWriter.resolveIssueLabels")(
+    function* resolveIssueLabels(
+      context: ResolvedContext,
+      issueId: IssueId,
+      names: readonly string[],
+    ): Effect.fn.Return<readonly ResolvedLabel[], IssueWriteApiError> {
+      const target = yield* issueTeamContext(context, issueId)
+      const resolved = yield* resolveLabelNames(contexts, target, names)
+      return resolved.map((label) => ({ id: label.id, name: label.name }))
+    },
+  )
 
   const postComment = Effect.fn("IssueWriter.postComment")(function* postComment(
     issueId: IssueId,
@@ -209,13 +245,15 @@ const makeIssueWriteResolvers = ({ client, contexts, gateway }: IssueWriteDepend
     ...makeRelationResolvers({ client }),
     addLabel,
     collectChildTargets,
-    collectIssueLabels,
     postComment,
     readIssueSummary,
     removeLabel,
     resolveAssignee,
     resolveIssueId,
     resolveLabels,
+    resolveIssueLabels,
+    resolveTeamLabels,
+    issueStateIdByName,
     resolveProjectId,
     setAssignee,
     setStateByType,

@@ -1,6 +1,6 @@
 import type { Effect } from "effect"
 
-import type { ContextViewerMissingError, ResolvedTeam } from "@/context/model"
+import type { ResolvedTeam } from "@/context/model"
 import type { ContextResolveError } from "@/context/resolve/model"
 import type { Viewer } from "@/linear/decode/viewer"
 
@@ -10,7 +10,7 @@ type ResolvedTeamContext = {
   readonly warning: string | null
 }
 
-type TeamContextError = ContextResolveError | ContextViewerMissingError
+type TeamContextError = ContextResolveError
 
 type TeamContextShape = {
   readonly resolve: (options: {

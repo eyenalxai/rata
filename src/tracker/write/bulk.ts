@@ -96,7 +96,7 @@ const makeBulkWrites = (resolvers: WriteResolvers) => {
       if (resolved.has(target.teamId)) {
         continue
       }
-      resolved.set(target.teamId, yield* resolvers.resolveLabels(context, names))
+      resolved.set(target.teamId, yield* resolvers.resolveTeamLabels(context, target.teamId, names))
     }
     return resolved
   })

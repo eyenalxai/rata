@@ -66,10 +66,10 @@ upstream version.
 | -------------- | --------------------------------------------------------------------- |
 | `src/main.ts`  | The `rata` binary entry point and the root command.                   |
 | `src/cli/`     | One module per command group. Parsing, output, exit codes.            |
-| `src/api/`     | Legacy command adapters over the tracker seams.                       |
+| `src/api/`     | Legacy service adapters for the current command surface.              |
 | `src/domain/`  | Pure logic: references, labels, priorities, prompts, timezones.       |
 | `src/linear/`  | The Linear HTTP client, GraphQL documents, decoders and read gateway. |
-| `src/local/`   | The SQLite stores: profiles, links, repository defaults, team cache.  |
+| `src/local/`   | The SQLite context cache for teams and viewers.                       |
 | `src/context/` | `ResolvedContext` and the one context resolution per command.         |
 | `src/tracker/` | The issue reader, writer, plan engine and ref resolution.             |
 | `src/config/`  | Auth and repository configuration.                                    |

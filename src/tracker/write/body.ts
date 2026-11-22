@@ -170,7 +170,7 @@ const makeBodyWrites = ({ client, resolvers }: BodyDependencies) => {
     if (issueBody !== undefined) {
       yield* ensureUnchanged(issueBody.identifier, issueBody.updatedAt, writeOptions.ifUnchanged)
     }
-    const input = yield* resolveUpdateFields(context, options)
+    const input = yield* resolveUpdateFields(context, issueId, options)
     if (options.body !== undefined) {
       input.description =
         options.append === true

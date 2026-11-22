@@ -27,13 +27,6 @@ class ContextLabelNotFoundError extends Schema.TaggedError<ContextLabelNotFoundE
   },
 ) {}
 
-class ContextViewerMissingError extends Schema.TaggedError<ContextViewerMissingError>()(
-  "ContextViewerMissingError",
-  {
-    message: Schema.String,
-  },
-) {}
-
 type ResolvedTeam = {
   readonly identity: Team
   readonly detail: TeamDetail
@@ -71,7 +64,6 @@ const validNameText = (subject: "labels" | "states", names: readonly string[]): 
 export {
   ContextLabelNotFoundError,
   ContextStateNotFoundError,
-  ContextViewerMissingError,
   findLabelByName,
   findStateByName,
   type ResolvedContext,

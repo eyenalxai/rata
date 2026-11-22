@@ -41,7 +41,7 @@ const makeSectionWrites = ({ client, resolvers }: SectionDependencies) => {
       yield* ensureUnchanged(issueBody.identifier, issueBody.updatedAt, writeOptions.ifUnchanged)
       const current = issueBody.description ?? ""
       const replaced = yield* Effect.fromResult(replaceSectionsInText(current, sections))
-      const input = yield* resolveUpdateFields(context, options)
+      const input = yield* resolveUpdateFields(context, issueBody.id, options)
       if (replaced.body !== current) {
         input.description = replaced.body
       }

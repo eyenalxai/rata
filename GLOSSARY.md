@@ -125,6 +125,10 @@ they explore the codebase. Use these terms; do not drift to synonyms.
   client, GraphQL documents, decoders and typed operations. It takes an API key
   and never reads config, runs a command or renders output. Tests replace it
   with the in-memory adapter.
+- **Resolved context**: the value one command resolves once: the repository
+  root, profile, viewer when the command needs it, team identity and cached
+  detail, states, labels, defaults, project and stale-link warning. The issue
+  reader and writer take it as an argument. Avoid: app context.
 - **Cache age**: the seconds since rata read the team context from Linear.
   `rata status` reports it as `cache.ageSeconds`.
 - **Warm read**: a read that resolves the team context from the cache. A cold

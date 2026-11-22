@@ -21,28 +21,40 @@ project and the stale-link warning. `ContextResolver` builds it from the
 
 `ContextResolver` owns team resolution. `IssueReader` and `IssueWriter` take a
 `ResolvedContext` and do not resolve the team from the repository link.
-`RepoTeam` stays as an adapter for the old `label`, `project` and `config`
-commands until their surface tickets move them.
+`RepoTeam` stays only as a migration adapter for the old `label`, `project` and
+`config` commands until their surface tickets move them. It is not a
+compatibility guarantee.
 
 Writes use `gateway.client` as the explicit raw transport. The write documents
 stay in `tracker/write/documents.ts`; they do not move into the read gateway.
 
 Write operations resolve state and label names against `context.states` and
 `context.labels`. An unknown name refreshes the context once and then fails with
-the valid names. A write does not read the issue team. `requireTeamId` fails
-with `not_found` when the linked team is gone; it never returns a stored team id
-for a missing team.
+the valid names. When the context has no linked team, a write resolves the
+issue's team for that state or label lookup; the old command behavior is kept.
+Bulk label writes resolve each label name against the team of each child, so a
+mixed-team batch uses each team's label ids.
 
-The stale-link warning travels on the context. The read adapters print it where
-the old `RepoTeam.resolve` printed it. `issue show`, `summary` and `why` build a
-context without a viewer and without the repository link, because they ignored
-both before.
+`requireTeamId` and the other team lookups share one error rule: a missing
+linked team is `not_found` and no link is `not_linked`. `issue create` without a
+link keeps exit code 2.
+
+The viewer is lazy. A context may carry no viewer; `ContextResolver.viewer`
+loads the cached viewer only when a command asks for it, such as
+`issue list --assignee me` or an assignee write. `issue show`, `summary` and
+`why` build a context without a viewer and without the repository link, because
+they ignored both before.
+
+The stale-link warning travels on the context. `list` and `search` print it, as
+the old `RepoTeam.resolve` path did. `close`, `reopen` and label writes print it
+when they resolve the repository link.
 
 ## Consequences
 
-- One context resolution serves a command. The team is not resolved again for
-  each issue.
-- A write cannot write to a team other than the linked or explicit one by
-  reading the issue team first.
+- One context resolution serves a command when the team is linked. An unlinked
+  write resolves the issue's team once for its state or label lookup.
+- A linked write uses the linked team. An unlinked write falls back to the issue
+  team, so existing command behavior survives.
+- A mixed-team bulk label write cannot reuse the linked team's label ids.
 - `issue create --dry-run` keeps printing the stored `config.team` text.
-- `RepoTeam` remains only as a compatibility adapter for old command groups.
+- `RepoTeam` remains only as a migration adapter for old command groups.

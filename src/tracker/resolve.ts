@@ -9,7 +9,6 @@ import type { TeamLabel, TeamState } from "@/linear/decode/team"
 import type { LinearApiError } from "@/linear/errors"
 import type { LinearGatewayShape } from "@/linear/gateway"
 
-import { TeamNotFoundError, TeamResolutionError } from "@/api/team"
 import {
   ContextLabelNotFoundError,
   ContextStateNotFoundError,
@@ -17,6 +16,7 @@ import {
   findStateByName,
   validNameText,
 } from "@/context/model"
+import { requireTeamError } from "@/context/team-error"
 import { isUuid, issueId, userId } from "@/domain/id"
 import { parseRefOrFail } from "@/domain/issue-ref"
 import { AssigneeInputError, AssigneeNotFoundError } from "@/tracker/error"
@@ -26,30 +26,13 @@ type ResolvedIssueRef = {
   readonly id: IssueId
 }
 
-const requireTeam = (context: ResolvedContext): Effect.Effect<ResolvedTeam, TeamResolutionError> =>
+const requireTeam = (context: ResolvedContext): Effect.Effect<ResolvedTeam, ContextResolveError> =>
   context.team === null
-    ? Effect.fail(new TeamResolutionError({ message: "No team. Pass --team, or run `rata link`." }))
+    ? requireTeamError(context.teamMissing, context.storedTeam)
     : Effect.succeed(context.team)
 
-const requireTeamId = (
-  context: ResolvedContext,
-): Effect.Effect<TeamId, TeamNotFoundError | TeamResolutionError> => {
-  if (context.team !== null) {
-    return Effect.succeed(context.team.identity.id)
-  }
-  if (context.teamMissing) {
-    const stored = context.storedTeam ?? "the linked team"
-    return Effect.fail(
-      new TeamNotFoundError({
-        key: stored,
-        message: isUuid(stored) ? `No team with id ${stored}.` : `No team with key ${stored}.`,
-      }),
-    )
-  }
-  return Effect.fail(
-    new TeamResolutionError({ message: "No team. Pass --team, or run `rata link`." }),
-  )
-}
+const requireTeamId = (context: ResolvedContext): Effect.Effect<TeamId, ContextResolveError> =>
+  requireTeam(context).pipe(Effect.map((team) => team.identity.id))
 
 const resolveIssueId = (
   gateway: LinearGatewayShape,
@@ -67,13 +50,15 @@ const resolveIssueRef = (
 
 const resolveAssigneeId = (
   gateway: LinearGatewayShape,
+  resolver: ContextResolver["Service"],
   context: ResolvedContext,
   value: string,
-): Effect.Effect<UserId, LinearApiError | AssigneeInputError | AssigneeNotFoundError> => {
+): Effect.Effect<
+  UserId,
+  ContextResolveError | LinearApiError | AssigneeInputError | AssigneeNotFoundError
+> => {
   if (value.toLowerCase() === "me") {
-    return context.viewer === null
-      ? gateway.viewer.pipe(Effect.map((viewer) => viewer.id))
-      : Effect.succeed(context.viewer.id)
+    return resolver.viewer(context).pipe(Effect.map((viewer) => viewer.id))
   }
   if (!isUuid(value)) {
     return Effect.fail(
@@ -134,10 +119,7 @@ const resolveStateName = (
   resolver: ContextResolver["Service"],
   context: ResolvedContext,
   name: string,
-): Effect.Effect<
-  TeamState,
-  ContextResolveError | ContextStateNotFoundError | TeamResolutionError
-> =>
+): Effect.Effect<TeamState, ContextResolveError | ContextStateNotFoundError> =>
   Effect.gen(function* resolveState() {
     yield* requireTeam(context)
     const found = findStateByName(context.states, name)
@@ -157,10 +139,7 @@ const resolveLabelName = (
   resolver: ContextResolver["Service"],
   context: ResolvedContext,
   name: string,
-): Effect.Effect<
-  TeamLabel,
-  ContextResolveError | ContextLabelNotFoundError | TeamResolutionError
-> =>
+): Effect.Effect<TeamLabel, ContextResolveError | ContextLabelNotFoundError> =>
   Effect.gen(function* resolveLabel() {
     yield* requireTeam(context)
     const found = findLabelByName(context.labels, name)
@@ -180,10 +159,8 @@ const resolveLabels = (
   resolver: ContextResolver["Service"],
   context: ResolvedContext,
   names: readonly string[],
-): Effect.Effect<
-  readonly TeamLabel[],
-  ContextResolveError | ContextLabelNotFoundError | TeamResolutionError
-> => Effect.forEach(names, (name) => resolveLabelName(resolver, context, name))
+): Effect.Effect<readonly TeamLabel[], ContextResolveError | ContextLabelNotFoundError> =>
+  Effect.forEach(names, (name) => resolveLabelName(resolver, context, name))
 
 export {
   requireTeamId,

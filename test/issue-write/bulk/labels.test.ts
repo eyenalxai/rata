@@ -1,5 +1,7 @@
 import { lastJson, runIssue } from "@test/cli-harness"
+import { jsonResponse, pageInfo, summaryNode } from "@test/issue-fixtures"
 import { labels, mutations, recorderFor, seed } from "@test/issue-write/bulk/fixtures"
+import { makeRecorder } from "@test/issue-write/fixtures"
 import { afterEach, describe, expect, test } from "bun:test"
 import { Result } from "effect"
 
@@ -74,6 +76,105 @@ describe("bulk labels by parent", () => {
       results: [{ identifier: "RAT-3", status: "skipped" }],
     })
     expect(mutations(recorder, "mutation AddLabel")).toHaveLength(0)
+  })
+
+  test("resolves labels for each child team", async () => {
+    const recorder = makeRecorder((request) => {
+      if (request.query.includes("query TeamById") || request.query.includes("query TeamByKey")) {
+        const teams = [
+          { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" },
+          { id: "team-2", key: "OPS", name: "Operations", timezone: "America/New_York" },
+        ]
+        const id = request.variables.id
+        const key = request.variables.key
+        return jsonResponse({
+          data: {
+            teams: {
+              nodes: teams.filter((team) => (id === undefined ? team.key === key : team.id === id)),
+              pageInfo,
+            },
+          },
+        })
+      }
+      if (request.query.includes("query TeamStates")) {
+        return jsonResponse({ data: { team: { states: { nodes: [], pageInfo } } } })
+      }
+      if (request.query.includes("query TeamLabels")) {
+        const teamId = request.variables.teamId
+        const labelId = teamId === "team-2" ? "l-bug-ops" : "l-bug"
+        return jsonResponse({
+          data: {
+            issueLabels: {
+              nodes: [{ id: labelId, name: "bug", color: "#EB5757", team: { id: teamId } }],
+              pageInfo,
+            },
+          },
+        })
+      }
+      if (request.query.includes("query TeamMembers")) {
+        return jsonResponse({ data: { team: { members: { nodes: [], pageInfo } } } })
+      }
+      if (request.query.includes("query IssuePriorityValues")) {
+        return jsonResponse({ data: { issuePriorityValues: [] } })
+      }
+      if (request.query.includes("query IssueId")) {
+        return jsonResponse({ data: { issue: { id: "i-parent" } } })
+      }
+      if (request.query.includes("query IssueChildrenSummary")) {
+        const after = request.variables.after
+        const index = typeof after === "string" ? Number(after.replace("cursor-", "")) : 0
+        const children = [
+          { identifier: "RAT-3", teamId: "team-1" },
+          { identifier: "RAT-4", teamId: "team-2" },
+        ]
+        const child = children[index]
+        const hasNextPage = index + 1 < children.length
+        return jsonResponse({
+          data: {
+            issue: {
+              children: {
+                nodes:
+                  child === undefined
+                    ? []
+                    : [
+                        {
+                          ...summaryNode(child.identifier),
+                          id: `id-${child.identifier}`,
+                          labels: { nodes: [] },
+                          team: { id: child.teamId },
+                        },
+                      ],
+                pageInfo: { hasNextPage, endCursor: hasNextPage ? `cursor-${index + 1}` : null },
+              },
+            },
+          },
+        })
+      }
+      if (request.query.includes("mutation AddLabel")) {
+        return jsonResponse({
+          data: {
+            issueAddLabel: {
+              success: true,
+              issue: summaryNode(String(request.variables.id).replace("id-", "")),
+            },
+          },
+        })
+      }
+      return jsonResponse({ errors: [{ message: `Unexpected query: ${request.query}` }] }, 400)
+    })
+    const lines: string[] = []
+    await runIssue(recorder.handler, ["label", "add", "--parent", "RAT-1", "bug", "--json"], lines)
+    expect(lastJson(lines)).toMatchObject({
+      results: [
+        { identifier: "RAT-3", status: "updated" },
+        { identifier: "RAT-4", status: "updated" },
+      ],
+    })
+    const writes = mutations(recorder, "mutation AddLabel")
+    expect(writes.map((request) => request.variables)).toEqual([
+      { id: "id-RAT-3", labelId: "l-bug" },
+      { id: "id-RAT-4", labelId: "l-bug-ops" },
+    ])
   })
 
   test("aborts the whole batch when a label is missing", async () => {
