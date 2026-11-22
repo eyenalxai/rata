@@ -3,7 +3,7 @@ import { EOL } from "node:os"
 import type { PullRequest } from "@/domain/pr"
 import type { IssueComment } from "@/linear/decode/issue"
 import type {
-  IssueHeader,
+  IssueReadDocument,
   IssueSummary,
   IssueWorkingChild,
   IssueWorkingChildFull,
@@ -39,13 +39,16 @@ const formatPullRequest = (pull: PullRequest): string =>
     .filter((value): value is string => value !== null)
     .join("  ")}`
 
-const formatHeader = (issue: IssueHeader): string[] => [
+const formatHeader = (issue: IssueSummary): string[] => [
   `${issue.identifier}: ${issue.title}`,
   `state: ${issue.state.name} (${issue.state.type})`,
   ...(issue.priority === "none" ? [] : [`priority: ${issue.priority}`]),
   `assignee: ${issue.assignee?.name ?? "unassigned"}`,
+  `labels: ${issue.labels.map((label) => label.name).join(", ") || "-"}`,
   ...(issue.project === null ? [] : [`project: ${issue.project.name}`]),
   ...(issue.parent === null ? [] : [`parent: ${issue.parent.identifier}: ${issue.parent.title}`]),
+  `url: ${issue.url}`,
+  `updatedAt: ${issue.updatedAt}`,
 ]
 
 const formatChildLine = (child: IssueWorkingChild | IssueWorkingChildFull): string => {
@@ -56,15 +59,25 @@ const formatChildLine = (child: IssueWorkingChild | IssueWorkingChildFull): stri
 const formatChildBlock = (title: string, children: readonly IssueWorkingChild[]): string[] =>
   children.length === 0 ? [] : [title, ...children.map(formatChildLine)]
 
+const formatRelations = (relations: IssueWorkingSetFull["relations"]): string[] => {
+  const groups = [
+    ["blocks", relations.blocks],
+    ["blockedBy", relations.blockedBy],
+    ["duplicates", relations.duplicates],
+    ["duplicatedBy", relations.duplicatedBy],
+    ["related", relations.related],
+    ["similar", relations.similar],
+  ] as const
+  const lines = groups
+    .filter(([, targets]) => targets.length > 0)
+    .map(
+      ([name, targets]) =>
+        `  ${name}: ${targets.map((target) => `${target.identifier} ${target.title}`).join(", ")}`,
+    )
+  return lines.length === 0 ? [] : ["relations:", ...lines]
+}
+
 const formatWorkingSet = (issue: IssueWorkingSet | IssueWorkingSetFull): string => {
-  const full =
-    "url" in issue
-      ? [
-          `url: ${issue.url}`,
-          `updatedAt: ${issue.updatedAt}`,
-          `labels: ${issue.labels.map((label) => label.name).join(", ") || "-"}`,
-        ]
-      : []
   const body =
     issue.description !== null && issue.description.trim().length > 0 ? ["", issue.description] : []
   const sections =
@@ -88,10 +101,9 @@ const formatWorkingSet = (issue: IssueWorkingSet | IssueWorkingSetFull): string 
   const nextChild =
     issue.nextChild === null
       ? "next child: none"
-      : `next child: ${formatChildLine(issue.nextChild)}`
+      : `next child: ${formatChildLine(issue.nextChild).trimStart()}`
   return [
     ...formatHeader(issue),
-    ...full,
     ...body,
     ...sections,
     ...blockers,
@@ -105,12 +117,21 @@ const formatWorkingSet = (issue: IssueWorkingSet | IssueWorkingSetFull): string 
       : issue.comments.length === 0
         ? ["comments: none"]
         : formatComments(issue.comments)),
+    ...("relations" in issue && issue.relations !== undefined
+      ? formatRelations(issue.relations)
+      : []),
   ].join(EOL)
 }
 
-const formatSummary = (issue: IssueHeader): string => formatHeader(issue).join(EOL)
+const isWorkingSet = (issue: IssueReadDocument): issue is IssueWorkingSet | IssueWorkingSetFull =>
+  "description" in issue
+
+const formatSummary = (issue: IssueSummary): string => formatHeader(issue).join(EOL)
+
+const formatReadDocument = (issue: IssueReadDocument): string =>
+  isWorkingSet(issue) ? formatWorkingSet(issue) : formatSummary(issue)
 
 const formatSummaryPage = (issues: readonly IssueSummary[]): string =>
   issues.length === 0 ? "No issues found." : issues.map(formatIssueLine).join(EOL)
 
-export { formatSummary, formatSummaryPage, formatWorkingSet }
+export { formatReadDocument, formatSummary, formatSummaryPage, formatWorkingSet }

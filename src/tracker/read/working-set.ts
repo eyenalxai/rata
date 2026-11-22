@@ -1,7 +1,7 @@
-import type { IssueChild, IssueComment, IssueSummaryNode } from "@/linear/decode/issue"
+import type { IssueChild, IssueComment } from "@/linear/decode/issue"
 import type { IssueWorkingChildNode, IssueWorkingNode } from "@/linear/decode/issue/working-set"
 import type {
-  IssueHeader,
+  IssueReadDocument,
   IssueWorkingChild,
   IssueWorkingChildFull,
   IssueWorkingSet,
@@ -11,28 +11,13 @@ import type {
 
 import { parseBody, publicSection } from "@/domain/body/section/model"
 import { pullRequests } from "@/domain/pr"
-import { priorityRank } from "@/domain/priority"
 import { relationTargets } from "@/domain/relation"
 import { isClosedState } from "@/domain/workflow-state"
-import { isBlocked, toBlockers } from "@/tracker/model"
+import { byPriority, isBlocked, summaryFieldsOf, toBlockers } from "@/tracker/model"
 
 type RelationSource = {
   readonly relations?: IssueWorkingNode["relations"] | undefined
   readonly inverseRelations?: IssueWorkingNode["inverseRelations"] | undefined
-}
-
-const byPriorityThenCreatedAt = (
-  left: { readonly priority: IssueHeader["priority"]; readonly createdAt: string },
-  right: { readonly priority: IssueHeader["priority"]; readonly createdAt: string },
-): number => {
-  const rank = priorityRank(left.priority) - priorityRank(right.priority)
-  return rank === 0
-    ? left.createdAt < right.createdAt
-      ? -1
-      : left.createdAt > right.createdAt
-        ? 1
-        : 0
-    : rank
 }
 
 const blockersOf = (node: RelationSource): ReturnType<typeof toBlockers> =>
@@ -40,33 +25,28 @@ const blockersOf = (node: RelationSource): ReturnType<typeof toBlockers> =>
     relationTargets<IssueChild>(node.relations?.nodes ?? [], node.inverseRelations?.nodes ?? []),
   )
 
-const headerOf = (node: IssueSummaryNode): IssueHeader => ({
-  id: node.id,
-  identifier: node.identifier,
-  title: node.title,
-  state: node.state,
-  priority: node.priority,
-  assignee: node.assignee,
-  project: node.project,
-  parent: node.parent,
-})
-
 const leanChild = (node: IssueWorkingChildNode): IssueWorkingChild => {
   const blockedBy = blockersOf(node)
   return {
-    ...headerOf(node),
+    id: node.id,
+    identifier: node.identifier,
+    title: node.title,
+    state: node.state,
+    priority: node.priority,
+    assignee: node.assignee,
     blocked: isBlocked(blockedBy),
     blockedBy,
   }
 }
 
-const fullChild = (node: IssueWorkingChildNode): IssueWorkingChildFull => ({
-  ...leanChild(node),
-  url: node.url,
-  createdAt: node.createdAt,
-  updatedAt: node.updatedAt,
-  labels: node.labels.nodes,
-})
+const fullChild = (node: IssueWorkingChildNode): IssueWorkingChildFull => {
+  const blockedBy = blockersOf(node)
+  return {
+    ...summaryFieldsOf(node),
+    blocked: isBlocked(blockedBy),
+    blockedBy,
+  }
+}
 
 const frontierOf = <Child extends IssueWorkingChild>(
   children: readonly Child[],
@@ -76,56 +56,60 @@ const frontierOf = <Child extends IssueWorkingChild>(
   )
 
 const sortedChildren = (node: IssueWorkingNode): readonly IssueWorkingChildNode[] =>
-  [...node.children.nodes].toSorted(byPriorityThenCreatedAt)
+  [...(node.children?.nodes ?? [])].toSorted(byPriority)
 
 const commentsOf = (node: IssueWorkingNode): readonly IssueComment[] =>
   (node.comments?.nodes ?? []).toSorted((left, right) =>
     left.createdAt < right.createdAt ? -1 : left.createdAt > right.createdAt ? 1 : 0,
   )
 
+const workingBase = (node: IssueWorkingNode) => {
+  const blockedBy = blockersOf(node)
+  const description = node.description ?? null
+  return {
+    ...summaryFieldsOf(node),
+    description,
+    sections: description === null ? [] : parseBody(description).sections.map(publicSection),
+    blocked: isBlocked(blockedBy),
+    blockedBy,
+    prs: pullRequests(node.attachments?.nodes ?? []),
+  }
+}
+
 const toWorkingSet = (
   node: IssueWorkingNode,
   options: IssueWorkingSetOptions,
-): IssueWorkingSet | IssueWorkingSetFull => {
-  const blockedBy = blockersOf(node)
-  const description = node.description
+): IssueReadDocument => {
+  if (options.mode === "summary") {
+    return summaryFieldsOf(node)
+  }
   const comments = options.comments ? commentsOf(node) : null
-  const sections = description === null ? [] : parseBody(description).sections.map(publicSection)
-  if (options.full) {
+  if (options.mode === "full") {
     const children = sortedChildren(node).map(fullChild)
     const frontier = frontierOf(children)
-    return {
-      ...headerOf(node),
-      url: node.url,
-      createdAt: node.createdAt,
-      updatedAt: node.updatedAt,
-      labels: node.labels.nodes,
-      description,
-      sections,
-      blocked: isBlocked(blockedBy),
-      blockedBy,
-      prs: pullRequests(node.attachments.nodes),
+    const full: IssueWorkingSetFull = {
+      ...workingBase(node),
       children,
       frontier,
       nextChild: frontier[0] ?? null,
       comments,
-      relations: relationTargets<IssueChild>(node.relations.nodes, node.inverseRelations.nodes),
+      relations: relationTargets<IssueChild>(
+        node.relations?.nodes ?? [],
+        node.inverseRelations?.nodes ?? [],
+      ),
     }
+    return full
   }
   const children = sortedChildren(node).map(leanChild)
   const frontier = frontierOf(children)
-  return {
-    ...headerOf(node),
-    description,
-    sections,
-    blocked: isBlocked(blockedBy),
-    blockedBy,
-    prs: pullRequests(node.attachments.nodes),
+  const working: IssueWorkingSet = {
+    ...workingBase(node),
     children,
     frontier,
     nextChild: frontier[0] ?? null,
     comments,
   }
+  return working
 }
 
 export { toWorkingSet }

@@ -39,6 +39,7 @@ type IssueInput = {
   readonly state?: { readonly name: string; readonly type: "unstarted" | "started" | "completed" }
   readonly priority?: "urgent" | "high" | "medium" | "low" | "none"
   readonly assignee?: typeof user | null
+  readonly createdAt?: string
   readonly description?: string
 }
 
@@ -50,7 +51,7 @@ const makeIssue = (input: IssueInput): MemoryIssue => ({
     url: `https://linear.app/acme/issue/${input.identifier}/title`,
     state: input.state ?? { name: "Todo", type: "unstarted" },
     priority: input.priority ?? "medium",
-    createdAt: `2026-01-0${input.identifier === "RAT-2" ? 1 : 2}T00:00:00.000Z`,
+    createdAt: input.createdAt ?? `2026-01-0${input.identifier === "RAT-2" ? 1 : 2}T00:00:00.000Z`,
     updatedAt: "2026-01-03T00:00:00.000Z",
     assignee: input.assignee === undefined ? null : input.assignee,
     project: null,

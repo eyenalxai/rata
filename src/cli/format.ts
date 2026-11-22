@@ -36,14 +36,6 @@ const legacyIssueGroups = new Set([
 ])
 
 type ScannedArgs = {
-  readonly tokens: readonly string[]
-  readonly validFlags: boolean
-  readonly format: OutputFormat | undefined
-  readonly hasNewOutputFlag: boolean
-  readonly hasOldOutputFlag: boolean
-}
-
-type ScanState = {
   tokens: string[]
   validFlags: boolean
   format: OutputFormat | undefined
@@ -51,7 +43,7 @@ type ScanState = {
   hasOldOutputFlag: boolean
 }
 
-const scanFlag = (args: readonly string[], index: number, state: ScanState): number => {
+const scanFlag = (args: readonly string[], index: number, state: ScannedArgs): number => {
   const token = args[index] ?? ""
   const [name, inline] = token.split("=", 2)
   if (name === undefined) {
@@ -90,7 +82,7 @@ const scanFlag = (args: readonly string[], index: number, state: ScanState): num
 }
 
 const scanArgs = (args: readonly string[]): ScannedArgs => {
-  const state: ScanState = {
+  const state: ScannedArgs = {
     tokens: [],
     validFlags: true,
     format: undefined,
@@ -113,8 +105,7 @@ const scanArgs = (args: readonly string[]): ScannedArgs => {
   return state
 }
 
-const isLegacyIssueCommand = (args: readonly string[]): boolean => {
-  const scanned = scanArgs(args)
+const isLegacyScanned = (scanned: ScannedArgs): boolean => {
   if (scanned.tokens[0] !== "issue") {
     return false
   }
@@ -122,9 +113,11 @@ const isLegacyIssueCommand = (args: readonly string[]): boolean => {
   return group !== undefined && legacyIssueGroups.has(group)
 }
 
+const isLegacyIssueCommand = (args: readonly string[]): boolean => isLegacyScanned(scanArgs(args))
+
 const isIssueReadCommand = (args: readonly string[]): boolean => {
   const scanned = scanArgs(args)
-  return scanned.tokens[0] === "issue" && !isLegacyIssueCommand(args)
+  return scanned.tokens[0] === "issue" && !isLegacyScanned(scanned)
 }
 
 const formatFromArgs = (args: readonly string[], stdoutIsTerminal: boolean): OutputFormat => {

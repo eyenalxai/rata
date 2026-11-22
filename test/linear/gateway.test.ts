@@ -184,24 +184,24 @@ describe("LinearGateway reads", () => {
 
   test("groups blocking relations in both directions", async () => {
     const page = await Effect.runPromise(
-      gateway.issue.workingSet([issueRef("RAT-4")], { comments: false }),
+      gateway.issue.workingSet([issueRef("RAT-4")], { comments: false, mode: "working" }),
     )
     const detail = page.nodes[0]
 
-    expect(detail?.relations.nodes.map((relation) => relation.relatedIssue.identifier)).toEqual([
+    expect(detail?.relations?.nodes.map((relation) => relation.relatedIssue.identifier)).toEqual([
       "RAT-8",
     ])
-    expect(detail?.inverseRelations.nodes.map((relation) => relation.issue.identifier)).toEqual([
+    expect(detail?.inverseRelations?.nodes.map((relation) => relation.issue.identifier)).toEqual([
       "RAT-9",
     ])
   })
 
   test("omits comments unless requested, then sorts them", async () => {
     const lean = await Effect.runPromise(
-      gateway.issue.workingSet([issueRef("RAT-4")], { comments: false }),
+      gateway.issue.workingSet([issueRef("RAT-4")], { comments: false, mode: "working" }),
     )
     const full = await Effect.runPromise(
-      gateway.issue.workingSet([issueRef("RAT-4")], { comments: true }),
+      gateway.issue.workingSet([issueRef("RAT-4")], { comments: true, mode: "working" }),
     )
 
     expect(lean.nodes[0]?.comments).toBeUndefined()

@@ -4,34 +4,32 @@ import type { IssueId, TeamId } from "@/domain/id"
 import type { IssueRef } from "@/domain/issue-ref"
 import type { LinearClientShape } from "@/linear/client"
 import type { Connection, PageOptions } from "@/linear/connection"
-import type { IssueLabel, IssueSummaryNode } from "@/linear/decode/issue"
+import type {
+  IssueAttachment,
+  IssueComment,
+  IssueLabel,
+  IssueSummaryNode,
+} from "@/linear/decode/issue"
 import type { IssueWorkingNode } from "@/linear/decode/issue/working-set"
 import type { LinearApiError } from "@/linear/errors"
 import type { IssueListOptions } from "@/linear/operations/issue/filter"
 
 import { isUuid, issueId } from "@/domain/id"
-import {
-  collectConnection,
-  collectPages,
-  lastPageInfo,
-  maxPageSize,
-  pageOrDrain,
-  pageSize,
-} from "@/linear/connection"
+import { collectConnection, lastPageInfo, pageOrDrain, pageSize } from "@/linear/connection"
 import { ListResponse, SearchResponse } from "@/linear/decode/collection"
 import {
-  AttachmentsResponse,
-  CommentsResponse,
   IssueIdResponse,
   IssueSummaryResponse,
   IssueTeamResponse,
   LabelsResponse,
 } from "@/linear/decode/issue"
-import { WorkingChildrenResponse, WorkingSetResponse } from "@/linear/decode/issue/working-set"
-import { InverseRelationsResponse, RelationsResponse } from "@/linear/decode/relation"
 import {
-  attachmentsQuery,
-  commentsQuery,
+  WorkingAttachmentsPageResponse,
+  WorkingCommentsPageResponse,
+  WorkingSetResponse,
+  WorkingSummaryResponse,
+} from "@/linear/decode/issue/working-set"
+import {
   issueIdQuery,
   issueSummaryQuery,
   issueTeamQuery,
@@ -39,15 +37,21 @@ import {
   listQuery,
   prioritySort,
   searchQuery,
-  workingChildrenQuery,
+  workingAttachmentsPageQuery,
+  workingCommentsPageQuery,
   workingSetQuery,
+  workingSummaryQuery,
 } from "@/linear/documents/issue"
-import { inverseRelationsQuery, relationsQuery } from "@/linear/documents/relation"
+import { workingLimits } from "@/linear/documents/issue/fields"
+import { LinearGraphQLError } from "@/linear/errors"
 import { teamIdFilter } from "@/linear/filter"
 import { issueFilter } from "@/linear/operations/issue/filter"
 
+type IssueReadMode = "summary" | "working" | "full"
+
 type IssueWorkingSetOptions = {
   readonly comments: boolean
+  readonly mode: IssueReadMode
 }
 
 type IssueReadOperations = {
@@ -67,6 +71,19 @@ type IssueReadOperations = {
   readonly labels: (ref: IssueRef | IssueId) => Effect.Effect<readonly IssueLabel[], LinearApiError>
   readonly teamId: (issueId: IssueId) => Effect.Effect<TeamId, LinearApiError>
 }
+
+const pendingById = (
+  nodes: readonly IssueWorkingNode[],
+  pageInfoOf: (
+    node: IssueWorkingNode,
+  ) => { readonly hasNextPage: boolean; readonly endCursor: string | null } | undefined,
+): readonly { readonly id: IssueId; readonly cursor: string }[] =>
+  nodes.flatMap((node) => {
+    const pageInfo = pageInfoOf(node)
+    return pageInfo?.hasNextPage === true && pageInfo.endCursor !== null
+      ? [{ id: node.id, cursor: pageInfo.endCursor }]
+      : []
+  })
 
 const makeIssueOperations = (execute: LinearClientShape["execute"]): IssueReadOperations => {
   const id = Effect.fn("LinearIssue.id")(function* resolveId(ref: IssueRef) {
@@ -127,76 +144,130 @@ const makeIssueOperations = (execute: LinearClientShape["execute"]): IssueReadOp
     return yield* pageOrDrain(fetchPage, options)
   })
 
-  const completeWorkingNode = Effect.fn("LinearIssue.completeWorkingNode")(function* completeNode(
-    node: IssueWorkingNode,
-    options: IssueWorkingSetOptions,
-  ) {
-    const children = yield* collectPages(node.children, (after) =>
-      execute(
-        workingChildrenQuery,
-        { id: node.id, first: pageSize, after },
-        WorkingChildrenResponse,
-      ).pipe(Effect.map((data) => data.issue.children)),
-    )
-    const relations = yield* collectPages(node.relations, (after) =>
-      execute(relationsQuery, { id: node.id, first: pageSize, after }, RelationsResponse).pipe(
-        Effect.map((data) => data.issue.relations),
-      ),
-    )
-    const inverseRelations = yield* collectPages(node.inverseRelations, (after) =>
-      execute(
-        inverseRelationsQuery,
-        { id: node.id, first: pageSize, after },
-        InverseRelationsResponse,
-      ).pipe(Effect.map((data) => data.issue.inverseRelations)),
-    )
-    const attachments = yield* collectPages(node.attachments, (after) =>
-      execute(attachmentsQuery, { id: node.id, first: pageSize, after }, AttachmentsResponse).pipe(
-        Effect.map((data) => data.issue.attachments),
-      ),
-    )
-    const comments =
-      options.comments && node.comments !== undefined
-        ? yield* collectPages(node.comments, (after) =>
-            execute(commentsQuery, { id: node.id, first: pageSize, after }, CommentsResponse).pipe(
-              Effect.map((data) => data.issue.comments),
-            ),
-          )
-        : undefined
-    return {
-      ...node,
-      children: { nodes: children, pageInfo: lastPageInfo },
-      relations: { nodes: relations, pageInfo: lastPageInfo },
-      inverseRelations: { nodes: inverseRelations, pageInfo: lastPageInfo },
-      attachments: { nodes: attachments, pageInfo: lastPageInfo },
-      ...(comments === undefined ? {} : { comments: { nodes: comments, pageInfo: lastPageInfo } }),
-    }
-  })
+  const completeAttachments = Effect.fn("LinearIssue.completeAttachments")(
+    function* completeWorkingAttachments(nodes: readonly IssueWorkingNode[]) {
+      const extra = new Map<IssueId, IssueAttachment[]>()
+      for (const node of nodes) {
+        if (node.attachments !== undefined) {
+          extra.set(node.id, [...node.attachments.nodes])
+        }
+      }
+      let pending = pendingById(nodes, (node) => node.attachments?.pageInfo)
+      while (pending.length > 0) {
+        const variables: Record<string, string> = {}
+        for (const [index, item] of pending.entries()) {
+          variables[`id${index}`] = item.id
+          variables[`after${index}`] = item.cursor
+        }
+        const data = yield* execute(
+          workingAttachmentsPageQuery(pending.length, workingLimits.attachments),
+          variables,
+          WorkingAttachmentsPageResponse,
+        )
+        const next: { readonly id: IssueId; readonly cursor: string }[] = []
+        for (const [index, item] of pending.entries()) {
+          const page = data[`issue${index}`]?.attachments
+          if (page === undefined) {
+            return yield* new LinearGraphQLError({
+              message: "Linear returned an unexpected response body.",
+              details: [],
+            })
+          }
+          extra.get(item.id)?.push(...page.nodes)
+          if (page.pageInfo.hasNextPage && page.pageInfo.endCursor !== null) {
+            next.push({ id: item.id, cursor: page.pageInfo.endCursor })
+          }
+        }
+        pending = next
+      }
+      return nodes.map((node) => {
+        const attachments = extra.get(node.id)
+        return node.attachments === undefined || attachments === undefined
+          ? node
+          : { ...node, attachments: { nodes: attachments, pageInfo: lastPageInfo } }
+      })
+    },
+  )
+
+  const completeComments = Effect.fn("LinearIssue.completeComments")(
+    function* completeWorkingComments(nodes: readonly IssueWorkingNode[]) {
+      const extra = new Map<IssueId, IssueComment[]>()
+      for (const node of nodes) {
+        if (node.comments !== undefined) {
+          extra.set(node.id, [...node.comments.nodes])
+        }
+      }
+      let pending = pendingById(nodes, (node) => node.comments?.pageInfo)
+      while (pending.length > 0) {
+        const variables: Record<string, string> = {}
+        for (const [index, item] of pending.entries()) {
+          variables[`id${index}`] = item.id
+          variables[`after${index}`] = item.cursor
+        }
+        const data = yield* execute(
+          workingCommentsPageQuery(pending.length, workingLimits.comments),
+          variables,
+          WorkingCommentsPageResponse,
+        )
+        const next: { readonly id: IssueId; readonly cursor: string }[] = []
+        for (const [index, item] of pending.entries()) {
+          const page = data[`issue${index}`]?.comments
+          if (page === undefined) {
+            return yield* new LinearGraphQLError({
+              message: "Linear returned an unexpected response body.",
+              details: [],
+            })
+          }
+          extra.get(item.id)?.push(...page.nodes)
+          if (page.pageInfo.hasNextPage && page.pageInfo.endCursor !== null) {
+            next.push({ id: item.id, cursor: page.pageInfo.endCursor })
+          }
+        }
+        pending = next
+      }
+      return nodes.map((node) => {
+        const comments = extra.get(node.id)
+        return node.comments === undefined || comments === undefined
+          ? node
+          : { ...node, comments: { nodes: comments, pageInfo: lastPageInfo } }
+      })
+    },
+  )
 
   const workingSet = Effect.fn("LinearIssue.workingSet")(function* readWorkingSet(
     refs: readonly IssueRef[],
     options: IssueWorkingSetOptions,
   ) {
+    const batch = workingLimits.batch[options.mode]
+    const decoder = options.mode === "summary" ? WorkingSummaryResponse : WorkingSetResponse
+    const query =
+      options.mode === "summary"
+        ? workingSummaryQuery
+        : workingSetQuery({ comments: options.comments, full: options.mode === "full" })
     const fetchPage = (after: string | null) =>
       execute(
-        workingSetQuery({ comments: options.comments }),
+        query,
         {
-          filter: issueFilter({ ids: refs, after, limit: maxPageSize }),
-          first: maxPageSize,
+          filter: issueFilter({ ids: refs, after, limit: batch }),
+          first: batch,
           after,
         },
-        WorkingSetResponse,
+        decoder,
       ).pipe(Effect.map((data) => data.issues))
-    const page = yield* pageOrDrain(fetchPage, {
+    const page: Connection<IssueWorkingNode> = yield* pageOrDrain(fetchPage, {
       after: null,
-      limit: maxPageSize,
+      limit: batch,
       all: true,
     })
-    const nodes = yield* Effect.forEach(page.nodes, (node) => completeWorkingNode(node, options))
-    return { nodes, pageInfo: lastPageInfo }
+    if (options.mode === "summary") {
+      return page
+    }
+    const withAttachments = yield* completeAttachments(page.nodes)
+    const nodes = options.comments ? yield* completeComments(withAttachments) : withAttachments
+    return { nodes, pageInfo: page.pageInfo }
   })
 
   return { id, labels, list, search, summary, teamId, workingSet }
 }
 
-export { makeIssueOperations, type IssueReadOperations }
+export { makeIssueOperations, type IssueReadOperations, type IssueReadMode }

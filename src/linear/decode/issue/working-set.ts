@@ -19,11 +19,11 @@ const IssueWorkingChildConnection = Schema.Struct({
 
 const IssueWorkingNode = Schema.Struct({
   ...IssueSummaryNode.fields,
-  description: Schema.NullOr(Schema.String),
-  children: IssueWorkingChildConnection,
-  relations: IssueRelationConnection,
-  inverseRelations: IssueInverseRelationConnection,
-  attachments: IssueAttachmentConnection,
+  description: Schema.optional(Schema.NullOr(Schema.String)),
+  children: Schema.optional(IssueWorkingChildConnection),
+  relations: Schema.optional(IssueRelationConnection),
+  inverseRelations: Schema.optional(IssueInverseRelationConnection),
+  attachments: Schema.optional(IssueAttachmentConnection),
   comments: Schema.optional(IssueCommentConnection),
 })
 type IssueWorkingNode = typeof IssueWorkingNode.Type
@@ -35,14 +35,29 @@ const WorkingSetResponse = Schema.Struct({
   }),
 })
 
-const WorkingChildrenResponse = Schema.Struct({
-  issue: Schema.Struct({ children: IssueWorkingChildConnection }),
+const WorkingSummaryResponse = Schema.Struct({
+  issues: Schema.Struct({
+    nodes: Schema.Array(IssueSummaryNode),
+    pageInfo: PageInfo,
+  }),
 })
+
+const WorkingAttachmentsPageResponse = Schema.Record(
+  Schema.String,
+  Schema.Struct({ attachments: IssueAttachmentConnection }),
+)
+
+const WorkingCommentsPageResponse = Schema.Record(
+  Schema.String,
+  Schema.Struct({ comments: IssueCommentConnection }),
+)
 
 export {
   IssueWorkingChildConnection,
   type IssueWorkingChildNode,
   IssueWorkingNode,
-  WorkingChildrenResponse,
+  WorkingAttachmentsPageResponse,
+  WorkingCommentsPageResponse,
   WorkingSetResponse,
+  WorkingSummaryResponse,
 }

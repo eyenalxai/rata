@@ -24,15 +24,19 @@ needs a compact pointer, not a flood of descriptions.
 - One ref prints the working set at the top level. Many refs print
   `{ items, pageInfo }` and use one list request per page, not one detail read
   per ref.
-- The working set carries the header fields, `description`, parsed `sections`,
+- The working set carries the summary fields, `description`, parsed `sections`,
   `blocked`, `blockedBy`, `prs`, lean `children` with `blocked` and `blockedBy`,
   `frontier`, `nextChild` and `comments: null`.
 - `--comments` fills the comments. The default keeps `comments: null`.
-- `--summary` returns the header fields only. `--full` adds labels, URLs,
-  timestamps, the six relation groups and full child rows.
-- `--select` validates a declared shape and may cross arrays.
+- `--summary` returns the summary fields only: identity, labels, URL and
+  timestamps. `--full` adds the six relation groups and full child rows.
+- `--select` validates the shape of the active mode and may cross arrays.
 - `issue search` returns ten summary rows by default. `--limit` changes the page
-  size and `--all` drains. It returns no descriptions.
+  size, `--after` continues and `--all` drains. It returns no descriptions.
+- A page holds up to 250 refs in summary mode, 5 in working mode and 3 in full
+  mode. The query nests its connections, and Linear caps one query at 10,000
+  complexity points. Children are capped at 50, relations at 25 per direction,
+  attachments at 25, comments at 10 and child blockers at 5.
 - `issue show`, `issue view`, `issue status`, `next`, `why`, `--json`, `--fields`,
   `--count`, `--ids-only` and `--include` exit 2 with a `usage` error.
 
@@ -40,8 +44,8 @@ needs a compact pointer, not a flood of descriptions.
 
 - A session start is one call and one read shape.
 - A known set costs one CLI call and one list request per page.
-- The read shape is larger than one summary. A caller that only needs the header
-  passes `--summary`; a caller that needs every relation passes `--full`.
+- The read shape is larger than one summary. A caller that only needs the summary
+  fields passes `--summary`; a caller that needs every relation passes `--full`.
 - The old read commands and flags are gone. They do not become aliases.
 - The CLI tests use the in-memory gateway and assert behavior, not GraphQL
   strings.

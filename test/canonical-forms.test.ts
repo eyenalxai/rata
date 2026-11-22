@@ -69,7 +69,7 @@ describe("invalid group forms teach the canonical command", () => {
     expect(lines).toHaveLength(1)
     expect(lastJson(lines)).toEqual({
       error: {
-        code: "usage",
+        code: "validation",
         message: "The comment group needs a subcommand.",
         hint: "rata issue comment create RAT-1 --body-file -",
       },

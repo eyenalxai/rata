@@ -19,9 +19,8 @@ import type {
 import type {
   IssueListOptions,
   IssuePage,
+  IssueReadDocument,
   IssueSearchOptions,
-  IssueWorkingSet,
-  IssueWorkingSetFull,
   IssueWorkingSetOptions,
 } from "@/tracker/model"
 import type { IssueRefNotFoundError } from "@/tracker/read/batch"
@@ -54,7 +53,7 @@ type IssueWorkingSetError = InvalidIssueRef | IssueRefNotFoundError | LinearApiE
 type IssueSummaryConnection = Connection<IssueSummaryNode>
 
 type IssueWorkingSetPage = {
-  readonly items: readonly (IssueWorkingSet | IssueWorkingSetFull)[]
+  readonly items: readonly IssueReadDocument[]
   readonly pageInfo: IssuePage["pageInfo"]
 }
 
@@ -69,7 +68,6 @@ type IssueReaderShape = {
     options: IssueSearchOptions,
   ) => Effect.Effect<IssuePage, LinearApiError | ContextResolveError | TeamResolutionError>
   readonly workingSet: (
-    context: ResolvedContext,
     refs: readonly string[],
     options: IssueWorkingSetOptions,
   ) => Effect.Effect<IssueWorkingSetPage, IssueWorkingSetError>
@@ -147,12 +145,11 @@ class IssueReader extends Context.Service<IssueReader, IssueReaderShape>()(
       })
 
       const workingSet = Effect.fn("IssueReader.workingSet")(function* readWorkingSet(
-        _context: ResolvedContext,
         refs: readonly string[],
         options: IssueWorkingSetOptions,
       ) {
         const requested = yield* parseBatchRefs(refs)
-        const page = yield* gateway.issue.workingSet(requested, { comments: options.comments })
+        const page = yield* gateway.issue.workingSet(requested, options)
         yield* requireBatchRefs(requested, page.nodes)
         const byRef = new Map(
           page.nodes.flatMap((node) => [

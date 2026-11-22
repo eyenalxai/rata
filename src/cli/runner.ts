@@ -191,7 +191,8 @@ const runSpec = <Name extends string, Config extends CliCommand.Command.Config, 
       stdoutIsTerminal,
     )
     return yield* Effect.gen(function* executeSpec() {
-      const select = yield* resolveSelect(spec.output, fields, selectedFields, format)
+      const activeOutput = spec.outputFor?.(input) ?? spec.output
+      const select = yield* resolveSelect(activeOutput, fields, selectedFields, format)
       const runnerInput: RunnerControlInput = spec.control?.(input) ?? {}
       const body = yield* readBodyInput(
         runnerInput.body ?? OptionValue.none(),
@@ -205,7 +206,7 @@ const runSpec = <Name extends string, Config extends CliCommand.Command.Config, 
         body,
       }
       const output: CommandOutput = yield* spec.run(input, control)
-      const code = yield* renderOutput(output, spec.output, { format, select })
+      const code = yield* renderOutput(output, activeOutput, { format, select })
       return yield* Effect.sync(() => {
         process.exitCode = code
       })

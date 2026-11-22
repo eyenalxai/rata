@@ -59,6 +59,7 @@ type CommandSpec<Name extends string, Config extends CliCommand.Command.Config, 
   readonly examples?: readonly CliCommand.Command.Example[] | undefined
   readonly input: Config
   readonly output: OutputSpecs
+  readonly outputFor?: ((input: CliCommand.Command.Config.Infer<Config>) => OutputSpecs) | undefined
   readonly control?:
     | ((input: CliCommand.Command.Config.Infer<Config>) => RunnerControlInput)
     | undefined
@@ -95,6 +96,9 @@ const defineCommand = <
     readonly examples?: readonly CliCommand.Command.Example[] | undefined
     readonly input: Config
     readonly output: OutputSpecs
+    readonly outputFor?:
+      | ((input: CliCommand.Command.Config.Infer<Config>) => OutputSpecs)
+      | undefined
     readonly control?:
       | ((input: CliCommand.Command.Config.Infer<Config>) => RunnerControlInput)
       | undefined
@@ -109,6 +113,7 @@ const defineCommand = <
   ...(spec.examples === undefined ? {} : { examples: spec.examples }),
   input: spec.input,
   output: spec.output,
+  ...(spec.outputFor === undefined ? {} : { outputFor: spec.outputFor }),
   ...(spec.control === undefined ? {} : { control: spec.control }),
   run: (input, control) => spec.run(input, control).pipe(Effect.mapError(toTrackerError)),
 })

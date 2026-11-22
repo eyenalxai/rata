@@ -209,6 +209,7 @@ export {
   pageInfo,
   readBody,
   run,
+  type RequestBody,
   summaryKeys,
   summaryNode,
   user,

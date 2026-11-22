@@ -1,10 +1,11 @@
-import { maxPageSize } from "@/linear/connection"
 import {
   attachmentFields,
   commentFields,
   listRelationFields,
   summaryFields,
   workingFields,
+  workingLimits,
+  workingSummaryFields,
 } from "@/linear/documents/issue/fields"
 
 const prioritySort = [
@@ -61,32 +62,18 @@ const issueSummaryQuery = `query IssueSummary($id: String!) {
 
 type WorkingSetQueryOptions = {
   readonly comments: boolean
+  readonly full: boolean
 }
 
 const workingSetQuery = (options: WorkingSetQueryOptions): string => {
   const comments = options.comments
-    ? `    comments(first: ${maxPageSize}, orderBy: createdAt) { nodes { ${commentFields} } pageInfo { hasNextPage endCursor } }`
+    ? `    comments(first: ${workingLimits.comments}, orderBy: createdAt) { nodes { ${commentFields} } pageInfo { hasNextPage endCursor } }`
     : ""
   return `query IssueWorkingSet($filter: IssueFilter, $first: Int!, $after: String) {
   issues(filter: $filter, first: $first, after: $after) {
-    nodes {
-      id
-      identifier
-      title
+    nodes {${workingSummaryFields}
       description
-      url
-      state { name type }
-      priority
-      createdAt
-      updatedAt
-      assignee { id name displayName }
-      project { id name }
-      parent { id identifier title }
-      labels { nodes { id name } }
-${workingFields.relations}
-${workingFields.inverseRelations}
-${workingFields.children}
-${workingFields.attachments}
+${workingFields(options.full)}
 ${comments}
     }
     pageInfo { hasNextPage endCursor }
@@ -94,16 +81,35 @@ ${comments}
 }`
 }
 
-const workingChildrenQuery = `query IssueWorkingChildren($id: String!, $first: Int!, $after: String) {
-  issue(id: $id) {
-    children(first: $first, after: $after) {
-      nodes {${summaryFields}
-        ${listRelationFields.relations}
-        ${listRelationFields.inverseRelations}
-      }
-      pageInfo { hasNextPage endCursor }
+const workingSummaryQuery = `query IssueWorkingSummary($filter: IssueFilter, $first: Int!, $after: String) {
+  issues(filter: $filter, first: $first, after: $after) {
+    nodes {${workingSummaryFields}
     }
+    pageInfo { hasNextPage endCursor }
   }
+}`
+
+const aliasVariables = (count: number): string =>
+  Array.from({ length: count }, (_, index) => `$id${index}: String!, $after${index}: String`).join(
+    ", ",
+  )
+
+const workingAttachmentsPageQuery = (count: number, first: number): string =>
+  `query IssueWorkingAttachments(${aliasVariables(count)}) {
+${Array.from(
+  { length: count },
+  (_, index) =>
+    `  issue${index}: issue(id: $id${index}) { attachments(first: ${first}, after: $after${index}) { nodes { ${attachmentFields} } pageInfo { hasNextPage endCursor } } }`,
+).join("\n")}
+}`
+
+const workingCommentsPageQuery = (count: number, first: number): string =>
+  `query IssueWorkingComments(${aliasVariables(count)}) {
+${Array.from(
+  { length: count },
+  (_, index) =>
+    `  issue${index}: issue(id: $id${index}) { comments(first: ${first}, after: $after${index}, orderBy: createdAt) { nodes { ${commentFields} } pageInfo { hasNextPage endCursor } } }`,
+).join("\n")}
 }`
 
 const labelsQuery = `query IssueLabels($id: String!, $first: Int!, $after: String) {
@@ -143,6 +149,8 @@ export {
   listQuery,
   prioritySort,
   searchQuery,
-  workingChildrenQuery,
+  workingAttachmentsPageQuery,
+  workingCommentsPageQuery,
   workingSetQuery,
+  workingSummaryQuery,
 }

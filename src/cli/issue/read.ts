@@ -2,22 +2,23 @@ import { Effect } from "effect"
 import { Argument, Flag } from "effect/cli"
 import { EOL } from "node:os"
 
-import type { IssueHeader, IssueWorkingSet, IssueWorkingSetFull } from "@/tracker/model"
+import type { IssueReadMode } from "@/tracker/model"
 
-import { resolveIssueContext } from "@/cli/issue/context"
-import { formatSummary, formatWorkingSet } from "@/cli/issue/format"
-import { issueWorkingSetShape } from "@/cli/issue/shape"
+import { formatReadDocument } from "@/cli/issue/format"
+import { issueReadShapes } from "@/cli/issue/shape"
 import { collectionOutput, defineCommand, selectOutput } from "@/cli/spec"
 import { TrackerError } from "@/domain/error"
 import { IssueReader } from "@/tracker/read"
 
 const summaryFlag = Flag.Boolean("summary").pipe(
-  Flag.withDescription("Header fields only"),
+  Flag.withDescription(
+    "Summary fields only: identity, state, priority, labels, URLs and timestamps",
+  ),
   Flag.withDefault(false),
 )
 
 const fullFlag = Flag.Boolean("full").pipe(
-  Flag.withDescription("Add labels, URLs, timestamps, relations and full child rows"),
+  Flag.withDescription("Add relations and full child rows"),
   Flag.withDefault(false),
 )
 
@@ -25,17 +26,6 @@ const commentsFlag = Flag.Boolean("comments").pipe(
   Flag.withDescription("Include the comments"),
   Flag.withDefault(false),
 )
-
-const headerOf = (issue: IssueWorkingSet | IssueWorkingSetFull): IssueHeader => ({
-  id: issue.id,
-  identifier: issue.identifier,
-  title: issue.title,
-  state: issue.state,
-  priority: issue.priority,
-  assignee: issue.assignee,
-  project: issue.project,
-  parent: issue.parent,
-})
 
 const readSpec = defineCommand("issue", {
   summary: "Read the working set of one or more issues",
@@ -50,7 +40,7 @@ const readSpec = defineCommand("issue", {
     },
     {
       command: "rata issue RAT-42 --summary",
-      description: "Read the header fields only",
+      description: "Read the summary fields only",
     },
     {
       command: "rata issue RAT-1 RAT-2 RAT-3",
@@ -66,7 +56,15 @@ const readSpec = defineCommand("issue", {
     full: fullFlag,
     comments: commentsFlag,
   },
-  output: [selectOutput(issueWorkingSetShape), collectionOutput(issueWorkingSetShape)],
+  output: [selectOutput(issueReadShapes.full), collectionOutput(issueReadShapes.full)],
+  outputFor: (input) => {
+    const shape = input.summary
+      ? issueReadShapes.summary
+      : input.full
+        ? issueReadShapes.full
+        : issueReadShapes.working
+    return [selectOutput(shape), collectionOutput(shape)]
+  },
   run: (input) =>
     Effect.gen(function* readIssues() {
       if (input.summary && input.full) {
@@ -83,11 +81,11 @@ const readSpec = defineCommand("issue", {
           hint: "Drop --comments, or read the full working set.",
         })
       }
+      const mode: IssueReadMode = input.summary ? "summary" : input.full ? "full" : "working"
       const reader = yield* IssueReader
-      const context = yield* resolveIssueContext({ viewer: false, withTeam: false })
-      const page = yield* reader.workingSet(context, input.refs, {
+      const page = yield* reader.workingSet(input.refs, {
         comments: input.comments,
-        full: input.full,
+        mode,
       })
       if (page.items.length === 1 && input.refs.length === 1) {
         const issue = page.items[0]
@@ -100,18 +98,8 @@ const readSpec = defineCommand("issue", {
         }
         return {
           kind: "resource",
-          value: input.summary ? headerOf(issue) : issue,
-          text: [input.summary ? formatSummary(issue) : formatWorkingSet(issue)],
-        }
-      }
-      if (input.summary) {
-        const items = page.items.map(headerOf)
-        return {
-          kind: "collection",
-          key: "items",
-          items,
-          pageInfo: page.pageInfo,
-          text: [items.map(formatSummary).join(`${EOL}${EOL}`)],
+          value: issue,
+          text: [formatReadDocument(issue)],
         }
       }
       return {
@@ -119,7 +107,7 @@ const readSpec = defineCommand("issue", {
         key: "items",
         items: page.items,
         pageInfo: page.pageInfo,
-        text: [page.items.map(formatWorkingSet).join(`${EOL}${EOL}`)],
+        text: [page.items.map(formatReadDocument).join(`${EOL}${EOL}`)],
       }
     }),
 })

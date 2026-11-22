@@ -70,8 +70,8 @@ rata config show                         # read the issue defaults
 rata unlink                              # remove the stored link of this repository
 rata issue RAT-42                        # one call: body, sections, blockers, PRs, children, frontier
 rata issue RAT-42 --comments             # add the comments
-rata issue RAT-42 --summary              # header fields only
-rata issue RAT-42 --full                 # labels, URLs, timestamps, relations, full child rows
+rata issue RAT-42 --summary              # summary fields only
+rata issue RAT-42 --full                 # add relations and full child rows
 rata issue RAT-1 RAT-2 RAT-3             # read a known set in one list request per page
 rata issue list --parent RAT-1 --relations  # the children of a map with their blocking edges
 rata issue list --parent RAT-1 --unblocked --unassigned --sort priority  # the frontier of a map
@@ -108,7 +108,8 @@ error and one hint that names the canonical one.
 | Edit one section    | `rata issue section replace <ref> "<heading>" --body-file -`          |                              |
 
 `issue <ref>` is the only read form. `issue show`, `issue view`, `issue status`,
-`next` and `why` do not exist; they exit 2. There is no positional assignee, no
+`next` and `why` do not exist; they exit 2 with a `usage` error. A wrong write
+form exits 2 with a `validation` error. There is no positional assignee, no
 direct `issue comment <ref>` form, and no other read alias. `issue update` also
 sets `--assignee` and `--state`: these are fields of one compound update, not a
 second spelling of `issue assign`. An assign to an issue held by another user
@@ -120,27 +121,28 @@ A read of one resource prints the resource object. A read of many prints
 `{ items, pageInfo }`. A collection prints `{ <plural>, pageInfo }`. A context
 document keeps its named sections. A write prints its result object.
 
-| Command                                   | JSON                                                                                                                                         |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `issue <ref>`                             | The working set: header, `description`, `sections`, `blocked`, `blockedBy`, `prs`, `children`, `frontier`, `nextChild`, `comments: null`     |
-| `issue <ref> --summary`                   | The header fields: `id`, `identifier`, `title`, `state`, `priority`, `assignee`, `project`, `parent`                                         |
-| `issue <ref> --full`                      | The working set plus `url`, `createdAt`, `updatedAt`, `labels`, `relations` and full child rows                                              |
-| `issue <ref> <ref> ...`                   | `{ items, pageInfo }`; one working set per ref, one list request per page                                                                    |
-| `team show [<ref>]`                       | The team object                                                                                                                              |
-| `issue section get <ref> "<heading>"`     | The section object: `heading`, `level`, `content`                                                                                            |
-| `issue list`                              | `{ issues, pageInfo }`; `--relations` adds the six relation groups                                                                           |
-| `issue search`                            | `{ issues, pageInfo }`; ten summary rows by default, no description                                                                          |
-| `team list`, `project list`, `label list` | `{ <plural>, pageInfo }`                                                                                                                     |
-| `status`                                  | Named sections: `repository`, `workspace`, `viewer`, `team`, `project`, `defaults`, `states`, `labels`, `triage`, `cache`, `docs`, `warning` |
-| `config show`                             | `{ defaults }`                                                                                                                               |
-| A write                                   | The write result object                                                                                                                      |
+| Command                                   | JSON                                                                                                                                             |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `issue <ref>`                             | The working set: summary fields, `description`, `sections`, `blocked`, `blockedBy`, `prs`, `children`, `frontier`, `nextChild`, `comments: null` |
+| `issue <ref> --summary`                   | The summary fields: `id`, `identifier`, `title`, `state`, `priority`, `labels`, `assignee`, `project`, `parent`, `url`, `createdAt`, `updatedAt` |
+| `issue <ref> --full`                      | The working set plus `relations` and full child rows                                                                                             |
+| `issue <ref> <ref> ...`                   | `{ items, pageInfo }`; one working set per ref, one list request per page                                                                        |
+| `team show [<ref>]`                       | The team object                                                                                                                                  |
+| `issue section get <ref> "<heading>"`     | The section object: `heading`, `level`, `content`                                                                                                |
+| `issue list`                              | `{ issues, pageInfo }`; `--relations` adds the six relation groups                                                                               |
+| `issue search`                            | `{ issues, pageInfo }`; ten summary rows by default, no description                                                                              |
+| `team list`, `project list`, `label list` | `{ <plural>, pageInfo }`                                                                                                                         |
+| `status`                                  | Named sections: `repository`, `workspace`, `viewer`, `team`, `project`, `defaults`, `states`, `labels`, `triage`, `cache`, `docs`, `warning`     |
+| `config show`                             | `{ defaults }`                                                                                                                                   |
+| A write                                   | The write result object                                                                                                                          |
 
 The working set carries the header fields, the parsed `sections`, `blocked` and
 `blockedBy`, the Linear `github` attachments as `prs`, lean `children` with
 `blocked` and `blockedBy`, `frontier` (open, unblocked, unassigned children),
 `nextChild` (the first frontier row) and `comments: null`. `--comments` fills the
-comments. `--full` adds `url`, `createdAt`, `updatedAt`, `labels`, the six
-`relations` groups and full child rows. `issue list` and `issue search` rows are
+comments. `--summary` returns the summary fields only. `--full` adds the six
+`relations` groups and full child rows; the summary fields are already present in
+the default working set. `issue list` and `issue search` rows are
 summaries with `url`, timestamps and labels; search rows have no description.
 
 For an issue read, `--select` starts at the resource for one ref and at each row
@@ -357,8 +359,8 @@ is missing, or a document is unhealthy.
 ## Paging lists
 
 `issue list`, `issue search`, `team list`, `project list` and `label list` return
-one page per call. `--limit` sets the page size: 50 by default, 250 at most; the
-search default is 10. A value above 250 fails before the API call.
+one page per call. `--limit` sets the page size: 50 by default, 10 for `issue
+search`, 250 at most. A value above 250 fails before the API call.
 `--after <cursor>` reads the page after a cursor.
 
 `--all` drains every page in one call. `--limit` stays the page size; it is not
@@ -397,10 +399,11 @@ are bound to the query: keep the filters and the order fixed across pages. Pages
 while the data does not change, and best effort when it does. `search` keeps
 Linear's relevance ranking, so its paging is best effort.
 
-Internal reads always drain every page. The list commands return one page by
-default and drain every page with `--all`. In particular, `issue <ref>` reads
-every page of an issue's labels, children, relations, attachments and comments.
-`issue <ref> RAT-2 ...` drains every page of refs, so one CLI call returns the
+Internal reads follow the nested connection pages they need. The list commands
+return one page by default and drain every page with `--all`. In particular,
+`issue <ref>` reads the summary of one issue and up to the documented nested
+connection caps; comments are read only with `--comments`.
+`issue <ref> <ref> ...` drains every page of refs, so one CLI call returns the
 whole set.
 
 ## Authentication
@@ -894,8 +897,8 @@ repository config.
 ## Reading issues
 
 `rata issue <ref>` is the one read. It accepts an identifier (`RAT-42`), a UUID,
-or a linear.app URL. It returns the working set in one call: the header, the
-description, the parsed `sections`, `blocked`, `blockedBy`, the Linear GitHub
+or a linear.app URL. It returns the working set in one call: the summary fields,
+the description, the parsed `sections`, `blocked`, `blockedBy`, the Linear GitHub
 attachments as `prs`, lean `children`, `frontier`, `nextChild` and
 `comments: null`.
 
@@ -906,21 +909,22 @@ rata issue RAT-42 --summary
 rata issue RAT-42 --full
 ```
 
-The header fields are `id`, `identifier`, `title`, `state`, `priority`,
-`assignee`, `project` and `parent`. `--summary` returns only those fields.
-`--full` adds `url`, `createdAt`, `updatedAt`, `labels`, the six `relations`
-groups and full child rows. `--summary` and `--full` are mutually exclusive, and
-`--summary` rejects `--comments`.
+The summary fields are `id`, `identifier`, `title`, `state`, `priority`,
+`labels`, `assignee`, `project`, `parent`, `url`, `createdAt` and `updatedAt`.
+`--summary` returns only those fields. `--full` adds the six `relations` groups
+and full child rows; the summary fields are already in the default working set.
+`--summary` and `--full` are mutually exclusive, and `--summary` rejects
+`--comments`.
 
 ```bash
 rata issue RAT-42 --select identifier,title,state.name,children.identifier
 ```
 
-The lean child rows carry the header plus `blocked` and `blockedBy`. `frontier`
-holds the open, unblocked, unassigned children ordered by priority then
-creation time. `nextChild` is the first frontier row, or `null`. The `sections`
-array carries `heading`, `level`, `content` and `line`. The comments are `null`
-unless `--comments` is passed.
+The lean child rows carry `id`, `identifier`, `title`, `state`, `priority`,
+`assignee`, `blocked` and `blockedBy`. `frontier` holds the open, unblocked,
+unassigned children ordered by priority then creation time. `nextChild` is the
+first frontier row, or `null`. The `sections` array carries `heading`, `level`,
+`content` and `line`. The comments are `null` unless `--comments` is passed.
 
 Many refs are one call and one list request per page, not one detail read per
 ref:
@@ -930,7 +934,15 @@ rata issue RAT-1 RAT-2 RAT-3
 ```
 
 Many refs print `{ "items": [...], "pageInfo": { ... } }`. One ref prints the
-workspace object at the top level.
+working-set object at the top level.
+
+The working-set query nests its connections. Linear caps one query at 10,000
+complexity points, so the batch size and each connection are bounded: one page
+holds up to 250 refs in `--summary` mode, 5 refs in the working mode and 3 refs
+in `--full` mode. The nested connections hold up to 50 children, 25 relations per
+direction, 25 attachments and 10 comments; child blocker connections hold up to 5. The read is one list request per page. Attachment and comment connections
+follow their next pages in one batched request per connection page; the other
+connections are capped.
 
 The PR projection reads the Linear `github` attachments. Each PR carries its
 number, repo, url, status, draft flag, reviews, conflict flag, `mergedAt` and
@@ -999,12 +1011,14 @@ read carries the same frontier in `frontier` and `nextChild`.
 
 `rata issue search "<text>"` searches by text. Without `--team`, the search stays
 inside the linked team; pass `--team <key>` for another team. It returns ten
-summary rows by default. `--limit` changes the page size, `--all` drains every
-page, and the rows carry no description. It keeps Linear's relevance ranking.
+summary rows by default. `--limit` changes the page size, `--after` continues
+from a cursor, `--all` drains every page, and the rows carry no description. It
+keeps Linear's relevance ranking.
 
 ```bash
 rata issue search "rate limit"
 rata issue search "rate limit" --limit 25
+rata issue search "rate limit" --after <cursor>
 rata issue search "rate limit" --all --format json
 ```
 
@@ -1041,9 +1055,10 @@ validated and returns `[]`.
 
 `--select` is valid on `issue <ref>...`, `issue list`, `issue search`, `status`,
 `team show`, `team list`, `project list`, `label list`, `config show` and
-`whoami`. The issue writes still use `--json` and `--fields` until the apply
-engine lands. An unknown path is a `validation` error whose hint lists the valid
-keys at the failing level.
+`whoami`. On an issue read it validates the shape of the active mode: summary,
+working or full. The issue writes still use `--json` and `--fields` until the
+apply engine lands. An unknown path is a `validation` error whose hint lists the
+valid keys at the failing level.
 
 For any other shape, use `--format json` and `jq`. There is no custom format or
 template language.

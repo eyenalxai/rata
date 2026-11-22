@@ -93,37 +93,39 @@ members and priorities; `team create --name <name> [--key]`; `team delete <key>
 
 ### Read shapes
 
-| Command                                   | JSON                                                                                                                                         |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `issue <ref>`                             | The working set: header, `description`, `sections`, `blocked`, `blockedBy`, `prs`, `children`, `frontier`, `nextChild`, `comments: null`     |
-| `issue <ref> --summary`                   | The header fields: `id`, `identifier`, `title`, `state`, `priority`, `assignee`, `project`, `parent`                                         |
-| `issue <ref> --full`                      | The working set plus `url`, `createdAt`, `updatedAt`, `labels`, `relations` and full child rows                                              |
-| `issue <ref> <ref> ...`                   | `{ items, pageInfo }`; one working set per ref, one list request per page                                                                    |
-| `team show [<ref>]`                       | The team object                                                                                                                              |
-| `issue section get <ref> <heading>`       | `{ "heading", "level", "content" }`                                                                                                          |
-| `issue list`                              | `{ issues, pageInfo }`; `--relations` adds the six relation groups                                                                           |
-| `issue search`                            | `{ issues, pageInfo }`; ten summary rows by default, no description                                                                          |
-| `team list`, `project list`, `label list` | `{ <plural>, pageInfo }`                                                                                                                     |
-| `status`                                  | Named sections: `repository`, `workspace`, `viewer`, `team`, `project`, `defaults`, `states`, `labels`, `triage`, `cache`, `docs`, `warning` |
-| `config show`                             | `{ defaults }`                                                                                                                               |
-| `auth status`                             | `{ authenticated, source, profile, storePath, viewer }`                                                                                      |
-| `link`                                    | `{ team, project, workspace, timezone }`                                                                                                     |
+| Command                                   | JSON                                                                                                                                             |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `issue <ref>`                             | The working set: summary fields, `description`, `sections`, `blocked`, `blockedBy`, `prs`, `children`, `frontier`, `nextChild`, `comments: null` |
+| `issue <ref> --summary`                   | The summary fields: `id`, `identifier`, `title`, `state`, `priority`, `labels`, `assignee`, `project`, `parent`, `url`, `createdAt`, `updatedAt` |
+| `issue <ref> --full`                      | The working set plus `relations` and full child rows                                                                                             |
+| `issue <ref> <ref> ...`                   | `{ items, pageInfo }`; one working set per ref, one list request per page                                                                        |
+| `team show [<ref>]`                       | The team object                                                                                                                                  |
+| `issue section get <ref> <heading>`       | `{ "heading", "level", "content" }`                                                                                                              |
+| `issue list`                              | `{ issues, pageInfo }`; `--relations` adds the six relation groups                                                                               |
+| `issue search`                            | `{ issues, pageInfo }`; ten summary rows by default, no description                                                                              |
+| `team list`, `project list`, `label list` | `{ <plural>, pageInfo }`                                                                                                                         |
+| `status`                                  | Named sections: `repository`, `workspace`, `viewer`, `team`, `project`, `defaults`, `states`, `labels`, `triage`, `cache`, `docs`, `warning`     |
+| `config show`                             | `{ defaults }`                                                                                                                                   |
+| `auth status`                             | `{ authenticated, source, profile, storePath, viewer }`                                                                                          |
+| `link`                                    | `{ team, project, workspace, timezone }`                                                                                                         |
 
-The working set carries the header fields, the parsed `sections`, `blocked` and
+The working set carries the summary fields, the parsed `sections`, `blocked` and
 `blockedBy`, the Linear `github` attachments as `prs` (`checks` and `mergeCommit`
 are `null`, each PR says `source: "linear"`), lean `children` with `blocked` and
 `blockedBy`, `frontier` (open, unblocked, unassigned children), `nextChild` (the
 first frontier row) and `comments: null`. `--comments` fills the comments.
-`--full` adds `url`, `createdAt`, `updatedAt`, `labels`, the six `relations`
-groups and full child rows. `issue list` and `issue search` rows are summaries
-with `url`, timestamps and labels; search rows have no description.
+`--summary` returns the summary fields only. `--full` adds the six `relations`
+groups and full child rows; the summary fields are already in the default
+working set. `issue list` and `issue search` rows are summaries with `url`,
+timestamps and labels; search rows have no description.
 
 ### Field selection
 
-`--select` selects dotted paths from an issue read. It validates a declared shape
-before the read, so an unknown path is `validation` even on an empty list or a
-null object; `details` carries `path` and `validPaths`. It starts at the resource
-for one ref, at each row for a list, and at each item for many refs.
+`--select` selects dotted paths from an issue read. It validates the declared
+shape of the active mode (summary, working or full) before the read, so an
+unknown path is `validation` even on an empty list or a null object; `details`
+carries `path` and `validPaths`. It starts at the resource for one ref, at each
+row for a list, and at each item for many refs.
 
 A path through a null object returns `null`. An array is selectable whole. A path
 may cross an array: a final array segment returns the array; a later segment maps
@@ -136,10 +138,13 @@ array of scalars is `validation`; an empty array returns `[]`. A list keeps
 ### `issue <ref>` flags
 
 `--comments` adds comments; the default read returns `comments: null`.
-`--summary` returns the header fields only and rejects `--comments`.
-`--full` adds labels, URLs, timestamps, relations and full child rows. `--summary`
-and `--full` are mutually exclusive. Many refs print `{ "items", "pageInfo" }`;
-each page of refs is one list request, not one detail read per ref.
+`--summary` returns the summary fields only and rejects `--comments`.
+`--full` adds relations and full child rows. `--summary` and `--full` are
+mutually exclusive. Many refs print `{ "items", "pageInfo" }`; each page of refs
+is one list request, not one detail read per ref. Under Linear's 10,000-point
+query cap, a page holds up to 250 refs in summary mode, 5 in working mode and 3
+in full mode. Nested connections are capped at 50 children, 25 relations per
+direction, 25 attachments and 10 comments; child blocker connections hold up to 5.
 
 ### `issue list` flags
 
@@ -158,9 +163,10 @@ malformed value is `validation`, an unknown UUID is `not_found`.
 
 ### `issue search` flags
 
-`issue search <text> [--team] [--limit] [--all]` returns ten summary rows by
-default. `--limit` changes the page size and `--all` drains. It keeps relevance
-order. It does not return descriptions.
+`issue search <text> [--team] [--limit] [--after] [--all]` returns ten summary
+rows by default. `--limit` changes the page size, `--after` continues from a
+cursor and `--all` drains. It keeps relevance order. It does not return
+descriptions.
 
 ### Paging
 

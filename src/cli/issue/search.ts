@@ -6,7 +6,7 @@ import { requirePageSize } from "@/cli/input"
 import { resolveIssueContext } from "@/cli/issue/context"
 import { formatSummaryPage } from "@/cli/issue/format"
 import { issueSummaryShape } from "@/cli/issue/shape"
-import { allFlag } from "@/cli/list-flags"
+import { afterFlag, allFlag } from "@/cli/list-flags"
 import { nextPageHint } from "@/cli/output"
 import { collectionOutput, defineCommand } from "@/cli/spec"
 import { maxPageSize } from "@/linear/connection"
@@ -36,6 +36,7 @@ const searchSpec = defineCommand("search", {
       Flag.optional,
     ),
     limit: searchLimitFlag,
+    after: afterFlag,
     all: allFlag,
   },
   output: collectionOutput(issueSummaryShape),
@@ -48,7 +49,7 @@ const searchSpec = defineCommand("search", {
         viewer: false,
       })
       const page = yield* reader.search(context, input.text, {
-        after: null,
+        after: Option.getOrNull(input.after),
         limit: input.limit,
         all: input.all,
       })

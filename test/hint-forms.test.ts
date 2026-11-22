@@ -77,7 +77,7 @@ describe("the known wrong flags teach the canonical command", () => {
     await run(["--format", "json", "issue", "create", "--blocked-by", "RAT-2"], lines)
     expect(lastJson(lines)).toEqual({
       error: {
-        code: "usage",
+        code: "validation",
         message: "The --blocked-by flag is not supported by issue create.",
         hint: "Create the issue, then run rata issue link <new-ref> --blocked-by RAT-2.",
       },
@@ -97,7 +97,7 @@ describe("the known wrong flags teach the canonical command", () => {
     expect(lines).toHaveLength(1)
     expect(lastJson(lines)).toEqual({
       error: {
-        code: "usage",
+        code: "validation",
         message: "The --label flag is not supported by issue update.",
         hint: "rata issue label add RAT-1 bug",
       },

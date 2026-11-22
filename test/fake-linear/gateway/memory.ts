@@ -195,7 +195,7 @@ const makeMemoryGateway = (seed: MemorySeed): LinearGatewayShape => {
             requested.has(String(issue.summary.id)) || requested.has(issue.summary.identifier),
         )
         return Effect.succeed({
-          nodes: matching.map((issue) => toWorking(issue, issues, options.comments)),
+          nodes: matching.map((issue) => toWorking(issue, issues, options)),
           pageInfo: { hasNextPage: false, endCursor: null },
         })
       },

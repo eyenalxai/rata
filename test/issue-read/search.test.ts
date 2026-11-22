@@ -20,20 +20,6 @@ afterEach(() => {
   process.exitCode = 0
 })
 
-describe("issue list", () => {
-  test("reads a page and adds relation groups with --relations", async () => {
-    const lines: string[] = []
-    await runIssueMemory(seed(), ["list", "--relations", "--format", "json"], lines)
-
-    const blockedRow = pageOf(lines).issues.find((issue) => issue.identifier === "RAT-3")
-    expect(blockedRow?.relations).toEqual(
-      expect.objectContaining({
-        blockedBy: [expect.objectContaining({ identifier: "RAT-9" })],
-      }),
-    )
-  })
-})
-
 describe("issue search", () => {
   test("returns ten summary rows by default", async () => {
     const lines: string[] = []
@@ -43,6 +29,27 @@ describe("issue search", () => {
     expect(page.issues).toHaveLength(10)
     expect(page.pageInfo).toEqual({ hasNextPage: true, endCursor: "issue-RAT-29" })
     expect(page.issues.every((issue) => !Object.hasOwn(issue, "description"))).toBe(true)
+  })
+
+  test("--after continues the search page", async () => {
+    const first: string[] = []
+    await runIssueMemory(
+      seed(extraIssues()),
+      ["search", "Searchable", "--limit", "1", "--format", "json"],
+      first,
+    )
+    expect(lastJsonRecord(first).pageInfo).toEqual({
+      hasNextPage: true,
+      endCursor: "issue-RAT-20",
+    })
+
+    const second: string[] = []
+    await runIssueMemory(
+      seed(extraIssues()),
+      ["search", "Searchable", "--limit", "1", "--after", "issue-RAT-20", "--format", "json"],
+      second,
+    )
+    expect(pageOf(second).issues[0]?.identifier).toBe("RAT-21")
   })
 
   test("--limit and --all drain the search", async () => {

@@ -172,29 +172,34 @@ const childSummary = (child: IssueChild, issues: readonly MemoryIssue[]): IssueS
 const toWorking = (
   issue: MemoryIssue,
   issues: readonly MemoryIssue[],
-  comments: boolean,
-): IssueWorkingNode => ({
-  ...issue.summary,
-  ...relationConnections(issue),
-  description: issue.description,
-  children: {
-    nodes: (issue.children ?? []).map((child) => childSummary(child, issues)),
-    pageInfo: { hasNextPage: false, endCursor: null },
-  },
-  attachments: {
-    nodes: issue.attachments ?? [],
-    pageInfo: { hasNextPage: false, endCursor: null },
-  },
-  ...(comments
-    ? {
-        comments: {
-          nodes: [...(issue.comments ?? [])].toSorted((left, right) =>
-            left.createdAt < right.createdAt ? -1 : left.createdAt > right.createdAt ? 1 : 0,
-          ),
-          pageInfo: { hasNextPage: false, endCursor: null },
-        },
-      }
-    : {}),
-})
+  options: { readonly comments: boolean; readonly mode: "summary" | "working" | "full" },
+): IssueWorkingNode => {
+  if (options.mode === "summary") {
+    return { ...issue.summary }
+  }
+  return {
+    ...issue.summary,
+    ...relationConnections(issue),
+    description: issue.description,
+    children: {
+      nodes: (issue.children ?? []).map((child) => childSummary(child, issues)),
+      pageInfo: { hasNextPage: false, endCursor: null },
+    },
+    attachments: {
+      nodes: issue.attachments ?? [],
+      pageInfo: { hasNextPage: false, endCursor: null },
+    },
+    ...(options.comments
+      ? {
+          comments: {
+            nodes: [...(issue.comments ?? [])].toSorted((left, right) =>
+              left.createdAt < right.createdAt ? -1 : left.createdAt > right.createdAt ? 1 : 0,
+            ),
+            pageInfo: { hasNextPage: false, endCursor: null },
+          },
+        }
+      : {}),
+  }
+}
 
 export { byPriority, matchesIssue, toWorking, withRelations }

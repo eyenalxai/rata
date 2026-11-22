@@ -120,19 +120,13 @@ const issueSectionShape = objectField({
   line: scalarField,
 })
 
-const issueHeaderFields = {
+const issueWorkingChildFields = {
   id: scalarField,
   identifier: scalarField,
   title: scalarField,
   state: issueStateShape,
   priority: scalarField,
   assignee: issueUserShape,
-  project: issueProjectShape,
-  parent: issueParentShape,
-} satisfies FieldShapeFields
-
-const issueWorkingChildFields = {
-  ...issueHeaderFields,
   blocked: scalarField,
   blockedBy: arrayField(issueBlockerShape),
 } satisfies FieldShapeFields
@@ -140,41 +134,53 @@ const issueWorkingChildFields = {
 const issueWorkingChildShape = objectField(issueWorkingChildFields)
 
 const issueWorkingChildFullShape = objectField({
-  ...issueWorkingChildFields,
-  url: scalarField,
-  createdAt: scalarField,
-  updatedAt: scalarField,
-  labels: arrayField(issueLabelShape),
+  ...issueSummaryFields,
+  blocked: scalarField,
+  blockedBy: arrayField(issueBlockerShape),
 })
 
-const issueWorkingSetShape: FieldShape = objectField({
-  ...issueHeaderFields,
-  url: scalarField,
-  createdAt: scalarField,
-  updatedAt: scalarField,
-  labels: arrayField(issueLabelShape),
+const workingFields = {
   description: scalarField,
   sections: arrayField(issueSectionShape),
   blocked: scalarField,
   blockedBy: arrayField(issueBlockerShape),
   prs: arrayField(issuePullRequestShape),
+  comments: arrayField(issueCommentShape),
+}
+
+const issueWorkingSetShape: FieldShape = objectField({
+  ...issueSummaryFields,
+  ...workingFields,
+  children: arrayField(issueWorkingChildShape),
+  frontier: arrayField(issueWorkingChildShape),
+  nextChild: issueWorkingChildShape,
+})
+
+const issueWorkingSetFullShape: FieldShape = objectField({
+  ...issueSummaryFields,
+  ...workingFields,
   children: arrayField(issueWorkingChildFullShape),
   frontier: arrayField(issueWorkingChildFullShape),
   nextChild: issueWorkingChildFullShape,
-  comments: arrayField(issueCommentShape),
   relations: issueRelationsShape,
 })
+
+const issueReadShapes = {
+  full: issueWorkingSetFullShape,
+  summary: issueSummaryShape,
+  working: issueWorkingSetShape,
+} as const
 
 export {
   issueAttachmentShape,
   issueBlockerShape,
   issueChildShape,
   issueCommentShape,
-  issueHeaderFields,
   issueLabelShape,
   issueParentShape,
   issueProjectShape,
   issuePullRequestShape,
+  issueReadShapes,
   issueRelationsShape,
   issueSectionShape,
   issueStateShape,
@@ -184,5 +190,6 @@ export {
   issueTeamShape,
   issueUserShape,
   issueWorkingChildShape,
+  issueWorkingSetFullShape,
   issueWorkingSetShape,
 }

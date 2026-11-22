@@ -1,9 +1,12 @@
 import { Effect, Result, Schema } from "effect"
 
+import type { ErrorCode } from "@/domain/error"
+
 import { JsonOutput, errorLine } from "@/cli/output"
 import { parseIssueRef } from "@/domain/issue-ref"
 
 type InvalidForm = {
+  readonly code: ErrorCode
   readonly message: string
   readonly hint: string
 }
@@ -166,6 +169,7 @@ const detectCommentForm = (
     return undefined
   }
   return {
+    code: "validation",
     message: "The comment group needs a subcommand.",
     hint: `rata issue comment create ${ref} ${commentBodyHint(args, groupIndex + 1)}`,
   }
@@ -183,6 +187,7 @@ const detectCreateForm = (args: readonly string[], groupIndex: number): InvalidF
     return undefined
   }
   return {
+    code: "validation",
     message: "The --blocked-by flag is not supported by issue create.",
     hint: `Create the issue, then run rata issue link <new-ref> ${relationHint(args, groupIndex)}.`,
   }
@@ -194,6 +199,7 @@ const detectUpdateForm = (args: readonly string[], groupIndex: number): InvalidF
   if (labels.present) {
     const names = labels.values.length === 0 ? ["<label>"] : labels.values
     return {
+      code: "validation",
       message: "The --label flag is not supported by issue update.",
       hint: `rata issue label add ${ref} ${names.map(quoteHintValue).join(" ")}`,
     }
@@ -201,6 +207,7 @@ const detectUpdateForm = (args: readonly string[], groupIndex: number): InvalidF
   const blockedBy = readFlagValues(args, groupIndex + 1, "blocked-by")
   if (blockedBy.present) {
     return {
+      code: "validation",
       message: "The --blocked-by flag is not supported by issue update.",
       hint: `rata issue link ${ref} ${relationHint(args, groupIndex)}`,
     }
@@ -241,6 +248,7 @@ const detectInvalidForm = (args: readonly string[]): InvalidForm | undefined => 
   if (removedReadGroups.has(group)) {
     const ref = issueRef(args, groupIndex + 1) ?? "<ref>"
     return {
+      code: "usage",
       message: `The issue ${group} command does not exist.`,
       hint: `rata issue ${ref}`,
     }
@@ -270,6 +278,6 @@ const jsonEnabled = (args: readonly string[]): boolean => {
 }
 
 const reportInvalidForm = (form: InvalidForm, json: boolean): Effect.Effect<void> =>
-  errorLine("usage", form.message, form.hint).pipe(Effect.provideService(JsonOutput, json))
+  errorLine(form.code, form.message, form.hint).pipe(Effect.provideService(JsonOutput, json))
 
 export { detectInvalidForm, jsonEnabled, reportInvalidForm }

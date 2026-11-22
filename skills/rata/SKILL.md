@@ -46,17 +46,17 @@ needs it; reads without that flag do not.
 
 ## One spelling per operation
 
-| Operation       | Canonical form                                               | Rejected form                |
-| --------------- | ------------------------------------------------------------ | ---------------------------- |
-| Read an issue   | `rata issue <ref>`                                           | `rata issue show <ref>`      |
-| Read the header | `rata issue <ref> --summary`                                 | `rata issue status <ref>`    |
-| Read many       | `rata issue <ref> <ref> ...`                                 | repeated `issue <ref>` calls |
-| Comment         | `rata issue comment create <ref> --body-file -`              | `rata issue comment <ref>`   |
-| Assign          | `rata issue assign <ref> --assignee me [--take]`             | `rata issue assign <ref> me` |
-| Edit a section  | `rata issue section replace <ref> "<heading>" --body-file -` |                              |
-| Batch edit      | `rata issue update <ref> --sections-file -`                  | a loop of section writes     |
-| Change an issue | `rata issue update <ref> <flags>`                            |                              |
-| Close           | `rata issue close <ref> --comment "..."`                     |                              |
+| Operation        | Canonical form                                               | Rejected form                |
+| ---------------- | ------------------------------------------------------------ | ---------------------------- |
+| Read an issue    | `rata issue <ref>`                                           | `rata issue show <ref>`      |
+| Read the summary | `rata issue <ref> --summary`                                 | `rata issue status <ref>`    |
+| Read many        | `rata issue <ref> <ref> ...`                                 | repeated `issue <ref>` calls |
+| Comment          | `rata issue comment create <ref> --body-file -`              | `rata issue comment <ref>`   |
+| Assign           | `rata issue assign <ref> --assignee me [--take]`             | `rata issue assign <ref> me` |
+| Edit a section   | `rata issue section replace <ref> "<heading>" --body-file -` |                              |
+| Batch edit       | `rata issue update <ref> --sections-file -`                  | a loop of section writes     |
+| Change an issue  | `rata issue update <ref> <flags>`                            |                              |
+| Close            | `rata issue close <ref> --comment "..."`                     |                              |
 
 `issue update` also sets `--assignee` and `--state`: one command with several fields, not a second spelling. An assign to an issue held by another user exits 4 and names the holder; `--take` reassigns it.
 
@@ -65,11 +65,12 @@ needs it; reads without that flag do not.
 ```bash
 rata issue <ref>                          # one call: body, sections, blockers, PRs, children, frontier, next child
 rata issue <ref> --comments                # add the comments
-rata issue <ref> --summary                 # header fields only
-rata issue <ref> --full                    # labels, URLs, timestamps, relations, full child rows
+rata issue <ref> --summary                 # summary fields only
+rata issue <ref> --full                    # add relations and full child rows
 rata issue <ref> <ref> ...                 # one list request per page
 rata issue list --parent <ref> --relations # the children with their blocking edges
 rata issue search "<text>"                 # ten summary rows by default
+rata issue search "<text>" --after <cursor> # the next page of results
 ```
 
 `issue <ref>` returns the working set: summary fields, `description`, `sections`,

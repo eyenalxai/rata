@@ -80,10 +80,8 @@ const readList = (options: Parameters<IssueReader["Service"]["list"]>[1]) =>
 
 const readWorkingSet = (refs: readonly string[]) =>
   Effect.gen(function* readWorkingSetIssues() {
-    const resolver = yield* ContextResolver
     const reader = yield* IssueReader
-    const context = yield* resolver.resolve({ viewer: false, withTeam: false })
-    return yield* reader.workingSet(context, refs, { comments: false, full: false })
+    return yield* reader.workingSet(refs, { comments: false, mode: "working" })
   })
 
 describe("IssueReader", () => {
@@ -96,9 +94,9 @@ describe("IssueReader", () => {
         const reader = yield* IssueReader
         const context = yield* resolver.resolve({})
         const list = yield* reader.list(context, { after: null, limit: 50 })
-        const workingSet = yield* reader.workingSet(context, ["RAT-1"], {
+        const workingSet = yield* reader.workingSet(["RAT-1"], {
           comments: false,
-          full: false,
+          mode: "working",
         })
         const search = yield* reader.search(context, "Body", { after: null, limit: 10 })
         return { list, search, workingSet }
@@ -107,7 +105,10 @@ describe("IssueReader", () => {
 
     expect(result.list.issues.map((row) => row.identifier)).toEqual(["RAT-1", "RAT-2"])
     expect(result.workingSet.items[0]?.identifier).toBe("RAT-1")
-    expect(result.workingSet.items[0]?.description).toBe("Body RAT-1")
+    const item = result.workingSet.items[0]
+    expect(item !== undefined && "description" in item ? item.description : undefined).toBe(
+      "Body RAT-1",
+    )
     expect(result.search.issues.map((row) => row.identifier)).toEqual(["RAT-1", "RAT-2"])
   })
 

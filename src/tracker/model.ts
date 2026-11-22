@@ -60,20 +60,20 @@ type IssueBlocker = {
   readonly closed: boolean
 }
 
-type IssueHeader = Pick<
+type IssueWorkingChild = Pick<
   IssueSummary,
-  "id" | "identifier" | "title" | "state" | "priority" | "assignee" | "project" | "parent"
->
-
-type IssueWorkingChild = IssueHeader & {
+  "id" | "identifier" | "title" | "state" | "priority" | "assignee"
+> & {
   readonly blocked: boolean
   readonly blockedBy: readonly IssueBlocker[]
 }
 
-type IssueWorkingChildFull = IssueWorkingChild &
-  Pick<IssueSummary, "url" | "createdAt" | "updatedAt" | "labels">
+type IssueWorkingChildFull = IssueSummary & {
+  readonly blocked: boolean
+  readonly blockedBy: readonly IssueBlocker[]
+}
 
-type IssueWorkingSetBase<Child> = IssueHeader & {
+type IssueWorkingSetBase<Child> = IssueSummary & {
   readonly description: string | null
   readonly sections: readonly Section[]
   readonly blocked: boolean
@@ -87,14 +87,17 @@ type IssueWorkingSetBase<Child> = IssueHeader & {
 
 type IssueWorkingSet = IssueWorkingSetBase<IssueWorkingChild>
 
-type IssueWorkingSetFull = IssueWorkingSetBase<IssueWorkingChildFull> &
-  Pick<IssueSummary, "url" | "createdAt" | "updatedAt" | "labels"> & {
-    readonly relations: IssueRelations
-  }
+type IssueWorkingSetFull = IssueWorkingSetBase<IssueWorkingChildFull> & {
+  readonly relations: IssueRelations
+}
+
+type IssueReadMode = "summary" | "working" | "full"
+
+type IssueReadDocument = IssueSummary | IssueWorkingSet | IssueWorkingSetFull
 
 type IssueWorkingSetOptions = {
   readonly comments: boolean
-  readonly full: boolean
+  readonly mode: IssueReadMode
 }
 
 type IssueListOptions = PageOptions & {
@@ -122,21 +125,25 @@ const summaryRelations = (node: IssueSummaryNode): IssueRelations | undefined =>
     ? undefined
     : relationTargets(node.relations.nodes, node.inverseRelations.nodes)
 
+const summaryFieldsOf = (node: IssueSummaryNode): IssueSummary => ({
+  id: node.id,
+  identifier: node.identifier,
+  title: node.title,
+  url: node.url,
+  state: node.state,
+  priority: node.priority,
+  createdAt: node.createdAt,
+  updatedAt: node.updatedAt,
+  assignee: node.assignee,
+  project: node.project,
+  parent: node.parent,
+  labels: node.labels.nodes,
+})
+
 const toSummary = (node: IssueSummaryNode): IssueSummary => {
   const relations = summaryRelations(node)
   return {
-    id: node.id,
-    identifier: node.identifier,
-    title: node.title,
-    url: node.url,
-    state: node.state,
-    priority: node.priority,
-    createdAt: node.createdAt,
-    updatedAt: node.updatedAt,
-    assignee: node.assignee,
-    project: node.project,
-    parent: node.parent,
-    labels: node.labels.nodes,
+    ...summaryFieldsOf(node),
     ...(relations === undefined ? {} : { relations }),
   }
 }
@@ -188,11 +195,13 @@ const sortAndLimitNodes = (
 
 export {
   byCreatedAt,
+  byPriority,
   collectsAllPages,
   type IssueBlocker,
-  type IssueHeader,
   type IssueListOptions,
   type IssuePage,
+  type IssueReadDocument,
+  type IssueReadMode,
   type IssueRelations,
   type IssueSearchOptions,
   type IssueSummary,
@@ -208,6 +217,7 @@ export {
   sortAndLimitNodes,
   type SortField,
   sortFields,
+  summaryFieldsOf,
   toBlockers,
   toSummary,
 }
