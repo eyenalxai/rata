@@ -1,24 +1,25 @@
+import type { IssueId } from "@/domain/id"
+import type { PullRequest } from "@/domain/pr"
+import type { Priority } from "@/domain/priority"
+import type { RelationTargets } from "@/domain/relation"
+import type { StateType } from "@/domain/workflow-state"
+import type { PageOptions } from "@/linear/connection"
 import type {
   IssueAttachment,
   IssueChild,
   IssueComment,
-  IssueInverseRelation,
   IssueLabel,
   IssueParent,
   IssueProject,
-  IssueRelation,
   IssueState,
   IssueSummaryNode,
   IssueTeam,
   IssueUser,
-} from "@/api/issue-schema"
-import type { PageInfo, PageOptions } from "@/api/pagination"
-import type { IssueId } from "@/domain/id"
-import type { PullRequest } from "@/domain/pr"
-import type { Priority } from "@/domain/priority"
-import type { StateType } from "@/domain/workflow-state"
+} from "@/linear/decode/issue"
+import type { PageInfo } from "@/linear/decode/page"
 
 import { priorityRank } from "@/domain/priority"
+import { relationTargets } from "@/domain/relation"
 import { isClosedState } from "@/domain/workflow-state"
 
 const sortFields = ["priority"] as const
@@ -46,14 +47,7 @@ type IssueSummary = {
   readonly relations?: IssueRelations | undefined
 }
 
-type IssueRelations = {
-  readonly blocks: readonly IssueChild[]
-  readonly blockedBy: readonly IssueChild[]
-  readonly duplicates: readonly IssueChild[]
-  readonly duplicatedBy: readonly IssueChild[]
-  readonly related: readonly IssueChild[]
-  readonly similar: readonly IssueChild[]
-}
+type IssueRelations = RelationTargets<IssueChild>
 
 type IssueDetail = {
   readonly id: IssueId
@@ -149,36 +143,6 @@ const toIssueSummary = (issue: IssueDetail): IssueSummary => {
   } = issue
   return summary
 }
-
-const relationTargets = (
-  outgoing: readonly IssueRelation[],
-  incoming: readonly IssueInverseRelation[],
-): IssueRelations => ({
-  blocks: outgoing
-    .filter((relation) => relation.type === "blocks")
-    .map((relation) => relation.relatedIssue),
-  blockedBy: incoming
-    .filter((relation) => relation.type === "blocks")
-    .map((relation) => relation.issue),
-  duplicates: outgoing
-    .filter((relation) => relation.type === "duplicate")
-    .map((relation) => relation.relatedIssue),
-  duplicatedBy: incoming
-    .filter((relation) => relation.type === "duplicate")
-    .map((relation) => relation.issue),
-  related: [
-    ...outgoing
-      .filter((relation) => relation.type === "related")
-      .map((relation) => relation.relatedIssue),
-    ...incoming.filter((relation) => relation.type === "related").map((relation) => relation.issue),
-  ],
-  similar: [
-    ...outgoing
-      .filter((relation) => relation.type === "similar")
-      .map((relation) => relation.relatedIssue),
-    ...incoming.filter((relation) => relation.type === "similar").map((relation) => relation.issue),
-  ],
-})
 
 const summaryRelations = (node: IssueSummaryNode): IssueRelations | undefined =>
   node.relations === undefined || node.inverseRelations === undefined

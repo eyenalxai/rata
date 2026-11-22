@@ -3,11 +3,12 @@ import type { Stdio } from "effect"
 import { Effect, Option, Schema } from "effect"
 import { Prompt } from "effect/cli"
 
-import type { Team, TeamOperations } from "@/api/team"
+import type { TeamOperations } from "@/api/team"
+import type { Team } from "@/linear/decode/team"
 
-import { collectConnection, pageSize } from "@/api/pagination"
 import { runPrompt } from "@/config/prompt"
 import { isUuid, teamId } from "@/domain/id"
+import { collectConnection, pageSize } from "@/linear/connection"
 
 type LinkTargetOptions = {
   readonly team: Option.Option<string>

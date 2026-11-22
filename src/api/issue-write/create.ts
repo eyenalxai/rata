@@ -11,12 +11,12 @@ import type { RepoConfigService } from "@/config/repo"
 import type { IssueId } from "@/domain/id"
 import type { Priority } from "@/domain/priority"
 
-import { createIssueMutation } from "@/api/issue-query"
-import { CreateIssueResponse } from "@/api/issue-schema"
 import { isNoneValue, unwrapIssue } from "@/api/issue-write/model"
 import { issueDefaults } from "@/config/defaults"
 import { currentDirectory } from "@/config/repo"
 import { priorityValue } from "@/domain/priority"
+import { CreateIssueResponse } from "@/linear/decode/issue"
+import { createIssueMutation } from "@/linear/documents/issue"
 
 type CreateDependencies = {
   readonly client: LinearClient["Service"]

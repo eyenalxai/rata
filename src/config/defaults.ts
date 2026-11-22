@@ -1,12 +1,12 @@
 import { Context, Effect, Layer, Option, Schema } from "effect"
 
-import type { LinearApiError } from "@/api/errors"
 import type { LabelNotFoundError } from "@/api/label"
 import type { TeamNotFoundError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
 import type { RepoConfig } from "@/config/repo/model"
 import type { TeamId } from "@/domain/id"
 import type { Priority } from "@/domain/priority"
+import type { LinearApiError } from "@/linear/errors"
 
 import { LabelService } from "@/api/label"
 import { RepoTeam } from "@/api/repo-team"

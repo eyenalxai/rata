@@ -2,23 +2,24 @@ import type { FileSystem, Path, Terminal } from "effect"
 
 import { Context, Effect, Layer, Option, Stdio } from "effect"
 
-import type { LinearApiError } from "@/api/errors"
 import type { LabelOperations } from "@/api/label"
-import type { Team, TeamCreateError, TeamNotFoundError, TeamUpdateError } from "@/api/team"
-import type { AuthStoreError } from "@/config/auth"
+import type { TeamCreateError, TeamNotFoundError, TeamUpdateError } from "@/api/team"
+import type { AuthStoreError } from "@/config/auth/error"
 import type { LinkTargetOptions, TimezoneChange } from "@/config/link/team"
 import type { RepoConfigError } from "@/config/repo"
 import type { RepoConfig } from "@/config/repo/model"
+import type { Team } from "@/linear/decode/team"
+import type { LinearApiError } from "@/linear/errors"
 
 import { LinearClient } from "@/api/client"
 import { LabelService } from "@/api/label"
-import { collectConnection, pageSize } from "@/api/pagination"
 import { TeamService } from "@/api/team"
 import { Auth } from "@/config/auth"
 import { invalidLinkOptions, LinkError, updateTeamTimezone } from "@/config/link/team"
 import { resolveLinkTarget } from "@/config/link/workspace"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
 import { findLabelByName } from "@/domain/label"
+import { collectConnection, pageSize } from "@/linear/connection"
 
 type LinkOptions = LinkTargetOptions & {
   readonly project: Option.Option<string>

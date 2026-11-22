@@ -1,7 +1,7 @@
 import { Schema } from "effect"
 
-import { IssueSummaryNode } from "@/api/issue-schema"
-import { PageInfo } from "@/api/pagination"
+import { IssueSummaryNode } from "@/linear/decode/issue"
+import { PageInfo } from "@/linear/decode/page"
 
 const ListResponse = Schema.Struct({
   issues: Schema.Struct({ nodes: Schema.Array(IssueSummaryNode), pageInfo: PageInfo }),

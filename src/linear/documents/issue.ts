@@ -3,7 +3,7 @@ import {
   listRelationFields,
   showFields,
   summaryFields,
-} from "@/api/issue-query/fields"
+} from "@/linear/documents/issue/fields"
 
 const prioritySort = [
   {

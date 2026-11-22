@@ -8,12 +8,6 @@ import { CliError } from "effect/cli"
 
 import type { ErrorCode } from "@/domain/error"
 
-import {
-  LinearAuthError,
-  LinearGraphQLError,
-  LinearNetworkError,
-  LinearRateLimitError,
-} from "@/api/errors"
 import { ProjectNameAmbiguousError } from "@/api/project/errors"
 import { TeamResolutionError } from "@/api/team"
 import { exitCodeOf, toTrackerError } from "@/cli/error-report"
@@ -21,6 +15,12 @@ import { exitCodeOfCliError } from "@/cli/exit"
 import { ConflictError } from "@/domain/conflict"
 import { TrackerError } from "@/domain/error"
 import { InvalidIssueRef } from "@/domain/issue-ref"
+import {
+  LinearAuthError,
+  LinearGraphQLError,
+  LinearNetworkError,
+  LinearRateLimitError,
+} from "@/linear/errors"
 
 const expectedExitCodes: Record<ErrorCode, number> = {
   usage: 2,

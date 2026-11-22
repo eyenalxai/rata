@@ -6,7 +6,7 @@ import { inputOf } from "@test/fake-linear/model"
 import { describe, expect, test } from "bun:test"
 import { Effect } from "effect"
 
-import type { ProjectCreateOptions } from "@/api/project/model"
+import type { ProjectCreateOptions } from "@/linear/decode/project"
 
 import { ProjectService } from "@/api/project"
 import { projectId } from "@/domain/id"

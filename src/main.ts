@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 import { BunRuntime, BunServices } from "@effect/platform-bun"
 import { Effect, Layer } from "effect"
-import { FetchHttpClient } from "effect/http"
+import { FetchHttpClient, HttpClient } from "effect/http"
 
 import { LinearClient } from "@/api/client"
 import { IssueApi } from "@/api/issue"
@@ -19,6 +19,9 @@ import { RepoConfigService } from "@/config/repo"
 import { RepositoryIdentity } from "@/config/repo-identity"
 import { TeamContext } from "@/context/team"
 import { Database } from "@/db/database"
+import { makeClient } from "@/linear/client"
+import { LinearAuthError } from "@/linear/errors"
+import { LinearGateway, makeLinearGateway } from "@/linear/gateway"
 import { ContextCache } from "@/local/context-cache"
 
 const platformLayer = BunServices.layer
@@ -30,26 +33,36 @@ const repoConfigLayer = RepoConfigService.layer.pipe(
 const authLayer = Auth.layer.pipe(
   Layer.provide(Layer.mergeAll(repoConfigLayer, databaseLayer, platformLayer)),
 )
-const clientLayer = LinearClient.layer.pipe(
-  Layer.provide(authLayer),
-  Layer.provide(FetchHttpClient.layer),
-)
-const teamLayer = TeamService.layer.pipe(Layer.provide(clientLayer))
+const gatewayLayer = Layer.effect(
+  LinearGateway,
+  Effect.gen(function* linearGatewayLayer() {
+    const auth = yield* Auth
+    const http = yield* HttpClient.HttpClient
+    const key = () =>
+      auth.require.pipe(
+        Effect.map((resolved) => resolved.key),
+        Effect.mapError((error) => new LinearAuthError({ message: error.message, cause: error })),
+      )
+    return LinearGateway.of(makeLinearGateway(makeClient(http, key)))
+  }),
+).pipe(Layer.provide(authLayer), Layer.provide(FetchHttpClient.layer))
+const clientLayer = LinearClient.layer.pipe(Layer.provide(gatewayLayer))
+const teamLayer = TeamService.layer.pipe(Layer.provide(gatewayLayer))
 const repoTeamLayer = RepoTeam.layer.pipe(Layer.provide(Layer.mergeAll(teamLayer, repoConfigLayer)))
 const contextCacheLayer = ContextCache.layer.pipe(Layer.provide(databaseLayer))
 const teamContextLayer = TeamContext.layer.pipe(
   Layer.provide(
-    Layer.mergeAll(authLayer, clientLayer, teamLayer, repoConfigLayer, contextCacheLayer),
+    Layer.mergeAll(authLayer, gatewayLayer, teamLayer, repoConfigLayer, contextCacheLayer),
   ),
 )
 const issueLayer = IssueApi.layer.pipe(
-  Layer.provide(Layer.mergeAll(clientLayer, repoTeamLayer, teamContextLayer)),
+  Layer.provide(Layer.mergeAll(gatewayLayer, repoTeamLayer, teamContextLayer)),
 )
 const labelLayer = LabelService.layer.pipe(
-  Layer.provide(Layer.mergeAll(clientLayer, repoTeamLayer)),
+  Layer.provide(Layer.mergeAll(gatewayLayer, repoTeamLayer)),
 )
 const projectLayer = ProjectService.layer.pipe(
-  Layer.provide(Layer.mergeAll(clientLayer, repoTeamLayer)),
+  Layer.provide(Layer.mergeAll(gatewayLayer, repoTeamLayer)),
 )
 const defaultsLayer = IssueDefaultsService.layer.pipe(
   Layer.provide(Layer.mergeAll(labelLayer, repoConfigLayer, repoTeamLayer)),
@@ -69,6 +82,7 @@ const issueWriteLayer = IssueWriteApi.layer.pipe(
 )
 const appLayer = Layer.mergeAll(
   authLayer,
+  gatewayLayer,
   clientLayer,
   issueLayer,
   teamLayer,

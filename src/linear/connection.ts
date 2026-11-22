@@ -1,13 +1,7 @@
-import { Effect, Schema } from "effect"
+import { Effect } from "effect"
 
-import type { LinearApiError } from "@/api/errors"
-
-const PageInfo = Schema.Struct({
-  hasNextPage: Schema.Boolean,
-  endCursor: Schema.NullOr(Schema.String),
-})
-
-type PageInfo = typeof PageInfo.Type
+import type { PageInfo } from "@/linear/decode/page"
+import type { LinearApiError } from "@/linear/errors"
 
 const maxPageSize = 250
 
@@ -72,7 +66,6 @@ export {
   drainConnection,
   lastPageInfo,
   maxPageSize,
-  PageInfo,
   type PageOptions,
   pageOrDrain,
   pageSize,

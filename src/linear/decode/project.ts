@@ -1,9 +1,7 @@
 import { Schema, SchemaGetter } from "effect"
 
-import type { PageOptions } from "@/api/pagination"
-
-import { PageInfo } from "@/api/pagination"
 import { ProjectId } from "@/domain/id"
+import { PageInfo } from "@/linear/decode/page"
 
 const ProjectStatus = Schema.Struct({ name: Schema.String })
 
@@ -45,11 +43,6 @@ type ProjectCreateOptions = {
   readonly teams?: readonly string[] | undefined
 }
 
-type ProjectListOptions = PageOptions & {
-  readonly includeArchived?: boolean
-  readonly teamId?: string | undefined
-}
-
 type ProjectIdentity = {
   readonly id: ProjectId
   readonly name: string
@@ -59,8 +52,7 @@ export {
   Project,
   ProjectArchivePayload,
   ProjectConnection,
-  ProjectCreatePayload,
   type ProjectCreateOptions,
+  ProjectCreatePayload,
   type ProjectIdentity,
-  type ProjectListOptions,
 }

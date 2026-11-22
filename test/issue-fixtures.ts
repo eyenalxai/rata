@@ -5,7 +5,6 @@ import { databaseLayer } from "@test/database-harness"
 import { ConfigProvider, Effect, FileSystem, Layer, Path, Result, Schema } from "effect"
 import { HttpClient, HttpClientResponse } from "effect/http"
 
-import { LinearClient } from "@/api/client"
 import { IssueApi } from "@/api/issue"
 import { RepoTeam } from "@/api/repo-team"
 import { TeamService } from "@/api/team"
@@ -14,6 +13,9 @@ import { RepoConfigService } from "@/config/repo"
 import { RepositoryIdentity } from "@/config/repo-identity"
 import { TeamContext } from "@/context/team"
 import { attachmentId, issueId, labelId, projectId, teamId, userId } from "@/domain/id"
+import { makeClient } from "@/linear/client"
+import { LinearAuthError } from "@/linear/errors"
+import { LinearGateway, makeLinearGateway } from "@/linear/gateway"
 import { ContextCache } from "@/local/context-cache"
 
 const uuid = "5f0c1f2a-3b4c-4d5e-8f90-1234567890ab"
@@ -165,16 +167,25 @@ const issueLayer = (
     Layer.provide(Layer.mergeAll(platform, database, identity)),
   )
   const auth = Auth.layer.pipe(Layer.provide(Layer.mergeAll(repoConfig, platform, database)))
-  const client = LinearClient.layer.pipe(
-    Layer.provide(Layer.mergeAll(auth, Layer.succeed(HttpClient.HttpClient, http))),
-  )
-  const teamLayer = TeamService.layer.pipe(Layer.provide(client))
+  const gateway = Layer.effect(
+    LinearGateway,
+    Effect.gen(function* linearGatewayLayer() {
+      const resolvedAuth = yield* Auth
+      const key = () =>
+        resolvedAuth.require.pipe(
+          Effect.map((resolved) => resolved.key),
+          Effect.mapError((error) => new LinearAuthError({ message: error.message, cause: error })),
+        )
+      return LinearGateway.of(makeLinearGateway(makeClient(http, key)))
+    }),
+  ).pipe(Layer.provide(Layer.mergeAll(auth, Layer.succeed(HttpClient.HttpClient, http))))
+  const teamLayer = TeamService.layer.pipe(Layer.provide(gateway))
   const repoTeam = RepoTeam.layer.pipe(Layer.provide(Layer.mergeAll(teamLayer, repoConfig)))
   const contextCache = ContextCache.layer.pipe(Layer.provide(database))
   const teamContext = TeamContext.layer.pipe(
-    Layer.provide(Layer.mergeAll(auth, client, teamLayer, repoConfig, contextCache)),
+    Layer.provide(Layer.mergeAll(auth, gateway, teamLayer, repoConfig, contextCache)),
   )
-  return IssueApi.layer.pipe(Layer.provide(Layer.mergeAll(client, repoTeam, teamContext)))
+  return IssueApi.layer.pipe(Layer.provide(Layer.mergeAll(gateway, repoTeam, teamContext)))
 }
 
 const run = <A, E>(

@@ -1,4 +1,4 @@
-import { maxPageSize, pageSize } from "@/api/pagination"
+import { maxPageSize, pageSize } from "@/linear/connection"
 
 const summaryFields = `
       id

@@ -1,13 +1,13 @@
 import { Duration, Effect, Option, Schema } from "effect"
 
 import type { LinearClient } from "@/api/client"
-import type { LinearApiError } from "@/api/errors"
 import type { WriteVisibility } from "@/api/issue-write/write-types"
 import type { CommentId, IssueId } from "@/domain/id"
+import type { LinearApiError } from "@/linear/errors"
 
-import { childTailQuery, commentTailQuery } from "@/api/issue-query"
-import { pageSize } from "@/api/pagination"
 import { CommentId as CommentIdSchema, IssueId as IssueIdSchema } from "@/domain/id"
+import { pageSize } from "@/linear/connection"
+import { childTailQuery, commentTailQuery } from "@/linear/documents/issue"
 
 const defaultWaitSeconds = 5
 const pollInterval = Duration.millis(250)

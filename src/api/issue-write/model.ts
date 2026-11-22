@@ -1,9 +1,7 @@
 import { Effect, Schema } from "effect"
 
 import type { LinearClient } from "@/api/client"
-import type { LinearApiError } from "@/api/errors"
 import type { IssueSummary } from "@/api/issue-model"
-import type { IssueComment, IssueSummaryNode } from "@/api/issue-schema"
 import type { IssueRefNotFoundError } from "@/api/issue/batch"
 import type { LabelNotFoundError } from "@/api/label"
 import type { ProjectService } from "@/api/project"
@@ -24,6 +22,8 @@ import type { InvalidIssueRef } from "@/domain/issue-ref"
 import type { PlanActionName, PlanStatus, PlanStep } from "@/domain/plan"
 import type { Priority } from "@/domain/priority"
 import type { RelationKind } from "@/domain/relation"
+import type { IssueComment, IssueSummaryNode } from "@/linear/decode/issue"
+import type { LinearApiError } from "@/linear/errors"
 
 import { toSummary } from "@/api/issue-model"
 import { CommentId, TeamId } from "@/domain/id"

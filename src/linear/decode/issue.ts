@@ -1,6 +1,5 @@
 import { Schema } from "effect"
 
-import { PageInfo } from "@/api/pagination"
 import {
   AttachmentId,
   CommentId,
@@ -14,6 +13,7 @@ import { LabelValue } from "@/domain/label"
 import { PriorityFromValue } from "@/domain/priority"
 import { RelationTypeSchema } from "@/domain/relation"
 import { WorkflowState as WorkflowStateSchema, WorkflowStateNode } from "@/domain/workflow-state"
+import { PageInfo } from "@/linear/decode/page"
 
 const IssueState = WorkflowStateSchema
 type IssueState = typeof IssueState.Type
@@ -262,6 +262,7 @@ export {
   type IssueAttachment,
   type IssueChild,
   type IssueComment,
+  IssueDetailNode,
   IssueIdResponse,
   type IssueInverseRelation,
   IssueInverseRelationConnection,

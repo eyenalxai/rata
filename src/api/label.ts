@@ -2,74 +2,20 @@ import type { Redacted } from "effect"
 
 import { Context, Effect, Layer, Schema } from "effect"
 
-import type { LinearApiError } from "@/api/errors"
-import type { Connection, PageOptions } from "@/api/pagination"
 import type { TeamNotFoundError, TeamResolutionError } from "@/api/team"
 import type { RepoConfigError } from "@/config/repo"
+import type { Label } from "@/domain/label"
+import type { Connection, PageOptions } from "@/linear/connection"
+import type { LinearApiError } from "@/linear/errors"
+import type { LinearGatewayShape } from "@/linear/gateway"
 
-import { LinearClient } from "@/api/client"
-import { collectConnection, pageOrDrain, PageInfo, pageSize } from "@/api/pagination"
 import { RepoTeam } from "@/api/repo-team"
 import { isUuid, TeamId } from "@/domain/id"
-import { findLabelByName, Label as LabelSchema } from "@/domain/label"
-
-const Label = LabelSchema
-
-type Label = typeof Label.Type
-
-const LabelConnection = Schema.Struct({
-  nodes: Schema.Array(Label),
-  pageInfo: PageInfo,
-})
-
-const LabelPayload = Schema.Struct({
-  success: Schema.Boolean,
-  issueLabel: Schema.NullOr(Label),
-})
-
-const listLabelsQuery = `query Labels($teamId: ID!, $first: Int!, $after: String) {
-  issueLabels(first: $first, after: $after, orderBy: createdAt, filter: { team: { id: { eq: $teamId } } }) {
-    nodes {
-      id
-      name
-      color
-    }
-    pageInfo { hasNextPage endCursor }
-  }
-}`
-
-const listAvailableLabelsQuery = `query AvailableLabels($teamId: ID!, $first: Int!, $after: String) {
-  issueLabels(first: $first, after: $after, orderBy: createdAt, filter: { or: [{ team: { id: { eq: $teamId } } }, { team: { null: true } }] }) {
-    nodes {
-      id
-      name
-      color
-    }
-    pageInfo { hasNextPage endCursor }
-  }
-}`
-
-const createLabelMutation = `mutation CreateLabel($input: IssueLabelCreateInput!) {
-  issueLabelCreate(input: $input) {
-    success
-    issueLabel {
-      id
-      name
-      color
-    }
-  }
-}`
-
-const updateLabelMutation = `mutation UpdateLabel($id: String!, $input: IssueLabelUpdateInput!) {
-  issueLabelUpdate(id: $id, input: $input) {
-    success
-    issueLabel {
-      id
-      name
-      color
-    }
-  }
-}`
+import { findLabelByName } from "@/domain/label"
+import { collectConnection, pageSize } from "@/linear/connection"
+import { LabelPayload } from "@/linear/decode/label"
+import { createLabelMutation, updateLabelMutation } from "@/linear/documents/label"
+import { LinearGateway } from "@/linear/gateway"
 
 class LabelNotFoundError extends Schema.TaggedError<LabelNotFoundError>()("LabelNotFoundError", {
   name: Schema.String,
@@ -151,32 +97,21 @@ type LabelOperations = {
 }
 
 const makeLabelOperations = (
-  execute: LinearClient["Service"]["execute"],
+  gateway: LinearGatewayShape,
   repoTeam: RepoTeam["Service"],
 ): LabelOperations => {
   const list = Effect.fn("LabelService.list")(function* listLabels(
     teamId: TeamId,
     options: PageOptions,
   ) {
-    const fetchPage = (after: string | null) =>
-      execute(
-        listLabelsQuery,
-        { teamId, first: options.limit, after },
-        Schema.Struct({ issueLabels: LabelConnection }),
-      ).pipe(Effect.map((data) => data.issueLabels))
-    return yield* pageOrDrain(fetchPage, options)
+    return yield* gateway.label.list(teamId, options)
   })
 
   const listAvailable = Effect.fn("LabelService.listAvailable")(function* listAvailableLabels(
     teamId: TeamId,
     options: PageOptions,
   ) {
-    const data = yield* execute(
-      listAvailableLabelsQuery,
-      { teamId, first: options.limit, after: options.after },
-      Schema.Struct({ issueLabels: LabelConnection }),
-    )
-    return data.issueLabels
+    return yield* gateway.label.listAvailable(teamId, options)
   })
 
   const byName = Effect.fn("LabelService.byName")(function* byName(teamId: TeamId, name: string) {
@@ -212,7 +147,7 @@ const makeLabelOperations = (
     if (options.color !== undefined) {
       input.color = options.color
     }
-    const data = yield* execute(
+    const data = yield* gateway.client.execute(
       createLabelMutation,
       { input },
       Schema.Struct({ issueLabelCreate: LabelPayload }),
@@ -247,7 +182,7 @@ const makeLabelOperations = (
     if (options.color !== undefined) {
       input.color = options.color
     }
-    const data = yield* execute(
+    const data = yield* gateway.client.execute(
       updateLabelMutation,
       { id, input },
       Schema.Struct({ issueLabelUpdate: LabelPayload }),
@@ -271,18 +206,17 @@ class LabelService extends Context.Service<
   static readonly layer = Layer.effect(
     LabelService,
     Effect.gen(function* labelServiceLayer() {
-      const client = yield* LinearClient
+      const gateway = yield* LinearGateway
       const repoTeam = yield* RepoTeam
       return LabelService.of({
-        ...makeLabelOperations(client.execute, repoTeam),
-        withKey: (apiKey) => makeLabelOperations(client.withKey(apiKey).execute, repoTeam),
+        ...makeLabelOperations(gateway, repoTeam),
+        withKey: (apiKey) => makeLabelOperations(gateway.withKey(apiKey), repoTeam),
       })
     }),
   )
 }
 
 export {
-  Label,
   LabelCreateError,
   type LabelCreateOptions,
   type LabelCreateResult,

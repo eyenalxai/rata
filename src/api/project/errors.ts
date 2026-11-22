@@ -1,6 +1,6 @@
 import { Schema } from "effect"
 
-import type { Project } from "@/api/project/model"
+import type { Project } from "@/linear/decode/project"
 
 import { ProjectId } from "@/domain/id"
 

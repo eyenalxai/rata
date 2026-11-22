@@ -1,6 +1,7 @@
 import { Effect, Schema } from "effect"
 
 import type { IssueSummary } from "@/api/issue-model"
+import type { IssueRef } from "@/domain/issue-ref"
 
 import { parseRefOrFail } from "@/domain/issue-ref"
 
@@ -15,7 +16,7 @@ class IssueRefNotFoundError extends Schema.TaggedError<IssueRefNotFoundError>()(
 const parseBatchRefs = Effect.fn("IssueBatch.parseRefs")(function* parseBatchRefs(
   refs: readonly string[],
 ) {
-  const parsed: string[] = []
+  const parsed: IssueRef[] = []
   for (const ref of refs) {
     parsed.push(yield* parseRefOrFail(ref))
   }
@@ -23,11 +24,11 @@ const parseBatchRefs = Effect.fn("IssueBatch.parseRefs")(function* parseBatchRef
 })
 
 const requireBatchRefs = (
-  requested: readonly string[],
+  requested: readonly IssueRef[],
   issues: readonly IssueSummary[],
 ): Effect.Effect<void, IssueRefNotFoundError> => {
   const missing = requested.filter(
-    (ref) => !issues.some((issue) => issue.id === ref || issue.identifier === ref),
+    (ref) => !issues.some((issue) => String(issue.id) === ref || issue.identifier === ref),
   )
   if (missing.length === 0) {
     return Effect.void

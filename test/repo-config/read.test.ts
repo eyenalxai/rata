@@ -58,7 +58,8 @@ describe("RepoConfigService.read", () => {
         const service = yield* RepoConfigService
         const database = yield* Database
         const config = yield* service.read("/repo/src")
-        const rows = yield* database.drizzle.select().from(repositories).all()
+        const opened = yield* database.open
+        const rows = yield* opened.drizzle.select().from(repositories).all()
         return { config, rows }
       }),
     )
@@ -233,7 +234,8 @@ describe("RepoConfigService.read", () => {
         const service = yield* RepoConfigService
         const database = yield* Database
         const error = yield* Effect.flip(service.read("/repo"))
-        const rows = yield* database.drizzle.select().from(repositories).all()
+        const opened = yield* database.open
+        const rows = yield* opened.drizzle.select().from(repositories).all()
         return { error, rows }
       }),
     )

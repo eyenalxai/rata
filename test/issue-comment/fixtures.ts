@@ -3,7 +3,7 @@ import { jsonResponse, pageInfo, user } from "@test/issue-fixtures"
 import { makeRecorder } from "@test/issue-write/fixtures"
 import { Option, Schema } from "effect"
 
-import type { IssueComment } from "@/api/issue-schema"
+import type { IssueComment } from "@/linear/decode/issue"
 
 import { commentId } from "@/domain/id"
 

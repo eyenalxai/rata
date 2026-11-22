@@ -4,8 +4,8 @@ import { migrate } from "drizzle-orm/effect-sqlite-bun/migrator"
 import { Effect, Layer } from "effect"
 import path from "node:path"
 
-import type { Viewer } from "@/api/client"
-import type { TeamDetail } from "@/api/team/details"
+import type { TeamDetail } from "@/linear/decode/team"
+import type { Viewer } from "@/linear/decode/viewer"
 
 import { Database } from "@/db/database"
 import { contextCache, profiles, repositories, viewerCache } from "@/db/schema"
@@ -110,7 +110,7 @@ const databaseLayer = (
           })
           .run(),
       )
-      return Database.of({ drizzle, file: ":memory:" })
+      return Database.of({ open: Effect.succeed({ drizzle, file: ":memory:" }) })
     }),
   ).pipe(Layer.provide(SqliteClient.layer({ filename: ":memory:" })), Layer.orDie)
 

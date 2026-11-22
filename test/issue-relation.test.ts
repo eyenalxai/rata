@@ -4,7 +4,7 @@ import { makeRecorder, run as runWrite } from "@test/issue-write/fixtures"
 import { describe, expect, test } from "bun:test"
 import { Effect } from "effect"
 
-import type { IssueInverseRelation, IssueRelation } from "@/api/issue-schema"
+import type { IssueInverseRelation, IssueRelation } from "@/linear/decode/issue"
 
 import { IssueWriteApi } from "@/api/issue-write"
 import { issueId, relationId } from "@/domain/id"

@@ -1,6 +1,6 @@
 import type { IssueDetail, IssueRelations, IssueStatus, IssueSummary } from "@/api/issue-model"
-import type { IssueChild, IssueComment } from "@/api/issue-schema"
 import type { PullRequest } from "@/domain/pr"
+import type { IssueChild, IssueComment } from "@/linear/decode/issue"
 
 import { formatIssueLine } from "@/cli/issue/line"
 

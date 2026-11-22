@@ -15,15 +15,12 @@ import {
   Schema,
 } from "effect"
 
+import { AuthStoreError } from "@/config/auth/error"
+import { makeConfigHome } from "@/config/auth/home"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
 import { Database } from "@/db/database"
 import { profiles } from "@/db/schema"
 import { normalize, StoredAuthJson } from "@/domain/auth"
-
-class AuthStoreError extends Schema.TaggedError<AuthStoreError>()("AuthStoreError", {
-  message: Schema.String,
-  cause: Schema.optional(Schema.Defect()),
-}) {}
 
 type KeySource = "env" | "repo" | "default"
 
@@ -50,28 +47,6 @@ type AuthShape = {
   readonly profiles: Effect.Effect<readonly StoredProfile[], AuthStoreError>
   readonly storePath: Effect.Effect<string, AuthStoreError>
 }
-
-const makeConfigHome = (path: Path.Path) =>
-  Effect.gen(function* configHome() {
-    const envFailure = new AuthStoreError({ message: "Could not read the environment." })
-    const xdg = yield* Config.String("XDG_CONFIG_HOME").pipe(
-      Config.option,
-      Effect.mapError(() => envFailure),
-    )
-    const home = yield* Config.String("HOME").pipe(
-      Config.option,
-      Effect.mapError(() => envFailure),
-    )
-    const base = Option.orElse(xdg, () =>
-      Option.map(home, (directory) => path.join(directory, ".config")),
-    )
-    if (Option.isNone(base)) {
-      return yield* new AuthStoreError({
-        message: "Cannot find the config directory: set HOME or XDG_CONFIG_HOME.",
-      })
-    }
-    return base.value
-  })
 
 const describeStoreFailure =
   (action: string) =>
@@ -103,10 +78,18 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
       const path = yield* Path.Path
       const repoConfig = yield* RepoConfigService
 
-      const storePath = Effect.succeed(database.file).pipe(Effect.withSpan("Auth.storePath"))
+      const openedDatabase = database.open.pipe(
+        Effect.mapError((cause) => new AuthStoreError({ message: cause.message, cause })),
+      )
+
+      const storePath = openedDatabase.pipe(
+        Effect.map((opened) => opened.file),
+        Effect.withSpan("Auth.storePath"),
+      )
 
       const readRows = Effect.fn("Auth.readRows")(function* readStoredRows() {
-        return yield* database.drizzle
+        const opened = yield* openedDatabase
+        return yield* opened.drizzle
           .select()
           .from(profiles)
           .orderBy(profiles.name)
@@ -119,7 +102,7 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
         if (stored.length > 0) {
           return stored
         }
-        const base = yield* makeConfigHome(path)
+        const base = yield* makeConfigHome(path, (message) => new AuthStoreError({ message }))
         const file = path.join(base, "rata", "auth.json")
         const exists = yield* fs
           .exists(file)
@@ -143,7 +126,8 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
           isDefault: legacy.default === name ? 1 : 0,
         }))
         if (rows.length > 0) {
-          yield* database.drizzle
+          const opened = yield* openedDatabase
+          yield* opened.drizzle
             .insert(profiles)
             .values(rows)
             .run()
@@ -225,7 +209,8 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
       ) {
         const stored = yield* loadRows()
         const hasDefault = stored.some((row) => row.isDefault === 1)
-        const query = database.drizzle.insert(profiles).values({
+        const opened = yield* openedDatabase
+        const query = opened.drizzle.insert(profiles).values({
           name: workspace,
           apiKey,
           isDefault: hasDefault ? 0 : 1,
@@ -238,7 +223,8 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
 
       const logout = Effect.fn("Auth.logout")(function* logoutStoredKey(workspace: string) {
         yield* loadRows()
-        const removed = yield* database.drizzle
+        const opened = yield* openedDatabase
+        const removed = yield* opened.drizzle
           .delete(profiles)
           .where(eq(profiles.name, workspace))
           .returning()
@@ -252,7 +238,8 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
         if (!stored.some((row) => row.name === workspace)) {
           return yield* noWorkspace(workspace)
         }
-        return yield* database.drizzle
+        const opened = yield* openedDatabase
+        return yield* opened.drizzle
           .transaction((tx) =>
             Effect.gen(function* setDefaultProfile() {
               yield* tx
@@ -295,4 +282,4 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
   )
 }
 
-export { Auth, AuthStoreError, type KeySource, type ResolvedAuth, type StoredProfile }
+export { Auth, type KeySource, type ResolvedAuth, type StoredProfile }

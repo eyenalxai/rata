@@ -3,16 +3,31 @@ import type { EffectSQLiteBunDatabase } from "drizzle-orm/effect-sqlite-bun"
 import { SqliteClient } from "@effect/sql-sqlite-bun"
 import { makeWithDefaults } from "drizzle-orm/effect-sqlite-bun"
 import { migrate } from "drizzle-orm/effect-sqlite-bun/migrator"
-import { Config, Context, Effect, FileSystem, Layer, Option, Path, Schema } from "effect"
+import {
+  Config,
+  Context,
+  Effect,
+  Exit,
+  FileSystem,
+  Layer,
+  Option,
+  Path,
+  Schema,
+  Scope,
+} from "effect"
 
 class DatabaseError extends Schema.TaggedError<DatabaseError>()("DatabaseError", {
   message: Schema.String,
   cause: Schema.optional(Schema.Defect()),
 }) {}
 
-type DatabaseShape = {
+type OpenDatabase = {
   readonly file: string
   readonly drizzle: EffectSQLiteBunDatabase
+}
+
+type DatabaseShape = {
+  readonly open: Effect.Effect<OpenDatabase, DatabaseError>
 }
 
 const describeStoreFailure =
@@ -68,47 +83,58 @@ const resolveMigrationsFolder = (fs: FileSystem.FileSystem, candidates: readonly
     })
   })
 
+const openDatabase = (
+  fs: FileSystem.FileSystem,
+  path: Path.Path,
+  file: string,
+  scope: Scope.Scope,
+): Effect.Effect<OpenDatabase, DatabaseError> =>
+  Effect.gen(function* openStoredDatabase() {
+    const directory = path.dirname(file)
+    yield* fs
+      .makeDirectory(directory, { recursive: true, mode: 0o700 })
+      .pipe(Effect.mapError(describeStoreFailure("create")(directory)))
+    yield* fs
+      .chmod(directory, 0o700)
+      .pipe(Effect.mapError(describeStoreFailure("secure")(directory)))
+
+    const clientContext = yield* Layer.buildWithScope(
+      SqliteClient.layer({ filename: file }),
+      scope,
+    ).pipe(
+      Effect.catchDefect((defect) =>
+        Effect.fail(
+          new DatabaseError({
+            message: `Could not open the database at ${file}.`,
+            cause: defect,
+          }),
+        ),
+      ),
+    )
+    const drizzle = yield* makeWithDefaults().pipe(Effect.provideContext(clientContext))
+    yield* fs.chmod(file, 0o600).pipe(Effect.mapError(describeStoreFailure("secure")(file)))
+    const migrationsFolder = yield* resolveMigrationsFolder(
+      fs,
+      migrationsCandidates(path, import.meta.dir, process.execPath),
+    )
+    yield* migrate(drizzle, { migrationsFolder }).pipe(
+      Effect.mapError(describeStoreFailure("migrate")(file)),
+    )
+    return { drizzle, file }
+  })
+
 class Database extends Context.Service<Database, DatabaseShape>()("rata-cli/db/database") {
-  static readonly layer = Layer.unwrap(
+  static readonly layer = Layer.effect(
+    Database,
     Effect.gen(function* databaseLayer() {
       const fs = yield* FileSystem.FileSystem
       const path = yield* Path.Path
       const file = yield* resolveDatabaseFile(path)
-      const directory = path.dirname(file)
-      yield* fs
-        .makeDirectory(directory, { recursive: true, mode: 0o700 })
-        .pipe(Effect.mapError(describeStoreFailure("create")(directory)))
-      yield* fs
-        .chmod(directory, 0o700)
-        .pipe(Effect.mapError(describeStoreFailure("secure")(directory)))
-
-      return Layer.effect(
-        Database,
-        Effect.gen(function* openDatabase() {
-          const clientContext = yield* Layer.build(SqliteClient.layer({ filename: file })).pipe(
-            Effect.catchDefect((defect) =>
-              Effect.fail(
-                new DatabaseError({
-                  message: `Could not open the database at ${file}.`,
-                  cause: defect,
-                }),
-              ),
-            ),
-          )
-          const drizzle = yield* makeWithDefaults().pipe(Effect.provideContext(clientContext))
-          yield* fs.chmod(file, 0o600).pipe(Effect.mapError(describeStoreFailure("secure")(file)))
-          const migrationsFolder = yield* resolveMigrationsFolder(
-            fs,
-            migrationsCandidates(path, import.meta.dir, process.execPath),
-          )
-          yield* migrate(drizzle, { migrationsFolder }).pipe(
-            Effect.mapError(describeStoreFailure("migrate")(file)),
-          )
-          return Database.of({ drizzle, file })
-        }),
-      )
+      const scope = yield* Scope.make("sequential")
+      yield* Effect.addFinalizer(() => Scope.close(scope, Exit.void))
+      return Database.of({ open: yield* Effect.cached(openDatabase(fs, path, file, scope)) })
     }),
   )
 }
 
-export { Database, DatabaseError, migrationsCandidates }
+export { Database, DatabaseError, migrationsCandidates, type OpenDatabase }

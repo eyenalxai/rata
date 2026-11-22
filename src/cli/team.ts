@@ -2,7 +2,7 @@ import { Effect, Option } from "effect"
 import { Argument, Command, Flag } from "effect/cli"
 import { EOL } from "node:os"
 
-import type { TeamDetail } from "@/api/team/details"
+import type { TeamDetail } from "@/linear/decode/team"
 
 import { TeamResolutionError, TeamService } from "@/api/team"
 import { confirm } from "@/cli/confirm"

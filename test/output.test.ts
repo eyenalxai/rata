@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test"
 import { ConfigProvider, Console, Effect } from "effect"
 
-import { LinearNetworkError, LinearRateLimitError } from "@/api/errors"
 import { LabelCreateError } from "@/api/label"
 import { TeamResolutionError } from "@/api/team"
 import { JsonOutput, reportFailure } from "@/cli/output"
+import { LinearNetworkError, LinearRateLimitError } from "@/linear/errors"
 
 const ignore = (): void => undefined
 

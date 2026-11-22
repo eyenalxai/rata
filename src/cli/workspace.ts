@@ -2,8 +2,8 @@ import { Effect, Result } from "effect"
 import { Argument, Command } from "effect/cli"
 import { EOL } from "node:os"
 
-import type { Viewer } from "@/api/client"
-import type { LinearApiError } from "@/api/errors"
+import type { Viewer } from "@/linear/decode/viewer"
+import type { LinearApiError } from "@/linear/errors"
 
 import { LinearClient } from "@/api/client"
 import { OutputFields, rejectFields } from "@/cli/fields"

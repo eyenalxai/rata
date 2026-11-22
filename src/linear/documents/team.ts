@@ -59,12 +59,45 @@ const teamDeleteMutation = `mutation TeamDelete($id: String!) {
   }
 }`
 
+const teamStatesQuery = `query TeamStates($teamId: String!, $first: Int!, $after: String) {
+  team(id: $teamId) {
+    states(first: $first, after: $after) {
+      nodes { id name type position }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+}`
+
+const teamMembersQuery = `query TeamMembers($teamId: String!, $first: Int!, $after: String) {
+  team(id: $teamId) {
+    members(first: $first, after: $after) {
+      nodes { id name displayName email active }
+      pageInfo { hasNextPage endCursor }
+    }
+  }
+}`
+
+const teamLabelsQuery = `query TeamLabels($teamId: ID!, $first: Int!, $after: String) {
+  issueLabels(first: $first, after: $after, orderBy: createdAt, filter: { or: [{ team: { id: { eq: $teamId } } }, { team: { null: true } }] }) {
+    nodes { id name color team { id } }
+    pageInfo { hasNextPage endCursor }
+  }
+}`
+
+const issuePriorityValuesQuery = `query IssuePriorityValues {
+  issuePriorityValues { priority label }
+}`
+
 export {
+  issuePriorityValuesQuery,
   teamByIdQuery,
   teamByKeyQuery,
   teamByNameQuery,
   teamCreateMutation,
   teamDeleteMutation,
+  teamLabelsQuery,
+  teamMembersQuery,
+  teamStatesQuery,
   teamsQuery,
   teamUpdateMutation,
 }

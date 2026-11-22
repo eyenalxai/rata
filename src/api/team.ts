@@ -2,47 +2,15 @@ import type { Redacted } from "effect"
 
 import { Context, Effect, Layer, Schema } from "effect"
 
-import type { LinearApiError } from "@/api/errors"
-import type { Connection, PageOptions } from "@/api/pagination"
-import type { TeamDetail } from "@/api/team/details"
+import type { Connection, PageOptions } from "@/linear/connection"
+import type { Team, TeamDetail } from "@/linear/decode/team"
+import type { LinearApiError } from "@/linear/errors"
+import type { LinearGatewayShape } from "@/linear/gateway"
 
-import { LinearClient } from "@/api/client"
-import { collectConnection, pageOrDrain, PageInfo, pageSize } from "@/api/pagination"
-import { fetchTeamDetail } from "@/api/team/details"
-import {
-  teamByIdQuery,
-  teamByKeyQuery,
-  teamByNameQuery,
-  teamCreateMutation,
-  teamDeleteMutation,
-  teamsQuery,
-  teamUpdateMutation,
-} from "@/api/team/queries"
-import { isUuid, TeamId, teamId } from "@/domain/id"
-
-const Team = Schema.Struct({
-  id: TeamId,
-  key: Schema.String,
-  name: Schema.String,
-  timezone: Schema.String,
-})
-
-type Team = typeof Team.Type
-
-const TeamConnection = Schema.Struct({
-  nodes: Schema.Array(Team),
-  pageInfo: PageInfo,
-})
-
-const TeamWritePayload = Schema.Struct({
-  success: Schema.Boolean,
-  team: Schema.NullOr(Team),
-})
-
-const DeletePayload = Schema.Struct({
-  success: Schema.Boolean,
-  entityId: Schema.String,
-})
+import { isUuid, teamId } from "@/domain/id"
+import { DeletePayload, TeamWritePayload } from "@/linear/decode/team"
+import { teamCreateMutation, teamDeleteMutation, teamUpdateMutation } from "@/linear/documents/team"
+import { LinearGateway } from "@/linear/gateway"
 
 class TeamNotFoundError extends Schema.TaggedError<TeamNotFoundError>()("TeamNotFoundError", {
   key: Schema.String,
@@ -77,7 +45,7 @@ type TeamCreateOptions = {
 }
 
 type DeletedTeam = {
-  readonly id: TeamId
+  readonly id: Team["id"]
   readonly key: string
   readonly name: string
 }
@@ -86,7 +54,7 @@ type TeamOperations = {
   readonly list: (options: PageOptions) => Effect.Effect<Connection<Team>, LinearApiError>
   readonly byKey: (ref: string) => Effect.Effect<Team, LinearApiError | TeamNotFoundError>
   readonly byName: (name: string) => Effect.Effect<Team, LinearApiError | TeamNotFoundError>
-  readonly byId: (id: TeamId) => Effect.Effect<Team, LinearApiError | TeamNotFoundError>
+  readonly byId: (id: Team["id"]) => Effect.Effect<Team, LinearApiError | TeamNotFoundError>
   readonly details: (ref: string) => Effect.Effect<TeamDetail, LinearApiError | TeamNotFoundError>
   readonly create: (
     options: TeamCreateOptions,
@@ -102,48 +70,33 @@ type TeamServiceShape = TeamOperations & {
   readonly withKey: (apiKey: Redacted.Redacted) => TeamOperations
 }
 
-const makeTeamOperations = (execute: LinearClient["Service"]["execute"]): TeamOperations => {
-  const list = Effect.fn("TeamService.list")(function* listTeams(options: PageOptions) {
-    const fetchPage = (after: string | null) =>
-      execute(
-        teamsQuery,
-        { first: options.limit, after },
-        Schema.Struct({ teams: TeamConnection }),
-      ).pipe(Effect.map((data) => data.teams))
-    return yield* pageOrDrain(fetchPage, options)
-  })
+const requireTeam = (
+  ref: string,
+  lookup: Effect.Effect<Team | undefined, LinearApiError>,
+  byId: boolean,
+): Effect.Effect<Team, LinearApiError | TeamNotFoundError> =>
+  lookup.pipe(
+    Effect.filterOrFail(
+      (team): team is Team => team !== undefined,
+      () =>
+        new TeamNotFoundError({
+          key: ref,
+          message: byId ? `No team with id ${ref}.` : `No team with key ${ref}.`,
+        }),
+    ),
+  )
 
-  const lookupTeam = Effect.fn("TeamService.lookup")(function* lookupTeam(
-    query: string,
-    variables: Record<string, unknown>,
-  ) {
-    const teams = yield* collectConnection((after) =>
-      execute(
-        query,
-        { ...variables, first: pageSize, after },
-        Schema.Struct({ teams: TeamConnection }),
-      ).pipe(Effect.map((data) => data.teams)),
-    )
-    return teams[0]
+const makeTeamOperations = (gateway: LinearGatewayShape): TeamOperations => {
+  const list = Effect.fn("TeamService.list")(function* listTeams(options: PageOptions) {
+    return yield* gateway.team.list(options)
   })
 
   const byKey = Effect.fn("TeamService.byKey")(function* findTeam(ref: string) {
-    const byId = isUuid(ref)
-    const team = yield* lookupTeam(
-      byId ? teamByIdQuery : teamByKeyQuery,
-      byId ? { id: ref } : { key: ref },
-    )
-    if (team === undefined) {
-      return yield* new TeamNotFoundError({
-        key: ref,
-        message: byId ? `No team with id ${ref}.` : `No team with key ${ref}.`,
-      })
-    }
-    return team
+    return yield* requireTeam(ref, gateway.team.byKey(ref), isUuid(ref))
   })
 
   const byName = Effect.fn("TeamService.byName")(function* findTeamByName(name: string) {
-    const team = yield* lookupTeam(teamByNameQuery, { name })
+    const team = yield* gateway.team.byName(name)
     if (team === undefined) {
       return yield* new TeamNotFoundError({
         key: name,
@@ -153,8 +106,8 @@ const makeTeamOperations = (execute: LinearClient["Service"]["execute"]): TeamOp
     return team
   })
 
-  const byId = Effect.fn("TeamService.byId")(function* findTeamById(id: TeamId) {
-    const team = yield* lookupTeam(teamByIdQuery, { id })
+  const byId = Effect.fn("TeamService.byId")(function* findTeamById(id: Team["id"]) {
+    const team = yield* gateway.team.byId(id)
     if (team === undefined) {
       return yield* new TeamNotFoundError({
         key: id,
@@ -166,7 +119,7 @@ const makeTeamOperations = (execute: LinearClient["Service"]["execute"]): TeamOp
 
   const details = Effect.fn("TeamService.details")(function* teamDetails(ref: string) {
     const team = yield* byKey(ref)
-    return yield* fetchTeamDetail(execute, team)
+    return yield* gateway.team.details(team)
   })
 
   const create = Effect.fn("TeamService.create")(function* createTeam(options: TeamCreateOptions) {
@@ -186,7 +139,7 @@ const makeTeamOperations = (execute: LinearClient["Service"]["execute"]): TeamOp
         ? options.copySettingsFrom
         : (yield* byKey(options.copySettingsFrom)).id
     }
-    const data = yield* execute(
+    const data = yield* gateway.client.execute(
       teamCreateMutation,
       variables,
       Schema.Struct({ teamCreate: TeamWritePayload }),
@@ -204,7 +157,7 @@ const makeTeamOperations = (execute: LinearClient["Service"]["execute"]): TeamOp
     team: Team,
     timezone: string,
   ) {
-    const data = yield* execute(
+    const data = yield* gateway.client.execute(
       teamUpdateMutation,
       { id: team.id, input: { timezone } },
       Schema.Struct({ teamUpdate: TeamWritePayload }),
@@ -219,7 +172,7 @@ const makeTeamOperations = (execute: LinearClient["Service"]["execute"]): TeamOp
   })
 
   const deleteTeam = Effect.fn("TeamService.delete")(function* deleteTeam(team: Team) {
-    const data = yield* execute(
+    const data = yield* gateway.client.execute(
       teamDeleteMutation,
       { id: team.id },
       Schema.Struct({ teamDelete: DeletePayload }),
@@ -242,10 +195,10 @@ class TeamService extends Context.Service<TeamService, TeamServiceShape>()(
   static readonly layer = Layer.effect(
     TeamService,
     Effect.gen(function* teamServiceLayer() {
-      const client = yield* LinearClient
+      const gateway = yield* LinearGateway
       return TeamService.of({
-        ...makeTeamOperations(client.execute),
-        withKey: (apiKey) => makeTeamOperations(client.withKey(apiKey).execute),
+        ...makeTeamOperations(gateway),
+        withKey: (apiKey) => makeTeamOperations(gateway.withKey(apiKey)),
       })
     }),
   )
@@ -253,7 +206,6 @@ class TeamService extends Context.Service<TeamService, TeamServiceShape>()(
 
 export {
   type DeletedTeam,
-  Team,
   TeamCreateError,
   type TeamCreateOptions,
   TeamDeleteError,

@@ -91,6 +91,9 @@ class RepoConfigService extends Context.Service<RepoConfigService, RepoConfigSha
     RepoConfigService,
     Effect.gen(function* repoConfigLayer() {
       const database = yield* Database
+      const openedDatabase = database.open.pipe(
+        Effect.mapError((cause) => new RepoConfigError({ message: cause.message, cause })),
+      )
       const identity = yield* RepositoryIdentity
       const fs = yield* FileSystem.FileSystem
       const path = yield* Path.Path
@@ -107,7 +110,8 @@ class RepoConfigService extends Context.Service<RepoConfigService, RepoConfigSha
       const findRow = Effect.fn("RepoConfig.findRow")(function* findStoredRow(
         location: RepositoryLocation,
       ) {
-        const rows = yield* database.drizzle
+        const opened = yield* openedDatabase
+        const rows = yield* opened.drizzle
           .select()
           .from(repositories)
           .where(inArray(repositories.key, location.lookup))
@@ -146,7 +150,8 @@ class RepoConfigService extends Context.Service<RepoConfigService, RepoConfigSha
           defaultPriority:
             config.defaultPriority === undefined ? null : storedPriority(config.defaultPriority),
         }
-        yield* database.drizzle
+        const opened = yield* openedDatabase
+        yield* opened.drizzle
           .insert(repositories)
           .values({ key, ...columns })
           .onConflictDoUpdate({ target: repositories.key, set: columns })
@@ -277,7 +282,8 @@ class RepoConfigService extends Context.Service<RepoConfigService, RepoConfigSha
         if (Option.isNone(row)) {
           return false
         }
-        yield* database.drizzle
+        const opened = yield* openedDatabase
+        yield* opened.drizzle
           .delete(repositories)
           .where(eq(repositories.key, row.value.key))
           .run()
