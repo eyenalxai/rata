@@ -6,9 +6,16 @@ import type {
   MemoryTeam,
 } from "@test/fake-linear/gateway/model"
 
-import { byPriority, matchesIssue, toDetail, withRelations } from "@test/fake-linear/gateway/issue"
+import {
+  byPriority,
+  matchesIssue,
+  summaryNode,
+  toFullWorking,
+  toWorking,
+  withRelations,
+} from "@test/fake-linear/gateway/issue"
 import { defaultPriorities } from "@test/fake-linear/gateway/model"
-import { Effect, Layer, Option, Redacted, Schema } from "effect"
+import { Effect, Option, Redacted, Schema } from "effect"
 
 import type { Connection } from "@/linear/connection"
 import type { TeamDetail } from "@/linear/decode/team"
@@ -16,7 +23,6 @@ import type { LinearGatewayShape } from "@/linear/gateway"
 
 import { isUuid } from "@/domain/id"
 import { LinearAuthError, LinearGraphQLError } from "@/linear/errors"
-import { LinearGateway } from "@/linear/gateway"
 
 const paginate = <A extends { readonly id: string }>(
   nodes: readonly A[],
@@ -160,8 +166,6 @@ const makeMemoryGateway = (seed: MemorySeed): LinearGatewayShape => {
       labels: (ref) =>
         requireIssue(String(ref)).pipe(Effect.map((issue) => issue.summary.labels.nodes)),
       teamId: (issueId) => requireIssue(String(issueId)).pipe(Effect.map((issue) => issue.team.id)),
-      show: (ref, options) =>
-        requireIssue(String(ref)).pipe(Effect.map((issue) => toDetail(issue, options))),
       list: (options) => {
         const matching = issues.filter((issue) => matchesIssue(issue, options))
         const sorted =
@@ -188,6 +192,29 @@ const makeMemoryGateway = (seed: MemorySeed): LinearGatewayShape => {
             matching.map((issue) => issue.summary),
             options,
           ),
+        )
+      },
+      workingSet: (refs, options) => {
+        const requested = new Set(refs.map(String))
+        const matching = issues.filter(
+          (issue) =>
+            requested.has(String(issue.summary.id)) || requested.has(issue.summary.identifier),
+        )
+        const pageInfo = { hasNextPage: false, endCursor: null }
+        return Effect.succeed(
+          options.mode === "summary"
+            ? { mode: "summary" as const, nodes: matching.map(summaryNode), pageInfo }
+            : options.mode === "full"
+              ? {
+                  mode: "full" as const,
+                  nodes: matching.map((issue) => toFullWorking(issue, issues, options)),
+                  pageInfo,
+                }
+              : {
+                  mode: "working" as const,
+                  nodes: matching.map((issue) => toWorking(issue, issues, options)),
+                  pageInfo,
+                },
         )
       },
     },
@@ -267,7 +294,4 @@ const makeMemoryGateway = (seed: MemorySeed): LinearGatewayShape => {
   return gateway
 }
 
-const memoryGatewayLayer = (seed: MemorySeed): Layer.Layer<LinearGateway> =>
-  Layer.succeed(LinearGateway, makeMemoryGateway(seed))
-
-export { makeMemoryGateway, memoryGatewayLayer }
+export { makeMemoryGateway }

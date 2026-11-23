@@ -174,26 +174,19 @@ const IssuePageDocument = Schema.Struct({
   pageInfo: Schema.Unknown,
 })
 
-const ErrorDocument = Schema.Struct({
-  error: Schema.Struct({ code: Schema.String, hint: Schema.NullOr(Schema.String) }),
-})
-
 const pageOf = (lines: readonly string[]) =>
   Option.getOrThrow(Schema.decodeUnknownOption(IssuePageDocument)(lastJson(lines)))
-
-const errorOf = (lines: readonly string[]) =>
-  Option.getOrThrow(Schema.decodeUnknownOption(ErrorDocument)(lastJson(lines)))
 
 afterEach(() => {
   process.exitCode = 0
 })
 
-describe("issue list --include relations", () => {
+describe("issue list --relations", () => {
   test("adds every relation group to the rows", async () => {
     const lines: string[] = []
     await runIssueMemory(
       seed([rowWithRelations("RAT-1")]),
-      ["list", "--include", "relations", "--json"],
+      ["list", "--relations", "--format", "json"],
       lines,
     )
 
@@ -204,30 +197,16 @@ describe("issue list --include relations", () => {
 
   test("omits the relations key without the flag", async () => {
     const lines: string[] = []
-    await runIssueMemory(seed([rowWithRelations("RAT-1")]), ["list", "--json"], lines)
+    await runIssueMemory(seed([rowWithRelations("RAT-1")]), ["list", "--format", "json"], lines)
 
     expect(pageOf(lines).issues[0]?.relations).toBeUndefined()
   })
 
-  test("rejects every include value except relations", async () => {
+  test("composes with --select", async () => {
     const lines: string[] = []
     await runIssueMemory(
       seed([rowWithRelations("RAT-1")]),
-      ["list", "--include", "children", "--json"],
-      lines,
-    )
-
-    const error = errorOf(lines)
-    expect(error.error.code).toBe("validation")
-    expect(error.error.hint).toContain("relations")
-    expect(process.exitCode).toBe(2)
-  })
-
-  test("composes with --fields", async () => {
-    const lines: string[] = []
-    await runIssueMemory(
-      seed([rowWithRelations("RAT-1")]),
-      ["list", "--include", "relations", "--json", "--fields", "relations.blocks"],
+      ["list", "--relations", "--format", "json", "--select", "relations.blocks"],
       lines,
     )
 
@@ -241,7 +220,7 @@ describe("issue list --include relations", () => {
     const lines: string[] = []
     await runIssueMemory(
       seed([mapIssue, rowWithRelations("RAT-1", []), rowWithRelations("RAT-2", [])]),
-      ["list", "--parent", "RAT-0", "--unblocked", "--include", "relations", "--all", "--json"],
+      ["list", "--parent", "RAT-0", "--unblocked", "--relations", "--all", "--format", "json"],
       lines,
     )
 

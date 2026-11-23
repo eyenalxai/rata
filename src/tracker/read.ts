@@ -7,7 +7,7 @@ import type {
   ResolvedContext,
 } from "@/context/model"
 import type { ContextResolveError } from "@/context/resolve/model"
-import type { IssueId, TeamId } from "@/domain/id"
+import type { IssueWorkingSetOptions } from "@/domain/issue-read"
 import type { InvalidIssueRef } from "@/domain/issue-ref"
 import type { Connection } from "@/linear/connection"
 import type { IssueSummaryNode } from "@/linear/decode/issue"
@@ -18,28 +18,22 @@ import type {
   FilterNameNotFoundError,
 } from "@/tracker/error"
 import type {
-  IssueDetail,
   IssueListOptions,
   IssuePage,
+  IssueReadDocument,
   IssueSearchOptions,
-  IssueShowOptions,
-  IssueStatus,
-  IssueStatusOptions,
-  IssueSummary,
 } from "@/tracker/model"
 import type { IssueRefNotFoundError } from "@/tracker/read/batch"
 import type { PreparedList } from "@/tracker/read/list-input"
 
 import { ContextResolver } from "@/context/resolve"
 import { parseRefOrFail } from "@/domain/issue-ref"
-import { maxPageSize } from "@/linear/connection"
 import { LinearGateway } from "@/linear/gateway"
 import { sortAndLimitNodes, toSummary } from "@/tracker/model"
 import { parseBatchRefs, requireBatchRefs } from "@/tracker/read/batch"
-import { toIssueDetail } from "@/tracker/read/detail"
 import { validateNamedFilters } from "@/tracker/read/filter-check"
 import { listInput } from "@/tracker/read/list-input"
-import { toIssueStatus } from "@/tracker/read/status"
+import { toFullWorkingSet, toWorkingSet } from "@/tracker/read/working-set"
 import { requireTeamId, resolveAssigneeId, resolveIssueId } from "@/tracker/resolve"
 
 type IssueListError =
@@ -53,9 +47,15 @@ type IssueListError =
   | ContextStateNotFoundError
   | TeamNotFoundError
   | TeamResolutionError
-  | IssueRefNotFoundError
+
+type IssueWorkingSetError = InvalidIssueRef | IssueRefNotFoundError | LinearApiError
 
 type IssueSummaryConnection = Connection<IssueSummaryNode>
+
+type IssueWorkingSetPage = {
+  readonly items: readonly IssueReadDocument[]
+  readonly pageInfo: IssuePage["pageInfo"]
+}
 
 type IssueReaderShape = {
   readonly list: (
@@ -67,20 +67,10 @@ type IssueReaderShape = {
     term: string,
     options: IssueSearchOptions,
   ) => Effect.Effect<IssuePage, LinearApiError | ContextResolveError | TeamResolutionError>
-  readonly show: (
-    context: ResolvedContext,
-    ref: string,
-    options: IssueShowOptions,
-  ) => Effect.Effect<IssueDetail, LinearApiError | InvalidIssueRef>
-  readonly summary: (
-    context: ResolvedContext,
-    ref: string,
-  ) => Effect.Effect<IssueSummary, LinearApiError | InvalidIssueRef>
-  readonly status: (
-    context: ResolvedContext,
-    ref: string,
-    options: IssueStatusOptions,
-  ) => Effect.Effect<IssueStatus, IssueListError>
+  readonly workingSet: (
+    refs: readonly string[],
+    options: IssueWorkingSetOptions,
+  ) => Effect.Effect<IssueWorkingSetPage, IssueWorkingSetError>
 }
 
 class IssueReader extends Context.Service<IssueReader, IssueReaderShape>()(
@@ -95,32 +85,21 @@ class IssueReader extends Context.Service<IssueReader, IssueReaderShape>()(
       const prepareList = Effect.fn("IssueReader.prepareList")(function* prepareList(
         context: ResolvedContext,
         options: IssueListOptions,
-        overrides: {
-          readonly parentId?: IssueId | undefined
-          readonly teamId?: TeamId | undefined
-        } = {},
       ) {
-        const requested = options.ids === undefined ? undefined : yield* parseBatchRefs(options.ids)
-        const teamId =
-          overrides.teamId ??
-          (requested !== undefined && options.team === undefined
-            ? undefined
-            : yield* requireTeamId(context))
+        const teamId = yield* requireTeamId(context)
         const assigneeId =
           options.assignee === undefined
             ? undefined
             : yield* resolveAssigneeId(gateway, contexts, context, options.assignee)
         const parentId =
-          overrides.parentId ??
-          (options.parent === undefined
+          options.parent === undefined
             ? undefined
             : yield* parseRefOrFail(options.parent).pipe(
                 Effect.flatMap((ref) => resolveIssueId(gateway, ref)),
-              ))
+              )
         return {
-          requested,
           teamId,
-          input: listInput(options, { assigneeId, parentId, requested, teamId }),
+          input: listInput(options, { assigneeId, parentId, teamId }),
         }
       })
 
@@ -135,31 +114,16 @@ class IssueReader extends Context.Service<IssueReader, IssueReaderShape>()(
         if (result.issues.length === 0 && prepared.teamId !== undefined) {
           yield* validateNamedFilters(gateway, contexts, context, options)
         }
-        const whole = options.after === null && !page.pageInfo.hasNextPage
-        if (prepared.requested !== undefined && whole) {
-          yield* requireBatchRefs(prepared.requested, issues)
-        }
         return result
-      })
-
-      const listWith = Effect.fn("IssueReader.listWith")(function* listWith(
-        context: ResolvedContext,
-        options: IssueListOptions,
-        overrides: {
-          readonly parentId?: IssueId | undefined
-          readonly teamId?: TeamId | undefined
-        } = {},
-      ) {
-        const prepared = yield* prepareList(context, options, overrides)
-        const page = yield* gateway.issue.list(prepared.input)
-        return yield* finishList(context, options, prepared, page)
       })
 
       const list = Effect.fn("IssueReader.list")(function* list(
         context: ResolvedContext,
         options: IssueListOptions,
       ) {
-        return yield* listWith(context, options)
+        const prepared = yield* prepareList(context, options)
+        const page = yield* gateway.issue.list(prepared.input)
+        return yield* finishList(context, options, prepared, page)
       })
 
       const search = Effect.fn("IssueReader.search")(function* search(
@@ -180,63 +144,57 @@ class IssueReader extends Context.Service<IssueReader, IssueReaderShape>()(
         }
       })
 
-      const show = Effect.fn("IssueReader.show")(function* showIssue(
-        _context: ResolvedContext,
-        input: string,
-        options: IssueShowOptions,
+      const workingSet = Effect.fn("IssueReader.workingSet")(function* readWorkingSet(
+        refs: readonly string[],
+        options: IssueWorkingSetOptions,
       ) {
-        const ref = yield* parseRefOrFail(input)
-        return toIssueDetail(yield* gateway.issue.show(ref, options))
+        const requested = yield* parseBatchRefs(refs)
+        const page = yield* gateway.issue.workingSet(requested, options)
+        yield* requireBatchRefs(requested, page.nodes)
+        const order = <Node extends { readonly id: string; readonly identifier: string }>(
+          nodes: readonly Node[],
+        ) =>
+          Effect.gen(function* orderWorkingNodes() {
+            const byRef = new Map(
+              nodes.flatMap((node) => [[node.id, node] as const, [node.identifier, node] as const]),
+            )
+            const ordered: Node[] = []
+            for (const ref of requested) {
+              const node = byRef.get(ref)
+              if (node === undefined) {
+                return yield* Effect.die(`The working-set read lost the issue ${ref}.`)
+              }
+              ordered.push(node)
+            }
+            return ordered
+          })
+        if (page.mode === "summary") {
+          const nodes = yield* order(page.nodes)
+          return { items: nodes.map(toSummary), pageInfo: page.pageInfo }
+        }
+        if (page.mode === "full") {
+          const nodes = yield* order(page.nodes)
+          return {
+            items: nodes.map((node) => toFullWorkingSet(node, options.comments)),
+            pageInfo: page.pageInfo,
+          }
+        }
+        const nodes = yield* order(page.nodes)
+        return {
+          items: nodes.map((node) => toWorkingSet(node, options.comments)),
+          pageInfo: page.pageInfo,
+        }
       })
 
-      const summary = Effect.fn("IssueReader.summary")(function* readSummary(
-        _context: ResolvedContext,
-        input: string,
-      ) {
-        const ref = yield* parseRefOrFail(input)
-        return toSummary(yield* gateway.issue.summary(ref))
-      })
-
-      const status = Effect.fn("IssueReader.status")(function* status(
-        context: ResolvedContext,
-        input: string,
-        options: IssueStatusOptions,
-      ) {
-        const issue = yield* show(context, input, {
-          comments: options.comments === true,
-          children: false,
-        })
-        const children =
-          options.children === true
-            ? yield* listWith(
-                context,
-                {
-                  team: issue.team.id,
-                  include: "relations",
-                  sort: "priority",
-                  after: null,
-                  limit: maxPageSize,
-                  all: true,
-                },
-                { parentId: issue.id, teamId: issue.team.id },
-              )
-            : yield* listWith(
-                context,
-                {
-                  team: issue.team.id,
-                  unblocked: true,
-                  sort: "priority",
-                  after: null,
-                  limit: 1,
-                },
-                { parentId: issue.id, teamId: issue.team.id },
-              )
-        return toIssueStatus(issue, children.issues, options)
-      })
-
-      return IssueReader.of({ list, search, show, status, summary })
+      return IssueReader.of({ list, search, workingSet })
     }),
   )
 }
 
-export { IssueReader, type IssueListError, type IssueReaderShape }
+export {
+  IssueReader,
+  type IssueListError,
+  type IssueReaderShape,
+  type IssueWorkingSetError,
+  type IssueWorkingSetPage,
+}

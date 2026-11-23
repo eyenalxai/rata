@@ -73,7 +73,7 @@ describe("failure paths", () => {
   })
 
   test("reports a database-open failure as internal for a summary read", async () => {
-    const result = await run(["issue", "show", "RAT-1", "--summary", "--json"], {
+    const result = await run(["issue", "RAT-1", "--summary", "--format", "json"], {
       HOME: "/proc",
       XDG_DATA_HOME: "/proc/data",
     })

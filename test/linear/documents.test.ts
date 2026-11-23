@@ -5,7 +5,12 @@ import { attachmentId, issueId, labelId, teamId, userId } from "@/domain/id"
 import { IssueSummaryNode } from "@/linear/decode/issue"
 import { PageInfo } from "@/linear/decode/page"
 import { TeamDetail } from "@/linear/decode/team"
-import { listQuery, searchQuery, showQuery } from "@/linear/documents/issue"
+import {
+  listQuery,
+  searchQuery,
+  workingSetQuery,
+  workingSummaryQuery,
+} from "@/linear/documents/issue"
 import { listProjectsQuery } from "@/linear/documents/project"
 import { teamLabelsQuery, teamStatesQuery } from "@/linear/documents/team"
 
@@ -25,16 +30,33 @@ const summary = {
 }
 
 describe("Linear documents select the read fields", () => {
-  test("the show document carries the working-set fields", () => {
-    const document = showQuery({ children: true, relations: true, attachments: true })
+  test("the working-set document carries the working fields", () => {
+    const document = workingSetQuery({ comments: true, full: false })
 
     expect(document).toContain("description")
     expect(document).toContain("createdAt")
     expect(document).toContain("updatedAt")
-    expect(document).toContain("children(")
-    expect(document).toContain("relations(")
-    expect(document).toContain("inverseRelations(")
-    expect(document).toContain("attachments(")
+    expect(document).toContain("children(first: 50)")
+    expect(document).not.toContain("relations(first: 25)")
+    expect(document).toContain("inverseRelations(first: 25)")
+    expect(document).toContain("attachments(first: 25)")
+    expect(document).toContain("comments(first: 10, orderBy: createdAt)")
+  })
+
+  test("the full working-set document adds outgoing relations", () => {
+    const document = workingSetQuery({ comments: false, full: true })
+
+    expect(document).toContain("relations(first: 25)")
+    expect(document).toContain("inverseRelations(first: 25)")
+  })
+
+  test("the summary document omits the working connections", () => {
+    const document = workingSummaryQuery
+
+    expect(document).toContain("labels(first: 25)")
+    expect(document).not.toContain("description")
+    expect(document).not.toContain("children(")
+    expect(document).not.toContain("relations(")
   })
 
   test("the list and search documents carry summary fields", () => {

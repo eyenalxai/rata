@@ -1,12 +1,17 @@
 import type { MemoryIssue } from "@test/fake-linear/gateway/model"
 
 import type { IssueChild, IssueSummaryNode } from "@/linear/decode/issue"
+import type {
+  IssueFullWorkingNode,
+  IssueWorkingChildFullNode,
+  IssueWorkingChildNode,
+  IssueWorkingNode,
+  WorkingSummaryNode,
+} from "@/linear/decode/issue/working-set"
 import type { IssueListOptions } from "@/linear/operations/issue/filter"
-import type { IssueDetailData, IssueShowOptions } from "@/linear/operations/issue/show"
 
 import { isUuid, relationId } from "@/domain/id"
 import { priorityRank } from "@/domain/priority"
-import { relationTargets } from "@/domain/relation"
 import { isClosedState } from "@/domain/workflow-state"
 
 const byPriority = (left: IssueSummaryNode, right: IssueSummaryNode): number => {
@@ -123,43 +128,132 @@ const withRelations = (issue: MemoryIssue, include: "relations" | undefined): Is
   }
 }
 
-const toDetail = (issue: MemoryIssue, options: IssueShowOptions): IssueDetailData => {
-  const { summary } = issue
-  const detail = {
-    id: summary.id,
-    identifier: summary.identifier,
-    title: summary.title,
-    description: issue.description,
-    url: summary.url,
-    state: summary.state,
-    priority: summary.priority,
-    createdAt: summary.createdAt,
-    updatedAt: summary.updatedAt,
-    assignee: summary.assignee,
-    project: summary.project,
-    parent: summary.parent,
-    team: issue.team,
-    labels: summary.labels.nodes,
-    ...(options.children === false ? {} : { children: issue.children ?? [] }),
-    ...(options.relations === false
-      ? {}
-      : {
-          relations: relationTargets<IssueChild>(
-            issue.relations ?? [],
-            issue.inverseRelations ?? [],
-          ),
-        }),
-    ...(options.attachments === false ? {} : { attachments: issue.attachments ?? [] }),
-  }
-  if (!options.comments) {
-    return detail
+const relationConnections = (issue: MemoryIssue) => ({
+  relations: {
+    nodes: (issue.relations ?? []).map((relation, index) => ({
+      id: relationId(`relation-${issue.summary.identifier}-${index}`),
+      type: relation.type,
+      relatedIssue: relation.relatedIssue,
+    })),
+    pageInfo: { hasNextPage: false, endCursor: null },
+  },
+  inverseRelations: {
+    nodes: (issue.inverseRelations ?? []).map((relation, index) => ({
+      id: relationId(`inverse-relation-${issue.summary.identifier}-${index}`),
+      type: relation.type,
+      issue: relation.issue,
+    })),
+    pageInfo: { hasNextPage: false, endCursor: null },
+  },
+})
+
+const childSummary = (child: IssueChild, issues: readonly MemoryIssue[]): IssueSummaryNode => {
+  const issue = issues.find(
+    (candidate) =>
+      String(candidate.summary.id) === String(child.id) ||
+      candidate.summary.identifier === child.identifier,
+  )
+  if (issue === undefined) {
+    return {
+      id: child.id,
+      identifier: child.identifier,
+      title: child.title,
+      url: "",
+      state: child.state,
+      priority: "none",
+      createdAt: "",
+      updatedAt: "",
+      assignee: null,
+      project: null,
+      parent: null,
+      labels: { nodes: [] },
+      inverseRelations: { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } },
+    }
   }
   return {
-    ...detail,
-    comments: [...(issue.comments ?? [])].toSorted((left, right) =>
-      left.createdAt < right.createdAt ? -1 : left.createdAt > right.createdAt ? 1 : 0,
-    ),
+    ...issue.summary,
+    ...relationConnections(issue),
   }
 }
 
-export { byPriority, matchesIssue, toDetail, withRelations }
+const labelConnection = (summary: IssueSummaryNode) => ({
+  nodes: summary.labels.nodes,
+  pageInfo: { hasNextPage: false, endCursor: null },
+})
+
+const inverseOf = (summary: IssueSummaryNode) =>
+  summary.inverseRelations ?? { nodes: [], pageInfo: { hasNextPage: false, endCursor: null } }
+
+const summaryNode = (issue: MemoryIssue): WorkingSummaryNode => ({
+  ...issue.summary,
+  labels: labelConnection(issue.summary),
+})
+
+const leanChildNode = (summary: IssueSummaryNode): IssueWorkingChildNode => ({
+  id: summary.id,
+  identifier: summary.identifier,
+  title: summary.title,
+  state: summary.state,
+  priority: summary.priority,
+  createdAt: summary.createdAt,
+  assignee: summary.assignee,
+  inverseRelations: inverseOf(summary),
+})
+
+const fullChildNode = (summary: IssueSummaryNode): IssueWorkingChildFullNode => ({
+  ...summary,
+  labels: labelConnection(summary),
+  inverseRelations: inverseOf(summary),
+})
+
+const commentsOf = (issue: MemoryIssue, requested: boolean) =>
+  requested
+    ? {
+        comments: {
+          nodes: [...(issue.comments ?? [])].toSorted((left, right) =>
+            left.createdAt < right.createdAt ? -1 : left.createdAt > right.createdAt ? 1 : 0,
+          ),
+          pageInfo: { hasNextPage: false, endCursor: null },
+        },
+      }
+    : {}
+
+const toWorking = (
+  issue: MemoryIssue,
+  issues: readonly MemoryIssue[],
+  options: { readonly comments: boolean },
+): IssueWorkingNode => ({
+  ...summaryNode(issue),
+  description: issue.description,
+  children: {
+    nodes: (issue.children ?? []).map((item) => leanChildNode(childSummary(item, issues))),
+    pageInfo: { hasNextPage: false, endCursor: null },
+  },
+  inverseRelations: relationConnections(issue).inverseRelations,
+  attachments: {
+    nodes: issue.attachments ?? [],
+    pageInfo: { hasNextPage: false, endCursor: null },
+  },
+  ...commentsOf(issue, options.comments),
+})
+
+const toFullWorking = (
+  issue: MemoryIssue,
+  issues: readonly MemoryIssue[],
+  options: { readonly comments: boolean },
+): IssueFullWorkingNode => ({
+  ...summaryNode(issue),
+  description: issue.description,
+  children: {
+    nodes: (issue.children ?? []).map((item) => fullChildNode(childSummary(item, issues))),
+    pageInfo: { hasNextPage: false, endCursor: null },
+  },
+  ...relationConnections(issue),
+  attachments: {
+    nodes: issue.attachments ?? [],
+    pageInfo: { hasNextPage: false, endCursor: null },
+  },
+  ...commentsOf(issue, options.comments),
+})
+
+export { byPriority, matchesIssue, summaryNode, toFullWorking, toWorking, withRelations }

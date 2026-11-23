@@ -3,6 +3,8 @@ import { Effect } from "effect"
 import type { PageInfo } from "@/linear/decode/page"
 import type { LinearApiError } from "@/linear/errors"
 
+import { LinearGraphQLError } from "@/linear/errors"
+
 const maxPageSize = 250
 
 type Connection<A> = {
@@ -27,7 +29,13 @@ const collectPages = <A>(
   Effect.gen(function* collectAllPages() {
     const nodes = [...initial.nodes]
     let pageInfo = initial.pageInfo
-    while (pageInfo.hasNextPage && pageInfo.endCursor !== null) {
+    while (pageInfo.hasNextPage) {
+      if (pageInfo.endCursor === null) {
+        return yield* new LinearGraphQLError({
+          message: "Linear returned a page without an end cursor.",
+          details: [],
+        })
+      }
       const next = yield* fetch(pageInfo.endCursor)
       nodes.push(...next.nodes)
       pageInfo = next.pageInfo

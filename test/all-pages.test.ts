@@ -161,7 +161,7 @@ describe("issue list --all", () => {
         issue({ identifier: "RAT-1", priority: "low" }),
         issue({ identifier: "RAT-2", priority: "urgent" }),
       ]),
-      ["issue", "list", "--all", "--limit", "1", "--json"],
+      ["issue", "list", "--all", "--limit", "1", "--format", "json"],
       lines,
     )
 
@@ -177,7 +177,7 @@ describe("issue list --all", () => {
         issue({ identifier: "RAT-1", priority: "low" }),
         issue({ identifier: "RAT-2", priority: "urgent" }),
       ]),
-      ["issue", "list", "--all", "--after", "issue-RAT-1", "--json"],
+      ["issue", "list", "--all", "--after", "issue-RAT-1", "--format", "json"],
       lines,
     )
 
@@ -206,7 +206,7 @@ describe("issue list --all", () => {
         issue({ identifier: "RAT-1", priority: "low" }),
         issue({ identifier: "RAT-2", priority: "urgent" }),
       ]),
-      ["issue", "list", "--all", "--sort", "priority", "--limit", "1", "--json"],
+      ["issue", "list", "--all", "--sort", "priority", "--limit", "1", "--format", "json"],
       lines,
     )
 
@@ -225,7 +225,7 @@ describe("search --all", () => {
         issue({ identifier: "RAT-1", priority: "low", description: "login flow" }),
         issue({ identifier: "RAT-2", priority: "urgent", description: "login screen" }),
       ]),
-      ["search", "login", "--all", "--limit", "1", "--json"],
+      ["issue", "search", "login", "--all", "--limit", "1", "--format", "json"],
       lines,
     )
 

@@ -8,7 +8,7 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { Effect } from "effect"
 import { Command } from "effect/cli"
 
-import { searchCommand } from "@/cli/issue"
+import { issueCommand } from "@/cli/issue"
 import { labelCommand, projectCommand } from "@/cli/registry"
 
 const team = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
@@ -34,8 +34,8 @@ const runLabelUnlinked = (handler: Handler, args: readonly string[], lines: stri
   )
 
 const runSearch = (handler: Handler, args: readonly string[], lines: string[]) =>
-  Command.run(searchCommand, { version: "test" }).pipe(
-    Effect.provide(cliLayer(handler, args, lines, seed)),
+  Command.run(issueCommand, { version: "test" }).pipe(
+    Effect.provide(cliLayer(handler, ["search", ...args], lines, seed)),
     Effect.runPromise,
   )
 
@@ -46,8 +46,8 @@ const runProjectUnlinked = (handler: Handler, args: readonly string[], lines: st
   )
 
 const runSearchUnlinked = (handler: Handler, args: readonly string[], lines: string[]) =>
-  Command.run(searchCommand, { version: "test" }).pipe(
-    Effect.provide(cliLayer(handler, args, lines)),
+  Command.run(issueCommand, { version: "test" }).pipe(
+    Effect.provide(cliLayer(handler, ["search", ...args], lines)),
     Effect.runPromise,
   )
 
@@ -149,7 +149,7 @@ describe("label list team default", () => {
 })
 
 describe("issue search pages", () => {
-  test("prints pure JSON and continues from --after", async () => {
+  test("prints pure JSON for the linked team", async () => {
     const variables: Record<string, unknown>[] = []
     const handler: Handler = (request) => {
       const body = readRequest(request)
@@ -188,37 +188,24 @@ describe("issue search pages", () => {
         data: {
           searchIssues: {
             nodes: [summaryNode("RAT-1")],
-            pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
+            pageInfo: { hasNextPage: false, endCursor: null },
           },
         },
       })
     }
 
-    const first: string[] = []
-    await runSearch(handler, ["login", "--limit", "1", "--json"], first)
-    expect(first).toHaveLength(1)
-    expect(lastJson(first)).toEqual({
+    const lines: string[] = []
+    await runSearch(handler, ["login", "--limit", "1", "--format", "json"], lines)
+    expect(lines).toHaveLength(1)
+    expect(lastJson(lines)).toEqual({
       issues: [expect.objectContaining({ identifier: "RAT-1" })],
-      pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
+      pageInfo: { hasNextPage: false, endCursor: null },
     })
     expect(variables[0]).toEqual({
       term: "login",
       filter: { team: { id: { eq: "team-1" } } },
       first: 1,
       after: null,
-    })
-
-    const second: string[] = []
-    await runSearch(handler, ["login", "--limit", "1", "--after", "cursor-1", "--json"], second)
-    expect(lastJson(second)).toEqual({
-      issues: [expect.objectContaining({ identifier: "RAT-1" })],
-      pageInfo: { hasNextPage: true, endCursor: "cursor-1" },
-    })
-    expect(variables[1]).toEqual({
-      term: "login",
-      filter: { team: { id: { eq: "team-1" } } },
-      first: 1,
-      after: "cursor-1",
     })
   })
 

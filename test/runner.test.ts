@@ -160,6 +160,18 @@ afterEach(() => {
 })
 
 describe("the command runner", () => {
+  test("rejects selectable without outputFor", () => {
+    expect(() =>
+      defineCommand("bad-select", {
+        summary: "Bad selectable",
+        input: {},
+        selectable: true,
+        output: selectOutput(objectField({ name: scalarField })),
+        run: () => Effect.succeed({ kind: "text", lines: [] }),
+      }),
+    ).toThrow("selectable and outputFor must be set together.")
+  })
+
   test("prints JSON when stdout is not a terminal", async () => {
     const lines: string[] = []
     await run(["echo", "--name", "Ada"], lines)

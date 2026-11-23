@@ -1,35 +1,35 @@
 import type { Option } from "effect"
 import type { Command as CliCommand } from "effect/cli"
 
-import { Console, Effect, Option as OptionValue, Result, Stdio } from "effect"
+import { Console, Effect, Option as OptionValue, Stdio } from "effect"
 import { CliError, Command, Flag, GlobalFlag } from "effect/cli"
 
-import type { FieldPath } from "@/cli/field/shape"
 import type {
   CommandControl,
   CommandOutput,
   CommandSpec,
   OutputFormat,
-  OutputSpec,
-  OutputSpecs,
   RunnerControlInput,
 } from "@/cli/spec"
 
 import { dropEmptyLine } from "@/cli/console"
 import { commandError, exitCodeOf, toTrackerError } from "@/cli/error-report"
-import { OutputFields, parseFieldPaths } from "@/cli/fields"
+import { OutputFields } from "@/cli/fields"
 import {
   formatFromArgs,
   hasNewOutputFlag,
+  hasOldOutputFlag,
   helpRequested,
   isBareInvocation,
-  isWorkSurfaceCommand,
+  isIssueReadCommand,
+  isLegacyIssueCommand,
 } from "@/cli/format"
-import { setSuppressHelp, withSelectable } from "@/cli/help"
+import { setSuppressHelp, withModernOutput, withSelectable } from "@/cli/help"
 import { readBodyInput } from "@/cli/input"
 import { JsonOutput, reportTrackerError } from "@/cli/output"
 import { detectInvalidForm, jsonEnabled, reportInvalidForm } from "@/cli/pre-parse"
 import { renderOutput } from "@/cli/render"
+import { resolveSelect, supportsSelect } from "@/cli/runner/select"
 import { outputFormats } from "@/cli/spec"
 import { TrackerError } from "@/domain/error"
 
@@ -101,74 +101,6 @@ const resolveFormat = (
   return "text"
 }
 
-const isSpecList = (output: OutputSpecs): output is readonly OutputSpec[] => Array.isArray(output)
-
-const supportsSelect = (output: OutputSpecs): boolean => {
-  const specs = isSpecList(output) ? output : [output]
-  return specs.some(
-    (spec) => spec.kind === "collection" || (spec.kind === "resource" && spec.select !== undefined),
-  )
-}
-
-const parseSelector = (
-  flag: "--fields" | "--select",
-  value: string,
-  format: OutputFormat,
-): Effect.Effect<readonly FieldPath[], TrackerError> => {
-  if (format !== "json") {
-    return Effect.fail(
-      new TrackerError({
-        code: "validation",
-        message:
-          flag === "--fields" ? "--fields requires --json." : "--select requires JSON output.",
-        hint: null,
-      }),
-    )
-  }
-  const parsed = parseFieldPaths(value)
-  if (Result.isFailure(parsed)) {
-    return Effect.fail(toTrackerError(parsed.failure))
-  }
-  return Effect.succeed(parsed.success)
-}
-
-const resolveSelect = (
-  output: OutputSpecs,
-  fields: Option.Option<string>,
-  select: Option.Option<string>,
-  format: OutputFormat,
-): Effect.Effect<Option.Option<readonly FieldPath[]>, TrackerError> =>
-  Effect.gen(function* resolveSelector() {
-    if (OptionValue.isSome(fields) && OptionValue.isSome(select)) {
-      return yield* new TrackerError({
-        code: "validation",
-        message: "Pass --select or --fields, not both.",
-        hint: null,
-      })
-    }
-    if (OptionValue.isSome(select)) {
-      if (!supportsSelect(output)) {
-        return yield* new TrackerError({
-          code: "validation",
-          message: "--select is not supported by this command.",
-          hint: "The command prints a write result. Use JSON and jq.",
-        })
-      }
-      return OptionValue.some(yield* parseSelector("--select", select.value, format))
-    }
-    if (OptionValue.isSome(fields)) {
-      if (!supportsSelect(output)) {
-        return yield* new TrackerError({
-          code: "validation",
-          message: "--fields is not supported by this command.",
-          hint: "--fields applies to reads only. Use --json and jq on the write result.",
-        })
-      }
-      return OptionValue.some(yield* parseSelector("--fields", fields.value, format))
-    }
-    return OptionValue.none()
-  })
-
 const runSpec = <Name extends string, Config extends CliCommand.Command.Config, R>(
   spec: CommandSpec<Name, Config, R>,
   input: CliCommand.Command.Config.Infer<Config>,
@@ -189,7 +121,18 @@ const runSpec = <Name extends string, Config extends CliCommand.Command.Config, 
       stdoutIsTerminal,
     )
     return yield* Effect.gen(function* executeSpec() {
-      const select = yield* resolveSelect(spec.output, fields, selectedFields, format)
+      const activeOutput = spec.outputFor?.(input) ?? spec.output
+      if (activeOutput === undefined) {
+        return yield* reportRunFailure(
+          new TrackerError({
+            code: "internal",
+            message: "The command has no output spec.",
+            hint: null,
+          }),
+          format === "json" ? "json" : "text",
+        )
+      }
+      const select = yield* resolveSelect(activeOutput, fields, selectedFields, format)
       const runnerInput: RunnerControlInput = spec.control?.(input) ?? {}
       const body = yield* readBodyInput(
         runnerInput.body ?? OptionValue.none(),
@@ -203,7 +146,7 @@ const runSpec = <Name extends string, Config extends CliCommand.Command.Config, 
         body,
       }
       const output: CommandOutput = yield* spec.run(input, control)
-      const code = yield* renderOutput(output, spec.output, { format, select })
+      const code = yield* renderOutput(output, activeOutput, { format, select })
       return yield* Effect.sync(() => {
         process.exitCode = code
       })
@@ -217,7 +160,9 @@ const buildCommand = <Name extends string, Config extends CliCommand.Command.Con
     Command.withDescription(spec.summary),
     Command.withExamples(spec.examples ?? []),
   )
-  return supportsSelect(spec.output) ? withSelectable(command) : command
+  const modern = withModernOutput(command)
+  const selectable = spec.selectable ?? (spec.output !== undefined && supportsSelect(spec.output))
+  return selectable ? withSelectable(modern) : modern
 }
 
 const buildGroup = <
@@ -228,7 +173,11 @@ const buildGroup = <
   description: string,
   commands: Commands,
 ) =>
-  Command.make(name).pipe(Command.withDescription(description), Command.withSubcommands(commands))
+  Command.make(name).pipe(
+    Command.withDescription(description),
+    Command.withSubcommands(commands),
+    withModernOutput,
+  )
 
 const runCli = <Name extends string, Input, ContextInput, E, R>(
   version: string,
@@ -242,9 +191,9 @@ const runCli = <Name extends string, Input, ContextInput, E, R>(
     setSuppressHelp(false)
     const invalid = detectInvalidForm(args)
     if (invalid !== undefined) {
-      return yield* reportInvalidForm(invalid, jsonEnabled(args))
+      return yield* reportInvalidForm(invalid, format === "json")
     }
-    if (!helpRequested(args) && isWorkSurfaceCommand(args) && hasNewOutputFlag(args)) {
+    if (!helpRequested(args) && isLegacyIssueCommand(args) && hasNewOutputFlag(args)) {
       return yield* reportRunFailure(
         new TrackerError({
           code: "usage",
@@ -252,6 +201,16 @@ const runCli = <Name extends string, Input, ContextInput, E, R>(
           hint: "Use --json for JSON output; --fields applies to reads.",
         }),
         jsonEnabled(args) ? "json" : "text",
+      )
+    }
+    if (!helpRequested(args) && isIssueReadCommand(args) && hasOldOutputFlag(args)) {
+      return yield* reportRunFailure(
+        new TrackerError({
+          code: "usage",
+          message: "The --json and --fields flags are not supported by issue reads.",
+          hint: "Use --format json; --select replaces --fields.",
+        }),
+        "json",
       )
     }
     const allowHelp = helpRequested(args) || isBareInvocation(root, args)
@@ -271,7 +230,6 @@ const runCli = <Name extends string, Input, ContextInput, E, R>(
 
 export {
   Format,
-  supportsSelect,
   OutputSelect,
   buildCommand,
   buildGroup,

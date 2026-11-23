@@ -5,15 +5,13 @@ import { Command } from "effect/cli"
 import { FetchHttpClient, HttpClient } from "effect/http"
 
 import { LinearClient } from "@/api/client"
-import { IssueApi } from "@/api/issue"
 import { IssueWriteApi } from "@/api/issue-write"
 import { LabelService } from "@/api/label"
 import { ProjectService } from "@/api/project"
 import { RepoTeam } from "@/api/repo-team"
 import { TeamService } from "@/api/team"
 import { helpLayer } from "@/cli/help"
-import { issueCommand, searchCommand } from "@/cli/issue"
-import { nextCommand } from "@/cli/next"
+import { issueCommand } from "@/cli/issue"
 import {
   authCommand,
   configCommand,
@@ -28,7 +26,6 @@ import {
   workspaceCommand,
 } from "@/cli/registry"
 import { runCli } from "@/cli/runner"
-import { whyCommand } from "@/cli/why"
 import { Auth } from "@/config/auth"
 import { IssueDefaultsService } from "@/config/defaults"
 import { LinkService } from "@/config/link"
@@ -100,9 +97,6 @@ const projectLayer = ProjectService.layer.pipe(
 const writerLayer = IssueWriter.layer.pipe(
   Layer.provide(Layer.mergeAll(gatewayLayer, contextResolverLayer)),
 )
-const issueLayer = IssueApi.layer.pipe(
-  Layer.provide(Layer.mergeAll(contextResolverLayer, readerLayer)),
-)
 const defaultsLayer = IssueDefaultsService.layer.pipe(
   Layer.provide(Layer.mergeAll(labelLayer, repoConfigLayer, repoTeamLayer)),
 )
@@ -121,7 +115,6 @@ const workLayer = Layer.mergeAll(
   authLayer,
   gatewayLayer,
   clientLayer,
-  issueLayer,
   teamLayer,
   labelLayer,
   projectLayer,
@@ -162,9 +155,6 @@ const root = createRoot([
   Command.provide(unlinkCommand, unlinkAdminLayer),
   Command.provide(workspaceCommand, workspaceAdminLayer),
   Command.provide(issueCommand, workLayer),
-  Command.provide(searchCommand, workLayer),
-  Command.provide(nextCommand, workLayer),
-  Command.provide(whyCommand, workLayer),
   Command.provide(teamCommand, teamAdminLayer),
   Command.provide(projectCommand, projectAdminLayer),
   Command.provide(labelCommand, labelAdminLayer),

@@ -3,8 +3,6 @@ import type { HelpDoc } from "effect/cli"
 import { Context } from "effect"
 import { CliOutput, Command } from "effect/cli"
 
-import { isWorkSurfaceName } from "@/cli/format"
-
 const agentNotes = [
   "AGENT NOTES",
   "  Run `rata <command> --help` for the flags of this command.",
@@ -21,6 +19,10 @@ const Selectable = Context.Reference<boolean>("rata-cli/cli/help/Selectable", {
   defaultValue: () => false,
 })
 
+const ModernOutput = Context.Reference<boolean>("rata-cli/cli/help/ModernOutput", {
+  defaultValue: () => false,
+})
+
 const withAgentNotes = <Name extends string, Input, E, R, ContextInput>(
   command: Command.Command<Name, Input, ContextInput, E, R>,
 ): Command.Command<Name, Input, ContextInput, E, R> => Command.annotate(command, AgentNotes, true)
@@ -29,17 +31,23 @@ const withSelectable = <Name extends string, Input, E, R, ContextInput>(
   command: Command.Command<Name, Input, ContextInput, E, R>,
 ): Command.Command<Name, Input, ContextInput, E, R> => Command.annotate(command, Selectable, true)
 
+const withModernOutput = <Name extends string, Input, E, R, ContextInput>(
+  command: Command.Command<Name, Input, ContextInput, E, R>,
+): Command.Command<Name, Input, ContextInput, E, R> => Command.annotate(command, ModernOutput, true)
+
 const defaultFormatter = CliOutput.defaultFormatter()
 const filterGlobalFlags = (doc: HelpDoc.HelpDoc): HelpDoc.HelpDoc => {
-  const command = doc.usage.trim().split(/\s+/u)[1]
-  const isWorkSurface = isWorkSurfaceName(command)
+  const modern = Context.get(doc.annotations, ModernOutput)
   const selectable = Context.get(doc.annotations, Selectable)
   const globalFlags = doc.globalFlags?.filter((flag) => {
     if (flag.name === "format") {
-      return !isWorkSurface
+      return modern
     }
     if (flag.name === "select") {
-      return !isWorkSurface && selectable
+      return modern && selectable
+    }
+    if (flag.name === "json" || flag.name === "fields") {
+      return !modern
     }
     return true
   })
@@ -68,4 +76,12 @@ const helpFormatter: CliOutput.Formatter = {
 
 const helpLayer = CliOutput.layer(helpFormatter)
 
-export { helpLayer, Selectable, setSuppressHelp, withAgentNotes, withSelectable }
+export {
+  helpLayer,
+  ModernOutput,
+  Selectable,
+  setSuppressHelp,
+  withAgentNotes,
+  withModernOutput,
+  withSelectable,
+}

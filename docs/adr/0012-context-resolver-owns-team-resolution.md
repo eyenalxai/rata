@@ -43,9 +43,9 @@ link keeps exit code 2.
 
 The viewer is lazy. A context may carry no viewer; `ContextResolver.viewer`
 loads the cached viewer only when a command asks for it, such as
-`issue list --assignee me` or an assignee write. `issue show`, `summary` and
-`why` build a context without a viewer and without the repository link, because
-they ignored both before.
+`issue list --assignee me` or an assignee write. `issue <ref>`, `issue list` and
+`issue search` build the context they need; the working-set read needs neither a
+viewer nor the repository link.
 
 The stale-link warning travels on the context. `list` and `search` print it, as
 the old `RepoTeam.resolve` path did. `close`, `reopen`, the label writes,

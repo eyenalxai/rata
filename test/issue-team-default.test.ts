@@ -4,19 +4,35 @@ import { jsonResponse, pageInfo, readBody, run } from "@test/issue-fixtures"
 import { describe, expect, test } from "bun:test"
 import { Effect } from "effect"
 
-import { IssueApi } from "@/api/issue"
+import type { IssueListOptions, IssueSearchOptions } from "@/tracker/model"
+
+import { ContextResolver } from "@/context/resolve"
+import { IssueReader } from "@/tracker/read"
 
 const emptyIssues = (): Response => jsonResponse({ data: { issues: { nodes: [], pageInfo } } })
 
-const listWithoutTeam = Effect.gen(function* listIssues() {
-  const api = yield* IssueApi
-  return yield* api.list({ after: null, limit: 50 })
-})
+const list = (options: IssueListOptions) =>
+  Effect.gen(function* listIssues() {
+    const resolver = yield* ContextResolver
+    const reader = yield* IssueReader
+    const context = yield* resolver.resolve({ team: options.team, viewer: false })
+    return yield* reader.list(context, options)
+  })
+
+const search = (term: string, options: IssueSearchOptions) =>
+  Effect.gen(function* searchIssues() {
+    const resolver = yield* ContextResolver
+    const reader = yield* IssueReader
+    const context = yield* resolver.resolve({ team: options.team, viewer: false })
+    return yield* reader.search(context, term, options)
+  })
+
+const listWithoutTeam = list({ after: null, limit: 50 })
 
 const emptySearch = (): Response =>
   jsonResponse({ data: { searchIssues: { nodes: [], pageInfo } } })
 
-describe("IssueApi search team default", () => {
+describe("IssueReader search team default", () => {
   test("scopes the search to the linked team when no team is passed", async () => {
     const captured: Record<string, unknown>[] = []
     const handler = (request: HttpClientRequest.HttpClientRequest): Response => {
@@ -24,13 +40,7 @@ describe("IssueApi search team default", () => {
       return emptySearch()
     }
 
-    await run(
-      handler,
-      Effect.gen(function* searchIssues() {
-        const api = yield* IssueApi
-        return yield* api.search("login", { after: null, limit: 10 })
-      }),
-    )
+    await run(handler, search("login", { after: null, limit: 10 }))
 
     expect(captured[0]).toEqual({
       term: "login",
@@ -47,19 +57,13 @@ describe("IssueApi search team default", () => {
       return emptySearch()
     }
 
-    await run(
-      handler,
-      Effect.gen(function* searchIssues() {
-        const api = yield* IssueApi
-        return yield* api.search("login", { team: "OPS", after: null, limit: 10 })
-      }),
-    )
+    await run(handler, search("login", { team: "OPS", after: null, limit: 10 }))
 
     expect(captured[0]?.filter).toEqual({ team: { id: { eq: "team-2" } } })
   })
 })
 
-describe("IssueApi team default", () => {
+describe("IssueReader team default", () => {
   test("filters by the linked team when no team is passed", async () => {
     const captured: Record<string, unknown>[] = []
     const handler = (request: HttpClientRequest.HttpClientRequest): Response => {
@@ -79,13 +83,7 @@ describe("IssueApi team default", () => {
       return emptyIssues()
     }
 
-    await run(
-      handler,
-      Effect.gen(function* listIssues() {
-        const api = yield* IssueApi
-        return yield* api.list({ team: "OPS", after: null, limit: 50 })
-      }),
-    )
+    await run(handler, list({ team: "OPS", after: null, limit: 50 }))
 
     expect(captured[0]?.filter).toEqual({ team: { id: { eq: "team-2" } } })
   })

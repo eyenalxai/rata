@@ -1,13 +1,14 @@
 import { Effect } from "effect"
 
 import type { IssueId, TeamId } from "@/domain/id"
+import type { IssueWorkingSetOptions } from "@/domain/issue-read"
 import type { IssueRef } from "@/domain/issue-ref"
 import type { LinearClientShape } from "@/linear/client"
 import type { Connection, PageOptions } from "@/linear/connection"
 import type { IssueLabel, IssueSummaryNode } from "@/linear/decode/issue"
 import type { LinearApiError } from "@/linear/errors"
 import type { IssueListOptions } from "@/linear/operations/issue/filter"
-import type { IssueDetailData, IssueShowOptions } from "@/linear/operations/issue/show"
+import type { IssueReadConnection } from "@/linear/operations/issue/working-set/model"
 
 import { isUuid, issueId } from "@/domain/id"
 import { collectConnection, pageOrDrain, pageSize } from "@/linear/connection"
@@ -29,7 +30,7 @@ import {
 } from "@/linear/documents/issue"
 import { teamIdFilter } from "@/linear/filter"
 import { issueFilter } from "@/linear/operations/issue/filter"
-import { readIssueShow } from "@/linear/operations/issue/show"
+import { makeWorkingSetOperation } from "@/linear/operations/issue/working-set"
 
 type IssueReadOperations = {
   readonly id: (ref: IssueRef) => Effect.Effect<IssueId, LinearApiError>
@@ -40,11 +41,11 @@ type IssueReadOperations = {
     term: string,
     options: PageOptions & { readonly teamId: TeamId },
   ) => Effect.Effect<Connection<IssueSummaryNode>, LinearApiError>
-  readonly show: (
-    ref: IssueRef,
-    options: IssueShowOptions,
-  ) => Effect.Effect<IssueDetailData, LinearApiError>
   readonly summary: (ref: IssueRef) => Effect.Effect<IssueSummaryNode, LinearApiError>
+  readonly workingSet: (
+    refs: readonly IssueRef[],
+    options: IssueWorkingSetOptions,
+  ) => Effect.Effect<IssueReadConnection, LinearApiError>
   readonly labels: (ref: IssueRef | IssueId) => Effect.Effect<readonly IssueLabel[], LinearApiError>
   readonly teamId: (issueId: IssueId) => Effect.Effect<TeamId, LinearApiError>
 }
@@ -61,13 +62,6 @@ const makeIssueOperations = (execute: LinearClientShape["execute"]): IssueReadOp
   const summary = Effect.fn("LinearIssue.summary")(function* readSummary(ref: IssueRef) {
     const data = yield* execute(issueSummaryQuery, { id: ref }, IssueSummaryResponse)
     return data.issue
-  })
-
-  const show = Effect.fn("LinearIssue.show")(function* readShow(
-    ref: IssueRef,
-    options: IssueShowOptions,
-  ) {
-    return yield* readIssueShow(execute, ref, options)
   })
 
   const teamId = Effect.fn("LinearIssue.teamId")(function* readTeamId(refId: IssueId) {
@@ -115,7 +109,9 @@ const makeIssueOperations = (execute: LinearClientShape["execute"]): IssueReadOp
     return yield* pageOrDrain(fetchPage, options)
   })
 
-  return { id, labels, list, search, show, summary, teamId }
+  const workingSet = makeWorkingSetOperation(execute)
+
+  return { id, labels, list, search, summary, teamId, workingSet }
 }
 
 export { makeIssueOperations, type IssueReadOperations }

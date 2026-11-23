@@ -87,7 +87,7 @@ describe("issue list priority behavior", () => {
         issue({ identifier: "RAT-1", priority: "none" }),
         issue({ identifier: "RAT-2", priority: "urgent" }),
       ]),
-      ["list", "--priority", "none", "--json"],
+      ["list", "--priority", "none", "--format", "json"],
       lines,
     )
 
@@ -104,7 +104,7 @@ describe("issue list priority behavior", () => {
         issue({ identifier: "RAT-4", priority: "high", createdAt: "2026-01-02T00:00:00.000Z" }),
         issue({ identifier: "RAT-5", priority: "none", createdAt: "2026-01-05T00:00:00.000Z" }),
       ]),
-      ["list", "--sort", "priority", "--limit", "3", "--json"],
+      ["list", "--sort", "priority", "--limit", "3", "--format", "json"],
       lines,
     )
 
@@ -119,7 +119,7 @@ describe("issue list priority behavior", () => {
         issue({ identifier: "RAT-1", priority: "low" }),
         issue({ identifier: "RAT-2", priority: "urgent" }),
       ]),
-      ["list", "--sort", "priority", "--all", "--limit", "1", "--json"],
+      ["list", "--sort", "priority", "--all", "--limit", "1", "--format", "json"],
       lines,
     )
 
@@ -148,7 +148,7 @@ describe("issue list priority behavior", () => {
           ],
         },
       ]),
-      ["list", "--unblocked", "--sort", "priority", "--json"],
+      ["list", "--unblocked", "--sort", "priority", "--format", "json"],
       lines,
     )
 

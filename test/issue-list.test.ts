@@ -5,9 +5,12 @@ import { defaultViewer } from "@test/fake-linear/model"
 import { describe, expect, test } from "bun:test"
 import { Effect, Option, Schema } from "effect"
 
-import { IssueApi } from "@/api/issue"
+import type { IssueListOptions, IssueSearchOptions } from "@/tracker/model"
+
+import { ContextResolver } from "@/context/resolve"
 import { issueId, labelId, projectId, teamId, userId, workflowStateId } from "@/domain/id"
 import { Viewer } from "@/linear/decode/viewer"
+import { IssueReader } from "@/tracker/read"
 
 const viewer = Option.getOrThrow(Schema.decodeUnknownOption(Viewer)(defaultViewer))
 const uuid = "5f0c1f2a-3b4c-4d5e-8f90-1234567890ab"
@@ -82,7 +85,10 @@ const seed = (
   issues: [...(options.includeParent === true ? [parentIssue] : []), ...issues],
 })
 
-const run = <A, E>(memorySeed: MemorySeed, effect: Effect.Effect<A, E, IssueApi>): Promise<A> =>
+const run = <A, E>(
+  memorySeed: MemorySeed,
+  effect: Effect.Effect<A, E, ContextResolver | IssueReader>,
+): Promise<A> =>
   effect.pipe(
     Effect.provide(
       memoryApiLayer(memorySeed, {
@@ -92,16 +98,29 @@ const run = <A, E>(memorySeed: MemorySeed, effect: Effect.Effect<A, E, IssueApi>
     Effect.runPromise,
   )
 
-const list = (memorySeed: MemorySeed, options: Parameters<IssueApi["Service"]["list"]>[0]) =>
+const list = (memorySeed: MemorySeed, options: IssueListOptions) =>
   run(
     memorySeed,
     Effect.gen(function* readPage() {
-      const api = yield* IssueApi
-      return yield* api.list(options)
+      const resolver = yield* ContextResolver
+      const reader = yield* IssueReader
+      const context = yield* resolver.resolve({ team: options.team, viewer: false })
+      return yield* reader.list(context, options)
     }),
   )
 
-describe("IssueApi list", () => {
+const search = (memorySeed: MemorySeed, term: string, options: IssueSearchOptions) =>
+  run(
+    memorySeed,
+    Effect.gen(function* readSearch() {
+      const resolver = yield* ContextResolver
+      const reader = yield* IssueReader
+      const context = yield* resolver.resolve({ team: options.team, viewer: false })
+      return yield* reader.search(context, term, options)
+    }),
+  )
+
+describe("IssueReader list", () => {
   test("composes every list filter", async () => {
     const page = await list(
       seed(
@@ -252,20 +271,14 @@ describe("IssueApi list", () => {
   })
 })
 
-describe("IssueApi search", () => {
+describe("IssueReader search", () => {
   test("reads one relevance-ranked page and passes the cursor", async () => {
     const memorySeed = seed([
       issue({ identifier: "RAT-1", description: "login flow" }),
       issue({ identifier: "RAT-2", description: "login screen" }),
       issue({ identifier: "RAT-3", description: "login retry" }),
     ])
-    const page = await run(
-      memorySeed,
-      Effect.gen(function* searchIssues() {
-        const api = yield* IssueApi
-        return yield* api.search("login", { after: "issue-RAT-1", limit: 10 })
-      }),
-    )
+    const page = await search(memorySeed, "login", { after: "issue-RAT-1", limit: 10 })
 
     expect(page.issues.map((entry) => entry.identifier)).toEqual(["RAT-2", "RAT-3"])
     expect(page.pageInfo).toEqual({ hasNextPage: false, endCursor: "issue-RAT-3" })

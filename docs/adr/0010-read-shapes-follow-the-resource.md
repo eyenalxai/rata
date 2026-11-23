@@ -2,7 +2,9 @@
 
 ## Status
 
-Accepted. This record carries the array contract and the corrected read rule.
+Accepted. ADR-0013 replaces the issue-read shapes: the working set is the one
+issue read and many refs use `{ items, pageInfo }`. The array contract and the
+context-document rule below still hold.
 
 ## Context
 

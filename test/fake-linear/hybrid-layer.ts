@@ -3,13 +3,12 @@ import type { MemorySeed } from "@test/fake-linear/gateway/model"
 import type { Handler } from "@test/fake-linear/model"
 
 import { databaseLayer } from "@test/database-harness"
-import { memoryGatewayLayer } from "@test/fake-linear/gateway/memory"
+import { memoryGatewayLayer } from "@test/fake-linear/gateway/layer"
 import { defaultEnv } from "@test/fake-linear/model"
 import { ConfigProvider, Effect, FileSystem, Layer, Path, Stdio } from "effect"
 import { HttpClient, HttpClientResponse } from "effect/http"
 
 import { LinearClient } from "@/api/client"
-import { IssueApi } from "@/api/issue"
 import { IssueWriteApi } from "@/api/issue-write"
 import { LabelService } from "@/api/label"
 import { ProjectService } from "@/api/project"
@@ -79,7 +78,6 @@ const hybridApiLayer = (handler: Handler, seed: MemorySeed, options: ApiLayerOpt
   )
   const reader = IssueReader.layer.pipe(Layer.provide(Layer.mergeAll(gateway, contextResolver)))
   const writer = IssueWriter.layer.pipe(Layer.provide(Layer.mergeAll(gateway, contextResolver)))
-  const issue = IssueApi.layer.pipe(Layer.provide(Layer.mergeAll(contextResolver, reader)))
   const issueWrite = IssueWriteApi.layer.pipe(
     Layer.provide(Layer.mergeAll(contextResolver, writer)),
   )
@@ -103,7 +101,6 @@ const hybridApiLayer = (handler: Handler, seed: MemorySeed, options: ApiLayerOpt
     writer,
     labels,
     projects,
-    issue,
     repoConfig,
     identity,
     defaults,

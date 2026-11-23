@@ -5,10 +5,9 @@ import { Command } from "effect/cli"
 import { loginSpec, logoutSpec, statusSpec as authStatusSpec, whoamiSpec } from "@/cli/auth"
 import { configSetSpec, configShowSpec, configUnsetSpec } from "@/cli/config"
 import { withAgentNotes } from "@/cli/help"
-import { issueCommand, searchCommand } from "@/cli/issue"
+import { issueCommand } from "@/cli/issue"
 import { labelCreateSpec, labelEditSpec, labelListSpec } from "@/cli/label"
 import { linkSpec } from "@/cli/link"
-import { nextCommand } from "@/cli/next"
 import {
   projectCreateSpec,
   projectDeleteSpec,
@@ -19,7 +18,6 @@ import { Format, OutputSelect, buildCommand, buildGroup } from "@/cli/runner"
 import { statusSpec } from "@/cli/status"
 import { teamCreateSpec, teamDeleteSpec, teamListSpec, teamShowSpec } from "@/cli/team"
 import { unlinkSpec } from "@/cli/unlink"
-import { whyCommand } from "@/cli/why"
 import { workspaceListSpec, workspaceUseSpec } from "@/cli/workspace"
 
 const globalOutputFlags = [Format, OutputSelect] as const
@@ -82,9 +80,6 @@ const commandGroups = [
   unlinkCommand,
   workspaceCommand,
   issueCommand,
-  searchCommand,
-  nextCommand,
-  whyCommand,
   teamCommand,
   projectCommand,
   labelCommand,

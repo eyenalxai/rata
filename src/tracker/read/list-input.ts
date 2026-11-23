@@ -1,11 +1,9 @@
 import type { IssueId, TeamId, UserId } from "@/domain/id"
-import type { IssueRef } from "@/domain/issue-ref"
 import type { IssueListOptions as LinearIssueListOptions } from "@/linear/operations/issue/filter"
 import type { IssueListOptions } from "@/tracker/model"
 
 type PreparedList = {
-  readonly requested: readonly IssueRef[] | undefined
-  readonly teamId: TeamId | undefined
+  readonly teamId: TeamId
   readonly input: LinearIssueListOptions
 }
 
@@ -16,15 +14,15 @@ type MutableListInput = {
 const listInput = (
   options: IssueListOptions,
   values: {
-    readonly teamId: TeamId | undefined
+    readonly teamId: TeamId
     readonly assigneeId: UserId | undefined
     readonly parentId: IssueId | undefined
-    readonly requested: readonly IssueRef[] | undefined
   },
 ): LinearIssueListOptions => {
-  const input: MutableListInput = { after: options.after, limit: options.limit }
-  if (values.teamId !== undefined) {
-    input.teamId = values.teamId
+  const input: MutableListInput = {
+    after: options.after,
+    limit: options.limit,
+    teamId: values.teamId,
   }
   if (options.state !== undefined) {
     input.state = options.state
@@ -55,9 +53,6 @@ const listInput = (
   }
   if (options.unblocked !== undefined) {
     input.unblocked = options.unblocked
-  }
-  if (values.requested !== undefined) {
-    input.ids = values.requested
   }
   if (options.include !== undefined) {
     input.include = options.include

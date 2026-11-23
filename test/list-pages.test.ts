@@ -182,7 +182,7 @@ describe("label list pages", () => {
 describe("issue list pages", () => {
   test("prints pure JSON when a next page exists", async () => {
     const lines: string[] = []
-    await runRootMemory(seed(), ["issue", "list", "--limit", "1", "--json"], lines)
+    await runRootMemory(seed(), ["issue", "list", "--limit", "1", "--format", "json"], lines)
     expect(lines).toHaveLength(1)
     expect(lastJson(lines)).toEqual({
       issues: [expect.objectContaining({ identifier: "RAT-1" })],
@@ -194,7 +194,7 @@ describe("issue list pages", () => {
     const lines: string[] = []
     await runRootMemory(
       seed(),
-      ["issue", "list", "--limit", "1", "--json", "--fields", "createdAt"],
+      ["issue", "list", "--limit", "1", "--format", "json", "--select", "createdAt"],
       lines,
     )
     expect(lastJson(lines)).toEqual({
@@ -205,7 +205,11 @@ describe("issue list pages", () => {
 
   test("drains every page with --all and keeps the limit as the page size", async () => {
     const lines: string[] = []
-    await runRootMemory(seed(), ["issue", "list", "--all", "--limit", "1", "--json"], lines)
+    await runRootMemory(
+      seed(),
+      ["issue", "list", "--all", "--limit", "1", "--format", "json"],
+      lines,
+    )
     expect(lastJson(lines)).toEqual({
       issues: [
         expect.objectContaining({ identifier: "RAT-1" }),

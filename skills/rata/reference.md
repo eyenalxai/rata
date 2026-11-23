@@ -8,19 +8,18 @@ and the loops. `docs/agents/issue-tracker.md` covers the repository rules.
 `rata <command> [subcommand] [flags] [arguments]`
 
 - `<ref>` is an issue identifier (`ABC-42`), a UUID, or a `linear.app` URL.
-- The work surface (`issue`, `search`, `next`, `why`) uses `--json` and
-  `--fields`. Both work before or after the subcommand; `--fields` needs
-  `--json`.
-- The migrated admin commands accept `--format json|text`. JSON is their
-  default when stdout is not a terminal. The admin reads also accept
-  `--select <paths>`; the admin writes do not.
+- The issue reads (`issue <ref>...`, `issue list`, `issue search`) and the admin
+  commands accept `--format json|text` and `--select <paths>`. JSON is the
+  default when stdout is not a terminal. The issue writes still accept `--json`
+  until the apply engine lands.
+- The old read forms (`issue show`, `issue view`, `issue status`, `next`, `why`)
+  and the old read flags (`--json`, `--fields`, `--count`, `--ids-only`,
+  `--include`) exit 2 with a `usage` error.
 - `--body-file -` and `--comment-file -` read stdin. `--dry-run` previews.
-- `--limit` is the page size: 50 by default, 250 at most. `--after` continues a
-  page; `--all` drains every page. The repository config supplies the default
-  team and project.
-- `--count` and `--ids-only` are list output flags on `issue list` and `search`;
-  `next` takes `--ids-only`. Write help ends with an agent notes block: JSON,
-  dry run, stdin and paging.
+- `--limit` is the page size: 50 by default, except `issue search` defaults to
+  10; 250 at most. `--after` continues a page; `--all` drains every page. The
+  repository config supplies the default team and project.
+- Write help ends with an agent notes block: JSON, dry run, stdin and paging.
 
 ## JSON and errors
 
@@ -94,108 +93,81 @@ members and priorities; `team create --name <name> [--key]`; `team delete <key>
 
 ### Read shapes
 
-| Command                                   | JSON                                                                                                                                         |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `issue show <ref>`                        | The issue object with `description`, `children`, `relations` and `attachments`; `comments` with `--comments`                                 |
-| `issue show <ref> --summary`              | The summary object                                                                                                                           |
-| `issue status <ref>`                      | The summary plus `blocked`, `blockedBy`, `prs` and `nextChild`; flags add `description`, `comments` and `children`                           |
-| `next --parent <ref>`                     | The summary of the ready child, or `null`; `--ids-only` prints the identifier or nothing                                                     |
-| `why <ref>`                               | The summary plus `blocked` and `blockedBy`                                                                                                   |
-| `team show [<ref>]`                       | The team object                                                                                                                              |
-| `issue section get <ref> <heading>`       | `{ "heading", "level", "content" }`                                                                                                          |
-| `issue list`, `search`                    | `{ issues, pageInfo }`; `--count` gives `{ count }`; `--ids-only` prints identifiers                                                         |
-| `team list`, `project list`, `label list` | `{ <plural>, pageInfo }`                                                                                                                     |
-| `status`                                  | Named sections: `repository`, `workspace`, `viewer`, `team`, `project`, `defaults`, `states`, `labels`, `triage`, `cache`, `docs`, `warning` |
-| `config show`                             | `{ defaults }`                                                                                                                               |
-| `auth status`                             | `{ authenticated, source, profile, storePath, viewer }`                                                                                      |
-| `link`                                    | `{ team, project, workspace, timezone }`                                                                                                     |
+| Command                                   | JSON                                                                                                                                             |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `issue <ref>`                             | The working set: summary fields, `description`, `sections`, `blocked`, `blockedBy`, `prs`, `children`, `frontier`, `nextChild`, `comments: null` |
+| `issue <ref> --summary`                   | The summary fields: `id`, `identifier`, `title`, `state`, `priority`, `labels`, `assignee`, `project`, `parent`, `url`, `createdAt`, `updatedAt` |
+| `issue <ref> --full`                      | The working set plus `relations` and full child rows                                                                                             |
+| `issue <ref> <ref> ...`                   | `{ items, pageInfo }`; one working set per ref, one list request per page                                                                        |
+| `team show [<ref>]`                       | The team object                                                                                                                                  |
+| `issue section get <ref> <heading>`       | `{ "heading", "level", "content" }`                                                                                                              |
+| `issue list`                              | `{ issues, pageInfo }`; `--relations` adds the six relation groups                                                                               |
+| `issue search`                            | `{ issues, pageInfo }`; ten summary rows by default, no description                                                                              |
+| `team list`, `project list`, `label list` | `{ <plural>, pageInfo }`                                                                                                                         |
+| `status`                                  | Named sections: `repository`, `workspace`, `viewer`, `team`, `project`, `defaults`, `states`, `labels`, `triage`, `cache`, `docs`, `warning`     |
+| `config show`                             | `{ defaults }`                                                                                                                                   |
+| `auth status`                             | `{ authenticated, source, profile, storePath, viewer }`                                                                                          |
+| `link`                                    | `{ team, project, workspace, timezone }`                                                                                                         |
 
-Every issue read carries `createdAt` and `updatedAt`. The summary carries the
-identifier, title, state, priority, labels, assignee, project, parent and url.
-`issue status` carries Linear `github` attachments as `prs`; `checks` and
-`mergeCommit` are `null`, and each PR says `source: "linear"`.
+The working set carries the summary fields, the parsed `sections`, `blocked` and
+`blockedBy`, the Linear `github` attachments as `prs` (`checks` and `mergeCommit`
+are `null`, each PR says `source: "linear"`), lean `children` with `blocked` and
+`blockedBy`, `frontier` (open, unblocked, unassigned children), `nextChild` (the
+first frontier row) and `comments: null`. `--comments` fills the comments.
+`--summary` returns the summary fields only. `--full` adds the six `relations`
+groups and full child rows; the summary fields are already in the default
+working set. `issue list` and `issue search` rows are summaries with `url`,
+timestamps and labels; search rows have no description.
 
 ### Field selection
 
-`--fields` selects dotted paths from a work-surface read and needs `--json`.
-`--select` does the same for a migrated admin read. Both start at the resource,
-at each list row, at `defaults` for `config show`, and at the whole document
-for `status`. The command validates a declared shape before it reads the value,
-so an unknown path is `validation` even on an empty list or a null object;
-`details` carries `path` and `validPaths`. Writes reject field selection with a
-hint.
+`--select` selects dotted paths from an issue read. It validates the declared
+shape of the active mode (summary, working or full) before the read, so an
+unknown path is `validation` even on an empty list or a null object; `details`
+carries `path` and `validPaths`. It starts at the resource for one ref, at each
+row for a list, and at each item for many refs.
 
-A path through a null object returns `null`. An array is selectable whole. A
-path may cross an array: a final array segment returns the array; a later segment
-maps each element; a scalar leaf returns an array of scalars (`labels.name` ->
+A path through a null object returns `null`. An array is selectable whole. A path
+may cross an array: a final array segment returns the array; a later segment maps
+each element; a scalar leaf returns an array of scalars (`labels.name` ->
 `["bug"]`); an object leaf returns an array of objects (`children.state` ->
 `[{ "state": ... }]`); paths that cross the same array merge. A path through an
 array of scalars is `validation`; an empty array returns `[]`. A list keeps
-`pageInfo`. `--fields` is valid on `issue show`, `issue status`, `issue section get`,
-`issue list`, `search`, `next` and `why`. `--select` is valid on `status`,
-`team show`, `team list`, `project list`, `label list`, `config show` and
-`whoami`.
+`pageInfo`.
 
-### `issue show` flags
+### `issue <ref>` flags
 
-`--comments` adds comments; the default read omits them. `--no-comments` skips
-the fetch and omits the key; it is redundant with the default. The two conflict.
-`--summary` reads header fields only and rejects `--comments`.
-
-`--no-body` drops the description from the output only; the read still fetches
-it. `--no-relations`, `--no-children` and `--no-attachments` drop those parts and
-skip their fetches. JSON is the issue object, not a wrapper; `view` aliases
-`show`; every collection page is read.
-
-### `issue status` flags
-
-The default read uses two requests: the detail and one ready child. `--with-body`
-adds `description` at no extra request. `--comments` adds `comments` with one
-extra request. `--children` replaces the one-child read with every child, each
-with `blocked` and `blockedBy`, and computes `nextChild` from them. `--fields`
-follows the flags: `description`, `comments` and `children` each need their flag.
+`--comments` adds comments; the default read returns `comments: null`.
+`--summary` returns the summary fields only and rejects `--comments`.
+`--full` adds relations and full child rows. `--summary` and `--full` are
+mutually exclusive. Many refs print `{ "items", "pageInfo" }`; each page of refs
+is one list request, not one detail read per ref. Under Linear's 10,000-point
+query cap, a page holds up to 250 refs in summary mode, 5 in working mode and 3
+in full mode. Every requested connection is drained: children, relations, labels,
+attachments and comments each fetch their remaining pages in one batched request
+per connection page.
 
 ### `issue list` flags
 
 `--team`, `--state`, `--state-type`, `--priority`, `--label`, `--assignee`,
-`--project`, `--parent`, `--id`, `--text`, `--unblocked` and `--unassigned`
-filter; `--limit`, `--after` and `--all` page.
-
-`--id <ref>` reads exact refs and repeats for a batch. Exact refs bypass the
-linked team; `--team` narrows. It composes with `--fields`, `--include
-relations`, `--all`, `--count` and `--ids-only`. A missing ref is `not_found`
-once the read covers every page; add `--all` to check a batch completely.
+`--project`, `--parent`, `--text`, `--unblocked` and `--unassigned` filter;
+`--limit`, `--after` and `--all` page. `--relations` adds the six relation groups
+to every row with one request per page.
 
 On an empty page, `--state`, `--label` and `--project` are checked for
 existence. An unknown name is `not_found` with the valid names; a valid name
 with no matches stays empty. `--assignee` accepts `me` or a user UUID; a
 malformed value is `validation`, an unknown UUID is `not_found`.
 
-`--count` drains every page and prints `{ "count": n }`; `--ids-only` prints one
-identifier per line. They cannot combine, `--count` rejects `--fields`, and
-`--ids-only` rejects `--json` and `--fields`. `search` accepts both.
+`--sort priority` orders urgent first and none last; ties go to the oldest.
+`--limit` stays the page size and `--after` continues the sorted result.
 
-`--sort priority` orders urgent first and none last; Linear sorts on the server
-and ties go to the oldest. `--limit` stays the page size and `--after` continues
-the sorted result. `--unblocked` drops blocked issues first.
+### `issue search` flags
 
-`--include relations` adds the six groups to every row with one request per page
-and no per-child read. Each outgoing or inverse connection holds up to 250, and
-`related` and `similar` merge both. A full page is 2,462 complexity points at
-page sizes 10, 25 and 50, under the 10,000-point cap. Read a larger row with
-`issue show`. Without the flag a row has no `relations` key; another value is
-`validation`.
-
-### `next`, `why` and `search`
-
-`next --parent <ref>` returns the first open, unblocked, unassigned child:
-priority first, then oldest `createdAt`. JSON is the summary or `null`; both exit 0. `--ids-only` prints the identifier or nothing.
-
-`why <ref>` returns the summary plus `blocked` and `blockedBy`; each blocker
-carries its state and `closed`, and `blocked` is true when any is open.
-
-`search <text>` takes `--team`, `--limit`, `--after`, `--all`, `--count` and
-`--ids-only`; it keeps relevance order, so paging is best effort.
+`issue search <text> [--team] [--limit] [--after] [--all]` returns ten summary
+rows by default. `--limit` changes the page size, `--after` continues from a
+cursor and `--all` drains. It keeps relevance order. It does not return
+descriptions.
 
 ### Paging
 
@@ -360,10 +332,12 @@ label or relation value stays in the hint, shell-quoted when needed.
 
 | Wrong form                                 | Hint                                                                       |
 | ------------------------------------------ | -------------------------------------------------------------------------- |
-| `issue <ref>`                              | `rata issue show <ref>`                                                    |
+| `issue show <ref>`                         | `rata issue <ref>`                                                         |
+| `issue status <ref>`                       | `rata issue <ref>`                                                         |
 | `issue comment <ref>`                      | `rata issue comment create <ref> --body-file -`                            |
 | `issue update <ref> --label <label...>`    | `rata issue label add <ref> <label...>`                                    |
 | `issue create --blocked-by <ref>`          | `Create the issue, then run rata issue link <new-ref> --blocked-by <ref>.` |
 | `issue update <ref> --blocked-by <ref>`    | `rata issue link <ref> --blocked-by <ref>`                                 |
 | `issue link <ref>` without a relation flag | `rata issue link <ref> --blocked-by <blocker>`                             |
+| an issue read with `--fields`              | `Use --format json; --select replaces --fields.`                           |
 | a write with `--fields`                    | `--fields applies to reads only. Use --json and jq on the write result.`   |

@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted.
+Superseded in part by ADR-0013: `issue <ref>` is now the canonical read and the
+old read forms are gone. The write forms below still hold.
 
 ## Context
 

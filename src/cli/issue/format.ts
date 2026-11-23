@@ -1,49 +1,19 @@
+import { EOL } from "node:os"
+
 import type { PullRequest } from "@/domain/pr"
-import type { IssueChild, IssueComment } from "@/linear/decode/issue"
-import type { IssueDetail, IssueRelations, IssueStatus, IssueSummary } from "@/tracker/model"
+import type { IssueComment } from "@/linear/decode/issue"
+import type {
+  IssueReadDocument,
+  IssueSummary,
+  IssueWorkingChild,
+  IssueWorkingChildFull,
+  IssueWorkingSet,
+  IssueWorkingSetFull,
+} from "@/tracker/model"
 
 import { formatIssueLine } from "@/cli/issue/line"
 
-const formatRelations = (relations: IssueRelations): string[] => {
-  const lines: string[] = []
-  const groups: readonly (readonly [string, readonly IssueChild[]])[] = [
-    ["blocks", relations.blocks],
-    ["blockedBy", relations.blockedBy],
-    ["duplicates", relations.duplicates],
-    ["duplicatedBy", relations.duplicatedBy],
-    ["related", relations.related],
-    ["similar", relations.similar],
-  ]
-  for (const [name, targets] of groups) {
-    if (targets.length > 0) {
-      const text = targets.map((target) => `${target.identifier} ${target.title}`).join(", ")
-      lines.push(`  ${name}: ${text}`)
-    }
-  }
-  return lines
-}
-
-const formatIssueHeader = (issue: IssueSummary): string[] => {
-  const lines: string[] = [
-    `${issue.identifier}: ${issue.title}`,
-    `state: ${issue.state.name} (${issue.state.type})`,
-    `priority: ${issue.priority}`,
-    `labels: ${issue.labels.map((label) => label.name).join(", ") || "-"}`,
-  ]
-  if (issue.assignee !== null) {
-    lines.push(`assignee: ${issue.assignee.name}`)
-  }
-  if (issue.project !== null) {
-    lines.push(`project: ${issue.project.name}`)
-  }
-  if (issue.parent !== null) {
-    lines.push(`parent: ${issue.parent.identifier}: ${issue.parent.title}`)
-  }
-  lines.push(`url: ${issue.url}`, `updatedAt: ${issue.updatedAt}`)
-  return lines
-}
-
-const formatComment = (comment: IssueComment): string[] => {
+const linesForComment = (comment: IssueComment): string[] => {
   const author = comment.user?.name ?? "unknown"
   return [
     `  ${comment.createdAt} ${author}:`,
@@ -51,39 +21,10 @@ const formatComment = (comment: IssueComment): string[] => {
   ]
 }
 
-const formatIssueDetail = (issue: IssueDetail, showBody: boolean): string => {
-  const lines = formatIssueHeader(issue)
-  if (showBody && issue.description !== null && issue.description.trim().length > 0) {
-    lines.push("", issue.description)
-  }
-  if (issue.children.length > 0) {
-    lines.push("children:")
-    for (const child of issue.children) {
-      lines.push(`  ${child.identifier}  [${child.state.name}]  ${child.title}`)
-    }
-  }
-  const relationLines = formatRelations(issue.relations)
-  if (relationLines.length > 0) {
-    lines.push("relations:", ...relationLines)
-  }
-  if (issue.attachments.length > 0) {
-    lines.push("attachments:")
-    for (const attachment of issue.attachments) {
-      const source = attachment.subtitle ?? attachment.sourceType
-      const prefix = source === null ? attachment.title : `${attachment.title} (${source})`
-      lines.push(`  ${prefix}  ${attachment.url}`)
-    }
-  }
-  if (issue.comments !== undefined && issue.comments.length > 0) {
-    lines.push("comments:")
-    for (const comment of issue.comments) {
-      lines.push(...formatComment(comment))
-    }
-  }
-  return lines.join("\n")
-}
-
-const formatIssueSummary = (issue: IssueSummary): string => formatIssueHeader(issue).join("\n")
+const formatComments = (comments: readonly IssueComment[]): string[] => [
+  "comments:",
+  ...comments.flatMap(linesForComment),
+]
 
 const pullRequestState = (pull: PullRequest): string =>
   pull.draft === true || pull.status === "draft" ? "draft" : (pull.status ?? "unknown")
@@ -98,54 +39,99 @@ const formatPullRequest = (pull: PullRequest): string =>
     .filter((value): value is string => value !== null)
     .join("  ")}`
 
-const formatIssueStatus = (status: IssueStatus): string => {
-  const lines: string[] = [
-    `${status.identifier}: ${status.title}`,
-    `state: ${status.state.name} (${status.state.type})`,
-    `priority: ${status.priority}`,
-    `assignee: ${status.assignee?.name ?? "unassigned"}`,
-    `blocked: ${status.blocked ? "yes" : "no"}`,
-  ]
-  if (
-    status.description !== undefined &&
-    status.description !== null &&
-    status.description.trim().length > 0
-  ) {
-    lines.push("", status.description)
-  }
-  const openBlockers = status.blockedBy.filter((blocker) => !blocker.closed)
-  if (openBlockers.length > 0) {
-    lines.push("open blockers:")
-    for (const blocker of openBlockers) {
-      lines.push(`  ${blocker.identifier}  [${blocker.state.name}]  ${blocker.title}`)
-    }
-  }
-  if (status.prs.length === 0) {
-    lines.push("prs: none")
-  } else {
-    lines.push("prs:")
-    for (const pull of status.prs) {
-      lines.push(formatPullRequest(pull))
-    }
-  }
-  lines.push(
-    status.nextChild === null
-      ? "next child: none"
-      : `next child: ${formatIssueLine(status.nextChild)}`,
-  )
-  if (status.children !== undefined && status.children.length > 0) {
-    lines.push("children:")
-    for (const child of status.children) {
-      lines.push(`  ${child.identifier}  [${child.state.name}]  ${child.title}`)
-    }
-  }
-  if (status.comments !== undefined && status.comments.length > 0) {
-    lines.push("comments:")
-    for (const comment of status.comments) {
-      lines.push(...formatComment(comment))
-    }
-  }
-  return lines.join("\n")
+const formatHeader = (issue: IssueSummary): string[] => [
+  `${issue.identifier}: ${issue.title}`,
+  `state: ${issue.state.name} (${issue.state.type})`,
+  ...(issue.priority === "none" ? [] : [`priority: ${issue.priority}`]),
+  `assignee: ${issue.assignee?.name ?? "unassigned"}`,
+  `labels: ${issue.labels.map((label) => label.name).join(", ") || "-"}`,
+  ...(issue.project === null ? [] : [`project: ${issue.project.name}`]),
+  ...(issue.parent === null ? [] : [`parent: ${issue.parent.identifier}: ${issue.parent.title}`]),
+  `url: ${issue.url}`,
+  `updatedAt: ${issue.updatedAt}`,
+]
+
+const formatChildLine = (child: IssueWorkingChild | IssueWorkingChildFull): string => {
+  const blocked = child.blocked ? "blocked" : "ready"
+  return `  ${child.identifier}  [${child.state.name}]  ${blocked}  ${child.title}`
 }
 
-export { formatIssueDetail, formatIssueStatus, formatIssueSummary }
+const formatChildBlock = (title: string, children: readonly IssueWorkingChild[]): string[] =>
+  children.length === 0 ? [] : [title, ...children.map(formatChildLine)]
+
+const formatRelations = (relations: IssueWorkingSetFull["relations"]): string[] => {
+  const groups = [
+    ["blocks", relations.blocks],
+    ["blockedBy", relations.blockedBy],
+    ["duplicates", relations.duplicates],
+    ["duplicatedBy", relations.duplicatedBy],
+    ["related", relations.related],
+    ["similar", relations.similar],
+  ] as const
+  const lines = groups
+    .filter(([, targets]) => targets.length > 0)
+    .map(
+      ([name, targets]) =>
+        `  ${name}: ${targets.map((target) => `${target.identifier} ${target.title}`).join(", ")}`,
+    )
+  return lines.length === 0 ? [] : ["relations:", ...lines]
+}
+
+const formatWorkingSet = (issue: IssueWorkingSet | IssueWorkingSetFull): string => {
+  const body =
+    issue.description !== null && issue.description.trim().length > 0 ? ["", issue.description] : []
+  const sections =
+    issue.sections.length === 0
+      ? []
+      : [
+          "sections:",
+          ...issue.sections.map((section) => `  ${"#".repeat(section.level)} ${section.heading}`),
+        ]
+  const openBlockers = issue.blockedBy.filter((blocker) => !blocker.closed)
+  const blockers =
+    openBlockers.length === 0
+      ? []
+      : [
+          "open blockers:",
+          ...openBlockers.map(
+            (blocker) => `  ${blocker.identifier}  [${blocker.state.name}]  ${blocker.title}`,
+          ),
+        ]
+  const prs = issue.prs.length === 0 ? ["prs: none"] : ["prs:", ...issue.prs.map(formatPullRequest)]
+  const nextChild =
+    issue.nextChild === null
+      ? "next child: none"
+      : `next child: ${formatChildLine(issue.nextChild).trimStart()}`
+  return [
+    ...formatHeader(issue),
+    ...body,
+    ...sections,
+    ...blockers,
+    issue.blocked ? "blocked: yes" : "blocked: no",
+    ...prs,
+    ...formatChildBlock("children:", issue.children),
+    ...formatChildBlock("frontier:", issue.frontier),
+    nextChild,
+    ...(issue.comments === null
+      ? []
+      : issue.comments.length === 0
+        ? ["comments: none"]
+        : formatComments(issue.comments)),
+    ...("relations" in issue && issue.relations !== undefined
+      ? formatRelations(issue.relations)
+      : []),
+  ].join(EOL)
+}
+
+const isWorkingSet = (issue: IssueReadDocument): issue is IssueWorkingSet | IssueWorkingSetFull =>
+  "description" in issue
+
+const formatSummary = (issue: IssueSummary): string => formatHeader(issue).join(EOL)
+
+const formatReadDocument = (issue: IssueReadDocument): string =>
+  isWorkingSet(issue) ? formatWorkingSet(issue) : formatSummary(issue)
+
+const formatSummaryPage = (issues: readonly IssueSummary[]): string =>
+  issues.length === 0 ? "No issues found." : issues.map(formatIssueLine).join(EOL)
+
+export { formatReadDocument, formatSummary, formatSummaryPage, formatWorkingSet }

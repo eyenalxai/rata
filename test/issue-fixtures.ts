@@ -6,13 +6,12 @@ import { ConfigProvider, Effect, FileSystem, Layer, Path, Result, Schema } from 
 import { HttpClient, HttpClientResponse } from "effect/http"
 
 import { LinearClient } from "@/api/client"
-import { IssueApi } from "@/api/issue"
 import { TeamService } from "@/api/team"
 import { Auth } from "@/config/auth"
 import { RepoConfigService } from "@/config/repo"
 import { RepositoryIdentity } from "@/config/repo-identity"
 import { ContextResolver } from "@/context/resolve"
-import { attachmentId, issueId, labelId, projectId, teamId, userId } from "@/domain/id"
+import { attachmentId, issueId, labelId, projectId, userId } from "@/domain/id"
 import { makeClient } from "@/linear/client"
 import { LinearAuthError } from "@/linear/errors"
 import { LinearGateway, makeLinearGateway } from "@/linear/gateway"
@@ -59,13 +58,6 @@ const summaryNode = (identifier: string) => ({
   labels: { nodes: [label] },
 })
 
-const child = {
-  id: issueId("i2"),
-  identifier: "RAT-2",
-  title: "Child",
-  state: { name: "Todo", type: "unstarted" },
-}
-
 const attachment = {
   id: attachmentId("a1"),
   title: "Design doc",
@@ -73,27 +65,6 @@ const attachment = {
   url: "https://example.com/doc",
   sourceType: "link",
   createdAt: "2026-01-01T10:00:00.000Z",
-}
-
-const baseDetail = {
-  id: issueId("6f1c2a3b-4d5e-4f60-8a9b-0c1d2e3f4a5b"),
-  identifier: "RAT-1",
-  title: "The issue",
-  description: "Body",
-  url: "https://linear.app/eyenalx/issue/RAT-1/the-issue",
-  state,
-  priority: 0,
-  createdAt: "2026-01-01T08:00:00.000Z",
-  updatedAt: "2026-01-01T09:00:00.000Z",
-  assignee: user,
-  project,
-  parent,
-  team: { id: teamId("t1"), key: "RAT", name: "Rata" },
-  labels: { nodes: [label], pageInfo },
-  children: { nodes: [child], pageInfo },
-  relations: { nodes: [], pageInfo },
-  inverseRelations: { nodes: [], pageInfo },
-  attachments: { nodes: [], pageInfo },
 }
 
 const RequestBody = Schema.Struct({
@@ -202,12 +173,12 @@ const issueLayer = (
     Layer.provide(Layer.mergeAll(auth, gateway, teamLayer, repoConfig, identity, contextCache)),
   )
   const reader = IssueReader.layer.pipe(Layer.provide(Layer.mergeAll(gateway, contextResolver)))
-  return IssueApi.layer.pipe(Layer.provide(Layer.mergeAll(contextResolver, reader)))
+  return Layer.mergeAll(contextResolver, reader)
 }
 
 const run = <A, E>(
   handler: (request: HttpClientRequest.HttpClientRequest) => Response,
-  effect: Effect.Effect<A, E, IssueApi>,
+  effect: Effect.Effect<A, E, ContextResolver | IssueReader>,
   repositories: readonly RepositorySeed[] = repositorySeed,
 ): Promise<A> =>
   effect.pipe(
@@ -234,11 +205,11 @@ const summaryKeys = [
 
 export {
   attachment,
-  baseDetail,
   jsonResponse,
   pageInfo,
   readBody,
   run,
+  type RequestBody,
   summaryKeys,
   summaryNode,
   user,

@@ -21,118 +21,125 @@ const booleanGlobalFlags = new Set([
   "--no-json",
 ])
 const falseLiterals = new Set(["false", "no", "off", "0", "n"])
-type CommandClass = "admin" | "work-surface"
-
-const commandClasses: Readonly<Record<string, CommandClass>> = {
-  auth: "admin",
-  whoami: "admin",
-  status: "admin",
-  config: "admin",
-  link: "admin",
-  unlink: "admin",
-  workspace: "admin",
-  team: "admin",
-  project: "admin",
-  label: "admin",
-  issue: "work-surface",
-  search: "work-surface",
-  next: "work-surface",
-  why: "work-surface",
-}
+const legacyIssueGroups = new Set([
+  "create",
+  "comment",
+  "update",
+  "section",
+  "label",
+  "assign",
+  "unassign",
+  "close",
+  "reopen",
+  "link",
+  "unlink",
+])
 
 type ScannedArgs = {
-  readonly tokens: readonly string[]
-  readonly validFlags: boolean
-  readonly format: OutputFormat | undefined
-  readonly hasNewOutputFlag: boolean
+  tokens: string[]
+  validFlags: boolean
+  format: OutputFormat | undefined
+  hasNewOutputFlag: boolean
+  hasOldOutputFlag: boolean
 }
 
-const commandClass = (name: string | undefined): CommandClass | undefined =>
-  name !== undefined && Object.hasOwn(commandClasses, name) ? commandClasses[name] : undefined
-
-const isWorkSurfaceName = (name: string | undefined): boolean =>
-  commandClass(name) === "work-surface"
+const scanFlag = (args: readonly string[], index: number, state: ScannedArgs): number => {
+  const token = args[index] ?? ""
+  const [name, inline] = token.split("=", 2)
+  if (name === undefined) {
+    state.validFlags = false
+    return index + 1
+  }
+  if (name === "--format") {
+    state.hasNewOutputFlag = true
+    const value = inline ?? args[index + 1]
+    if (value === "json" || value === "text") {
+      state.format = value
+    }
+    return inline === undefined ? index + 2 : index + 1
+  }
+  if (name === "--select") {
+    state.hasNewOutputFlag = true
+    return inline === undefined ? index + 2 : index + 1
+  }
+  if (name === "--json" || name === "--no-json" || name === "--fields") {
+    state.hasOldOutputFlag = true
+  }
+  if (valueGlobalFlags.has(name)) {
+    return inline === undefined ? index + 2 : index + 1
+  }
+  if (!booleanGlobalFlags.has(name)) {
+    state.validFlags = false
+    return index + 1
+  }
+  const next = args[index + 1]
+  return inline === undefined &&
+    name !== "--no-json" &&
+    next !== undefined &&
+    falseLiterals.has(next)
+    ? index + 2
+    : index + 1
+}
 
 const scanArgs = (args: readonly string[]): ScannedArgs => {
-  const tokens: string[] = []
-  let validFlags = true
-  let format: OutputFormat | undefined = undefined
-  let hasNewOutputFlag = false
-  for (let index = 0; index < args.length; index += 1) {
+  const state: ScannedArgs = {
+    tokens: [],
+    validFlags: true,
+    format: undefined,
+    hasNewOutputFlag: false,
+    hasOldOutputFlag: false,
+  }
+  let index = 0
+  while (index < args.length) {
     const token = args[index]
     if (token === undefined || token === "--") {
       break
     }
     if (token.startsWith("-")) {
-      const [name, inline] = token.split("=", 2)
-      if (name === undefined) {
-        validFlags = false
-        continue
-      }
-      if (name === "--format") {
-        hasNewOutputFlag = true
-        const value = inline ?? args[index + 1]
-        if (inline === undefined) {
-          index += 1
-        }
-        if (value === "json" || value === "text") {
-          format = value
-        }
-        continue
-      }
-      if (name === "--select") {
-        hasNewOutputFlag = true
-        if (inline === undefined) {
-          index += 1
-        }
-        continue
-      }
-      if (valueGlobalFlags.has(name)) {
-        if (inline === undefined) {
-          index += 1
-        }
-        continue
-      }
-      if (!booleanGlobalFlags.has(name)) {
-        validFlags = false
-        continue
-      }
-      const next = args[index + 1]
-      if (
-        inline === undefined &&
-        name !== "--no-json" &&
-        next !== undefined &&
-        falseLiterals.has(next)
-      ) {
-        index += 1
-      }
+      index = scanFlag(args, index, state)
       continue
     }
-    tokens.push(token)
+    state.tokens.push(token)
+    index += 1
   }
-  return { tokens, validFlags, format, hasNewOutputFlag }
+  return state
 }
 
-const topLevelCommand = (args: readonly string[]): string | undefined => scanArgs(args).tokens[0]
+const isLegacyScanned = (scanned: ScannedArgs): boolean => {
+  if (scanned.tokens[0] !== "issue") {
+    return false
+  }
+  const group = scanned.tokens[1]
+  return group !== undefined && legacyIssueGroups.has(group)
+}
+
+const isLegacyIssueCommand = (args: readonly string[]): boolean => isLegacyScanned(scanArgs(args))
+
+const isIssueReadCommand = (args: readonly string[]): boolean => {
+  const scanned = scanArgs(args)
+  return scanned.tokens[0] === "issue" && !isLegacyScanned(scanned)
+}
 
 const formatFromArgs = (args: readonly string[], stdoutIsTerminal: boolean): OutputFormat => {
   const scanned = scanArgs(args)
   if (scanned.format !== undefined) {
     return scanned.format
   }
-  if (jsonEnabled(args)) {
+  if (isLegacyIssueCommand(args)) {
+    return jsonEnabled(args) ? "json" : "text"
+  }
+  if (jsonEnabled(args) || !stdoutIsTerminal) {
     return "json"
   }
-  const command = scanned.tokens[0]
-  return command !== undefined && commandClass(command) === "admin" && !stdoutIsTerminal
-    ? "json"
-    : "text"
+  return "text"
 }
 
 const helpRequested = (args: readonly string[]): boolean =>
   args.includes("--help") || args.includes("-h")
 
 const hasNewOutputFlag = (args: readonly string[]): boolean => scanArgs(args).hasNewOutputFlag
+
+const hasOldOutputFlag = (args: readonly string[]): boolean => scanArgs(args).hasOldOutputFlag
 
 const isBareInvocation = (root: CliCommand.Command.Any, args: readonly string[]): boolean => {
   const scanned = scanArgs(args)
@@ -152,15 +159,12 @@ const isBareInvocation = (root: CliCommand.Command.Any, args: readonly string[])
   return current.subcommands.length > 0
 }
 
-const isWorkSurfaceCommand = (args: readonly string[]): boolean =>
-  isWorkSurfaceName(topLevelCommand(args))
-
 export {
   formatFromArgs,
   hasNewOutputFlag,
+  hasOldOutputFlag,
   helpRequested,
   isBareInvocation,
-  isWorkSurfaceCommand,
-  isWorkSurfaceName,
-  topLevelCommand,
+  isIssueReadCommand,
+  isLegacyIssueCommand,
 }
