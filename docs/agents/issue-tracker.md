@@ -32,7 +32,7 @@ tickets are child issues.
 
 - **Publish the spec**: `rata issue create --title "<title>" --label ready-for-agent --priority medium --assignee me --body-file -`
 - **Publish a ticket**: `rata issue create --title "<title>" --parent <spec-ref> --label ready-for-agent --priority medium --assignee me --body-file -`
-- **Wire blocking**: `rata issue link <ticket-ref> --blocked-by <blocker-ref>`.
+- **Wire blocking**: `rata issue relate <ticket-ref> --blocked-by <blocker-ref>`.
 - **Start a ticket**: `rata issue <ticket-ref>`. The read carries the description, sections, blockers, pull requests, children, frontier and next child in one call.
 - **Read a known set**: `rata issue <ref> <ref> ...`.
 - **Implement**: `rata issue list --parent <spec-ref> --relations --all`. Each row carries its blocking edges.
@@ -45,11 +45,11 @@ The map is an issue labelled `wayfinder:map`. Its children carry
 
 - **Map**: `rata issue create --title "<title>" --label wayfinder:map --no-default-labels --assignee none --body-file -`
 - **Child**: `rata issue create --title "<title>" --parent <map-ref> --label wayfinder:<type> --no-default-labels --assignee none --body-file -`
-- **Wire**: `rata issue link <child-ref> --blocked-by <blocker-ref>`.
+- **Wire**: `rata issue relate <child-ref> --blocked-by <blocker-ref>`.
 - **Frontier**: `rata issue <map-ref>` returns `frontier` and `nextChild`. For the whole frontier as rows, use `rata issue list --parent <map-ref> --unblocked --unassigned --relations --sort priority --all`.
-- **Claim**: `rata issue assign <ref> --assignee me`. If another user holds it,
+- **Claim**: `rata issue apply <ref> --file -` with `{"assignee": "me"}`. If another user holds it,
   the command exits 4 and names the holder; `--take` reassigns it.
-- **Resolve**: `rata issue comment create <ref> --body-file -`, then `rata issue close <ref>`, then `rata issue section append <map-ref> "Decisions so far" --body-file -`.
+- **Resolve**: `rata issue comment <ref> --body-file -`, then `rata issue close <ref>`, then `rata issue apply <map-ref> --file -` with a `sections` append.
 
 ## Pull requests
 

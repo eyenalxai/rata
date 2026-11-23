@@ -1,3 +1,4 @@
+/* oxlint-disable max-lines, typescript/no-unsafe-return, typescript/no-unsafe-call, typescript/no-unsafe-type-assertion -- the in-memory GraphQL adapter narrows unknown variables at the test seam and keeps its handlers together. */
 import type {
   MemoryIssue,
   MemoryLabel,
@@ -5,17 +6,26 @@ import type {
   MemorySeed,
   MemoryTeam,
 } from "@test/fake-linear/gateway/model"
+import type { MemoryWriteState } from "@test/fake-linear/gateway/write"
 
 import {
   byPriority,
   matchesIssue,
+  relationConnections,
   summaryNode,
   toFullWorking,
   toWorking,
   withRelations,
 } from "@test/fake-linear/gateway/issue"
 import { defaultPriorities } from "@test/fake-linear/gateway/model"
-import { Effect, Option, Redacted, Schema } from "effect"
+import {
+  changeLabel,
+  createComment,
+  createRelation,
+  deleteRelation,
+  updateIssue,
+} from "@test/fake-linear/gateway/write"
+import { Effect, Predicate, Redacted, Schema } from "effect"
 
 import type { Connection } from "@/linear/connection"
 import type { TeamDetail } from "@/linear/decode/team"
@@ -58,11 +68,9 @@ const projectVisible = (project: MemoryProject, teamId: string | undefined): boo
   project.teams === undefined ||
   project.teams.some((team) => team === teamId)
 
-const unsupported = (): LinearGraphQLError =>
-  new LinearGraphQLError({
-    message: "The in-memory Linear gateway does not execute raw GraphQL documents.",
-    details: [],
-  })
+const unsupported = (
+  message = "The in-memory Linear gateway does not execute raw GraphQL documents.",
+): LinearGraphQLError => new LinearGraphQLError({ message, details: [] })
 
 const teamDetail = (team: MemoryTeam, labels: readonly MemoryLabel[]): TeamDetail => ({
   id: team.id,
@@ -88,6 +96,15 @@ const teamDetail = (team: MemoryTeam, labels: readonly MemoryLabel[]): TeamDetai
   ),
 })
 
+const runWrite = (write: () => Record<string, unknown>) =>
+  Effect.try({
+    try: write,
+    catch: (error) =>
+      Schema.is(LinearGraphQLError)(error)
+        ? error
+        : new LinearGraphQLError({ message: String(error), details: [] }),
+  })
+
 const makeMemoryGateway = (seed: MemorySeed): LinearGatewayShape => {
   const issues = [...(seed.issues ?? [])]
   const teams = [...seed.teams]
@@ -104,36 +121,133 @@ const makeMemoryGateway = (seed: MemorySeed): LinearGatewayShape => {
       : Effect.succeed(issue)
   }
 
-  const updateIssueState = (variables: Record<string, unknown>) => {
-    const input = Option.getOrUndefined(
-      Schema.decodeUnknownOption(Schema.Struct({ stateId: Schema.String }))(variables.input),
-    )
-    if (input === undefined) {
-      return Effect.fail(unsupported())
-    }
-    const index = issues.findIndex((issue) => String(issue.summary.id) === String(variables.id))
-    const issue = issues[index]
-    const state =
-      issue === undefined
-        ? undefined
-        : (teams.find((team) => team.id === issue.team.id)?.states ?? []).find(
-            (candidate) => candidate.id === input.stateId,
-          )
-    if (issue === undefined || state === undefined) {
-      return Effect.fail(unsupported())
-    }
-    const updated: MemoryIssue = {
-      ...issue,
-      summary: { ...issue.summary, state: { name: state.name, type: state.type } },
-    }
-    issues[index] = updated
-    return Effect.succeed({ issueUpdate: { success: true, issue: updated.summary } })
+  const writeState: MemoryWriteState = {
+    viewer: seed.viewer,
+    issues,
+    teams,
+    labels,
+    projects,
   }
 
-  const execute = ((query: string, variables: Record<string, unknown>) =>
-    query.includes("mutation UpdateIssue")
-      ? updateIssueState(variables)
-      : Effect.fail(unsupported())) as LinearGatewayShape["client"]["execute"]
+  const pageInfo = { hasNextPage: false, endCursor: null }
+
+  const issueOrThrow = (ref: string): MemoryIssue => {
+    const issue = findIssue(ref)
+    if (issue === undefined) {
+      throw new LinearGraphQLError({ message: `No issue matches ${ref}.`, details: [] })
+    }
+    return issue
+  }
+
+  const queryCommentById = (variables: Record<string, unknown>) => {
+    const filter = Reflect.get(variables, "filter")
+    const filterId = Predicate.isObject(filter) ? Reflect.get(filter, "id") : undefined
+    const id = Predicate.isObject(filterId) ? Reflect.get(filterId, "eq") : undefined
+    const comment = issues
+      .flatMap((issue) => issue.comments ?? [])
+      .find((candidate) => String(candidate.id) === id)
+    return {
+      comments: { nodes: comment === undefined ? [] : [comment], pageInfo },
+    }
+  }
+
+  const queryIssueRefs = (variables: Record<string, unknown>) => {
+    const filter = variables.filter as
+      | { readonly id?: { readonly in?: readonly string[] } }
+      | undefined
+    const refs = new Set((filter?.id?.in ?? []).map(String))
+    const nodes = issues
+      .filter((issue) => refs.has(String(issue.summary.id)) || refs.has(issue.summary.identifier))
+      .map((issue) => ({ id: issue.summary.id, identifier: issue.summary.identifier }))
+    return { issues: { nodes, pageInfo } }
+  }
+
+  const queryIssueBody = (variables: Record<string, unknown>) => {
+    const issue = issueOrThrow(String(variables.id))
+    return {
+      issue: {
+        id: issue.summary.id,
+        identifier: issue.summary.identifier,
+        description: issue.description,
+        updatedAt: issue.summary.updatedAt,
+      },
+    }
+  }
+
+  const execute = ((query: string, variables: Record<string, unknown>) => {
+    const failure = seed.failOn?.find((fragment) => query.includes(fragment))
+    if (failure !== undefined) {
+      return Effect.fail(
+        new LinearGraphQLError({
+          message: `The in-memory Linear gateway was told to fail ${failure}.`,
+          details: [],
+        }),
+      )
+    }
+    if (query.includes("query IssueRelationsWithInverse")) {
+      const issue = findIssue(String(variables.id))
+      return Effect.succeed(
+        issue === undefined
+          ? {
+              issue: {
+                relations: { nodes: [], pageInfo },
+                inverseRelations: { nodes: [], pageInfo },
+              },
+            }
+          : { issue: relationConnections(issue) },
+      )
+    }
+    if (query.includes("query IssueRelations")) {
+      const issue = findIssue(String(variables.id))
+      return Effect.succeed({
+        issue: {
+          relations:
+            issue === undefined ? { nodes: [], pageInfo } : relationConnections(issue).relations,
+        },
+      })
+    }
+    if (query.includes("query IssueInverseRelations")) {
+      const issue = findIssue(String(variables.id))
+      return Effect.succeed({
+        issue: {
+          inverseRelations:
+            issue === undefined
+              ? { nodes: [], pageInfo }
+              : relationConnections(issue).inverseRelations,
+        },
+      })
+    }
+    if (query.includes("query IssueRefs")) {
+      return Effect.succeed(queryIssueRefs(variables))
+    }
+    if (query.includes("query CommentById")) {
+      return Effect.succeed(queryCommentById(variables))
+    }
+    if (query.includes("query IssueBody")) {
+      return runWrite(() => queryIssueBody(variables))
+    }
+    if (query.includes("mutation UpdateIssue")) {
+      return runWrite(() => updateIssue(writeState, variables))
+    }
+    if (query.includes("mutation AddLabel")) {
+      return runWrite(() => changeLabel(writeState, variables, "add"))
+    }
+    if (query.includes("mutation RemoveLabel")) {
+      return runWrite(() => changeLabel(writeState, variables, "remove"))
+    }
+    if (query.includes("mutation CreateComment")) {
+      return runWrite(() => createComment(writeState, variables))
+    }
+    if (query.includes("mutation IssueRelationCreate")) {
+      return runWrite(() => createRelation(writeState, variables))
+    }
+    if (query.includes("mutation IssueRelationDelete")) {
+      return runWrite(() => deleteRelation(writeState, variables))
+    }
+    return Effect.fail(
+      unsupported(`The in-memory Linear gateway does not execute ${query.slice(0, 60)}.`),
+    )
+  }) as LinearGatewayShape["client"]["execute"]
   const executeWithKey = (() =>
     Effect.fail(unsupported())) as LinearGatewayShape["client"]["executeWithKey"]
   const viewer = Effect.succeed(seed.viewer)
@@ -200,20 +314,24 @@ const makeMemoryGateway = (seed: MemorySeed): LinearGatewayShape => {
           (issue) =>
             requested.has(String(issue.summary.id)) || requested.has(issue.summary.identifier),
         )
-        const pageInfo = { hasNextPage: false, endCursor: null }
+        const workingPageInfo = { hasNextPage: false, endCursor: null }
         return Effect.succeed(
           options.mode === "summary"
-            ? { mode: "summary" as const, nodes: matching.map(summaryNode), pageInfo }
+            ? {
+                mode: "summary" as const,
+                nodes: matching.map(summaryNode),
+                pageInfo: workingPageInfo,
+              }
             : options.mode === "full"
               ? {
                   mode: "full" as const,
                   nodes: matching.map((issue) => toFullWorking(issue, issues, options)),
-                  pageInfo,
+                  pageInfo: workingPageInfo,
                 }
               : {
                   mode: "working" as const,
                   nodes: matching.map((issue) => toWorking(issue, issues, options)),
-                  pageInfo,
+                  pageInfo: workingPageInfo,
                 },
         )
       },

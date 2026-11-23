@@ -42,6 +42,7 @@ import { makeClient } from "@/linear/client"
 import { LinearAuthError } from "@/linear/errors"
 import { LinearGateway, makeLinearGateway } from "@/linear/gateway"
 import { ContextCache } from "@/local/context-cache"
+import { IssueApply } from "@/tracker/apply"
 import { IssueReader } from "@/tracker/read"
 import { IssueWriter } from "@/tracker/write"
 
@@ -247,6 +248,9 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
     Layer.provide(Layer.mergeAll(gateway, client, repoTeam)),
   )
   const reader = IssueReader.layer.pipe(Layer.provide(Layer.mergeAll(gateway, contextResolver)))
+  const apply = IssueApply.layer.pipe(
+    Layer.provide(Layer.mergeAll(gateway, contextResolver, reader)),
+  )
   const writer = IssueWriter.layer.pipe(Layer.provide(Layer.mergeAll(gateway, contextResolver)))
   const issueWrite = IssueWriteApi.layer.pipe(
     Layer.provide(Layer.mergeAll(contextResolver, writer)),
@@ -268,6 +272,7 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
     contextResolver,
     teamContext,
     reader,
+    apply,
     writer,
     labels,
     projects,

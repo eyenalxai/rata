@@ -21,19 +21,7 @@ const booleanGlobalFlags = new Set([
   "--no-json",
 ])
 const falseLiterals = new Set(["false", "no", "off", "0", "n"])
-const legacyIssueGroups = new Set([
-  "create",
-  "comment",
-  "update",
-  "section",
-  "label",
-  "assign",
-  "unassign",
-  "close",
-  "reopen",
-  "link",
-  "unlink",
-])
+const legacyIssueGroups = new Set(["create", "close"])
 
 type ScannedArgs = {
   tokens: string[]

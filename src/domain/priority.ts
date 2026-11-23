@@ -88,6 +88,7 @@ const priorityFromStored = (
 }
 
 export {
+  isPriorityValue,
   parsePriority,
   type Priority,
   priorityFromStored,

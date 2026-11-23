@@ -76,10 +76,15 @@ they explore the codebase. Use these terms; do not drift to synonyms.
   relation groups. Each outgoing or inverse connection holds up to 250
   relations; `related` and `similar` merge both. Read a larger row with
   `issue <ref> --full`.
-- **Bulk write**: one command that writes to every child of a **parent**. It
-  reports one result per child: `updated`, `skipped` or `failed`. Only
-  `issue assign`, `issue label add` and `issue label remove` treat `--parent` as
-  a bulk target.
+- **Apply document**: the one JSON object that `issue apply` takes. It holds
+  the fields, labels, sections, one comment and relations to change.
+- **Plan**: the ordered actions that an apply document resolves to before any
+  write. A dry run prints the plan.
+- **Apply result**: the `result` object of a write: `action`, `status`,
+  `changed`, `dryRun`, `snapshot`, `actions` and, on failure, `failed` and
+  `error`. `status` is `updated`, `skipped` or `failed`.
+- **Relation set**: the relation groups of an apply document. An edge that
+  already exists is skipped; an omitted group is left alone.
 - **Parent** / **child**: the sub-issue link. A map holds its tickets as child
   issues.
 

@@ -176,6 +176,28 @@ export default defineConfig({
       },
     },
     {
+      // The in-memory Linear gateway and the apply behaviour matrix are long by
+      // design: one fake keeps every mutation beside its document, and one test
+      // file keeps the plan, dry-run, no-op and partial-failure cases together.
+      files: ["test/fake-linear/**/*.ts", "test/apply/**/*.ts"],
+      rules: {
+        "max-lines": "off",
+        "unicorn/no-await-expression-member": "off",
+      },
+    },
+    {
+      // The in-memory gateway narrows raw GraphQL variables at the test seam.
+      // Those values are unknown by construction, so the unsafe-* rules have no
+      // safer form here; the gateway itself is covered by behaviour tests.
+      files: ["test/fake-linear/**/*.ts"],
+      rules: {
+        "typescript/no-unsafe-assignment": "off",
+        "typescript/no-unsafe-call": "off",
+        "typescript/no-unsafe-return": "off",
+        "typescript/no-unsafe-type-assertion": "off",
+      },
+    },
+    {
       files: ["test/**/*.ts"],
       rules: {
         // Test callbacks are native async functions that await `Effect.runPromise`;
@@ -184,6 +206,12 @@ export default defineConfig({
         "effecttsgo/async-function": "off",
         // Tests own their layers and provide them per case.
         "effecttsgo/strict-effect-provide": "off",
+        // Behaviour tests read one field from one result. Splitting every case into
+        // a local binding hides the assertion.
+        "unicorn/no-await-expression-member": "off",
+        // The covered in-memory gateway and the apply behaviour suite are one
+        // scenario each; a file split would scatter the fake's state.
+        "max-lines": "off",
       },
     },
   ],

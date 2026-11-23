@@ -1,6 +1,6 @@
 import type { Handler } from "@test/fake-linear/model"
 
-import { cliLayer, lastJson, runIssue, runRoot } from "@test/cli-harness"
+import { cliLayer, lastJson, runRoot } from "@test/cli-harness"
 import { makeFakeLinear } from "@test/fake-linear"
 import { defaultViewer } from "@test/fake-linear/model"
 import { afterEach, describe, expect, test } from "bun:test"
@@ -109,22 +109,6 @@ describe("global output flags", () => {
     await runTeam(fake.handler, ["list", "--format", "json", "--select", "nope"], lines)
     expect(JSON.parse(lines[0] ?? "")).toMatchObject({
       error: { hint: "Valid paths: id, key, name, timezone." },
-    })
-  })
-
-  test("rejects --fields on a write command", async () => {
-    const fake = makeFakeLinear({ teams: [team], labels: [] })
-    const lines: string[] = []
-    await runIssue(
-      fake.handler,
-      ["label", "add", "RAT-1", "bug", "--json", "--fields", "identifier"],
-      lines,
-    )
-    expect(JSON.parse(lines[0] ?? "")).toMatchObject({
-      error: {
-        code: "validation",
-        hint: "--fields applies to reads only. Use --json and jq on the write result.",
-      },
     })
   })
 })

@@ -60,6 +60,7 @@ type MemorySeed = {
   readonly projects?: readonly MemoryProject[] | undefined
   readonly issues?: readonly MemoryIssue[] | undefined
   readonly rejectedKeys?: readonly string[] | undefined
+  readonly failOn?: readonly string[] | undefined
   readonly workspaces?: Readonly<Record<string, MemoryWorkspace>> | undefined
 }
 

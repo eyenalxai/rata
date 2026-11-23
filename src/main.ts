@@ -38,6 +38,7 @@ import { makeClient } from "@/linear/client"
 import { LinearAuthError, LinearInternalError } from "@/linear/errors"
 import { LinearGateway, makeLinearGateway } from "@/linear/gateway"
 import { ContextCache } from "@/local/context-cache"
+import { IssueApply } from "@/tracker/apply"
 import { IssueReader } from "@/tracker/read"
 import { IssueWriter } from "@/tracker/write"
 
@@ -88,6 +89,9 @@ const repoTeamLayer = RepoTeam.layer.pipe(Layer.provide(Layer.mergeAll(teamLayer
 const readerLayer = IssueReader.layer.pipe(
   Layer.provide(Layer.mergeAll(gatewayLayer, contextResolverLayer)),
 )
+const applyLayer = IssueApply.layer.pipe(
+  Layer.provide(Layer.mergeAll(gatewayLayer, contextResolverLayer, readerLayer)),
+)
 const labelLayer = LabelService.layer.pipe(
   Layer.provide(Layer.mergeAll(gatewayLayer, clientLayer, repoTeamLayer)),
 )
@@ -128,6 +132,7 @@ const workLayer = Layer.mergeAll(
   contextResolverLayer,
   teamContextLayer,
   readerLayer,
+  applyLayer,
   writerLayer,
   platformLayer,
 )

@@ -10,33 +10,52 @@ const unusedRecorder = () =>
 const run = (args: readonly string[], lines: string[]) =>
   runRoot(unusedRecorder().handler, args, lines)
 
+const helpOf = async (args: readonly string[]): Promise<string> => {
+  const lines: string[] = []
+  await run(args, lines)
+  return lines.join("\n")
+}
+
 afterEach(() => {
   process.exitCode = 0
 })
 
-describe("the issue help advertises the read form", () => {
+describe("the issue help advertises the working surface", () => {
   test("the issue group", async () => {
-    const lines: string[] = []
-    await run(["issue", "--help"], lines)
-    const help = lines.join("\n")
+    const help = await helpOf(["issue", "--help"])
     expect(help).toContain("<ref...>")
     expect(help).toContain("Read and write Linear issues")
+    expect(help).toContain("apply")
+    expect(help).toContain("relate")
+    expect(help).toContain("comment")
   })
 
-  test("the comment group keeps its subcommand help", async () => {
-    const lines: string[] = []
-    await run(["issue", "comment", "--help"], lines)
-    const help = lines.join("\n")
-    expect(help).toContain("rata issue comment <subcommand> [flags]")
-    expect(help).not.toContain("[<ref>]")
+  test("the apply command takes one file", async () => {
+    const help = await helpOf(["issue", "apply", "--help"])
+    expect(help).toContain("--file")
+    expect(help).toContain("--if-unchanged")
+    expect(help).toContain("--dry-run")
+  })
+
+  test("the relate command names the relation flags", async () => {
+    const help = await helpOf(["issue", "relate", "--help"])
+    expect(help).toContain("--blocks")
+    expect(help).toContain("--blocked-by")
+    expect(help).toContain("--related")
+    expect(help).toContain("--duplicate")
+  })
+
+  test("the comment command takes one ref and a body file", async () => {
+    const help = await helpOf(["issue", "comment", "--help"])
+    expect(help).toContain("<ref>")
+    expect(help).toContain("--body-file")
+    expect(help).toContain("--dedupe-key")
   })
 })
 
 describe("explicit action flags bypass the invalid-form detection", () => {
   test("the help flag after a removed read prints the issue help", async () => {
-    const lines: string[] = []
-    await run(["issue", "show", "RAT-1", "--help"], lines)
-    const help = lines.join("\n")
+    const help = await helpOf(["issue", "show", "RAT-1", "--help"])
     expect(help).toContain("<ref...>")
     expect(help).not.toContain("The issue show command does not exist.")
     expect(process.exitCode).toBe(0)
@@ -52,26 +71,26 @@ describe("explicit action flags bypass the invalid-form detection", () => {
   })
 })
 
-describe("invalid group forms teach the canonical command", () => {
-  test("the bare comment form names issue comment create with the body flag", async () => {
+describe("the old comment subcommands teach the one comment command", () => {
+  test("create", async () => {
     const lines: string[] = []
-    await run(["issue", "comment", "RAT-1"], lines)
+    await run(["issue", "comment", "create", "RAT-1", "--body-file", "-"], lines)
     expect(lines).toEqual([
-      "error: The comment group needs a subcommand.",
-      "hint: rata issue comment create RAT-1 --body-file -",
+      "error: The issue comment subcommands were replaced by one comment command.",
+      "hint: rata issue comment <ref> --body-file -",
     ])
     expect(process.exitCode).toBe(2)
   })
 
   test("the issue form keeps the JSON error shape", async () => {
     const lines: string[] = []
-    await run(["issue", "--json", "comment", "RAT-1", "--body-file", "-"], lines)
+    await run(["issue", "--format", "json", "comment", "delete", "RAT-1"], lines)
     expect(lines).toHaveLength(1)
     expect(lastJson(lines)).toEqual({
       error: {
-        code: "validation",
-        message: "The comment group needs a subcommand.",
-        hint: "rata issue comment create RAT-1 --body-file -",
+        code: "usage",
+        message: "The issue comment subcommands were replaced by one comment command.",
+        hint: "rata issue comment <ref> --body-file -",
       },
     })
     expect(process.exitCode).toBe(2)
