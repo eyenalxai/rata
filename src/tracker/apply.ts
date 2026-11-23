@@ -66,6 +66,7 @@ const makePlan = (
       action: command,
       identifier: snapshot.identifier,
       snapshot: snapshot.updatedAt,
+      issue: snapshot,
       steps: [
         ...(fields === null ? [] : [fields]),
         ...labels,

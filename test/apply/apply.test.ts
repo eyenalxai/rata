@@ -170,6 +170,34 @@ describe("issue apply", () => {
     expect((await readIssue(seedValue, gateway)).title).toBe("The map")
   })
 
+  test("a dry run with a stale --if-unchanged exits 4", async () => {
+    const seedValue = seed()
+    const gateway = makeMemoryGateway(seedValue)
+    const lines = await runApply(seedValue, gateway, { title: "Changed title" }, "RAT-1", [
+      "--dry-run",
+      "--if-unchanged",
+      "2025-01-01T00:00:00.000Z",
+    ])
+
+    expect(process.exitCode).toBe(4)
+    expect(lastJson(lines)).toMatchObject({ error: { code: "conflict" } })
+    expect((await readIssue(seedValue, gateway)).title).toBe("The map")
+  })
+
+  test("apply rejects the old --fields flag", async () => {
+    const seedValue = seed()
+    const gateway = makeMemoryGateway(seedValue)
+    const lines = await runApply(seedValue, gateway, { title: "Changed title" }, "RAT-1", [
+      "--fields",
+      "title",
+    ])
+
+    expect(process.exitCode).toBe(2)
+    expect(lastJson(lines)).toMatchObject({
+      error: { code: "validation", hint: "Valid paths: issue, result." },
+    })
+  })
+
   test("a partial failure returns the applied actions and the failed action", async () => {
     const seedValue = seed({ failOn: ["mutation CreateComment"] })
     const gateway = makeMemoryGateway(seedValue)
@@ -354,6 +382,49 @@ describe("issue apply relations and comments", () => {
     expect((await readIssue(seedValue, gateway)).comments).toEqual([
       expect.objectContaining({ body: "A note." }),
     ])
+  })
+
+  test("issue comment requires a dedupe key", async () => {
+    const seedValue = seed()
+    const gateway = makeMemoryGateway(seedValue)
+    const lines: string[] = []
+    await runIssueMemory(
+      seedValue,
+      ["comment", "RAT-1", "--body-file", "-", "--format", "json"],
+      lines,
+      undefined,
+      {
+        gateway,
+        stdio: { stdin: Stream.make(new TextEncoder().encode("A note.")) },
+      },
+    )
+
+    expect(process.exitCode).toBe(2)
+    expect(lastJson(lines)).toMatchObject({ error: { code: "validation" } })
+    expect((await readIssue(seedValue, gateway)).comments).toEqual([])
+  })
+
+  test("issue comment retry with the same key is skipped", async () => {
+    const seedValue = seed()
+    const gateway = makeMemoryGateway(seedValue)
+    const run = async () => {
+      const lines: string[] = []
+      await runIssueMemory(
+        seedValue,
+        ["comment", "RAT-1", "--body-file", "-", "--dedupe-key", "note-2", "--format", "json"],
+        lines,
+        undefined,
+        {
+          gateway,
+          stdio: { stdin: Stream.make(new TextEncoder().encode("A note.")) },
+        },
+      )
+      return lines
+    }
+
+    expect(resultOf(await run())).toMatchObject({ status: "updated" })
+    expect(resultOf(await run())).toMatchObject({ status: "skipped" })
+    expect((await readIssue(seedValue, gateway)).comments).toHaveLength(1)
   })
 })
 

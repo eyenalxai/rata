@@ -96,14 +96,14 @@ repository `workspace` of the repository config, the `default` profile.
 Each operation has one spelling. A removed form exits 2 with a `usage` error,
 and one hint names the canonical form.
 
-| Operation           | Canonical form                                          | Rejected form                                                                                    |
-| ------------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Read an issue       | `rata issue <ref>`                                      | `rata issue show <ref>`                                                                          |
-| Read the summary    | `rata issue <ref> --summary`                            | `rata issue status <ref>`                                                                        |
-| Read many issues    | `rata issue <ref> <ref> ...`                            | repeated `issue <ref>` calls                                                                     |
-| Change an issue     | `rata issue apply <ref> --file -`                       | `issue update`, `issue label`, `issue section`, `issue assign`, `issue unassign`, `issue reopen` |
-| Comment on an issue | `rata issue comment <ref> --body-file - [--dedupe-key]` | `issue comment create`, `issue comment update`, `issue comment delete`                           |
-| Change a relation   | `rata issue relate <ref> --blocked-by <target>...`      | `issue link`, `issue unlink`                                                                     |
+| Operation           | Canonical form                                              | Rejected form                                                                                    |
+| ------------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Read an issue       | `rata issue <ref>`                                          | `rata issue show <ref>`                                                                          |
+| Read the summary    | `rata issue <ref> --summary`                                | `rata issue status <ref>`                                                                        |
+| Read many issues    | `rata issue <ref> <ref> ...`                                | repeated `issue <ref>` calls                                                                     |
+| Change an issue     | `rata issue apply <ref> --file -`                           | `issue update`, `issue label`, `issue section`, `issue assign`, `issue unassign`, `issue reopen` |
+| Comment on an issue | `rata issue comment <ref> --body-file - --dedupe-key <key>` | `issue comment create`, `issue comment update`, `issue comment delete`                           |
+| Change a relation   | `rata issue relate <ref> --blocked-by <target>...`          | `issue link`, `issue unlink`                                                                     |
 
 `issue <ref>` is the only read form. `issue show`, `issue view`, `issue status`,
 `next` and `why` do not exist.
@@ -121,7 +121,6 @@ document keeps its named sections. A write prints its result object.
 | `issue <ref> --full`                      | The working set plus `relations` and full child rows                                                                                             |
 | `issue <ref> <ref> ...`                   | `{ items, pageInfo }`; one working set per ref, one list request per page                                                                        |
 | `team show [<ref>]`                       | The team object                                                                                                                                  |
-| `issue section get <ref> "<heading>"`     | The section object: `heading`, `level`, `content`                                                                                                |
 | `issue list`                              | `{ issues, pageInfo }`; `--relations` adds the six relation groups                                                                               |
 | `issue search`                            | `{ issues, pageInfo }`; ten summary rows by default, no description                                                                              |
 | `team list`, `project list`, `label list` | `{ <plural>, pageInfo }`                                                                                                                         |
@@ -165,10 +164,9 @@ A reordered table parses by header name. A headerless or incomplete
 document is an unhealthy `docs.triage` with a warning; `status` still prints the
 rest. The first state or label resolution after a cache miss fetches the full
 team detail; later calls use the cache. With JSON output, a failure writes one
-JSON object to stderr and leaves stdout empty. Two cases are
-the exceptions: a bulk write reports one result per issue on stdout, and
-`issue update --comment` writes the issue update and the `error` object on
-stdout when the comment fails.
+JSON object to stderr and leaves stdout empty. The exception is a partial
+apply: it writes one resource document with the applied actions, the failed
+action and `result.error` on stdout, and exits with the failed action's code.
 
 ```json
 {
@@ -216,9 +214,8 @@ rata config show --select assignee,labels
 ```
 
 The path applies to the command's own resource, not to a wrapper: the working set
-of a single-issue read, the team object of `team show`, the section object
-of `issue section get`, each row of a list, the `defaults` object of
-`config show`, or the whole `status` document. A wrapper key stays only for a
+of a single-issue read, the team object of `team show`, each row of a list, the
+`defaults` object of `config show`, or the whole `status` document. A wrapper key stays only for a
 named section or a list. An unknown path is a `validation` error, and the hint
 lists the valid keys at the failing level; the shape check runs even when the
 list is empty or the object is null. A path may cross an array, as `labels.name`
@@ -688,7 +685,7 @@ issues of the spec, so the set stays together:
 2. `/to-tickets` creates each ticket as a child of the spec:
    `rata issue create --title "Add the Stripe client" --parent ABC-42 --label ready-for-agent --priority medium --assignee me --body-file -`.
    Wire the blocking edges between the tickets with
-   `rata issue link ABC-44 --blocked-by ABC-43`.
+   `rata issue relate ABC-44 --blocked-by ABC-43`.
 3. `/implement-spec` fetches the whole set:
    `rata issue list --parent ABC-42 --all --relations`. Each row
    then carries its blocking edges, so the frontier needs no per-child read.
@@ -738,10 +735,9 @@ The old `label`, `project` and `config` commands still use the migration adapter
 `RepoTeam`; that is a ticket-scoped migration path, not a compatibility
 guarantee.
 
-`show`, `summary` and `why` do not read the viewer and do not repair the
-repository link. `list` and `search` print the stale-link warning. So do
-`close`, `reopen`, the label writes, `issue update --state`, and
-`issue update --sections-file --state` when they resolve the repository link.
+`issue <ref> --summary` and the lean read do not read the viewer and do not
+repair the repository link. `issue list` and `issue search` print the stale-link
+warning. So does `issue apply` when it resolves the repository link.
 
 The read gateway exposes its raw client for writes. The write documents stay in
 `src/tracker/write/documents.ts`; they do not enter the read gateway.

@@ -47,8 +47,9 @@ The map is an issue labelled `wayfinder:map`. Its children carry
 - **Child**: `rata issue create --title "<title>" --parent <map-ref> --label wayfinder:<type> --no-default-labels --assignee none --body-file -`
 - **Wire**: `rata issue relate <child-ref> --blocked-by <blocker-ref>`.
 - **Frontier**: `rata issue <map-ref>` returns `frontier` and `nextChild`. For the whole frontier as rows, use `rata issue list --parent <map-ref> --unblocked --unassigned --relations --sort priority --all`.
-- **Claim**: `rata issue apply <ref> --file -` with `{"assignee": "me"}`. If another user holds it,
-  the command exits 4 and names the holder; `--take` reassigns it.
+- **Claim**: `rata issue apply <ref> --file -` with `{"assignee": "me"}`. The
+  apply engine sets the assignee. The conditional claim guard arrives with
+  `issue start`.
 - **Resolve**: `rata issue comment <ref> --body-file -`, then `rata issue close <ref>`, then `rata issue apply <map-ref> --file -` with a `sections` append.
 
 ## Pull requests

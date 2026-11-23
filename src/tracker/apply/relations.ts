@@ -187,32 +187,49 @@ const removalSteps = (
     const targets = uniqueTargets(resolved.targets)
     const current = yield* dependencies.resolvers.collectRelations(snapshot.id)
     const plans = planRelationUnlinks(targets, current.outgoing, current.incoming)
-    return plans.map((plan) => ({
-      action: "relation-remove",
-      target: ref,
-      status: plan.status,
-      changes: { relation: plan.kind, issue: plan.target },
-      changed: plan.status === "updated" ? [`relation:${plan.kind}:${plan.target}`] : [],
-      actions: [
-        {
+    const steps: PlanStep[] = []
+    for (const plan of plans) {
+      if (plan.status === "skipped" || plan.relationIds.length === 0) {
+        steps.push({
           action: "relation-remove",
           target: ref,
-          status: plan.status,
+          status: "skipped",
           changes: { relation: plan.kind, issue: plan.target },
-        },
-      ],
-      execute:
-        plan.status === "skipped"
-          ? Effect.void
-          : Effect.forEach(
-              plan.relationIds,
-              (relationId) =>
-                dependencies.client
-                  .execute(deleteRelationMutation, { id: relationId }, DeleteRelationResponse)
-                  .pipe(Effect.flatMap((data) => unwrapRelation(data.issueRelationDelete))),
-              { discard: true },
-            ),
-    }))
+          changed: [],
+          actions: [
+            {
+              action: "relation-remove",
+              target: ref,
+              status: "skipped",
+              changes: { relation: plan.kind, issue: plan.target },
+            },
+          ],
+          execute: Effect.void,
+        })
+        continue
+      }
+      for (const relationId of plan.relationIds) {
+        steps.push({
+          action: "relation-remove",
+          target: ref,
+          status: "updated",
+          changes: { relation: plan.kind, issue: plan.target, relationId: String(relationId) },
+          changed: [`relation:${plan.kind}:${plan.target}`],
+          actions: [
+            {
+              action: "relation-remove",
+              target: ref,
+              status: "updated",
+              changes: { relation: plan.kind, issue: plan.target },
+            },
+          ],
+          execute: dependencies.client
+            .execute(deleteRelationMutation, { id: relationId }, DeleteRelationResponse)
+            .pipe(Effect.flatMap((data) => unwrapRelation(data.issueRelationDelete))),
+        })
+      }
+    }
+    return steps
   })
 
 const planRelationSteps = (

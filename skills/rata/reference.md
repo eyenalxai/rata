@@ -32,10 +32,9 @@ With JSON output, a failure writes
 
 Codes: `0` success, `1` internal, `2` usage or validation, `3` not found,
 `4` conflict, `5` auth, `6` retryable. A parse error writes the normal error
-object with code `usage`; help prints only for `--help`. A bulk write exits with
-the first failure's code, or `0`. Two cases write a partial result to stdout: a
-bulk write, and a failed `issue update --comment` with the issue update,
-`"comment": null` and the `error`.
+object with code `usage`; help prints only for `--help`. A partial apply writes
+one resource document with `result.status: "failed"`, the applied actions, the
+failed action and `result.error`, and exits with the failed action's code.
 
 ## Setup
 
@@ -100,7 +99,6 @@ members and priorities; `team create --name <name> [--key]`; `team delete <key>
 | `issue <ref> --full`                      | The working set plus `relations` and full child rows                                                                                             |
 | `issue <ref> <ref> ...`                   | `{ items, pageInfo }`; one working set per ref, one list request per page                                                                        |
 | `team show [<ref>]`                       | The team object                                                                                                                                  |
-| `issue section get <ref> <heading>`       | `{ "heading", "level", "content" }`                                                                                                              |
 | `issue list`                              | `{ issues, pageInfo }`; `--relations` adds the six relation groups                                                                               |
 | `issue search`                            | `{ issues, pageInfo }`; ten summary rows by default, no description                                                                              |
 | `team list`, `project list`, `label list` | `{ <plural>, pageInfo }`                                                                                                                         |
@@ -224,23 +222,11 @@ and `issue comment create/update/delete`) exit 2 with a `usage` error.
 
 ## Read-after-write
 
-`issue comment create` and `issue create --parent` check that the new object
-appears on a bounded re-read. The default is 5 seconds; `--wait <seconds>`
-changes it and `--wait 0` disables it. A timeout still exits 0: the mutation
-payload is the source of truth. JSON adds `visible`: `false` on timeout and
-`null` when disabled.
-
-## Bulk writes by parent
-
-`issue assign`, `issue label add` and `issue label remove` accept `--parent`;
-pass exactly one of the positional reference and `--parent`. With `--parent`,
-every positional of a label command is a label, and the command targets every
-child, open and closed, in creation order.
-
-Rata validates every target and label before the first write, then runs
-best-effort and exits with the first failed result's code. JSON prints
-`{ "dryRun": false, "results": [...] }`; a failed result carries `error`, and
-`status` is `updated`, `skipped` or `failed`.
+`issue create --parent` checks that the new object appears on a bounded
+re-read. The default is 5 seconds; `--wait <seconds>` changes it and `--wait 0`
+disables it. A timeout still exits 0: the mutation payload is the source of
+truth. JSON adds `visible`: `false` on timeout and `null` when disabled. The
+apply comment does not wait; its mutation payload is the source of truth.
 
 ## Idempotency
 
@@ -258,14 +244,14 @@ A known wrong form fails with `validation` before any request, keeps the JSON
 error shape, and prints one hint that names the command to run. A supplied body,
 label or relation value stays in the hint, shell-quoted when needed.
 
-| Wrong form                                 | Hint                                                                       |
-| ------------------------------------------ | -------------------------------------------------------------------------- |
-| `issue show <ref>`                         | `rata issue <ref>`                                                         |
-| `issue status <ref>`                       | `rata issue <ref>`                                                         |
-| `issue comment <ref>`                      | `rata issue comment create <ref> --body-file -`                            |
-| `issue update <ref> --label <label...>`    | `rata issue label add <ref> <label...>`                                    |
-| `issue create --blocked-by <ref>`          | `Create the issue, then run rata issue link <new-ref> --blocked-by <ref>.` |
-| `issue update <ref> --blocked-by <ref>`    | `rata issue link <ref> --blocked-by <ref>`                                 |
-| `issue link <ref>` without a relation flag | `rata issue link <ref> --blocked-by <blocker>`                             |
-| an issue read with `--fields`              | `Use --format json; --select replaces --fields.`                           |
-| a write with `--fields`                    | `--fields applies to reads only. Use --json and jq on the write result.`   |
+| Wrong form                                 | Hint                                                                         |
+| ------------------------------------------ | ---------------------------------------------------------------------------- |
+| `issue show <ref>`                         | `rata issue <ref>`                                                           |
+| `issue status <ref>`                       | `rata issue <ref>`                                                           |
+| `issue comment create <ref>`               | `rata issue comment <ref> --body-file - --dedupe-key <key>`                  |
+| `issue update <ref> --label <label...>`    | `rata issue apply <ref> --file -` with `labels.add`                          |
+| `issue create --blocked-by <ref>`          | `Create the issue, then run rata issue relate <new-ref> --blocked-by <ref>.` |
+| `issue update <ref> --blocked-by <ref>`    | `rata issue relate <ref> --blocked-by <ref>`                                 |
+| `issue link <ref>` without a relation flag | `rata issue relate <ref> --blocked-by <blocker>`                             |
+| an issue read with `--fields`              | `Use --format json; --select replaces --fields.`                             |
+| a write with `--fields`                    | `Use --format json; --select replaces --fields.`                             |

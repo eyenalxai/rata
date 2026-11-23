@@ -39,7 +39,7 @@ const commentSpec = defineCommand("comment", {
       Flag.withDescription("Read the comment from a file. Use - for standard input"),
     ),
     dedupeKey: Flag.String("dedupe-key").pipe(
-      Flag.withDescription("Stable key that makes a retry return skipped"),
+      Flag.withDescription("Stable key that makes a retry return skipped. Required"),
       Flag.optional,
     ),
     dryRun: dryRunFlag,
@@ -54,18 +54,23 @@ const commentSpec = defineCommand("comment", {
       if (Option.isNone(control.body) || control.body.value.trim().length === 0) {
         return yield* emptyBody()
       }
+      const dedupeKey = Option.getOrUndefined(input.dedupeKey)
+      if (dedupeKey === undefined || dedupeKey.trim().length === 0) {
+        return yield* new TrackerError({
+          code: "validation",
+          message: "The --dedupe-key flag is required.",
+          hint: "Pass a stable key so a retry returns skipped instead of posting again.",
+        })
+      }
       const document: ApplyDocument = {
-        comment: {
-          body: control.body.value,
-          ...(Option.isSome(input.dedupeKey) ? { dedupeKey: input.dedupeKey.value } : {}),
-        },
+        comment: { body: control.body.value, dedupeKey },
       }
       const context = yield* resolveIssueContext({ viewer: true })
       const engine = yield* IssueApply
       const plan = yield* engine.plan(context, input.ref, document, { command: "comment" })
       const result = control.dryRun ? dryRunPlan(plan) : yield* applyPlan(plan)
       const reader = yield* IssueReader
-      const issue = yield* readIssue(reader, input.ref)
+      const issue = yield* readIssue(reader, input.ref).pipe(Effect.orElseSucceed(() => plan.issue))
       return writeOutput(issue, result)
     }),
 })

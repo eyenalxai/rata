@@ -46,14 +46,14 @@ needs it; reads without that flag do not.
 
 ## One spelling per operation
 
-| Operation     | Canonical form                                            | Rejected form                                                                                    |
-| ------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Read an issue | `rata issue <ref>`                                        | `rata issue show <ref>`                                                                          |
-| Read many     | `rata issue <ref> <ref> ...`                              | repeated `issue <ref>` calls                                                                     |
-| Apply a write | `rata issue apply <ref> --file -`                         | `issue update`, `issue label`, `issue section`, `issue assign`, `issue unassign`, `issue reopen` |
-| Add an edge   | `rata issue relate <ref> --blocked-by <ref>`              | `issue link`, `issue unlink`                                                                     |
-| Comment       | `rata issue comment <ref> --body-file - [--dedupe-key k]` | `issue comment create`                                                                           |
-| Close         | `rata issue close <ref> --comment "..."`                  |                                                                                                  |
+| Operation     | Canonical form                                              | Rejected form                                                                                    |
+| ------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Read an issue | `rata issue <ref>`                                          | `rata issue show <ref>`                                                                          |
+| Read many     | `rata issue <ref> <ref> ...`                                | repeated `issue <ref>` calls                                                                     |
+| Apply a write | `rata issue apply <ref> --file -`                           | `issue update`, `issue label`, `issue section`, `issue assign`, `issue unassign`, `issue reopen` |
+| Add an edge   | `rata issue relate <ref> --blocked-by <ref>`                | `issue link`, `issue unlink`                                                                     |
+| Comment       | `rata issue comment <ref> --body-file - --dedupe-key <key>` | `issue comment create`                                                                           |
+| Close         | `rata issue close <ref> --comment "..."`                    |                                                                                                  |
 
 `issue apply` is the write. It plans first, then applies. `--dry-run` returns
 the plan and writes nothing. `--if-unchanged <snapshot>` exits 4 when the issue
@@ -86,11 +86,12 @@ The write result is `{ issue, result }`. `result` carries `action`, `status`,
 
 ## Errors
 
-A failed command with JSON output writes one object to stderr and exits with the code of
-its class: 2 usage or validation, 3 not found, 4 conflict, 5 auth, 6 retryable,
-1 internal. A parse error writes code `usage`; help prints only for `--help`.
-Read `hint` and retry once. Two cases write a partial result to stdout instead:
-a bulk write by `--parent`, and a failed `issue update --comment`.
+A failed command with JSON output writes one object to stderr and exits with the
+code of its class: 2 usage or validation, 3 not found, 4 conflict, 5 auth,
+6 retryable, 1 internal. A parse error writes code `usage`; help prints only for
+`--help`. Read `hint` and retry once. A partial apply is the exception: it
+writes one resource document with the applied actions, the failed action and
+`result.error` on stdout, and exits with the failed action's code.
 
 ## Pointers
 

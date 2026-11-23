@@ -10,7 +10,7 @@ import { defineCommand, selectOutput } from "@/cli/spec"
 import { ApplyDocumentJson } from "@/domain/apply"
 import { TrackerError } from "@/domain/error"
 import { IssueApply } from "@/tracker/apply"
-import { applyPlan, dryRunPlan } from "@/tracker/plan"
+import { applyPlan, checkSnapshot, dryRunPlan } from "@/tracker/plan"
 import { IssueReader } from "@/tracker/read"
 
 const formatIssue = SchemaIssue.makeFormatterDefault()
@@ -100,11 +100,12 @@ const applySpec = defineCommand("apply", {
       const context = yield* resolveIssueContext({ viewer: true })
       const engine = yield* IssueApply
       const plan = yield* engine.plan(context, input.ref, document)
+      const ifUnchanged = Option.getOrUndefined(control.ifUnchanged)
       const result = control.dryRun
-        ? dryRunPlan(plan)
-        : yield* applyPlan(plan, { ifUnchanged: Option.getOrUndefined(control.ifUnchanged) })
+        ? yield* checkSnapshot(plan, ifUnchanged).pipe(Effect.as(dryRunPlan(plan)))
+        : yield* applyPlan(plan, { ifUnchanged })
       const reader = yield* IssueReader
-      const issue = yield* readIssue(reader, input.ref)
+      const issue = yield* readIssue(reader, input.ref).pipe(Effect.orElseSucceed(() => plan.issue))
       return writeOutput(issue, result)
     }),
 })

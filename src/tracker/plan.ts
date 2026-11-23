@@ -1,5 +1,7 @@
 import { Effect, Result } from "effect"
 
+import type { IssueWorkingSetFull } from "@/tracker/model"
+
 import { ConflictError } from "@/domain/conflict"
 
 const applyCommands = ["apply", "relate", "comment"] as const
@@ -59,6 +61,7 @@ type ApplyPlan = {
   readonly action: ApplyCommand
   readonly identifier: string
   readonly snapshot: string
+  readonly issue: IssueWorkingSetFull
   readonly steps: readonly PlanStep[]
 }
 
@@ -88,6 +91,20 @@ const changedOf = (
 const planStatus = (steps: readonly PlanStep[]): PlannedStatus =>
   steps.some((step) => step.status === "updated") ? "updated" : "skipped"
 
+const checkSnapshot = (
+  plan: ApplyPlan,
+  ifUnchanged?: string,
+): Effect.Effect<void, ConflictError> =>
+  ifUnchanged === undefined || ifUnchanged === plan.snapshot
+    ? Effect.void
+    : Effect.fail(
+        new ConflictError({
+          expected: ifUnchanged,
+          current: plan.snapshot,
+          message: `${plan.identifier} changed since you read it.`,
+        }),
+      )
+
 const dryRunPlan = (plan: ApplyPlan): ApplyResult => ({
   action: plan.action,
   status: planStatus(plan.steps),
@@ -102,13 +119,7 @@ const applyPlan = (
   options: ApplyOptions = {},
 ): Effect.Effect<ApplyResult, ConflictError> =>
   Effect.gen(function* applyIssuePlan() {
-    if (options.ifUnchanged !== undefined && options.ifUnchanged !== plan.snapshot) {
-      return yield* new ConflictError({
-        expected: options.ifUnchanged,
-        current: plan.snapshot,
-        message: `${plan.identifier} changed since you read it.`,
-      })
-    }
+    yield* checkSnapshot(plan, options.ifUnchanged)
     const actions: PlannedAction[] = []
     const changed: string[] = []
     for (const step of plan.steps) {
@@ -158,6 +169,7 @@ export {
   type ApplyStepName,
   applyStepNames,
   changedOf,
+  checkSnapshot,
   dryRunPlan,
   type FailedAction,
   type PlannedAction,
