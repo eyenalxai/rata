@@ -13,7 +13,6 @@ import type {
 } from "@/cli/spec"
 
 import { dropEmptyLine } from "@/cli/console"
-import { commandError, exitCodeOf, toTrackerError } from "@/cli/error-report"
 import { OutputFields } from "@/cli/fields"
 import {
   formatFromArgs,
@@ -32,6 +31,7 @@ import { renderOutput } from "@/cli/render"
 import { resolveSelect, supportsSelect } from "@/cli/runner/select"
 import { outputFormats } from "@/cli/spec"
 import { TrackerError } from "@/domain/error"
+import { commandError, exitCodeOf, toTrackerError } from "@/tracker/error-report"
 
 // Canonical-form detection lives in pre-parse.ts because it needs raw flag values for the replacement hint; format.ts only classifies the command and output flags.
 

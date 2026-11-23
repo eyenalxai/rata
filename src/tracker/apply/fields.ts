@@ -1,22 +1,14 @@
-/* oxlint-disable complexity -- the planner is a flat list of optional fields, not nested control flow. */
 import { Effect } from "effect"
 
 import type { ResolvedContext } from "@/context/model"
-import type { ContextResolver } from "@/context/resolve"
 import type { ApplyDocument } from "@/domain/apply"
-import type { LinearClientShape } from "@/linear/client"
-import type { ApplyPlanError } from "@/tracker/apply/model"
+import type { ApplyPlanError, ApplyWriter } from "@/tracker/apply/model"
 import type { IssueWorkingSetFull } from "@/tracker/model"
-import type { PlannedAction, PlanStep } from "@/tracker/plan"
-import type { makeIssueWriteResolvers } from "@/tracker/write/resolvers"
+import type { ApplyStep, PlannedAction } from "@/tracker/plan"
 
-import { TrackerError } from "@/domain/error"
-import { isUuid, userId } from "@/domain/id"
+import { TrackerError as TrackerErrorClass } from "@/domain/error"
+import { isUuid } from "@/domain/id"
 import { parsePriority, priorityValue } from "@/domain/priority"
-import { UpdateIssueResponse } from "@/linear/decode/issue"
-import { AssigneeInputError } from "@/tracker/error"
-import { updateIssueMutation } from "@/tracker/write/documents"
-import { unwrapIssue } from "@/tracker/write/model"
 
 type FieldName = "title" | "state" | "assignee" | "priority" | "project" | "parent"
 
@@ -28,13 +20,11 @@ type FieldPlan = {
 }
 
 type FieldDependencies = {
-  readonly client: LinearClientShape
-  readonly contexts: ContextResolver["Service"]
-  readonly resolvers: ReturnType<typeof makeIssueWriteResolvers>
+  readonly writer: ApplyWriter
 }
 
 const validationError = (message: string, hint: string | null = null) =>
-  new TrackerError({ code: "validation", message, hint })
+  new TrackerErrorClass({ code: "validation", message, hint })
 
 const unchanged = (name: FieldName, value: unknown): FieldPlan => ({
   name,
@@ -71,12 +61,15 @@ const planState = (
   if (state === undefined) {
     return Effect.succeed<FieldPlan | null>(null)
   }
-  if (snapshot.state.name.toLowerCase() === state.toLowerCase()) {
-    return Effect.succeed(unchanged("state", state))
-  }
-  return dependencies.resolvers
-    .issueStateIdByName(context, snapshot.id, state)
-    .pipe(Effect.map((stateId) => changed("state", state, { stateId })))
+  return dependencies.writer
+    .resolveState(context, snapshot.id, state)
+    .pipe(
+      Effect.map((resolved) =>
+        resolved.name === snapshot.state.name
+          ? unchanged("state", state)
+          : changed("state", state, { stateId: resolved.id }),
+      ),
+    )
 }
 
 const planAssignee = (
@@ -95,28 +88,18 @@ const planAssignee = (
         : changed("assignee", null, { assigneeId: null }),
     )
   }
-  if (assignee.toLowerCase() === "me") {
-    return dependencies.contexts
-      .viewer(context)
+  if (isUuid(assignee) || assignee.toLowerCase() === "me") {
+    return dependencies.writer
+      .resolveAssignee(context, assignee)
       .pipe(
-        Effect.map((viewer) =>
-          snapshot.assignee?.id === viewer.id
-            ? unchanged("assignee", "me")
-            : changed("assignee", "me", { assigneeId: viewer.id }),
+        Effect.map((id) =>
+          snapshot.assignee?.id === id
+            ? unchanged("assignee", assignee)
+            : changed("assignee", assignee, { assigneeId: id }),
         ),
       )
   }
-  if (!isUuid(assignee)) {
-    return Effect.fail(
-      new AssigneeInputError({ message: "The assignee accepts `me`, a user UUID, or null." }),
-    )
-  }
-  const id = userId(assignee)
-  return Effect.succeed(
-    snapshot.assignee?.id === id
-      ? unchanged("assignee", assignee)
-      : changed("assignee", assignee, { assigneeId: id }),
-  )
+  return Effect.fail(validationError("The assignee accepts `me`, a user UUID, or null."))
 }
 
 const planPriority = (priority: string | undefined, snapshot: IssueWorkingSetFull) => {
@@ -149,8 +132,8 @@ const planProject = (
         : changed("project", null, { projectId: null }),
     )
   }
-  return dependencies.resolvers
-    .resolveProjectId(project)
+  return dependencies.writer
+    .resolveProject(project)
     .pipe(
       Effect.map((projectId) =>
         snapshot.project?.id === projectId
@@ -175,8 +158,8 @@ const planParent = (
         : changed("parent", null, { parentId: null }),
     )
   }
-  return dependencies.resolvers
-    .resolveIssueId(parent)
+  return dependencies.writer
+    .resolveParent(parent)
     .pipe(
       Effect.flatMap((parentId) =>
         parentId === snapshot.id
@@ -226,7 +209,7 @@ const planFieldStep = (
   ref: string,
   snapshot: IssueWorkingSetFull,
   document: ApplyDocument,
-): Effect.Effect<PlanStep | null, ApplyPlanError> =>
+): Effect.Effect<ApplyStep | null, ApplyPlanError> =>
   Effect.gen(function* planFieldWrite() {
     const plans = yield* planFields(dependencies, context, snapshot, document)
     if (plans.length === 0) {
@@ -241,16 +224,8 @@ const planFieldStep = (
       changes: Object.fromEntries(updated.map((plan) => [plan.name, plan.value])),
       changed: updated.map((plan) => plan.name),
       actions: plans.map((plan) => fieldAction(ref, plan)),
-      execute:
-        status === "skipped"
-          ? Effect.void
-          : dependencies.client
-              .execute(
-                updateIssueMutation,
-                { id: snapshot.id, input: inputOfPlans(updated) },
-                UpdateIssueResponse,
-              )
-              .pipe(Effect.flatMap((data) => unwrapIssue(data.issueUpdate))),
+      issueId: snapshot.id,
+      input: inputOfPlans(updated),
     }
   })
 

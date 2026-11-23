@@ -77,7 +77,7 @@ describe("the old comment subcommands teach the one comment command", () => {
     await run(["issue", "comment", "create", "RAT-1", "--body-file", "-"], lines)
     expect(lines).toEqual([
       "error: The issue comment subcommands were replaced by one comment command.",
-      "hint: rata issue comment <ref> --body-file -",
+      "hint: rata issue comment <ref> --body-file - --dedupe-key <key>",
     ])
     expect(process.exitCode).toBe(2)
   })
@@ -90,7 +90,7 @@ describe("the old comment subcommands teach the one comment command", () => {
       error: {
         code: "usage",
         message: "The issue comment subcommands were replaced by one comment command.",
-        hint: "rata issue comment <ref> --body-file -",
+        hint: "rata issue comment <ref> --body-file - --dedupe-key <key>",
       },
     })
     expect(process.exitCode).toBe(2)

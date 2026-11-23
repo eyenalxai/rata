@@ -1,15 +1,16 @@
-import { Effect } from "effect"
+import { Effect, Result } from "effect"
 
 import type { CommandOutput } from "@/cli/spec"
+import type { TrackerError } from "@/domain/error"
 import type { IssueReadDocument } from "@/tracker/model"
 import type { ApplyResult } from "@/tracker/plan"
 import type { IssueReader, IssueWorkingSetError } from "@/tracker/read"
 
-import { exitCodeOf, toTrackerError } from "@/cli/error-report"
 import { arrayField, objectField, scalarField } from "@/cli/field/shape"
 import { formatReadDocument } from "@/cli/issue/format"
 import { issueWorkingSetShape } from "@/cli/issue/shape"
-import { TrackerError } from "@/domain/error"
+import { TrackerError as TrackerErrorClass } from "@/domain/error"
+import { exitCodeOf, toTrackerError } from "@/tracker/error-report"
 
 const writeActionShape = objectField({
   action: scalarField,
@@ -47,52 +48,58 @@ const issueWriteShape = objectField({
   result: applyResultShape,
 })
 
-type PublicWriteError = {
-  readonly code: string
-  readonly message: string
-  readonly hint: string | null
-}
-
-type PublicWriteResult = Omit<ApplyResult, "cause"> & {
-  readonly error?: PublicWriteError | undefined
-}
-
-const publicResult = (result: ApplyResult): PublicWriteResult => {
-  const report = result.cause === undefined ? undefined : toTrackerError(result.cause)
+const publicResult = (action: string, result: ApplyResult) => {
+  const report = result.failed?.error
   return {
-    action: result.action,
+    action,
     status: result.status,
     changed: result.changed,
     dryRun: result.dryRun,
     snapshot: result.snapshot,
     actions: result.actions,
-    ...(result.failed === undefined ? {} : { failed: result.failed }),
+    ...(result.failed === undefined
+      ? {}
+      : {
+          failed: {
+            action: result.failed.action,
+            target: result.failed.target,
+            status: result.failed.status,
+            changes: result.failed.changes,
+          },
+        }),
     ...(report === undefined
       ? {}
       : { error: { code: report.code, message: report.message, hint: report.hint } }),
   }
 }
 
-const resultLines = (result: ApplyResult): readonly string[] => {
-  const report = result.cause === undefined ? undefined : toTrackerError(result.cause)
-  return [
-    `result: ${result.status}${result.dryRun ? " (dry run)" : ""}`,
-    `changed: ${result.changed.length === 0 ? "none" : result.changed.join(", ")}`,
-    ...(result.failed === undefined || report === undefined
-      ? []
-      : [
-          `failed: ${result.failed.action} ${result.failed.target}: ${report.code}: ${report.message}`,
-        ]),
-  ]
-}
+const resultLines = (result: ApplyResult): readonly string[] => [
+  `result: ${result.status}${result.dryRun ? " (dry run)" : ""}`,
+  `changed: ${result.changed.length === 0 ? "none" : result.changed.join(", ")}`,
+  ...(result.failed === undefined
+    ? []
+    : [
+        `failed: ${result.failed.action} ${result.failed.target}: ${result.failed.error.code}: ${result.failed.error.message}`,
+      ]),
+]
 
-const writeOutput = (issue: IssueReadDocument, result: ApplyResult): CommandOutput => {
-  const report = result.cause === undefined ? undefined : toTrackerError(result.cause)
+const writeOutput = (
+  issue: IssueReadDocument | null,
+  result: ApplyResult,
+  action: string,
+  readError?: TrackerError,
+): CommandOutput => {
+  const exitCode = result.failed === undefined ? 0 : exitCodeOf(result.failed.error.code)
   return {
     kind: "resource",
-    value: { issue, result: publicResult(result) },
-    text: [formatReadDocument(issue), "", ...resultLines(result)],
-    ...(report === undefined ? {} : { exitCode: exitCodeOf(report.code) }),
+    value: { issue, result: publicResult(action, result) },
+    text: [
+      ...(issue === null ? ["issue: unavailable"] : [formatReadDocument(issue)]),
+      "",
+      ...resultLines(result),
+      ...(readError === undefined ? [] : [`read: ${readError.code}: ${readError.message}`]),
+    ],
+    ...(exitCode === 0 ? {} : { exitCode }),
   }
 }
 
@@ -105,7 +112,7 @@ const readIssue = (
       const issue = page.items[0]
       return issue === undefined
         ? Effect.fail(
-            new TrackerError({
+            new TrackerErrorClass({
               code: "internal",
               message: `The read of ${ref} returned no issue.`,
               hint: null,
@@ -115,4 +122,20 @@ const readIssue = (
     }),
   )
 
-export { applyResultShape, issueWriteShape, readIssue, writeOutput }
+const readForWrite = (
+  reader: IssueReader["Service"],
+  ref: string,
+): Effect.Effect<{
+  readonly issue: IssueReadDocument | null
+  readonly error?: TrackerError | undefined
+}> =>
+  readIssue(reader, ref).pipe(
+    Effect.result,
+    Effect.map((result) =>
+      Result.isFailure(result)
+        ? { issue: null, error: toTrackerError(result.failure) }
+        : { issue: result.success },
+    ),
+  )
+
+export { issueWriteShape, readForWrite, readIssue, writeOutput }

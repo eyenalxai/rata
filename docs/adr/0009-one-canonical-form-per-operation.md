@@ -2,8 +2,8 @@
 
 ## Status
 
-Superseded in part by ADR-0013: `issue <ref>` is now the canonical read and the
-old read forms are gone. The write forms below still hold.
+Superseded in part by ADR-0013 for reads and ADR-0014 for writes. The command
+forms below are historical.
 
 ## Context
 

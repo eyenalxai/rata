@@ -10,8 +10,9 @@ and the loops. `docs/agents/issue-tracker.md` covers the repository rules.
 - `<ref>` is an issue identifier (`ABC-42`), a UUID, or a `linear.app` URL.
 - The issue reads (`issue <ref>...`, `issue list`, `issue search`) and the admin
   commands accept `--format json|text` and `--select <paths>`. JSON is the
-  default when stdout is not a terminal. The issue writes still accept `--json`
-  until the apply engine lands.
+  default when stdout is not a terminal. The in-place writes (`issue apply`,
+  `issue relate`, `issue comment`) accept `--format` and `--select`; `issue
+create` and `issue close` accept `--json` and reject field selection.
 - The old read forms (`issue show`, `issue view`, `issue status`, `next`, `why`)
   and the old read flags (`--json`, `--fields`, `--count`, `--ids-only`,
   `--include`) exit 2 with a `usage` error.
@@ -32,10 +33,9 @@ With JSON output, a failure writes
 
 Codes: `0` success, `1` internal, `2` usage or validation, `3` not found,
 `4` conflict, `5` auth, `6` retryable. A parse error writes the normal error
-object with code `usage`; help prints only for `--help`. A bulk write exits with
-the first failure's code, or `0`. Two cases write a partial result to stdout: a
-bulk write, and a failed `issue update --comment` with the issue update,
-`"comment": null` and the `error`.
+object with code `usage`; help prints only for `--help`. A partial apply writes
+`{ issue, result }` to stdout with `failed` and `error`; the exit code is the
+failed action's code.
 
 ## Setup
 
@@ -100,7 +100,6 @@ members and priorities; `team create --name <name> [--key]`; `team delete <key>
 | `issue <ref> --full`                      | The working set plus `relations` and full child rows                                                                                             |
 | `issue <ref> <ref> ...`                   | `{ items, pageInfo }`; one working set per ref, one list request per page                                                                        |
 | `team show [<ref>]`                       | The team object                                                                                                                                  |
-| `issue section get <ref> <heading>`       | `{ "heading", "level", "content" }`                                                                                                              |
 | `issue list`                              | `{ issues, pageInfo }`; `--relations` adds the six relation groups                                                                               |
 | `issue search`                            | `{ issues, pageInfo }`; ten summary rows by default, no description                                                                              |
 | `team list`, `project list`, `label list` | `{ <plural>, pageInfo }`                                                                                                                         |
@@ -178,7 +177,7 @@ a cursor is bound to its query.
 
 ## Issue writes
 
-Every write goes through `issue apply`, `issue relate` or `issue comment`.
+Every in-place write goes through `issue apply`, `issue relate` or `issue comment`.
 `issue apply <ref> --file -` reads one JSON document:
 
 ```json
@@ -210,9 +209,10 @@ Sections: `replace` requires the heading and fails with `not_found` when it is
 missing; `append` adds to an existing section or creates a missing `## heading`
 at the end. A heading that appears more than once is a `conflict`.
 
-Comment: `issue apply` requires `comment.dedupeKey`. The key is scoped to the
-issue; a retry returns `skipped`. `issue comment <ref> --body-file -` posts one
-comment and takes an optional `--dedupe-key`.
+Comment: `issue apply` requires `comment.dedupeKey`. `issue comment` requires
+`--dedupe-key`. The key is scoped to the issue; a retry returns `skipped`.
+`issue apply`, `issue relate` and `issue comment` accept `--select` on a JSON
+result. `issue create` and `issue close` reject field selection.
 
 Relations are a set. An existing edge is `skipped`. Omit a group to leave it
 alone. `issue relate <ref> (--blocks|--blocked-by|--related|--duplicate)
@@ -224,33 +224,25 @@ and `issue comment create/update/delete`) exit 2 with a `usage` error.
 
 ## Read-after-write
 
-`issue comment create` and `issue create --parent` check that the new object
-appears on a bounded re-read. The default is 5 seconds; `--wait <seconds>`
-changes it and `--wait 0` disables it. A timeout still exits 0: the mutation
-payload is the source of truth. JSON adds `visible`: `false` on timeout and
-`null` when disabled.
+`issue create --parent` checks that the new child appears on a bounded re-read.
+The default is 5 seconds; `--wait <seconds>` changes it and `--wait 0` disables
+it. A timeout still exits 0: the mutation payload is the source of truth. JSON
+adds `visible`: `false` on timeout and `null` when disabled.
 
-## Bulk writes by parent
-
-`issue assign`, `issue label add` and `issue label remove` accept `--parent`;
-pass exactly one of the positional reference and `--parent`. With `--parent`,
-every positional of a label command is a label, and the command targets every
-child, open and closed, in creation order.
-
-Rata validates every target and label before the first write, then runs
-best-effort and exits with the first failed result's code. JSON prints
-`{ "dryRun": false, "results": [...] }`; a failed result carries `error`, and
-`status` is `updated`, `skipped` or `failed`.
+`issue apply` does not poll for comment visibility. The plan resolves the
+dedupe id through `CommentById`, and the mutation payload confirms the write, so
+the apply result never waits. A read immediately after the write may not show
+the comment. This is the `waitSeconds: 0` case in ADR-0006.
 
 ## Idempotency
 
-A write that finds the desired state in place exits 0 and reports `skipped`;
-this covers `link`, `unlink`, `assign`, `unassign`, both label commands, `close`
-and `reopen`. A `canceled` issue still moves to a completed state. A close on an
-already completed issue is skipped, including its comment, so a retry cannot
-post it twice. `issue create` always creates a new object. `label create` fails
-on a duplicate name with `conflict` unless `--if-not-exists` returns it with
-`created: false`.
+A write that finds the desired state in place exits 0 and reports `skipped`.
+This covers `link`, `unlink`, `close`, `apply`, `relate` and `comment`. An apply
+field, label or relation that already matches is skipped. A comment with a
+dedupe key that already exists is skipped. A close on an already completed issue
+is skipped, including its comment, so a retry cannot post it twice. `issue
+create` always creates a new object. `label create` fails on a duplicate name
+with `conflict` unless `--if-not-exists` returns it with `created: false`.
 
 ## Executable hints
 
@@ -258,14 +250,15 @@ A known wrong form fails with `validation` before any request, keeps the JSON
 error shape, and prints one hint that names the command to run. A supplied body,
 label or relation value stays in the hint, shell-quoted when needed.
 
-| Wrong form                                 | Hint                                                                       |
-| ------------------------------------------ | -------------------------------------------------------------------------- |
-| `issue show <ref>`                         | `rata issue <ref>`                                                         |
-| `issue status <ref>`                       | `rata issue <ref>`                                                         |
-| `issue comment <ref>`                      | `rata issue comment create <ref> --body-file -`                            |
-| `issue update <ref> --label <label...>`    | `rata issue label add <ref> <label...>`                                    |
-| `issue create --blocked-by <ref>`          | `Create the issue, then run rata issue link <new-ref> --blocked-by <ref>.` |
-| `issue update <ref> --blocked-by <ref>`    | `rata issue link <ref> --blocked-by <ref>`                                 |
-| `issue link <ref>` without a relation flag | `rata issue link <ref> --blocked-by <blocker>`                             |
-| an issue read with `--fields`              | `Use --format json; --select replaces --fields.`                           |
-| a write with `--fields`                    | `--fields applies to reads only. Use --json and jq on the write result.`   |
+| Wrong form                                     | Hint                                                                         |
+| ---------------------------------------------- | ---------------------------------------------------------------------------- |
+| `issue show <ref>`                             | `rata issue <ref>`                                                           |
+| `issue status <ref>`                           | `rata issue <ref>`                                                           |
+| `issue comment create <ref>`                   | `rata issue comment <ref> --body-file - --dedupe-key <key>`                  |
+| `issue label add <ref> <label...>`             | `rata issue apply <ref> --file -` with `labels.add`                          |
+| `issue create --blocked-by <ref>`              | `Create the issue, then run rata issue relate <new-ref> --blocked-by <ref>.` |
+| `issue link <ref> --blocked-by <ref>`          | `rata issue relate <ref> --blocked-by <ref>`                                 |
+| `issue link <ref>` without a relation flag     | `rata issue relate <ref> --blocked-by <blocker>`                             |
+| an issue read with `--fields`                  | `Use --format json; --select replaces --fields.`                             |
+| `apply`, `relate` or `comment` with `--fields` | `--fields applies to reads only. Use --select on the write result.`          |
+| `create` or `close` with field selection       | `--fields applies to reads only. Use --json and jq on the write result.`     |

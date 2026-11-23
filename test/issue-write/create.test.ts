@@ -1,8 +1,7 @@
 import { inputOf } from "@test/fake-linear/model"
-import { jsonResponse, pageInfo, summaryNode, viewer } from "@test/issue-fixtures"
+import { jsonResponse, pageInfo, viewer } from "@test/issue-fixtures"
 import {
   issueCreated,
-  issueUpdated,
   makeRecorder,
   requestOf,
   run,
@@ -90,20 +89,6 @@ const minimalCreateHandler = () =>
     return jsonResponse({ errors: [{ message: `Unexpected query: ${request.query}` }] }, 400)
   })
 
-const updateHandler = (assignee: typeof viewer | null = viewer) =>
-  makeRecorder((request) => {
-    if (request.query.includes("query IssueSummary")) {
-      return jsonResponse({ data: { issue: { ...summaryNode("RAT-1"), assignee } } })
-    }
-    if (request.query.includes("query IssueId")) {
-      return jsonResponse({ data: { issue: { id: "i1" } } })
-    }
-    if (request.query.includes("mutation UpdateIssue")) {
-      return issueUpdated()
-    }
-    return jsonResponse({ errors: [{ message: `Unexpected query: ${request.query}` }] }, 400)
-  })
-
 const bodyLayer = (input: string) =>
   Layer.mergeAll(
     Stdio.layerTest({ stdin: Stream.make(new TextEncoder().encode(input)) }),
@@ -156,49 +141,6 @@ describe("IssueWriteApi create payload", () => {
     )
     const create = requestOf(recorder, "mutation CreateIssue")
     expect(inputOf(create?.variables ?? {})).toEqual({ teamId: "team-1", title: "No body" })
-  })
-})
-
-describe("IssueWriteApi update payload", () => {
-  test("sends the priority number", async () => {
-    const recorder = updateHandler()
-    await run(
-      recorder.handler,
-      Effect.gen(function* updateIssue() {
-        const api = yield* IssueWriteApi
-        return yield* api.update("RAT-1", { priority: "high" })
-      }),
-    )
-    const update = requestOf(recorder, "mutation UpdateIssue")
-    expect(inputOf(update?.variables ?? {})).toEqual({ priority: 2 })
-  })
-
-  test("sends an explicit 0 for none instead of dropping it", async () => {
-    const recorder = updateHandler()
-    await run(
-      recorder.handler,
-      Effect.gen(function* updateIssue() {
-        const api = yield* IssueWriteApi
-        return yield* api.update("RAT-1", { priority: "none" })
-      }),
-    )
-    const update = requestOf(recorder, "mutation UpdateIssue")
-    expect(inputOf(update?.variables ?? {})).toEqual({ priority: 0 })
-  })
-})
-
-describe("IssueWriteApi unassign", () => {
-  test("sends assigneeId null instead of omitting the field", async () => {
-    const recorder = updateHandler()
-    await run(
-      recorder.handler,
-      Effect.gen(function* unassignIssue() {
-        const api = yield* IssueWriteApi
-        return yield* api.unassign("RAT-1")
-      }),
-    )
-    const update = requestOf(recorder, "mutation UpdateIssue")
-    expect(inputOf(update?.variables ?? {})).toEqual({ assigneeId: null })
   })
 })
 

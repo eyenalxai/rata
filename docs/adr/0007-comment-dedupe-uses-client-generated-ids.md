@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted.
+Accepted. ADR-0014 moves the command surface to `issue apply` and
+`issue comment`; the dedupe rule below still holds.
 
 ## Context
 

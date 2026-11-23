@@ -3,7 +3,7 @@
 ## Status
 
 Accepted. This record replaces the read forms of ADR-0009 and the issue-read
-shapes of ADR-0010. The write forms are unchanged until the apply engine lands.
+shapes of ADR-0010. ADR-0014 replaces the write forms.
 
 ## Context
 

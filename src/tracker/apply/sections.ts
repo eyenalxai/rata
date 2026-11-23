@@ -1,22 +1,14 @@
 import { Effect, Result } from "effect"
 
 import type { ApplyDocument } from "@/domain/apply"
-import type { LinearClientShape } from "@/linear/client"
 import type { ApplyPlanError } from "@/tracker/apply/model"
 import type { IssueWorkingSetFull } from "@/tracker/model"
-import type { PlannedAction, PlanStep } from "@/tracker/plan"
+import type { ApplyStep, PlannedAction } from "@/tracker/plan"
 
 import { appendSection, replaceSection } from "@/domain/body/section/edit"
 import { availableHeadings, findMatches, parseBody } from "@/domain/body/section/model"
 import { normalizeLineEndings } from "@/domain/body/text"
 import { TrackerError } from "@/domain/error"
-import { UpdateIssueResponse } from "@/linear/decode/issue"
-import { updateIssueMutation } from "@/tracker/write/documents"
-import { unwrapIssue } from "@/tracker/write/model"
-
-type SectionDependencies = {
-  readonly client: LinearClientShape
-}
 
 type SectionAction = {
   readonly heading: string
@@ -52,11 +44,10 @@ const sectionAction = (
 })
 
 const planSectionStep = (
-  dependencies: SectionDependencies,
   ref: string,
   snapshot: IssueWorkingSetFull,
   document: ApplyDocument,
-): Effect.Effect<PlanStep | null, ApplyPlanError> => {
+): Effect.Effect<ApplyStep | null, ApplyPlanError> => {
   const sections = document.sections
   if (sections === undefined || sections.length === 0) {
     return Effect.succeed(null)
@@ -125,16 +116,8 @@ const planSectionStep = (
           content: source?.content ?? "",
         })
       }),
-      execute:
-        status === "skipped"
-          ? Effect.void
-          : dependencies.client
-              .execute(
-                updateIssueMutation,
-                { id: snapshot.id, input: { description: next } },
-                UpdateIssueResponse,
-              )
-              .pipe(Effect.flatMap((data) => unwrapIssue(data.issueUpdate))),
+      issueId: snapshot.id,
+      description: next,
     }
   })
 }

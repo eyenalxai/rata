@@ -1,4 +1,3 @@
-/* oxlint-disable max-lines, typescript/no-unsafe-return, typescript/no-unsafe-call, typescript/no-unsafe-type-assertion -- the in-memory write adapter decodes unknown GraphQL input at the test seam. */
 import type {
   MemoryIssue,
   MemoryLabel,
@@ -26,6 +25,17 @@ const UpdateInput = Schema.Struct({
   parentId: Schema.optional(Schema.NullOr(Schema.String)),
 })
 type UpdateInput = typeof UpdateInput.Type
+
+const IdInput = Schema.Struct({
+  id: Schema.String,
+})
+type IdInput = typeof IdInput.Type
+
+const LabelChangeInput = Schema.Struct({
+  id: Schema.String,
+  labelId: Schema.String,
+})
+type LabelChangeInput = typeof LabelChangeInput.Type
 
 const RelationInput = Schema.Struct({
   issueId: Schema.String,
@@ -55,6 +65,18 @@ const decodeInput = <S extends Schema.ConstraintDecoder<unknown>>(
   schema: S,
   value: unknown,
 ): S["Type"] | undefined => Option.getOrUndefined(Schema.decodeUnknownOption(schema)(value))
+
+const decodeRequired = <S extends Schema.ConstraintDecoder<unknown>>(
+  schema: S,
+  value: unknown,
+  message: string,
+): S["Type"] => {
+  const decoded = decodeInput(schema, value)
+  if (decoded === undefined) {
+    throw unsupported(message)
+  }
+  return decoded
+}
 
 const childOf = (issue: MemoryIssue): IssueChild => ({
   id: issue.summary.id,
@@ -109,7 +131,8 @@ const updateIssue = (state: MemoryWriteState, variables: Record<string, unknown>
   if (input === undefined) {
     throw unsupported("The update input is not valid.")
   }
-  const issue = requireIssue(state, String(variables.id))
+  const ids = decodeRequired(IdInput, variables, "The update variables are not valid.")
+  const issue = requireIssue(state, ids.id)
   const team = state.teams.find((candidate) => candidate.id === issue.team.id)
   const stateNode =
     input.stateId === undefined
@@ -187,8 +210,9 @@ const changeLabel = (
   variables: Record<string, unknown>,
   mode: "add" | "remove",
 ) => {
-  const issue = requireIssue(state, String(variables.id))
-  const label = labelOf(state, issue, String(variables.labelId))
+  const input = decodeRequired(LabelChangeInput, variables, "The label variables are not valid.")
+  const issue = requireIssue(state, input.id)
+  const label = labelOf(state, issue, input.labelId)
   const present = issue.summary.labels.nodes.some((candidate) => candidate.id === label.id)
   const labels =
     mode === "add"
@@ -294,15 +318,16 @@ const splitRelationId = (
 }
 
 const deleteRelation = (state: MemoryWriteState, variables: Record<string, unknown>) => {
-  const parsed = splitRelationId(String(variables.id))
+  const input = decodeRequired(IdInput, variables, "The relation variables are not valid.")
+  const parsed = splitRelationId(input.id)
   if (parsed === undefined) {
-    throw unsupported(`No relation matches ${String(variables.id)}.`)
+    throw unsupported(`No relation matches ${input.id}.`)
   }
   const issue = requireIssue(state, parsed.identifier)
   if (parsed.inverse) {
     const relation = (issue.inverseRelations ?? [])[parsed.index]
     if (relation === undefined) {
-      throw unsupported(`No relation matches ${String(variables.id)}.`)
+      throw unsupported(`No relation matches ${input.id}.`)
     }
     const other = state.issues.find(
       (candidate) => String(candidate.summary.id) === String(relation.issue.id),
@@ -324,7 +349,7 @@ const deleteRelation = (state: MemoryWriteState, variables: Record<string, unkno
   } else {
     const relation = (issue.relations ?? [])[parsed.index]
     if (relation === undefined) {
-      throw unsupported(`No relation matches ${String(variables.id)}.`)
+      throw unsupported(`No relation matches ${input.id}.`)
     }
     const other = state.issues.find(
       (candidate) => String(candidate.summary.id) === String(relation.relatedIssue.id),

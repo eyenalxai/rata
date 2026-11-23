@@ -4,7 +4,6 @@ import type { ResolvedContext } from "@/context/model"
 import type { IssueId, LabelId, ProjectId, TeamId, UserId, WorkflowStateId } from "@/domain/id"
 import type { StateType, WorkflowStateNode } from "@/domain/workflow-state"
 import type {
-  BulkTarget,
   IssueWriteApiError,
   IssueWriteDependencies,
   ResolvedLabel,
@@ -17,7 +16,6 @@ import { stateByType } from "@/domain/workflow-state"
 import { collectConnection, pageSize } from "@/linear/connection"
 import {
   AddLabelResponse,
-  BulkTargetsResponse,
   CreateCommentResponse,
   RemoveLabelResponse,
   UpdateIssueResponse,
@@ -30,7 +28,6 @@ import {
 } from "@/tracker/resolve"
 import {
   addLabelMutation,
-  bulkTargetsQuery,
   createCommentMutation,
   removeLabelMutation,
   updateIssueMutation,
@@ -63,36 +60,6 @@ const makeIssueWriteResolvers = ({ client, contexts, gateway }: IssueWriteDepend
     },
   )
 
-  const collectIssueLabels = Effect.fn("IssueWriter.collectIssueLabels")(
-    function* collectIssueLabels(issueId: IssueId) {
-      return yield* gateway.issue.labels(issueId)
-    },
-  )
-
-  const collectChildTargets = Effect.fn("IssueWriter.collectChildTargets")(
-    function* collectChildTargets(ref: string) {
-      const parentId = yield* resolveIssueId(ref)
-      const nodes = yield* collectConnection((after) =>
-        client
-          .execute(bulkTargetsQuery, { id: parentId, first: pageSize, after }, BulkTargetsResponse)
-          .pipe(Effect.map((data) => data.issue.children)),
-      )
-      return nodes.map((node): BulkTarget => ({ summary: toSummary(node), teamId: node.team.id }))
-    },
-  )
-
-  const setAssignee = Effect.fn("IssueWriter.setAssignee")(function* setAssignee(
-    issueId: IssueId,
-    assigneeId: UserId | null,
-  ) {
-    const data = yield* client.execute(
-      updateIssueMutation,
-      { id: issueId, input: { assigneeId } },
-      UpdateIssueResponse,
-    )
-    return yield* unwrapIssue(data.issueUpdate)
-  })
-
   const addLabel = Effect.fn("IssueWriter.addLabel")(function* addLabel(
     issueId: IssueId,
     labelId: LabelId,
@@ -121,12 +88,6 @@ const makeIssueWriteResolvers = ({ client, contexts, gateway }: IssueWriteDepend
       return (yield* contexts.viewer(context)).id
     }
     return asUserId(value)
-  })
-
-  const viewerId = Effect.fn("IssueWriter.viewerId")(function* viewerId(
-    context: ResolvedContext,
-  ): Effect.fn.Return<UserId, IssueWriteApiError> {
-    return (yield* contexts.viewer(context)).id
   })
 
   const resolveProjectId = Effect.fn("IssueWriter.resolveProjectId")(function* resolveProjectId(
@@ -172,13 +133,14 @@ const makeIssueWriteResolvers = ({ client, contexts, gateway }: IssueWriteDepend
     return state.id
   })
 
-  const issueStateIdByName = Effect.fn("IssueWriter.issueStateIdByName")(
-    function* issueStateIdByName(context: ResolvedContext, issueId: IssueId, name: string) {
-      const target = yield* issueTeamContext(context, issueId)
-      const state = yield* resolveStateName(contexts, target, name)
-      return state.id
-    },
-  )
+  const resolveIssueState = Effect.fn("IssueWriter.resolveIssueState")(function* resolveIssueState(
+    context: ResolvedContext,
+    issueId: IssueId,
+    name: string,
+  ) {
+    const target = yield* issueTeamContext(context, issueId)
+    return yield* resolveStateName(contexts, target, name)
+  })
 
   const setStateByType = Effect.fn("IssueWriter.setStateByType")(function* setStateByType(
     context: ResolvedContext,
@@ -201,19 +163,6 @@ const makeIssueWriteResolvers = ({ client, contexts, gateway }: IssueWriteDepend
     names: readonly string[],
   ): Effect.fn.Return<readonly ResolvedLabel[], IssueWriteApiError> {
     const resolved = yield* resolveLabelNames(contexts, context, names)
-    return resolved.map((label) => ({ id: label.id, name: label.name }))
-  })
-
-  const resolveTeamLabels = Effect.fn("IssueWriter.resolveTeamLabels")(function* resolveTeamLabels(
-    context: ResolvedContext,
-    teamId: TeamId,
-    names: readonly string[],
-  ): Effect.fn.Return<readonly ResolvedLabel[], IssueWriteApiError> {
-    const target =
-      context.team?.identity.id === teamId
-        ? context
-        : yield* contexts.resolve({ teamId, viewer: false })
-    const resolved = yield* resolveLabelNames(contexts, target, names)
     return resolved.map((label) => ({ id: label.id, name: label.name }))
   })
 
@@ -244,8 +193,6 @@ const makeIssueWriteResolvers = ({ client, contexts, gateway }: IssueWriteDepend
   return {
     ...makeRelationResolvers({ client }),
     addLabel,
-    collectChildTargets,
-    collectIssueLabels,
     postComment,
     readIssueSummary,
     removeLabel,
@@ -253,13 +200,10 @@ const makeIssueWriteResolvers = ({ client, contexts, gateway }: IssueWriteDepend
     resolveIssueId,
     resolveLabels,
     resolveIssueLabels,
-    resolveTeamLabels,
-    issueStateIdByName,
+    resolveIssueState,
     resolveProjectId,
-    setAssignee,
     setStateByType,
     teamStateIdByName,
-    viewerId,
   }
 }
 

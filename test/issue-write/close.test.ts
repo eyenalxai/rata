@@ -86,19 +86,6 @@ describe("IssueWriteApi state resolution", () => {
     expect(inputOf(update?.variables ?? {})).toEqual({ stateId: "s-done" })
   })
 
-  test("reopen picks the unstarted state, not the backlog state", async () => {
-    const recorder = stateHandler(states)
-    await run(
-      recorder.handler,
-      Effect.gen(function* reopenIssue() {
-        const api = yield* IssueWriteApi
-        return yield* api.reopen("RAT-1")
-      }),
-    )
-    const update = requestOf(recorder, "mutation UpdateIssue")
-    expect(inputOf(update?.variables ?? {})).toEqual({ stateId: "s-todo" })
-  })
-
   test("close fails when the team has no completed state", async () => {
     const recorder = stateHandler(states.filter((state) => state.type !== "completed"))
     const error = await run(
@@ -196,33 +183,6 @@ describe("IssueWriteApi state resolution", () => {
     expect(plan.status).toBe("skipped")
     expect(plan.actions.every((action) => action.status === "skipped")).toBe(true)
     expect(requestOf(recorder, "mutation CreateComment")).toBeUndefined()
-    expect(requestOf(recorder, "mutation UpdateIssue")).toBeUndefined()
-  })
-
-  test("reopen dry run plans the state without writing", async () => {
-    const recorder = stateHandler(states)
-    const result = await run(
-      recorder.handler,
-      Effect.gen(function* reopenDryRun() {
-        const api = yield* IssueWriteApi
-        return yield* api.reopen("RAT-1", { dryRun: true })
-      }),
-    )
-    expect(result.actions[0]?.action).toBe("reopen")
-    expect(result.actions[0]?.status).toBe("updated")
-    expect(requestOf(recorder, "mutation UpdateIssue")).toBeUndefined()
-  })
-
-  test("skips a reopen when the issue is already unstarted", async () => {
-    const recorder = stateHandler(states, "unstarted")
-    const result = await run(
-      recorder.handler,
-      Effect.gen(function* reopenOpen() {
-        const api = yield* IssueWriteApi
-        return yield* api.reopen("RAT-1")
-      }),
-    )
-    expect(result.status).toBe("skipped")
     expect(requestOf(recorder, "mutation UpdateIssue")).toBeUndefined()
   })
 

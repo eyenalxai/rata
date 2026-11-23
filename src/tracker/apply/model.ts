@@ -1,44 +1,64 @@
-import type { ContextResolver } from "@/context/resolve"
-import type { ApplyDocument, ApplyRelations } from "@/domain/apply"
-import type { TrackerError } from "@/domain/error"
-import type { LinearClientShape } from "@/linear/client"
-import type { LinearGatewayShape } from "@/linear/gateway"
-import type { AssigneeInputError } from "@/tracker/error"
-import type { IssueWorkingSetFull } from "@/tracker/model"
-import type { ApplyCommand } from "@/tracker/plan"
-import type { IssueReader } from "@/tracker/read"
-import type { makeCommentWrites } from "@/tracker/write/comments"
-import type { IssueWriteApiError } from "@/tracker/write/model"
-import type { makeIssueWriteResolvers } from "@/tracker/write/resolvers"
+import type { Effect, Option } from "effect"
 
-type ApplyDependencies = {
-  readonly client: LinearClientShape
-  readonly gateway: LinearGatewayShape
-  readonly contexts: ContextResolver["Service"]
-  readonly reader: IssueReader["Service"]
-  readonly resolvers: ReturnType<typeof makeIssueWriteResolvers>
-  readonly comments: ReturnType<typeof makeCommentWrites>
+import type { ResolvedContext } from "@/context/model"
+import type { TrackerError } from "@/domain/error"
+import type { CommentId, IssueId, ProjectId, UserId } from "@/domain/id"
+import type { IssueComment, IssueInverseRelation, IssueRelation } from "@/linear/decode/issue"
+import type { TeamState } from "@/linear/decode/team"
+import type { IssueReader } from "@/tracker/read"
+import type {
+  IssueRelationChanges,
+  ResolvedLabel,
+  ResolvedRelationTarget,
+} from "@/tracker/write/model"
+
+type RelationSnapshot = {
+  readonly outgoing: readonly IssueRelation[]
+  readonly incoming: readonly IssueInverseRelation[]
 }
 
-type ApplyPlanError = AssigneeInputError | IssueWriteApiError | TrackerError
+type ApplyWriter = {
+  readonly resolveState: (
+    context: ResolvedContext,
+    issueId: IssueId,
+    name: string,
+  ) => Effect.Effect<TeamState, TrackerError>
+  readonly resolveLabels: (
+    context: ResolvedContext,
+    issueId: IssueId,
+    names: readonly string[],
+  ) => Effect.Effect<readonly ResolvedLabel[], TrackerError>
+  readonly resolveAssignee: (
+    context: ResolvedContext,
+    value: string,
+  ) => Effect.Effect<UserId, TrackerError>
+  readonly resolveProject: (value: string) => Effect.Effect<ProjectId, TrackerError>
+  readonly resolveParent: (value: string) => Effect.Effect<IssueId, TrackerError>
+  readonly resolveRelations: (
+    ref: string,
+    changes: IssueRelationChanges,
+  ) => Effect.Effect<readonly ResolvedRelationTarget[], TrackerError>
+  readonly findComment: (
+    commentId: CommentId,
+  ) => Effect.Effect<Option.Option<IssueComment>, TrackerError>
+  readonly collectRelations: (issueId: IssueId) => Effect.Effect<RelationSnapshot, TrackerError>
+}
 
-type ApplyDocumentContext = {
-  readonly ref: string
-  readonly document: ApplyDocument
-  readonly snapshot: IssueWorkingSetFull
+type ApplyDependencies = {
+  readonly reader: IssueReader["Service"]
+  readonly writer: ApplyWriter
 }
 
 type ApplyPlanOptions = {
-  readonly command?: ApplyCommand | undefined
   readonly removeRelations?: boolean | undefined
 }
 
-type RelationDocument = ApplyRelations
+type ApplyPlanError = TrackerError
 
 export {
   type ApplyDependencies,
-  type ApplyDocumentContext,
   type ApplyPlanError,
   type ApplyPlanOptions,
-  type RelationDocument,
+  type ApplyWriter,
+  type RelationSnapshot,
 }

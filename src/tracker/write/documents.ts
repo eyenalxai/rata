@@ -23,20 +23,6 @@ const createCommentMutation = `mutation CreateComment($input: CommentCreateInput
   }
 }`
 
-const updateCommentMutation = `mutation UpdateComment($id: String!, $input: CommentUpdateInput!) {
-  commentUpdate(id: $id, input: $input) {
-    success
-    comment { ${commentFields} }
-  }
-}`
-
-const deleteCommentMutation = `mutation DeleteComment($id: String!) {
-  commentDelete(id: $id) {
-    success
-    entityId
-  }
-}`
-
 const addLabelMutation = `mutation AddLabel($id: String!, $labelId: String!) {
   issueAddLabel(id: $id, labelId: $labelId) {
     success
@@ -65,17 +51,6 @@ const deleteRelationMutation = `mutation IssueRelationDelete($id: String!) {
   }
 }`
 
-const bulkTargetsQuery = `query IssueChildrenSummary($id: String!, $first: Int!, $after: String) {
-  issue(id: $id) {
-    children(first: $first, after: $after, orderBy: createdAt) {
-      nodes {${summaryFields}
-        team { id }
-      }
-      pageInfo { hasNextPage endCursor }
-    }
-  }
-}`
-
 const commentByIdQuery = `query CommentById($filter: CommentFilter!, $first: Int!) {
   comments(filter: $filter, first: $first) {
     nodes { ${commentFields} }
@@ -101,16 +76,13 @@ const commentTailQuery = `query IssueCommentTail($id: String!, $last: Int!) {
 
 export {
   addLabelMutation,
-  bulkTargetsQuery,
   childTailQuery,
   commentByIdQuery,
   commentTailQuery,
   createCommentMutation,
   createIssueMutation,
   createRelationMutation,
-  deleteCommentMutation,
   deleteRelationMutation,
   removeLabelMutation,
-  updateCommentMutation,
   updateIssueMutation,
 }

@@ -75,10 +75,8 @@ const memoryApiLayer = (seed: MemorySeed, options: MemoryLayerOptions = {}) => {
     Layer.provide(Layer.mergeAll(gateway, client, repoTeam)),
   )
   const reader = IssueReader.layer.pipe(Layer.provide(Layer.mergeAll(gateway, contextResolver)))
-  const apply = IssueApply.layer.pipe(
-    Layer.provide(Layer.mergeAll(gateway, contextResolver, reader)),
-  )
   const writer = IssueWriter.layer.pipe(Layer.provide(Layer.mergeAll(gateway, contextResolver)))
+  const apply = IssueApply.layer.pipe(Layer.provide(Layer.mergeAll(reader, writer)))
   const issueWrite = IssueWriteApi.layer.pipe(
     Layer.provide(Layer.mergeAll(contextResolver, writer)),
   )

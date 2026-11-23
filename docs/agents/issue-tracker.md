@@ -22,8 +22,9 @@ errors. This file covers this repository's facts.
 - **Assignee**: every issue is assigned to the authenticated user with
   `--assignee me`. Wayfinder maps and their children stay unassigned until the
   claim step.
-- **Bulk repair**: `--parent` writes are for a spec's tickets. Do not bulk-label
-  a map: its children are claimed one by one as the frontier moves.
+- **Bulk repair**: `issue create --parent` is for a spec's tickets. `issue apply`
+  changes one issue at a time; do not bulk-label a map. Its children are claimed
+  one by one as the frontier moves.
 
 ## Specs and tickets
 
@@ -47,9 +48,11 @@ The map is an issue labelled `wayfinder:map`. Its children carry
 - **Child**: `rata issue create --title "<title>" --parent <map-ref> --label wayfinder:<type> --no-default-labels --assignee none --body-file -`
 - **Wire**: `rata issue relate <child-ref> --blocked-by <blocker-ref>`.
 - **Frontier**: `rata issue <map-ref>` returns `frontier` and `nextChild`. For the whole frontier as rows, use `rata issue list --parent <map-ref> --unblocked --unassigned --relations --sort priority --all`.
-- **Claim**: `rata issue apply <ref> --file -` with `{"assignee": "me"}`. If another user holds it,
-  the command exits 4 and names the holder; `--take` reassigns it.
-- **Resolve**: `rata issue comment <ref> --body-file -`, then `rata issue close <ref>`, then `rata issue apply <map-ref> --file -` with a `sections` append.
+- **Claim**: `rata issue apply <ref> --file -` with `{"assignee": "me"}`. The
+  apply engine sets the assignee without a holder guard. The guard and `--take`
+  belong to `issue start`, which lands with the lifecycle commands. Pass
+  `--if-unchanged <snapshot>` when a read must not race.
+- **Resolve**: `rata issue comment <ref> --body-file - --dedupe-key <key>`, then `rata issue close <ref>`, then `rata issue apply <map-ref> --file -` with a `sections` append.
 
 ## Pull requests
 

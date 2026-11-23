@@ -1,20 +1,9 @@
 import { Effect, Result } from "effect"
 
-import { ConflictError } from "@/domain/conflict"
+import type { CommentId, IssueId, LabelId, RelationId } from "@/domain/id"
+import type { RelationType } from "@/domain/relation"
 
-const applyCommands = ["apply", "relate", "comment"] as const
-type ApplyCommand = (typeof applyCommands)[number]
-
-const applyStepNames = [
-  "update-fields",
-  "add-label",
-  "remove-label",
-  "update-sections",
-  "comment-create",
-  "relation-add",
-  "relation-remove",
-] as const
-type ApplyStepName = (typeof applyStepNames)[number]
+import { TrackerError } from "@/domain/error"
 
 const plannedActionNames = [
   "update-fields",
@@ -38,58 +27,100 @@ type PlannedAction = {
   readonly changes: Readonly<Record<string, unknown>>
 }
 
-type FailedAction = {
-  readonly action: ApplyStepName
-  readonly target: string
-  readonly status: "failed"
-  readonly changes: Readonly<Record<string, unknown>>
-}
-
-type PlanStep = {
-  readonly action: ApplyStepName
+type StepMeta = {
   readonly target: string
   readonly status: PlannedStatus
   readonly changes: Readonly<Record<string, unknown>>
   readonly changed: readonly string[]
   readonly actions: readonly PlannedAction[]
-  readonly execute: Effect.Effect<void, Error>
 }
 
+type ApplyStep = StepMeta &
+  (
+    | {
+        readonly action: "update-fields"
+        readonly issueId: IssueId
+        readonly input: Readonly<Record<string, unknown>>
+      }
+    | {
+        readonly action: "add-label" | "remove-label"
+        readonly issueId: IssueId
+        readonly labelId: LabelId
+      }
+    | {
+        readonly action: "update-sections"
+        readonly issueId: IssueId
+        readonly description: string
+      }
+    | {
+        readonly action: "comment-create"
+        readonly issueId: IssueId
+        readonly body: string
+        readonly commentId: CommentId
+      }
+    | {
+        readonly action: "relation-add"
+        readonly input: {
+          readonly issueId: IssueId
+          readonly relatedIssueId: IssueId
+          readonly type: RelationType
+        }
+      }
+    | {
+        readonly action: "relation-remove"
+        readonly relationId?: RelationId | undefined
+      }
+  )
+
 type ApplyPlan = {
-  readonly action: ApplyCommand
   readonly identifier: string
   readonly snapshot: string
-  readonly steps: readonly PlanStep[]
+  readonly steps: readonly ApplyStep[]
+}
+
+type ApplyFailure = {
+  readonly action: ApplyStep["action"]
+  readonly target: string
+  readonly status: "failed"
+  readonly changes: Readonly<Record<string, unknown>>
+  readonly error: TrackerError
 }
 
 type ApplyResult = {
-  readonly action: ApplyCommand
   readonly status: ApplyStatus
   readonly changed: readonly string[]
   readonly dryRun: boolean
   readonly snapshot: string
   readonly actions: readonly PlannedAction[]
-  readonly failed?: FailedAction | undefined
-  readonly cause?: unknown
+  readonly failed?: ApplyFailure | undefined
 }
 
 type ApplyOptions = {
   readonly ifUnchanged?: string | undefined
 }
 
-const stepStatus = (actions: readonly PlannedAction[]): PlannedStatus =>
-  actions.some((action) => action.status === "updated") ? "updated" : "skipped"
+type ApplyExecutor = {
+  readonly applyStep: (step: ApplyStep) => Effect.Effect<void, TrackerError>
+}
 
-const changedOf = (
-  actions: readonly PlannedAction[],
-  changed: readonly string[],
-): readonly string[] => (actions.some((action) => action.status === "updated") ? changed : [])
+const checkSnapshot = (
+  plan: ApplyPlan,
+  expected: string | undefined,
+): Effect.Effect<void, TrackerError> =>
+  expected === undefined || expected === plan.snapshot
+    ? Effect.void
+    : Effect.fail(
+        new TrackerError({
+          code: "conflict",
+          message: `${plan.identifier} changed since you read it.`,
+          hint: `The current updatedAt is ${plan.snapshot}. Re-read the issue and retry.`,
+        }),
+      )
 
-const planStatus = (steps: readonly PlanStep[]): PlannedStatus =>
+const planStatus = (steps: readonly ApplyStep[]): PlannedStatus =>
   steps.some((step) => step.status === "updated") ? "updated" : "skipped"
 
 const dryRunPlan = (plan: ApplyPlan): ApplyResult => ({
-  action: plan.action,
   status: planStatus(plan.steps),
   changed: plan.steps.flatMap((step) => (step.status === "updated" ? step.changed : [])),
   dryRun: true,
@@ -98,17 +129,12 @@ const dryRunPlan = (plan: ApplyPlan): ApplyResult => ({
 })
 
 const applyPlan = (
+  executor: ApplyExecutor,
   plan: ApplyPlan,
   options: ApplyOptions = {},
-): Effect.Effect<ApplyResult, ConflictError> =>
+): Effect.Effect<ApplyResult, TrackerError> =>
   Effect.gen(function* applyIssuePlan() {
-    if (options.ifUnchanged !== undefined && options.ifUnchanged !== plan.snapshot) {
-      return yield* new ConflictError({
-        expected: options.ifUnchanged,
-        current: plan.snapshot,
-        message: `${plan.identifier} changed since you read it.`,
-      })
-    }
+    yield* checkSnapshot(plan, options.ifUnchanged)
     const actions: PlannedAction[] = []
     const changed: string[] = []
     for (const step of plan.steps) {
@@ -116,10 +142,9 @@ const applyPlan = (
         actions.push(...step.actions)
         continue
       }
-      const outcome = yield* Effect.result(step.execute)
+      const outcome = yield* Effect.result(executor.applyStep(step))
       if (Result.isFailure(outcome)) {
         return {
-          action: plan.action,
           status: "failed",
           changed,
           dryRun: false,
@@ -130,15 +155,14 @@ const applyPlan = (
             target: step.target,
             status: "failed",
             changes: step.changes,
+            error: outcome.failure,
           },
-          cause: outcome.failure,
         }
       }
       actions.push(...step.actions)
       changed.push(...step.changed)
     }
     return {
-      action: plan.action,
       status: actions.some((action) => action.status === "updated") ? "updated" : "skipped",
       changed,
       dryRun: false,
@@ -148,23 +172,19 @@ const applyPlan = (
   })
 
 export {
-  type ApplyCommand,
-  applyCommands,
+  type ApplyExecutor,
+  type ApplyFailure,
   type ApplyOptions,
   applyPlan,
   type ApplyPlan,
   type ApplyResult,
   type ApplyStatus,
-  type ApplyStepName,
-  applyStepNames,
-  changedOf,
+  type ApplyStep,
+  checkSnapshot,
   dryRunPlan,
-  type FailedAction,
   type PlannedAction,
   type PlannedActionName,
-  plannedActionNames,
   type PlannedStatus,
-  type PlanStep,
   planStatus,
-  stepStatus,
+  type StepMeta,
 }

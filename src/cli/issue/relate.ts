@@ -3,14 +3,16 @@ import { Argument, Flag } from "effect/cli"
 
 import type { ApplyDocument, ApplyRelations } from "@/domain/apply"
 
+import { OutputFields, rejectFieldsForSelect } from "@/cli/fields"
 import { resolveIssueContext } from "@/cli/issue/context"
-import { issueWriteShape, readIssue, writeOutput } from "@/cli/issue/write-output"
+import { issueWriteShape, readForWrite, writeOutput } from "@/cli/issue/write-output"
 import { dryRunFlag } from "@/cli/output"
 import { defineCommand, selectOutput } from "@/cli/spec"
 import { TrackerError } from "@/domain/error"
 import { IssueApply } from "@/tracker/apply"
 import { applyPlan, dryRunPlan } from "@/tracker/plan"
 import { IssueReader } from "@/tracker/read"
+import { IssueWriter } from "@/tracker/write"
 
 type RelationFlag = keyof ApplyRelations
 
@@ -71,6 +73,7 @@ const relateSpec = defineCommand("relate", {
   output: selectOutput(issueWriteShape),
   run: (input, control) =>
     Effect.gen(function* relateIssue() {
+      yield* rejectFieldsForSelect(yield* OutputFields)
       const groups = (
         [
           ["blocks", input.blocks],
@@ -94,13 +97,12 @@ const relateSpec = defineCommand("relate", {
       const context = yield* resolveIssueContext({ viewer: true })
       const engine = yield* IssueApply
       const plan = yield* engine.plan(context, input.ref, relationDocument(relations), {
-        command: "relate",
         removeRelations: input.remove,
       })
-      const result = control.dryRun ? dryRunPlan(plan) : yield* applyPlan(plan)
+      const result = control.dryRun ? dryRunPlan(plan) : yield* applyPlan(yield* IssueWriter, plan)
       const reader = yield* IssueReader
-      const issue = yield* readIssue(reader, input.ref)
-      return writeOutput(issue, result)
+      const read = yield* readForWrite(reader, input.ref)
+      return writeOutput(read.issue, result, "relate", read.error)
     }),
 })
 

@@ -3,35 +3,29 @@ import { Effect } from "effect"
 import type { ApplyDocument, ApplyRelations } from "@/domain/apply"
 import type { IssueId } from "@/domain/id"
 import type { RelationKind } from "@/domain/relation"
-import type { LinearClientShape } from "@/linear/client"
-import type { ApplyPlanError, ApplyPlanOptions } from "@/tracker/apply/model"
+import type { ApplyPlanError, ApplyPlanOptions, ApplyWriter } from "@/tracker/apply/model"
 import type { IssueWorkingSetFull } from "@/tracker/model"
-import type { PlannedAction, PlanStep } from "@/tracker/plan"
-import type { makeIssueWriteResolvers } from "@/tracker/write/resolvers"
+import type { ApplyStep, PlannedAction } from "@/tracker/plan"
+import type { IssueRelationChanges } from "@/tracker/write/model"
 
 import { TrackerError } from "@/domain/error"
 import { relationKindInfo } from "@/domain/relation"
-import { CreateRelationResponse, DeleteRelationResponse } from "@/linear/decode/issue"
-import { createRelationMutation, deleteRelationMutation } from "@/tracker/write/documents"
-import { unwrapRelation } from "@/tracker/write/model"
 import { planRelationUnlinks } from "@/tracker/write/relation-plan"
 
 type RelationDependencies = {
-  readonly client: LinearClientShape
-  readonly resolvers: ReturnType<typeof makeIssueWriteResolvers>
+  readonly writer: ApplyWriter
 }
 
-type RelationChanges = {
-  readonly blocks: readonly string[]
-  readonly blockedBy: readonly string[]
-  readonly related: readonly string[]
-  readonly duplicate: readonly string[]
+type RelationTarget = {
+  readonly kind: RelationKind
+  readonly target: string
+  readonly targetId: IssueId
 }
 
 const validationError = (message: string, hint: string | null = null) =>
   new TrackerError({ code: "validation", message, hint })
 
-const relationGroups = (relations: ApplyRelations | undefined): RelationChanges => ({
+const relationGroups = (relations: ApplyRelations | undefined): IssueRelationChanges => ({
   blocks: relations?.blocks ?? [],
   blockedBy: relations?.blockedBy ?? [],
   related: relations?.related ?? [],
@@ -39,7 +33,7 @@ const relationGroups = (relations: ApplyRelations | undefined): RelationChanges 
 })
 
 const relationTargets = (
-  changes: RelationChanges,
+  changes: IssueRelationChanges,
 ): readonly { readonly kind: RelationKind; readonly target: string }[] => [
   ...changes.blocks.map((target) => ({ kind: "blocks" as const, target })),
   ...changes.blockedBy.map((target) => ({ kind: "blockedBy" as const, target })),
@@ -78,29 +72,7 @@ const relationAction = (
   changes: { relation: kind, issue: target },
 })
 
-const relationStep = (
-  ref: string,
-  kind: RelationKind,
-  target: string,
-  status: "updated" | "skipped",
-  execute: Effect.Effect<void, Error>,
-): PlanStep => ({
-  action: "relation-add",
-  target: ref,
-  status,
-  changes: { relation: kind, issue: target },
-  changed: status === "updated" ? [`relation:${kind}:${target}`] : [],
-  actions: [relationAction(ref, kind, target, status)],
-  execute,
-})
-
-const uniqueTargets = (
-  targets: readonly {
-    readonly kind: RelationKind
-    readonly target: string
-    readonly targetId: IssueId
-  }[],
-) => {
+const uniqueTargets = (targets: readonly RelationTarget[]): readonly RelationTarget[] => {
   const seen = new Set<string>()
   return targets.filter((target) => {
     const key = `${target.kind}:${target.targetId}`
@@ -117,14 +89,14 @@ const additionSteps = (
   ref: string,
   snapshot: IssueWorkingSetFull,
   relations: ApplyRelations | undefined,
-): Effect.Effect<readonly PlanStep[], ApplyPlanError> =>
+): Effect.Effect<readonly ApplyStep[], ApplyPlanError> =>
   Effect.gen(function* planRelationAdditions() {
     const changes = relationGroups(relations)
     if (relationTargets(changes).length === 0) {
       return []
     }
-    const resolved = yield* dependencies.resolvers.resolveRelations(ref, changes)
-    const targets = uniqueTargets(resolved.targets)
+    const resolved = yield* dependencies.writer.resolveRelations(ref, changes)
+    const targets = uniqueTargets(resolved)
     const blocks = new Set(
       targets.filter((target) => target.kind === "blocks").map((target) => target.targetId),
     )
@@ -137,37 +109,41 @@ const additionSteps = (
         "Remove one of the two relations.",
       )
     }
-    const steps: PlanStep[] = []
+    const steps: ApplyStep[] = []
     for (const target of targets) {
       if (target.targetId === snapshot.id) {
         return yield* validationError("An issue cannot relate to itself.")
       }
       if (existsInSnapshot(snapshot, target.kind, target.targetId)) {
-        steps.push(relationStep(ref, target.kind, target.target, "skipped", Effect.void))
+        steps.push({
+          action: "relation-add",
+          target: ref,
+          status: "skipped",
+          changes: { relation: target.kind, issue: target.target },
+          changed: [],
+          actions: [relationAction(ref, target.kind, target.target, "skipped")],
+          input: {
+            issueId: relationKindInfo[target.kind].inverse ? target.targetId : snapshot.id,
+            relatedIssueId: relationKindInfo[target.kind].inverse ? snapshot.id : target.targetId,
+            type: relationKindInfo[target.kind].type,
+          },
+        })
         continue
       }
       const info = relationKindInfo[target.kind]
-      steps.push(
-        relationStep(
-          ref,
-          target.kind,
-          target.target,
-          "updated",
-          dependencies.client
-            .execute(
-              createRelationMutation,
-              {
-                input: {
-                  issueId: info.inverse ? target.targetId : snapshot.id,
-                  relatedIssueId: info.inverse ? snapshot.id : target.targetId,
-                  type: info.type,
-                },
-              },
-              CreateRelationResponse,
-            )
-            .pipe(Effect.flatMap((data) => unwrapRelation(data.issueRelationCreate))),
-        ),
-      )
+      steps.push({
+        action: "relation-add",
+        target: ref,
+        status: "updated",
+        changes: { relation: target.kind, issue: target.target },
+        changed: [`relation:${target.kind}:${target.target}`],
+        actions: [relationAction(ref, target.kind, target.target, "updated")],
+        input: {
+          issueId: info.inverse ? target.targetId : snapshot.id,
+          relatedIssueId: info.inverse ? snapshot.id : target.targetId,
+          type: info.type,
+        },
+      })
     }
     return steps
   })
@@ -177,42 +153,53 @@ const removalSteps = (
   ref: string,
   snapshot: IssueWorkingSetFull,
   relations: ApplyRelations | undefined,
-): Effect.Effect<readonly PlanStep[], ApplyPlanError> =>
+): Effect.Effect<readonly ApplyStep[], ApplyPlanError> =>
   Effect.gen(function* planRelationRemovals() {
     const changes = relationGroups(relations)
     if (relationTargets(changes).length === 0) {
       return []
     }
-    const resolved = yield* dependencies.resolvers.resolveRelations(ref, changes)
-    const targets = uniqueTargets(resolved.targets)
-    const current = yield* dependencies.resolvers.collectRelations(snapshot.id)
+    const resolved = yield* dependencies.writer.resolveRelations(ref, changes)
+    const targets = uniqueTargets(resolved)
+    const current = yield* dependencies.writer.collectRelations(snapshot.id)
     const plans = planRelationUnlinks(targets, current.outgoing, current.incoming)
-    return plans.map((plan) => ({
-      action: "relation-remove",
-      target: ref,
-      status: plan.status,
-      changes: { relation: plan.kind, issue: plan.target },
-      changed: plan.status === "updated" ? [`relation:${plan.kind}:${plan.target}`] : [],
-      actions: [
-        {
-          action: "relation-remove",
-          target: ref,
-          status: plan.status,
-          changes: { relation: plan.kind, issue: plan.target },
-        },
-      ],
-      execute:
-        plan.status === "skipped"
-          ? Effect.void
-          : Effect.forEach(
-              plan.relationIds,
-              (relationId) =>
-                dependencies.client
-                  .execute(deleteRelationMutation, { id: relationId }, DeleteRelationResponse)
-                  .pipe(Effect.flatMap((data) => unwrapRelation(data.issueRelationDelete))),
-              { discard: true },
-            ),
-    }))
+    return plans.flatMap((plan): readonly ApplyStep[] => {
+      if (plan.status === "skipped") {
+        return [
+          {
+            action: "relation-remove",
+            target: ref,
+            status: "skipped",
+            changes: { relation: plan.kind, issue: plan.target },
+            changed: [],
+            actions: [
+              {
+                action: "relation-remove",
+                target: ref,
+                status: "skipped",
+                changes: { relation: plan.kind, issue: plan.target },
+              },
+            ],
+          },
+        ]
+      }
+      return plan.relationIds.map((relationId) => ({
+        action: "relation-remove",
+        target: ref,
+        status: "updated",
+        changes: { relation: plan.kind, issue: plan.target, relationId },
+        changed: [`relation:${plan.kind}:${plan.target}`],
+        actions: [
+          {
+            action: "relation-remove",
+            target: ref,
+            status: "updated",
+            changes: { relation: plan.kind, issue: plan.target, relationId },
+          },
+        ],
+        relationId,
+      }))
+    })
   })
 
 const planRelationSteps = (
@@ -221,7 +208,7 @@ const planRelationSteps = (
   snapshot: IssueWorkingSetFull,
   document: ApplyDocument,
   options: ApplyPlanOptions,
-): Effect.Effect<readonly PlanStep[], ApplyPlanError> =>
+): Effect.Effect<readonly ApplyStep[], ApplyPlanError> =>
   options.removeRelations === true
     ? removalSteps(dependencies, ref, snapshot, document.relations)
     : additionSteps(dependencies, ref, snapshot, document.relations)

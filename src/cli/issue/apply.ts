@@ -3,15 +3,17 @@ import { Argument, Flag } from "effect/cli"
 
 import type { ApplyDocument } from "@/domain/apply"
 
+import { OutputFields, rejectFieldsForSelect } from "@/cli/fields"
 import { resolveIssueContext } from "@/cli/issue/context"
-import { issueWriteShape, readIssue, writeOutput } from "@/cli/issue/write-output"
+import { issueWriteShape, readForWrite, writeOutput } from "@/cli/issue/write-output"
 import { dryRunFlag } from "@/cli/output"
 import { defineCommand, selectOutput } from "@/cli/spec"
 import { ApplyDocumentJson } from "@/domain/apply"
 import { TrackerError } from "@/domain/error"
 import { IssueApply } from "@/tracker/apply"
-import { applyPlan, dryRunPlan } from "@/tracker/plan"
+import { applyPlan, checkSnapshot, dryRunPlan } from "@/tracker/plan"
 import { IssueReader } from "@/tracker/read"
+import { IssueWriter } from "@/tracker/write"
 
 const formatIssue = SchemaIssue.makeFormatterDefault()
 
@@ -23,7 +25,7 @@ const emptyDocument = () =>
   })
 
 const decodeDocument = (text: string): Effect.Effect<ApplyDocument, TrackerError> => {
-  const decoded = Schema.decodeUnknownResult(ApplyDocumentJson, {
+  const decoded = Schema.decodeResult(ApplyDocumentJson, {
     onExcessProperty: "error",
   })(text)
   if (decoded._tag === "Success") {
@@ -92,6 +94,7 @@ const applySpec = defineCommand("apply", {
   output: selectOutput(issueWriteShape),
   run: (input, control) =>
     Effect.gen(function* applyIssue() {
+      yield* rejectFieldsForSelect(yield* OutputFields)
       if (Option.isNone(control.body)) {
         return yield* emptyDocument()
       }
@@ -100,12 +103,16 @@ const applySpec = defineCommand("apply", {
       const context = yield* resolveIssueContext({ viewer: true })
       const engine = yield* IssueApply
       const plan = yield* engine.plan(context, input.ref, document)
+      const expected = Option.getOrUndefined(control.ifUnchanged)
+      if (control.dryRun) {
+        yield* checkSnapshot(plan, expected)
+      }
       const result = control.dryRun
         ? dryRunPlan(plan)
-        : yield* applyPlan(plan, { ifUnchanged: Option.getOrUndefined(control.ifUnchanged) })
+        : yield* applyPlan(yield* IssueWriter, plan, { ifUnchanged: expected })
       const reader = yield* IssueReader
-      const issue = yield* readIssue(reader, input.ref)
-      return writeOutput(issue, result)
+      const read = yield* readForWrite(reader, input.ref)
+      return writeOutput(read.issue, result, "apply", read.error)
     }),
 })
 

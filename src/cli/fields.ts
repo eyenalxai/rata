@@ -61,6 +61,18 @@ const rejectFields = Effect.fn("Cli.Fields.reject")(function* rejectFields(
   return yield* Effect.void
 })
 
+const rejectFieldsForSelect = Effect.fn("Cli.Fields.rejectForSelect")(
+  function* rejectFieldsForSelect(fields: Option.Option<string>) {
+    if (Option.isSome(fields)) {
+      return yield* new FieldSelectionError({
+        message: "--fields is not supported by this command.",
+        hint: "--fields applies to reads only. Use --select on the write result.",
+      })
+    }
+    return yield* Effect.void
+  },
+)
+
 const selectObject = Effect.fn("Cli.Fields.object")(function* selectObject(
   fields: Option.Option<readonly FieldPath[]>,
   shape: FieldShape,
@@ -91,4 +103,12 @@ const selectItems = Effect.fn("Cli.Fields.items")(function* selectItems(
   return selected.success
 })
 
-export { OutputFields, parseFieldPaths, readFields, rejectFields, selectItems, selectObject }
+export {
+  OutputFields,
+  parseFieldPaths,
+  readFields,
+  rejectFields,
+  rejectFieldsForSelect,
+  selectItems,
+  selectObject,
+}

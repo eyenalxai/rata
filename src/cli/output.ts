@@ -3,11 +3,9 @@ import { Flag, GlobalFlag } from "effect/cli"
 
 import type { ErrorCode, TrackerError } from "@/domain/error"
 import type { PlanAction } from "@/domain/plan"
-import type { IssueSummary } from "@/tracker/model"
-import type { BulkWriteResult, BulkWriteSuccess } from "@/tracker/write/model"
 
-import { commandError, exitCodeOf, toTrackerError } from "@/cli/error-report"
 import { maxPageSize } from "@/linear/connection"
+import { commandError, exitCodeOf, toTrackerError } from "@/tracker/error-report"
 
 const jsonOutput = Schema.fromJsonString(Schema.Unknown, { space: 2 })
 const defectJson = Schema.Defect()
@@ -93,62 +91,6 @@ const writeDryRun = <A extends PlanAction>(
 
 const noChange = (result: { readonly status: string }): string =>
   result.status === "skipped" ? " (no change)" : ""
-
-type BulkJsonResult = {
-  readonly identifier: string
-  readonly status: "updated" | "skipped" | "failed"
-  readonly issue?: IssueSummary | undefined
-  readonly error?: Readonly<Record<string, unknown>> | undefined
-}
-
-const publicError = (report: TrackerError): Record<string, unknown> => ({
-  code: report.code,
-  message: report.message,
-  hint: report.hint,
-  ...(report.details === undefined ? {} : { details: report.details }),
-})
-
-const bulkJsonResult = (result: BulkWriteResult): BulkJsonResult =>
-  result.status === "failed"
-    ? {
-        identifier: result.identifier,
-        status: result.status,
-        error: publicError(toTrackerError(result.error)),
-      }
-    : {
-        identifier: result.identifier,
-        status: result.status,
-        issue: result.issue,
-      }
-
-const failureLine = (result: BulkWriteResult & { readonly status: "failed" }): string => {
-  const report = toTrackerError(result.error)
-  const hint = report.hint === null ? "" : ` (hint: ${report.hint})`
-  return `${result.identifier} failed: ${report.message}${hint}`
-}
-
-const writeBulkResults = (
-  json: boolean,
-  dryRun: boolean,
-  results: readonly BulkWriteResult[],
-  format: (result: BulkWriteSuccess) => string,
-): Effect.Effect<void> =>
-  Effect.gen(function* writeBulk() {
-    const firstFailure = results.find((result) => result.status === "failed")
-    yield* json
-      ? writeJson({ dryRun, results: results.map(bulkJsonResult) })
-      : Effect.forEach(
-          results,
-          (result) => writeLine(result.status === "failed" ? failureLine(result) : format(result)),
-          { discard: true },
-        )
-    if (firstFailure !== undefined && firstFailure.status === "failed") {
-      const code = toTrackerError(firstFailure.error).code
-      yield* Effect.sync(() => {
-        process.exitCode = exitCodeOf(code)
-      })
-    }
-  })
 
 const isEnabledFlag = (value: string): boolean => value !== "" && value !== "0" && value !== "false"
 
@@ -249,7 +191,6 @@ export {
   reportTrackerError,
   validatePageSize,
   warningLine,
-  writeBulkResults,
   writeDryRun,
   writeJson,
   writeJsonError,

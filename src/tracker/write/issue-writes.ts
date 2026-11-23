@@ -1,98 +1,14 @@
 import { Effect } from "effect"
 
 import type { ResolvedContext } from "@/context/model"
-import type { WriteAction, WriteOptions, WriteStatus } from "@/tracker/write/model"
+import type { WriteAction, WriteOptions } from "@/tracker/write/model"
 import type { makeIssueWriteResolvers } from "@/tracker/write/resolvers"
 
-import { AssigneeConflictError, combineStatus, isNoneValue } from "@/tracker/write/model"
+import { combineStatus } from "@/tracker/write/model"
 
 type WriteResolvers = ReturnType<typeof makeIssueWriteResolvers>
 
 const makeIssueWrites = (resolvers: WriteResolvers) => {
-  const addLabels = Effect.fn("IssueWriter.addLabels")(function* addLabels(
-    context: ResolvedContext,
-    ref: string,
-    names: readonly string[],
-    options: WriteOptions = {},
-  ) {
-    const summary = yield* resolvers.readIssueSummary(ref)
-    const resolved = yield* resolvers.resolveIssueLabels(context, summary.id, names)
-    const current = yield* resolvers.collectIssueLabels(summary.id)
-    const present = new Set(current.map((label) => label.id))
-    const actions: WriteAction[] = []
-    const seen = new Set<string>()
-    let issue = summary
-    for (const [index, resolvedLabel] of resolved.entries()) {
-      const labelId = resolvedLabel.id
-      if (seen.has(labelId)) {
-        continue
-      }
-      seen.add(labelId)
-      const label = names[index] ?? labelId
-      if (present.has(labelId)) {
-        actions.push({
-          action: "add-label",
-          target: ref,
-          status: "skipped",
-          changes: { label },
-        })
-        continue
-      }
-      actions.push({
-        action: "add-label",
-        target: ref,
-        status: "updated",
-        changes: { label },
-      })
-      if (options.dryRun !== true) {
-        issue = yield* resolvers.addLabel(summary.id, labelId)
-      }
-    }
-    return { status: combineStatus(actions), issue, actions }
-  })
-
-  const removeLabels = Effect.fn("IssueWriter.removeLabels")(function* removeLabels(
-    context: ResolvedContext,
-    ref: string,
-    names: readonly string[],
-    options: WriteOptions = {},
-  ) {
-    const summary = yield* resolvers.readIssueSummary(ref)
-    const resolved = yield* resolvers.resolveIssueLabels(context, summary.id, names)
-    const current = yield* resolvers.collectIssueLabels(summary.id)
-    const present = new Set(current.map((label) => label.id))
-    const actions: WriteAction[] = []
-    const seen = new Set<string>()
-    let issue = summary
-    for (const [index, resolvedLabel] of resolved.entries()) {
-      const labelId = resolvedLabel.id
-      if (seen.has(labelId)) {
-        continue
-      }
-      seen.add(labelId)
-      const label = names[index] ?? labelId
-      if (!present.has(labelId)) {
-        actions.push({
-          action: "remove-label",
-          target: ref,
-          status: "skipped",
-          changes: { label },
-        })
-        continue
-      }
-      actions.push({
-        action: "remove-label",
-        target: ref,
-        status: "updated",
-        changes: { label },
-      })
-      if (options.dryRun !== true) {
-        issue = yield* resolvers.removeLabel(summary.id, labelId)
-      }
-    }
-    return { status: combineStatus(actions), issue, actions }
-  })
-
   const close = Effect.fn("IssueWriter.close")(function* close(
     context: ResolvedContext,
     ref: string,
@@ -121,10 +37,7 @@ const makeIssueWrites = (resolvers: WriteResolvers) => {
         : []),
     ]
     const status = combineStatus(actions)
-    if (options.dryRun === true) {
-      return { status, issue: summary, actions }
-    }
-    if (alreadyCompleted) {
+    if (options.dryRun === true || alreadyCompleted) {
       return { status, issue: summary, actions }
     }
     if (commented) {
@@ -134,94 +47,7 @@ const makeIssueWrites = (resolvers: WriteResolvers) => {
     return { status, issue, actions }
   })
 
-  const reopen = Effect.fn("IssueWriter.reopen")(function* reopen(
-    context: ResolvedContext,
-    ref: string,
-    options: WriteOptions = {},
-  ) {
-    const summary = yield* resolvers.readIssueSummary(ref)
-    const alreadyOpen = summary.state.type === "unstarted"
-    const actions: readonly WriteAction[] = [
-      {
-        action: "reopen",
-        target: ref,
-        status: alreadyOpen ? "skipped" : "updated",
-        changes: { state: "unstarted" },
-      },
-    ]
-    if (alreadyOpen || options.dryRun === true) {
-      return { status: combineStatus(actions), issue: summary, actions }
-    }
-    const issue = yield* resolvers.setStateByType(context, summary.id, "unstarted")
-    return { status: combineStatus(actions), issue, actions }
-  })
-
-  const assign = Effect.fn("IssueWriter.assign")(function* assign(
-    context: ResolvedContext,
-    ref: string,
-    assignee: string,
-    options: WriteOptions = {},
-  ) {
-    const summary = yield* resolvers.readIssueSummary(ref)
-    const targetId = isNoneValue(assignee)
-      ? null
-      : yield* resolvers.resolveAssignee(context, assignee)
-    const viewerId =
-      targetId === null || assignee.toLowerCase() === "me"
-        ? targetId
-        : yield* resolvers.viewerId(context)
-    const currentId = summary.assignee?.id ?? null
-    if (
-      targetId !== null &&
-      currentId !== null &&
-      currentId !== viewerId &&
-      currentId !== targetId &&
-      options.take !== true
-    ) {
-      return yield* new AssigneeConflictError({
-        assignee: summary.assignee?.name ?? currentId,
-        message: `The issue is assigned to ${summary.assignee?.name ?? currentId}. Pass --take to reassign it.`,
-      })
-    }
-    const status: WriteStatus = currentId === targetId ? "skipped" : "updated"
-    const actions: readonly WriteAction[] = [
-      {
-        action: "assign",
-        target: ref,
-        status,
-        changes: { assignee: targetId === null ? null : assignee },
-      },
-    ]
-    if (status === "skipped" || options.dryRun === true) {
-      return { status, issue: summary, actions }
-    }
-    const issue = yield* resolvers.setAssignee(summary.id, targetId)
-    return { status, issue, actions }
-  })
-
-  const unassign = Effect.fn("IssueWriter.unassign")(function* unassign(
-    _context: ResolvedContext,
-    ref: string,
-    options: WriteOptions = {},
-  ) {
-    const summary = yield* resolvers.readIssueSummary(ref)
-    const status: WriteStatus = summary.assignee === null ? "skipped" : "updated"
-    const actions: readonly WriteAction[] = [
-      {
-        action: "unassign",
-        target: ref,
-        status,
-        changes: { assignee: null },
-      },
-    ]
-    if (status === "skipped" || options.dryRun === true) {
-      return { status, issue: summary, actions }
-    }
-    const issue = yield* resolvers.setAssignee(summary.id, null)
-    return { status, issue, actions }
-  })
-
-  return { addLabels, assign, close, removeLabels, reopen, unassign }
+  return { close }
 }
 
 export { makeIssueWrites }

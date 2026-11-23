@@ -3,14 +3,16 @@ import { Argument, Flag } from "effect/cli"
 
 import type { ApplyDocument } from "@/domain/apply"
 
+import { OutputFields, rejectFieldsForSelect } from "@/cli/fields"
 import { resolveIssueContext } from "@/cli/issue/context"
-import { issueWriteShape, readIssue, writeOutput } from "@/cli/issue/write-output"
+import { issueWriteShape, readForWrite, writeOutput } from "@/cli/issue/write-output"
 import { dryRunFlag } from "@/cli/output"
 import { defineCommand, selectOutput } from "@/cli/spec"
 import { TrackerError } from "@/domain/error"
 import { IssueApply } from "@/tracker/apply"
 import { applyPlan, dryRunPlan } from "@/tracker/plan"
 import { IssueReader } from "@/tracker/read"
+import { IssueWriter } from "@/tracker/write"
 
 const emptyBody = () =>
   new TrackerError({
@@ -23,7 +25,8 @@ const commentSpec = defineCommand("comment", {
   summary: "Post one comment on an issue",
   examples: [
     {
-      command: "printf 'Started work.' | rata issue comment RAT-42 --body-file -",
+      command:
+        "printf 'Started work.' | rata issue comment RAT-42 --body-file - --dedupe-key start",
       description: "Post a comment from standard input",
     },
     {
@@ -40,7 +43,6 @@ const commentSpec = defineCommand("comment", {
     ),
     dedupeKey: Flag.String("dedupe-key").pipe(
       Flag.withDescription("Stable key that makes a retry return skipped"),
-      Flag.optional,
     ),
     dryRun: dryRunFlag,
   },
@@ -51,22 +53,27 @@ const commentSpec = defineCommand("comment", {
   output: selectOutput(issueWriteShape),
   run: (input, control) =>
     Effect.gen(function* commentOnIssue() {
+      yield* rejectFieldsForSelect(yield* OutputFields)
       if (Option.isNone(control.body) || control.body.value.trim().length === 0) {
         return yield* emptyBody()
       }
+      if (input.dedupeKey.trim().length === 0) {
+        return yield* new TrackerError({
+          code: "validation",
+          message: "The --dedupe-key flag is empty.",
+          hint: "Pass a stable key so a retry returns skipped instead of posting again.",
+        })
+      }
       const document: ApplyDocument = {
-        comment: {
-          body: control.body.value,
-          ...(Option.isSome(input.dedupeKey) ? { dedupeKey: input.dedupeKey.value } : {}),
-        },
+        comment: { body: control.body.value, dedupeKey: input.dedupeKey },
       }
       const context = yield* resolveIssueContext({ viewer: true })
       const engine = yield* IssueApply
-      const plan = yield* engine.plan(context, input.ref, document, { command: "comment" })
-      const result = control.dryRun ? dryRunPlan(plan) : yield* applyPlan(plan)
+      const plan = yield* engine.plan(context, input.ref, document)
+      const result = control.dryRun ? dryRunPlan(plan) : yield* applyPlan(yield* IssueWriter, plan)
       const reader = yield* IssueReader
-      const issue = yield* readIssue(reader, input.ref)
-      return writeOutput(issue, result)
+      const read = yield* readForWrite(reader, input.ref)
+      return writeOutput(read.issue, result, "comment", read.error)
     }),
 })
 

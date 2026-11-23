@@ -55,10 +55,11 @@ they explore the codebase. Use these terms; do not drift to synonyms.
 - **Body append**: adding content to the end of the description, or to the end
   of one section, without replacing the rest.
 - **Safe body write**: a body edit that replaces the content under one heading
-  and leaves every other section alone. `issue section replace` is the safe body
-  write: `--dry-run` previews the diff and `--if-unchanged` makes the write
-  conditional. A whole-body write is not: it drops a heading that the new body
-  leaves out. Avoid: body rewrite, whole-body edit.
+  and leaves every other section alone. A `sections` entry with
+  `mode: "replace"` is the safe body write: `--dry-run` prints the plan and
+  `--if-unchanged` makes the write conditional. A whole-body write is not: it
+  drops a heading that the new body leaves out. Avoid: body rewrite,
+  whole-body edit.
 - **updatedAt** (or **snapshot**): the Linear modification timestamp of an
   issue, as read at one moment. It is the snapshot for a best-effort conditional
   write. Pass it to `--if-unchanged`.
@@ -194,5 +195,5 @@ they explore the codebase. Use these terms; do not drift to synonyms.
   `auth`, `forbidden`, `conflict`, `rate_limited`, `network` or `internal`.
 - **Exit code**: the process status of a command, one number per failure class:
   `0` success, `1` internal, `2` usage or validation, `3` not found, `4`
-  conflict, `5` auth, `6` retryable. A bulk write exits with its first failed
-  result's code. Agents branch on this number. Avoid: status code, return code.
+  conflict, `5` auth, `6` retryable. A partial apply exits with its failed
+  action's code. Agents branch on this number. Avoid: status code, return code.

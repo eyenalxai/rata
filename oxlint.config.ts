@@ -176,16 +176,6 @@ export default defineConfig({
       },
     },
     {
-      // The in-memory Linear gateway and the apply behaviour matrix are long by
-      // design: one fake keeps every mutation beside its document, and one test
-      // file keeps the plan, dry-run, no-op and partial-failure cases together.
-      files: ["test/fake-linear/**/*.ts", "test/apply/**/*.ts"],
-      rules: {
-        "max-lines": "off",
-        "unicorn/no-await-expression-member": "off",
-      },
-    },
-    {
       // The in-memory gateway narrows raw GraphQL variables at the test seam.
       // Those values are unknown by construction, so the unsafe-* rules have no
       // safer form here; the gateway itself is covered by behaviour tests.

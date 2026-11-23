@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted.
+Accepted. ADR-0014 supersedes the command surface: body edits go through
+the `sections` of an apply document. The heading rules below still hold.
 
 ## Context
 

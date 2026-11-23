@@ -3,15 +3,14 @@ import { Effect } from "effect"
 import type { ResolvedContext } from "@/context/model"
 import type { ApplyDocument } from "@/domain/apply"
 import type { LabelId } from "@/domain/id"
-import type { ApplyPlanError } from "@/tracker/apply/model"
+import type { ApplyPlanError, ApplyWriter } from "@/tracker/apply/model"
 import type { IssueWorkingSetFull } from "@/tracker/model"
-import type { PlannedAction, PlanStep } from "@/tracker/plan"
-import type { makeIssueWriteResolvers } from "@/tracker/write/resolvers"
+import type { ApplyStep, PlannedAction } from "@/tracker/plan"
 
 import { TrackerError } from "@/domain/error"
 
 type LabelDependencies = {
-  readonly resolvers: ReturnType<typeof makeIssueWriteResolvers>
+  readonly writer: ApplyWriter
 }
 
 type LabelPlan = {
@@ -52,15 +51,11 @@ const planLabels = (
     const resolvedAdd =
       add.length === 0
         ? []
-        : uniqueResolved(
-            yield* dependencies.resolvers.resolveIssueLabels(context, snapshot.id, add),
-          )
+        : uniqueResolved(yield* dependencies.writer.resolveLabels(context, snapshot.id, add))
     const resolvedRemove =
       remove.length === 0
         ? []
-        : uniqueResolved(
-            yield* dependencies.resolvers.resolveIssueLabels(context, snapshot.id, remove),
-          )
+        : uniqueResolved(yield* dependencies.writer.resolveLabels(context, snapshot.id, remove))
     const removed = new Set(resolvedRemove.map((label) => label.id))
     const conflict = resolvedAdd.find((label) => removed.has(label.id))
     if (conflict !== undefined) {
@@ -99,7 +94,7 @@ const planLabelSteps = (
   ref: string,
   snapshot: IssueWorkingSetFull,
   document: ApplyDocument,
-): Effect.Effect<readonly PlanStep[], ApplyPlanError> =>
+): Effect.Effect<readonly ApplyStep[], ApplyPlanError> =>
   Effect.gen(function* planLabelWrites() {
     const plans = yield* planLabels(dependencies, context, snapshot, document)
     return plans.map((plan) => ({
@@ -109,12 +104,8 @@ const planLabelSteps = (
       changes: { label: plan.name },
       changed: [`label:${plan.action === "add-label" ? "+" : "-"}${plan.name}`],
       actions: [labelAction(ref, plan)],
-      execute:
-        plan.status === "skipped"
-          ? Effect.void
-          : plan.action === "add-label"
-            ? dependencies.resolvers.addLabel(snapshot.id, plan.id).pipe(Effect.asVoid)
-            : dependencies.resolvers.removeLabel(snapshot.id, plan.id).pipe(Effect.asVoid),
+      issueId: snapshot.id,
+      labelId: plan.id,
     }))
   })
 

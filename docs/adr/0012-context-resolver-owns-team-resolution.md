@@ -2,7 +2,8 @@
 
 ## Status
 
-Accepted. Supersedes ADR-0005.
+Accepted. Supersedes ADR-0005. ADR-0014 changes the write command names; the
+context rules below still hold.
 
 ## Context
 

@@ -1,9 +1,8 @@
 import { inputOf } from "@test/fake-linear/model"
-import { jsonResponse, pageInfo, summaryNode, viewer } from "@test/issue-fixtures"
+import { jsonResponse, pageInfo, viewer } from "@test/issue-fixtures"
 import {
   configWithTeam,
   issueCreated,
-  issueUpdated,
   makeRecorder,
   otherTeam,
   requestOf,
@@ -14,11 +13,6 @@ import { describe, expect, test } from "bun:test"
 import { Effect } from "effect"
 
 import { IssueWriteApi } from "@/api/issue-write"
-
-const summaryWith = (stateType: string) => ({
-  ...summaryNode("RAT-1"),
-  state: { name: stateType, type: stateType },
-})
 
 const teamHandler = () =>
   makeRecorder((request) => {
@@ -92,84 +86,5 @@ describe("IssueWriteApi team resolution", () => {
     )
     expect(error._tag).toBe("TeamResolutionError")
     expect(requestOf(recorder, "mutation CreateIssue")).toBeUndefined()
-  })
-})
-
-const assignHandler = (assignee: typeof viewer | null) =>
-  makeRecorder((request) => {
-    if (request.query.includes("query IssueSummary")) {
-      return jsonResponse({ data: { issue: { ...summaryWith("started"), assignee } } })
-    }
-    if (request.query.includes("query Viewer")) {
-      return jsonResponse({ data: { viewer } })
-    }
-    if (request.query.includes("mutation UpdateIssue")) {
-      return issueUpdated()
-    }
-    return jsonResponse({ errors: [{ message: `Unexpected query: ${request.query}` }] }, 400)
-  })
-
-describe("IssueWriteApi assign", () => {
-  test("skips when the assignee already holds the issue", async () => {
-    const recorder = assignHandler(viewer)
-    const result = await run(
-      recorder.handler,
-      Effect.gen(function* assignSame() {
-        const api = yield* IssueWriteApi
-        return yield* api.assign("RAT-1", "me")
-      }),
-    )
-    expect(result.status).toBe("skipped")
-    expect(requestOf(recorder, "mutation UpdateIssue")).toBeUndefined()
-  })
-
-  test("clears the assignee with none", async () => {
-    const recorder = assignHandler(viewer)
-    const result = await run(
-      recorder.handler,
-      Effect.gen(function* assignNone() {
-        const api = yield* IssueWriteApi
-        return yield* api.assign("RAT-1", "none")
-      }),
-    )
-    expect(result.status).toBe("updated")
-    expect(inputOf(requestOf(recorder, "mutation UpdateIssue")?.variables ?? {})).toEqual({
-      assigneeId: null,
-    })
-  })
-
-  test("does not write on a dry run", async () => {
-    const recorder = assignHandler(null)
-    const result = await run(
-      recorder.handler,
-      Effect.gen(function* dryRunAssign() {
-        const api = yield* IssueWriteApi
-        return yield* api.assign("RAT-1", "me", { dryRun: true })
-      }),
-    )
-    expect(result.actions).toEqual([
-      {
-        action: "assign",
-        target: "RAT-1",
-        status: "updated",
-        changes: { assignee: "me" },
-      },
-    ])
-    expect(requestOf(recorder, "mutation UpdateIssue")).toBeUndefined()
-  })
-})
-
-describe("IssueWriteApi unassign", () => {
-  test("skips when the issue is already unassigned", async () => {
-    const recorder = assignHandler(null)
-    const result = await run(
-      recorder.handler,
-      Effect.gen(function* unassignEmpty() {
-        const api = yield* IssueWriteApi
-        return yield* api.unassign("RAT-1")
-      }),
-    )
-    expect(result.status).toBe("skipped")
-    expect(requestOf(recorder, "mutation UpdateIssue")).toBeUndefined()
   })
 })

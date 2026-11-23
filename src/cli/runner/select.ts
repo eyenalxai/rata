@@ -3,9 +3,9 @@ import { Effect, Option, Result } from "effect"
 import type { FieldPath } from "@/cli/field/shape"
 import type { OutputFormat, OutputSpec, OutputSpecs } from "@/cli/spec"
 
-import { toTrackerError } from "@/cli/error-report"
 import { parseFieldPaths } from "@/cli/fields"
 import { TrackerError } from "@/domain/error"
+import { toTrackerError } from "@/tracker/error-report"
 
 const isSpecList = (output: OutputSpecs): output is readonly OutputSpec[] => Array.isArray(output)
 

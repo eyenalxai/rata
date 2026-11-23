@@ -1,4 +1,3 @@
-/* oxlint-disable max-lines, typescript/no-unsafe-return, typescript/no-unsafe-call, typescript/no-unsafe-type-assertion -- the in-memory GraphQL adapter narrows unknown variables at the test seam and keeps its handlers together. */
 import type {
   MemoryIssue,
   MemoryLabel,
@@ -25,7 +24,7 @@ import {
   deleteRelation,
   updateIssue,
 } from "@test/fake-linear/gateway/write"
-import { Effect, Predicate, Redacted, Schema } from "effect"
+import { Effect, Option, Redacted, Schema } from "effect"
 
 import type { Connection } from "@/linear/connection"
 import type { TeamDetail } from "@/linear/decode/team"
@@ -71,6 +70,28 @@ const projectVisible = (project: MemoryProject, teamId: string | undefined): boo
 const unsupported = (
   message = "The in-memory Linear gateway does not execute raw GraphQL documents.",
 ): LinearGraphQLError => new LinearGraphQLError({ message, details: [] })
+
+const operationName = (query: string): string | undefined =>
+  /(?:query|mutation)\s+(?<name>[A-Za-z0-9_]+)/u.exec(query)?.groups?.name
+
+const IssueIdInput = Schema.Struct({ id: Schema.String })
+const IssueRefsInput = Schema.Struct({
+  filter: Schema.Struct({ id: Schema.Struct({ in: Schema.Array(Schema.String) }) }),
+})
+const CommentByIdInput = Schema.Struct({
+  filter: Schema.Struct({ id: Schema.Struct({ eq: Schema.String }) }),
+})
+
+const decodeVariables = <S extends Schema.ConstraintDecoder<unknown>>(
+  schema: S,
+  value: unknown,
+): S["Type"] => {
+  const decoded = Schema.decodeUnknownOption(schema)(value)
+  if (Option.isNone(decoded)) {
+    throw unsupported("The query variables are not valid.")
+  }
+  return decoded.value
+}
 
 const teamDetail = (team: MemoryTeam, labels: readonly MemoryLabel[]): TeamDetail => ({
   id: team.id,
@@ -139,31 +160,25 @@ const makeMemoryGateway = (seed: MemorySeed): LinearGatewayShape => {
     return issue
   }
 
-  const queryCommentById = (variables: Record<string, unknown>) => {
-    const filter = Reflect.get(variables, "filter")
-    const filterId = Predicate.isObject(filter) ? Reflect.get(filter, "id") : undefined
-    const id = Predicate.isObject(filterId) ? Reflect.get(filterId, "eq") : undefined
+  const queryCommentById = (input: typeof CommentByIdInput.Type) => {
     const comment = issues
       .flatMap((issue) => issue.comments ?? [])
-      .find((candidate) => String(candidate.id) === id)
+      .find((candidate) => String(candidate.id) === input.filter.id.eq)
     return {
       comments: { nodes: comment === undefined ? [] : [comment], pageInfo },
     }
   }
 
-  const queryIssueRefs = (variables: Record<string, unknown>) => {
-    const filter = variables.filter as
-      | { readonly id?: { readonly in?: readonly string[] } }
-      | undefined
-    const refs = new Set((filter?.id?.in ?? []).map(String))
+  const queryIssueRefs = (input: typeof IssueRefsInput.Type) => {
+    const refs = new Set(input.filter.id.in.map(String))
     const nodes = issues
       .filter((issue) => refs.has(String(issue.summary.id)) || refs.has(issue.summary.identifier))
       .map((issue) => ({ id: issue.summary.id, identifier: issue.summary.identifier }))
     return { issues: { nodes, pageInfo } }
   }
 
-  const queryIssueBody = (variables: Record<string, unknown>) => {
-    const issue = issueOrThrow(String(variables.id))
+  const queryIssueBody = (input: typeof IssueIdInput.Type) => {
+    const issue = issueOrThrow(input.id)
     return {
       issue: {
         id: issue.summary.id,
@@ -184,69 +199,83 @@ const makeMemoryGateway = (seed: MemorySeed): LinearGatewayShape => {
         }),
       )
     }
-    if (query.includes("query IssueRelationsWithInverse")) {
-      const issue = findIssue(String(variables.id))
-      return Effect.succeed(
-        issue === undefined
-          ? {
-              issue: {
-                relations: { nodes: [], pageInfo },
-                inverseRelations: { nodes: [], pageInfo },
-              },
-            }
-          : { issue: relationConnections(issue) },
-      )
+    const operation = operationName(query)
+    if (operation === undefined) {
+      return Effect.fail(unsupported())
     }
-    if (query.includes("query IssueRelations")) {
-      const issue = findIssue(String(variables.id))
-      return Effect.succeed({
-        issue: {
-          relations:
-            issue === undefined ? { nodes: [], pageInfo } : relationConnections(issue).relations,
-        },
-      })
+    switch (operation) {
+      case "IssueRelationsWithInverse": {
+        return runWrite(() => {
+          const issue = findIssue(decodeVariables(IssueIdInput, variables).id)
+          return issue === undefined
+            ? {
+                issue: {
+                  relations: { nodes: [], pageInfo },
+                  inverseRelations: { nodes: [], pageInfo },
+                },
+              }
+            : { issue: relationConnections(issue) }
+        })
+      }
+      case "IssueRelations": {
+        return runWrite(() => {
+          const issue = findIssue(decodeVariables(IssueIdInput, variables).id)
+          return {
+            issue: {
+              relations:
+                issue === undefined
+                  ? { nodes: [], pageInfo }
+                  : relationConnections(issue).relations,
+            },
+          }
+        })
+      }
+      case "IssueInverseRelations": {
+        return runWrite(() => {
+          const issue = findIssue(decodeVariables(IssueIdInput, variables).id)
+          return {
+            issue: {
+              inverseRelations:
+                issue === undefined
+                  ? { nodes: [], pageInfo }
+                  : relationConnections(issue).inverseRelations,
+            },
+          }
+        })
+      }
+      case "IssueRefs": {
+        return runWrite(() => queryIssueRefs(decodeVariables(IssueRefsInput, variables)))
+      }
+      case "CommentById": {
+        return runWrite(() => queryCommentById(decodeVariables(CommentByIdInput, variables)))
+      }
+      case "IssueBody": {
+        return runWrite(() => queryIssueBody(decodeVariables(IssueIdInput, variables)))
+      }
+      case "UpdateIssue": {
+        return runWrite(() => updateIssue(writeState, variables))
+      }
+      case "AddLabel": {
+        return runWrite(() => changeLabel(writeState, variables, "add"))
+      }
+      case "RemoveLabel": {
+        return runWrite(() => changeLabel(writeState, variables, "remove"))
+      }
+      case "CreateComment": {
+        return runWrite(() => createComment(writeState, variables))
+      }
+      case "IssueRelationCreate": {
+        return runWrite(() => createRelation(writeState, variables))
+      }
+      case "IssueRelationDelete": {
+        return runWrite(() => deleteRelation(writeState, variables))
+      }
+      default: {
+        return Effect.fail(
+          unsupported(`The in-memory Linear gateway does not execute ${query.slice(0, 60)}.`),
+        )
+      }
     }
-    if (query.includes("query IssueInverseRelations")) {
-      const issue = findIssue(String(variables.id))
-      return Effect.succeed({
-        issue: {
-          inverseRelations:
-            issue === undefined
-              ? { nodes: [], pageInfo }
-              : relationConnections(issue).inverseRelations,
-        },
-      })
-    }
-    if (query.includes("query IssueRefs")) {
-      return Effect.succeed(queryIssueRefs(variables))
-    }
-    if (query.includes("query CommentById")) {
-      return Effect.succeed(queryCommentById(variables))
-    }
-    if (query.includes("query IssueBody")) {
-      return runWrite(() => queryIssueBody(variables))
-    }
-    if (query.includes("mutation UpdateIssue")) {
-      return runWrite(() => updateIssue(writeState, variables))
-    }
-    if (query.includes("mutation AddLabel")) {
-      return runWrite(() => changeLabel(writeState, variables, "add"))
-    }
-    if (query.includes("mutation RemoveLabel")) {
-      return runWrite(() => changeLabel(writeState, variables, "remove"))
-    }
-    if (query.includes("mutation CreateComment")) {
-      return runWrite(() => createComment(writeState, variables))
-    }
-    if (query.includes("mutation IssueRelationCreate")) {
-      return runWrite(() => createRelation(writeState, variables))
-    }
-    if (query.includes("mutation IssueRelationDelete")) {
-      return runWrite(() => deleteRelation(writeState, variables))
-    }
-    return Effect.fail(
-      unsupported(`The in-memory Linear gateway does not execute ${query.slice(0, 60)}.`),
-    )
   }) as LinearGatewayShape["client"]["execute"]
   const executeWithKey = (() =>
     Effect.fail(unsupported())) as LinearGatewayShape["client"]["executeWithKey"]

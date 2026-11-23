@@ -13,68 +13,6 @@ import { Effect } from "effect"
 
 import { IssueWriteApi } from "@/api/issue-write"
 
-const labelsHandler = () =>
-  makeRecorder((request) => {
-    if (request.query.includes("query IssueSummary")) {
-      return jsonResponse({
-        data: { issue: { ...summaryNode("RAT-1"), labels: { nodes: [] } } },
-      })
-    }
-    if (request.query.includes("query IssueId")) {
-      return jsonResponse({ data: { issue: { id: "i1" } } })
-    }
-    if (request.query.includes("query IssueTeam")) {
-      return jsonResponse({ data: { issue: { team: { id: "team-1" } } } })
-    }
-    if (request.query.includes("query IssueLabels")) {
-      return jsonResponse({
-        data: { issue: { labels: { nodes: [], pageInfo } } },
-      })
-    }
-    if (request.query.includes("query TeamById")) {
-      return jsonResponse({ data: { teams: { nodes: [team], pageInfo } } })
-    }
-    if (request.query.includes("query TeamByKey")) {
-      return jsonResponse({ data: { teams: { nodes: [team], pageInfo } } })
-    }
-    if (request.query.includes("query TeamStates")) {
-      return jsonResponse({ data: { team: { states: { nodes: [], pageInfo } } } })
-    }
-    if (request.query.includes("query TeamLabels")) {
-      return request.variables.after === null
-        ? jsonResponse({
-            data: {
-              issueLabels: {
-                nodes: [{ id: "l1", name: "bug", color: "#111111", team: { id: "team-1" } }],
-                pageInfo: { hasNextPage: true, endCursor: "l1" },
-              },
-            },
-          })
-        : jsonResponse({
-            data: {
-              issueLabels: {
-                nodes: [
-                  { id: "l2", name: "ready-for-agent", color: "#111111", team: { id: "team-1" } },
-                ],
-                pageInfo,
-              },
-            },
-          })
-    }
-    if (request.query.includes("query TeamMembers")) {
-      return jsonResponse({ data: { team: { members: { nodes: [], pageInfo } } } })
-    }
-    if (request.query.includes("query IssuePriorityValues")) {
-      return jsonResponse({ data: { issuePriorityValues: [] } })
-    }
-    if (request.query.includes("mutation AddLabel")) {
-      return jsonResponse({
-        data: { issueAddLabel: { success: true, issue: summaryNode("RAT-1") } },
-      })
-    }
-    return jsonResponse({ errors: [{ message: `Unexpected query: ${request.query}` }] }, 400)
-  })
-
 const createHandler = () =>
   makeRecorder((request) => {
     if (request.query.includes("query Viewer")) {
@@ -207,26 +145,6 @@ const closeHandler = () =>
     }
     return jsonResponse({ errors: [{ message: `Unexpected query: ${request.query}` }] }, 400)
   })
-
-describe("label drains", () => {
-  test("addLabels finds a label on the next page", async () => {
-    const recorder = labelsHandler()
-    await run(
-      recorder.handler,
-      Effect.gen(function* addLabels() {
-        const api = yield* IssueWriteApi
-        return yield* api.addLabels("RAT-1", ["ready-for-agent"])
-      }),
-    )
-    expect(requestOf(recorder, "mutation AddLabel")?.variables).toEqual({
-      id: "id-RAT-1",
-      labelId: "l2",
-    })
-    const pages = recorder.requests.filter((request) => request.query.includes("query TeamLabels"))
-    expect(pages[0]?.variables).toEqual({ teamId: "team-1", first: 50, after: null })
-    expect(pages[1]?.variables).toEqual({ teamId: "team-1", first: 50, after: "l1" })
-  })
-})
 
 describe("workflow-state drains", () => {
   test("create finds the state and the project on the next page", async () => {

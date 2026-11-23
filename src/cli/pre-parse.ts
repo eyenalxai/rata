@@ -219,7 +219,7 @@ const detectOldCommentForm = (
     return {
       code: "usage",
       message: "The issue comment subcommands were replaced by one comment command.",
-      hint: "rata issue comment <ref> --body-file -",
+      hint: "rata issue comment <ref> --body-file - --dedupe-key <key>",
     }
   }
   return undefined

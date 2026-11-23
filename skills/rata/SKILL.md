@@ -21,10 +21,11 @@ rata status          # repo, team, states, labels, triage, cache age, docs, view
 The admin commands (`auth`, `link`, `unlink`, `workspace`, `config`, `team`,
 `project`, `label`, `status`, `whoami`) and the new issue reads (`issue <ref>...`,
 `issue list`, `issue search`) accept `--format json|text` and `--select`. JSON is
-their default when stdout is not a terminal. The issue writes still accept
-`--json` and `--fields` until the apply engine lands. The old read forms (`issue
-show`, `issue view`, `issue status`, `next`, `why`) and the old read flags
-(`--json`, `--fields`, `--count`, `--ids-only`, `--include`) exit 2.
+their default when stdout is not a terminal. The in-place writes (`issue apply`,
+`issue relate`, `issue comment`) accept `--format` and `--select`; `issue create`
+and `issue close` accept `--json` and reject field selection. The old read forms
+(`issue show`, `issue view`, `issue status`, `next`, `why`) and the old read
+flags (`--json`, `--fields`, `--count`, `--ids-only`, `--include`) exit 2.
 
 - `auth`: `printf '%s' "$LINEAR_API_KEY" | rata auth login --with-token`. The key
   resolves as `LINEAR_API_KEY`, the repository workspace, then `default`;
@@ -46,16 +47,16 @@ needs it; reads without that flag do not.
 
 ## One spelling per operation
 
-| Operation     | Canonical form                                            | Rejected form                                                                                    |
-| ------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Read an issue | `rata issue <ref>`                                        | `rata issue show <ref>`                                                                          |
-| Read many     | `rata issue <ref> <ref> ...`                              | repeated `issue <ref>` calls                                                                     |
-| Apply a write | `rata issue apply <ref> --file -`                         | `issue update`, `issue label`, `issue section`, `issue assign`, `issue unassign`, `issue reopen` |
-| Add an edge   | `rata issue relate <ref> --blocked-by <ref>`              | `issue link`, `issue unlink`                                                                     |
-| Comment       | `rata issue comment <ref> --body-file - [--dedupe-key k]` | `issue comment create`                                                                           |
-| Close         | `rata issue close <ref> --comment "..."`                  |                                                                                                  |
+| Operation     | Canonical form                                          | Rejected form                                                                                    |
+| ------------- | ------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Read an issue | `rata issue <ref>`                                      | `rata issue show <ref>`                                                                          |
+| Read many     | `rata issue <ref> <ref> ...`                            | repeated `issue <ref>` calls                                                                     |
+| Apply a write | `rata issue apply <ref> --file -`                       | `issue update`, `issue label`, `issue section`, `issue assign`, `issue unassign`, `issue reopen` |
+| Add an edge   | `rata issue relate <ref> --blocked-by <ref>`            | `issue link`, `issue unlink`                                                                     |
+| Comment       | `rata issue comment <ref> --body-file - --dedupe-key k` | `issue comment create`                                                                           |
+| Close         | `rata issue close <ref> --comment "..."`                |                                                                                                  |
 
-`issue apply` is the write. It plans first, then applies. `--dry-run` returns
+`issue apply` is the in-place write. It plans first, then applies. `--dry-run` returns
 the plan and writes nothing. `--if-unchanged <snapshot>` exits 4 when the issue
 changed. A no-op returns `skipped`. A partial failure returns the applied
 actions and the failed action.
@@ -83,14 +84,16 @@ an existing edge is skipped. Omit a field to leave it alone.
 
 The write result is `{ issue, result }`. `result` carries `action`, `status`,
 `changed`, `dryRun`, `snapshot`, `actions`, and on failure `failed` and `error`.
+`issue apply`, `issue relate` and `issue comment` accept `--select`; `issue
+create` and `issue close` do not.
 
 ## Errors
 
 A failed command with JSON output writes one object to stderr and exits with the code of
 its class: 2 usage or validation, 3 not found, 4 conflict, 5 auth, 6 retryable,
 1 internal. A parse error writes code `usage`; help prints only for `--help`.
-Read `hint` and retry once. Two cases write a partial result to stdout instead:
-a bulk write by `--parent`, and a failed `issue update --comment`.
+Read `hint` and retry once. A partial apply writes `{ issue, result }` to stdout
+with `failed` and `error`, so the applied actions are visible.
 
 ## Pointers
 

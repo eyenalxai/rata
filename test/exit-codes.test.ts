@@ -9,7 +9,6 @@ import type { ErrorCode } from "@/domain/error"
 
 import { ProjectNameAmbiguousError } from "@/api/project/errors"
 import { TeamResolutionError } from "@/api/team"
-import { exitCodeOf, toTrackerError } from "@/cli/error-report"
 import { exitCodeOfCliError } from "@/cli/runner"
 import { DatabaseError } from "@/db/database"
 import { ConflictError } from "@/domain/conflict"
@@ -21,6 +20,7 @@ import {
   LinearNetworkError,
   LinearRateLimitError,
 } from "@/linear/errors"
+import { exitCodeOf, toTrackerError } from "@/tracker/error-report"
 
 const expectedExitCodes: Record<ErrorCode, number> = {
   usage: 2,

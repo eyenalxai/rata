@@ -21,7 +21,7 @@ import type { LinearGatewayShape } from "@/linear/gateway"
 import type { IssueSummary } from "@/tracker/model"
 import type { IssueRefNotFoundError } from "@/tracker/read/batch"
 
-import { CommentId, TeamId } from "@/domain/id"
+import { TeamId } from "@/domain/id"
 import { toSummary } from "@/tracker/model"
 
 class IssueWriteError extends Schema.TaggedError<IssueWriteError>()("IssueWriteError", {
@@ -33,22 +33,6 @@ class StateNotFoundError extends Schema.TaggedError<StateNotFoundError>()("State
   teamId: TeamId,
   message: Schema.String,
 }) {}
-
-class CommentNotFoundError extends Schema.TaggedError<CommentNotFoundError>()(
-  "CommentNotFoundError",
-  {
-    id: CommentId,
-    message: Schema.String,
-  },
-) {}
-
-class AssigneeConflictError extends Schema.TaggedError<AssigneeConflictError>()(
-  "AssigneeConflictError",
-  {
-    message: Schema.String,
-    assignee: Schema.String,
-  },
-) {}
 
 type IssueWriteDependencies = {
   readonly client: LinearClientShape
@@ -64,33 +48,12 @@ type WriteAction = PlanStep
 
 type WriteOptions = {
   readonly dryRun?: boolean | undefined
-  readonly take?: boolean | undefined
-}
-
-type BulkTarget = {
-  readonly summary: IssueSummary
-  readonly teamId: TeamId
 }
 
 type ResolvedLabel = {
   readonly id: LabelId
   readonly name: string
 }
-
-type BulkWriteSuccess = {
-  readonly identifier: string
-  readonly status: "updated" | "skipped"
-  readonly issue: IssueSummary
-  readonly labels?: readonly string[] | undefined
-}
-
-type BulkWriteFailure = {
-  readonly identifier: string
-  readonly status: "failed"
-  readonly error: IssueWriteApiError
-}
-
-type BulkWriteResult = BulkWriteSuccess | BulkWriteFailure
 
 type IssueWriteResult = {
   readonly status: WriteStatus
@@ -108,27 +71,13 @@ type IssueRelationChanges = {
   readonly duplicate: readonly string[]
 }
 
-type IssueRelationChange = {
-  readonly action: "created" | "deleted" | "skipped"
-  readonly kind: RelationKind
-  readonly target: string
-}
-
 type ResolvedRelationTarget = {
   readonly kind: RelationKind
   readonly target: string
   readonly targetId: IssueId
 }
 
-type RelationWriteResult = {
-  readonly status: WriteStatus
-  readonly changes: readonly IssueRelationChange[]
-  readonly actions: readonly WriteAction[]
-}
-
 type IssueWriteApiError =
-  | AssigneeConflictError
-  | CommentNotFoundError
   | InvalidIssueRef
   | IssueRefNotFoundError
   | IssueWriteError
@@ -181,35 +130,19 @@ const unwrapComment = (
     ? Effect.succeed(payload.comment)
     : Effect.fail(new IssueWriteError({ message }))
 
-const unwrapDelete = (
-  payload: {
-    readonly success: boolean
-  },
-  message: string,
-): Effect.Effect<void, IssueWriteError> =>
-  payload.success ? Effect.void : Effect.fail(new IssueWriteError({ message }))
-
 export {
-  AssigneeConflictError,
-  type BulkTarget,
-  type BulkWriteResult,
-  type BulkWriteSuccess,
   combineStatus,
-  CommentNotFoundError,
   IssueWriteError,
   isNoneValue,
   type IssueCreatePlan,
   type IssueWriteDependencies,
   type IssueWriteApiError,
-  type IssueRelationChange,
   type IssueRelationChanges,
   type IssueWriteResult,
-  type RelationWriteResult,
   type ResolvedLabel,
   type ResolvedRelationTarget,
   StateNotFoundError,
   unwrapComment,
-  unwrapDelete,
   unwrapIssue,
   unwrapRelation,
   type WriteAction,

@@ -4,9 +4,9 @@ import { Effect } from "effect"
 import { Flag } from "effect/cli"
 
 import { resolveBody } from "@/cli/body"
-import { toTrackerError } from "@/cli/error-report"
 import { TrackerError } from "@/domain/error"
 import { maxPageSize } from "@/linear/connection"
+import { toTrackerError } from "@/tracker/error-report"
 
 const bodyFlag = Flag.String("body").pipe(
   Flag.withDescription("Body text in markdown"),

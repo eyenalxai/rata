@@ -89,17 +89,15 @@ const repoTeamLayer = RepoTeam.layer.pipe(Layer.provide(Layer.mergeAll(teamLayer
 const readerLayer = IssueReader.layer.pipe(
   Layer.provide(Layer.mergeAll(gatewayLayer, contextResolverLayer)),
 )
-const applyLayer = IssueApply.layer.pipe(
-  Layer.provide(Layer.mergeAll(gatewayLayer, contextResolverLayer, readerLayer)),
+const writerLayer = IssueWriter.layer.pipe(
+  Layer.provide(Layer.mergeAll(gatewayLayer, contextResolverLayer)),
 )
+const applyLayer = IssueApply.layer.pipe(Layer.provide(Layer.mergeAll(readerLayer, writerLayer)))
 const labelLayer = LabelService.layer.pipe(
   Layer.provide(Layer.mergeAll(gatewayLayer, clientLayer, repoTeamLayer)),
 )
 const projectLayer = ProjectService.layer.pipe(
   Layer.provide(Layer.mergeAll(gatewayLayer, clientLayer, repoTeamLayer)),
-)
-const writerLayer = IssueWriter.layer.pipe(
-  Layer.provide(Layer.mergeAll(gatewayLayer, contextResolverLayer)),
 )
 const defaultsLayer = IssueDefaultsService.layer.pipe(
   Layer.provide(Layer.mergeAll(labelLayer, repoConfigLayer, repoTeamLayer)),
