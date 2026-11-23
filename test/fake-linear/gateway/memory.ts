@@ -19,6 +19,7 @@ import {
 } from "@test/fake-linear/gateway/issue"
 import { defaultPriorities } from "@test/fake-linear/gateway/model"
 import {
+  attachPullRequest,
   changeLabel,
   createComment,
   createRelation,
@@ -243,6 +244,9 @@ const makeMemoryGateway = (seed: MemorySeed): LinearGatewayShape => {
     }
     if (query.includes("mutation IssueRelationDelete")) {
       return runWrite(() => deleteRelation(writeState, variables))
+    }
+    if (query.includes("mutation AttachGitHubPr")) {
+      return runWrite(() => attachPullRequest(writeState, variables))
     }
     return Effect.fail(
       unsupported(`The in-memory Linear gateway does not execute ${query.slice(0, 60)}.`),

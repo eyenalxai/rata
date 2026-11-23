@@ -1,59 +1,14 @@
-import { Effect, Option, Schema, SchemaIssue } from "effect"
+import { Effect, Option } from "effect"
 import { Argument, Flag } from "effect/cli"
 
-import type { ApplyDocument } from "@/domain/apply"
-
 import { resolveIssueContext } from "@/cli/issue/context"
+import { decodeApplyDocument, emptyApplyDocument, requireDedupeKey } from "@/cli/issue/document"
 import { issueWriteShape, readIssue, writeOutput } from "@/cli/issue/write-output"
 import { dryRunFlag } from "@/cli/output"
 import { defineCommand, selectOutput } from "@/cli/spec"
-import { ApplyDocumentJson } from "@/domain/apply"
-import { TrackerError } from "@/domain/error"
 import { IssueApply } from "@/tracker/apply"
 import { applyPlan, checkSnapshot, dryRunPlan } from "@/tracker/plan"
 import { IssueReader } from "@/tracker/read"
-
-const formatIssue = SchemaIssue.makeFormatterDefault()
-
-const emptyDocument = () =>
-  new TrackerError({
-    code: "validation",
-    message: "The apply document is empty.",
-    hint: "Pass one JSON object with fields, labels, sections, comment or relations.",
-  })
-
-const decodeDocument = (text: string): Effect.Effect<ApplyDocument, TrackerError> => {
-  const decoded = Schema.decodeUnknownResult(ApplyDocumentJson, {
-    onExcessProperty: "error",
-  })(text)
-  if (decoded._tag === "Success") {
-    return Effect.succeed(decoded.success)
-  }
-  return Effect.fail(
-    new TrackerError({
-      code: "validation",
-      message: `The apply document is invalid: ${formatIssue(decoded.failure.issue)}`,
-      hint: "Pass one JSON object with fields, labels, sections, comment or relations.",
-    }),
-  )
-}
-
-const requireDedupeKey = (document: ApplyDocument): Effect.Effect<void, TrackerError> => {
-  const comment = document.comment
-  if (comment === undefined) {
-    return Effect.void
-  }
-  if (comment.dedupeKey === undefined || comment.dedupeKey.trim().length === 0) {
-    return Effect.fail(
-      new TrackerError({
-        code: "validation",
-        message: "The apply comment needs a dedupeKey.",
-        hint: "Set comment.dedupeKey to a stable string so a retry is safe.",
-      }),
-    )
-  }
-  return Effect.void
-}
 
 const applySpec = defineCommand("apply", {
   summary: "Apply one document to fields, labels, sections, a comment and relations",
@@ -93,9 +48,9 @@ const applySpec = defineCommand("apply", {
   run: (input, control) =>
     Effect.gen(function* applyIssue() {
       if (Option.isNone(control.body)) {
-        return yield* emptyDocument()
+        return yield* emptyApplyDocument()
       }
-      const document = yield* decodeDocument(control.body.value)
+      const document = yield* decodeApplyDocument(control.body.value)
       yield* requireDedupeKey(document)
       const context = yield* resolveIssueContext({ viewer: true })
       const engine = yield* IssueApply

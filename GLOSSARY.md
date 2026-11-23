@@ -107,7 +107,19 @@ they explore the codebase. Use these terms; do not drift to synonyms.
   or `wayfinder:task`.
 - **Frontier**: the open, unblocked, unclaimed child issues of a map.
 - **Claim**: assigning a ticket to yourself before any work. The assignee is the
-  claim.
+  claim. `issue start` makes the claim.
+- **Start**: the lifecycle command that claims an unassigned issue and moves it
+  to the first started state. It skips a claim the viewer holds and exits 4 with
+  the holder; `--take` reassigns.
+- **Handoff**: the lifecycle command that attaches a pull request, applies the
+  state and sections, and posts one deduped comment. A handoff retry is skipped.
+- **Close**: the lifecycle command that refuses open children unless forced,
+  moves the issue to the first completed state, and posts one comment. A closed
+  issue is skipped; a new comment posts once.
+- **Lifecycle**: the `start`, `handoff` and `close` commands. `start` claims an
+  issue and moves it to a started state; `handoff` attaches the pull request,
+  applies the state and sections, and posts one deduped comment; `close` checks
+  the children, moves the issue to a completed state, and posts one comment.
 - **Tracker document**: `docs/agents/issue-tracker.md`, the per-repo file that
   tells the skills how to use the tracker.
 - **Agent documents**: the per-repo files under `docs/agents/` that configure

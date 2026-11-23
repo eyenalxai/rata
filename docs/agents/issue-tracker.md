@@ -33,10 +33,11 @@ tickets are child issues.
 - **Publish the spec**: `rata issue create --title "<title>" --label ready-for-agent --priority medium --assignee me --body-file -`
 - **Publish a ticket**: `rata issue create --title "<title>" --parent <spec-ref> --label ready-for-agent --priority medium --assignee me --body-file -`
 - **Wire blocking**: `rata issue relate <ticket-ref> --blocked-by <blocker-ref>`.
-- **Start a ticket**: `rata issue <ticket-ref>`. The read carries the description, sections, blockers, pull requests, children, frontier and next child in one call.
+- **Read a ticket**: `rata issue <ticket-ref>`. The read carries the description, sections, blockers, pull requests, children, frontier and next child in one call.
+- **Start a ticket**: `rata issue start <ticket-ref>`. It claims an unassigned issue and moves it to the first started state. Add `--take` only when another user holds it.
 - **Read a known set**: `rata issue <ref> <ref> ...`.
 - **Implement**: `rata issue list --parent <spec-ref> --relations --all`. Each row carries its blocking edges.
-- **Close the spec**: `rata issue close <spec-ref> --comment "<result>"`.
+- **Close the spec**: `printf '%s' "<result>" | rata issue close <spec-ref> --comment-file -`.
 
 ## Wayfinding operations
 
@@ -47,13 +48,12 @@ The map is an issue labelled `wayfinder:map`. Its children carry
 - **Child**: `rata issue create --title "<title>" --parent <map-ref> --label wayfinder:<type> --no-default-labels --assignee none --body-file -`
 - **Wire**: `rata issue relate <child-ref> --blocked-by <blocker-ref>`.
 - **Frontier**: `rata issue <map-ref>` returns `frontier` and `nextChild`. For the whole frontier as rows, use `rata issue list --parent <map-ref> --unblocked --unassigned --relations --sort priority --all`.
-- **Claim**: `rata issue apply <ref> --file -` with `{"assignee": "me"}`. The
-  apply engine sets the assignee. The conditional claim guard arrives with
-  `issue start`.
-- **Resolve**: `rata issue comment <ref> --body-file -`, then `rata issue close <ref>`, then `rata issue apply <map-ref> --file -` with a `sections` append.
+- **Claim**: `rata issue start <ref>`. It claims an unassigned issue, skips your own claim, and exits 4 with the holder when another user holds it. Add `--take` to reassign.
+- **Resolve**: `printf '%s' "<result>" | rata issue close <ref> --comment-file -`, then `rata issue apply <map-ref> --file -` with a `sections` append.
 
 ## Pull requests
 
+- **Hand off**: `rata issue handoff <ref> --file -` with `pr`, the PR URL, plus optional `state`, `sections` and `comment`. It attaches the PR, applies the state and sections, and posts one deduped comment. A retry is skipped.
 - A PR closes its issue with `Closes RATA-42` in the body. Use the Linear identifier, not `#42`.
 - A bare `#42` or `Closes #45` in a review is a GitHub number. Resolve it to the Linear issue, then read it with `rata issue <ref>`.
 - PRs are not a request surface. Triage an external PR where it lives and mirror the outcome here.

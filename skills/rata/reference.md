@@ -8,10 +8,10 @@ and the loops. `docs/agents/issue-tracker.md` covers the repository rules.
 `rata <command> [subcommand] [flags] [arguments]`
 
 - `<ref>` is an issue identifier (`ABC-42`), a UUID, or a `linear.app` URL.
-- The issue reads (`issue <ref>...`, `issue list`, `issue search`) and the admin
-  commands accept `--format json|text` and `--select <paths>`. JSON is the
-  default when stdout is not a terminal. The issue writes still accept `--json`
-  until the apply engine lands.
+- The issue reads, the migrated writes (`issue start`, `handoff`, `close`,
+  `apply`, `relate`, `comment`) and the admin commands accept `--format
+json|text` and `--select <paths>`. JSON is the default when stdout is not a
+  terminal. `issue create` still accepts `--json` until its slice.
 - The old read forms (`issue show`, `issue view`, `issue status`, `next`, `why`)
   and the old read flags (`--json`, `--fields`, `--count`, `--ids-only`,
   `--include`) exit 2 with a `usage` error.
@@ -176,8 +176,9 @@ a cursor is bound to its query.
 
 ## Issue writes
 
-Every write goes through `issue apply`, `issue relate` or `issue comment`.
-`issue apply <ref> --file -` reads one JSON document:
+Every write goes through the plan/apply engine. `issue apply` takes the general
+document; `issue start`, `issue handoff` and `issue close` are the lifecycle
+forms. `issue apply <ref> --file -` reads one JSON document:
 
 ```json
 {
@@ -210,11 +211,28 @@ at the end. A heading that appears more than once is a `conflict`.
 
 Comment: `issue apply` requires `comment.dedupeKey`. The key is scoped to the
 issue; a retry returns `skipped`. `issue comment <ref> --body-file -` posts one
-comment and takes an optional `--dedupe-key`.
+comment and requires `--dedupe-key`.
 
 Relations are a set. An existing edge is `skipped`. Omit a group to leave it
 alone. `issue relate <ref> (--blocks|--blocked-by|--related|--duplicate)
 <target>...` adds one-off edges; `--remove` removes them.
+
+### Lifecycle
+
+`issue start <ref> [--state <name>] [--take] [--dry-run]` claims an unassigned
+issue, skips a claim the viewer already holds, and exits 4 with the holder when
+another user holds it. `--take` reassigns. It moves to the first `started` state
+or to `--state`. A retry is `skipped`.
+
+`issue handoff <ref> --file -` reads an apply document plus `pr`, the pull
+request URL. It attaches the PR, applies the fields, sections and one deduped
+comment, and a retry is `skipped`.
+
+`issue close <ref> [--comment-file -] [--force] [--dry-run]` refuses open
+children without `--force` and names them. It moves the issue to the first
+`completed` state and skips an already closed issue. The comment comes from the
+file; a new comment posts once, and the same comment is `skipped` on a retry. The
+old `--comment` string flag is gone.
 
 The old write forms (`issue update`, `issue label`, `issue section`,
 `issue assign`, `issue unassign`, `issue reopen`, `issue link`, `issue unlink`
@@ -231,12 +249,12 @@ apply comment does not wait; its mutation payload is the source of truth.
 ## Idempotency
 
 A write that finds the desired state in place exits 0 and reports `skipped`;
-this covers `link`, `unlink`, `assign`, `unassign`, both label commands, `close`
-and `reopen`. A `canceled` issue still moves to a completed state. A close on an
-already completed issue is skipped, including its comment, so a retry cannot
-post it twice. `issue create` always creates a new object. `label create` fails
-on a duplicate name with `conflict` unless `--if-not-exists` returns it with
-`created: false`.
+this covers `issue apply`, `issue start`, `issue handoff`, `issue close`,
+`issue relate`, `issue comment`, `link` and `unlink`. A closed issue is skipped
+by `issue close`; a new comment posts once, and the same comment is skipped. A
+`canceled` or `duplicate` issue counts as closed. `issue create` always creates a
+new object. `label create` fails on a duplicate name with `conflict` unless
+`--if-not-exists` returns it with `created: false`.
 
 ## Executable hints
 

@@ -9,10 +9,10 @@ import type {
 import { Option, Schema } from "effect"
 
 import type { RelationType } from "@/domain/relation"
-import type { IssueChild, IssueComment, IssueUser } from "@/linear/decode/issue"
+import type { IssueAttachment, IssueChild, IssueComment, IssueUser } from "@/linear/decode/issue"
 import type { Viewer } from "@/linear/decode/viewer"
 
-import { commentId, userId } from "@/domain/id"
+import { attachmentId, commentId, userId } from "@/domain/id"
 import { isPriorityValue, priorityFromValue } from "@/domain/priority"
 import { LinearGraphQLError } from "@/linear/errors"
 
@@ -293,6 +293,28 @@ const splitRelationId = (
   return { inverse, identifier: rest.slice(0, separator), index }
 }
 
+const attachPullRequest = (state: MemoryWriteState, variables: Record<string, unknown>) => {
+  const issue = requireIssue(state, String(variables.issueId))
+  const url = String(variables.url)
+  const existing = (issue.attachments ?? []).find((attachment) => attachment.url === url)
+  if (existing !== undefined) {
+    return { attachmentLinkGitHubPR: { success: true, attachment: existing } }
+  }
+  const attachment: IssueAttachment = {
+    id: attachmentId(
+      `attachment-${issue.summary.identifier}-${(issue.attachments ?? []).length + 1}`,
+    ),
+    title: "Pull request",
+    subtitle: null,
+    url,
+    sourceType: "github",
+    createdAt: "2026-01-06T00:00:00.000Z",
+    metadata: {},
+  }
+  replaceIssue(state, { ...issue, attachments: [...(issue.attachments ?? []), attachment] })
+  return { attachmentLinkGitHubPR: { success: true, attachment } }
+}
+
 const deleteRelation = (state: MemoryWriteState, variables: Record<string, unknown>) => {
   const parsed = splitRelationId(String(variables.id))
   if (parsed === undefined) {
@@ -348,6 +370,7 @@ const deleteRelation = (state: MemoryWriteState, variables: Record<string, unkno
 }
 
 export {
+  attachPullRequest,
   changeLabel,
   createComment,
   createRelation,

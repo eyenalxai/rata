@@ -12,6 +12,7 @@ import { LinearGateway } from "@/linear/gateway"
 import { planCommentStep } from "@/tracker/apply/comment"
 import { planFieldStep } from "@/tracker/apply/fields"
 import { planLabelSteps } from "@/tracker/apply/labels"
+import { planPrStep } from "@/tracker/apply/pr"
 import { planRelationSteps } from "@/tracker/apply/relations"
 import { planSectionStep } from "@/tracker/apply/sections"
 import { IssueReader } from "@/tracker/read"
@@ -34,11 +35,11 @@ const isFullWorkingSet = (document: IssueReadDocument): document is IssueWorking
 const internalError = (message: string) =>
   new TrackerError({ code: "internal", message, hint: null })
 
-const readSnapshot = (
+const readApplySnapshot = (
   reader: IssueReader["Service"],
   ref: string,
 ): Effect.Effect<IssueWorkingSetFull, ApplyPlanError> =>
-  Effect.gen(function* readApplySnapshot() {
+  Effect.gen(function* readSnapshot() {
     const page = yield* reader.workingSet([ref], { comments: false, mode: "full" })
     const document = page.items[0]
     if (document === undefined || !isFullWorkingSet(document)) {
@@ -56,7 +57,9 @@ const makePlan = (
   options: ApplyPlanOptions,
 ): Effect.Effect<ApplyPlan, ApplyPlanError> =>
   Effect.gen(function* planIssueDocument() {
-    const snapshot = yield* readSnapshot(dependencies.reader, ref)
+    const snapshot = options.snapshot ?? (yield* readApplySnapshot(dependencies.reader, ref))
+    const pr =
+      options.pr === undefined ? [] : [yield* planPrStep(dependencies, ref, snapshot, options.pr)]
     const fields = yield* planFieldStep(dependencies, context, ref, snapshot, document)
     const labels = yield* planLabelSteps(dependencies, context, ref, snapshot, document)
     const sections = yield* planSectionStep(dependencies, ref, snapshot, document)
@@ -68,6 +71,7 @@ const makePlan = (
       snapshot: snapshot.updatedAt,
       issue: snapshot,
       steps: [
+        ...pr,
         ...(fields === null ? [] : [fields]),
         ...labels,
         ...(sections === null ? [] : [sections]),
@@ -109,4 +113,4 @@ class IssueApply extends Context.Service<IssueApply, IssueApplyShape>()(
   )
 }
 
-export { IssueApply, type IssueApplyShape }
+export { IssueApply, type IssueApplyShape, readApplySnapshot }

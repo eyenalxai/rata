@@ -180,7 +180,13 @@ const buildGroup = <
   )
 
 const isIssueWriteCommand = (args: readonly string[]): boolean =>
-  args[0] === "issue" && (args[1] === "apply" || args[1] === "relate" || args[1] === "comment")
+  args[0] === "issue" &&
+  (args[1] === "apply" ||
+    args[1] === "relate" ||
+    args[1] === "comment" ||
+    args[1] === "start" ||
+    args[1] === "handoff" ||
+    args[1] === "close")
 
 const runCli = <Name extends string, Input, ContextInput, E, R>(
   version: string,

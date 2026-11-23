@@ -4,7 +4,7 @@ import type { IssueWorkingSetFull } from "@/tracker/model"
 
 import { ConflictError } from "@/domain/conflict"
 
-const applyCommands = ["apply", "relate", "comment"] as const
+const applyCommands = ["apply", "relate", "comment", "start", "handoff", "close"] as const
 type ApplyCommand = (typeof applyCommands)[number]
 
 const applyStepNames = [
@@ -15,6 +15,7 @@ const applyStepNames = [
   "comment-create",
   "relation-add",
   "relation-remove",
+  "pr-attach",
 ] as const
 type ApplyStepName = (typeof applyStepNames)[number]
 
@@ -27,6 +28,7 @@ const plannedActionNames = [
   "comment-create",
   "relation-add",
   "relation-remove",
+  "pr-attach",
 ] as const
 type PlannedActionName = (typeof plannedActionNames)[number]
 
