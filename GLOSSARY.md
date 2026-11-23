@@ -55,10 +55,10 @@ they explore the codebase. Use these terms; do not drift to synonyms.
 - **Body append**: adding content to the end of the description, or to the end
   of one section, without replacing the rest.
 - **Safe body write**: a body edit that replaces the content under one heading
-  and leaves every other section alone. `issue section replace` is the safe body
-  write: `--dry-run` previews the diff and `--if-unchanged` makes the write
-  conditional. A whole-body write is not: it drops a heading that the new body
-  leaves out. Avoid: body rewrite, whole-body edit.
+  and leaves every other section alone. `issue apply` with a `sections` entry is
+  the safe body write: `--dry-run` previews the plan and `--if-unchanged` makes
+  the write conditional. A whole-body write is not: it drops a heading that the
+  new body leaves out. Avoid: body rewrite, whole-body edit.
 - **updatedAt** (or **snapshot**): the Linear modification timestamp of an
   issue, as read at one moment. It is the snapshot for a best-effort conditional
   write. Pass it to `--if-unchanged`.
@@ -76,10 +76,15 @@ they explore the codebase. Use these terms; do not drift to synonyms.
   relation groups. Each outgoing or inverse connection holds up to 250
   relations; `related` and `similar` merge both. Read a larger row with
   `issue <ref> --full`.
-- **Bulk write**: one command that writes to every child of a **parent**. It
-  reports one result per child: `updated`, `skipped` or `failed`. Only
-  `issue assign`, `issue label add` and `issue label remove` treat `--parent` as
-  a bulk target.
+- **Apply document**: the one JSON object that `issue apply` takes. It holds
+  the fields, labels, sections, one comment and relations to change.
+- **Plan**: the ordered actions that an apply document resolves to before any
+  write. A dry run prints the plan.
+- **Apply result**: the `result` object of a write: `action`, `status`,
+  `changed`, `dryRun`, `snapshot`, `actions` and, on failure, `failed` and
+  `error`. `status` is `updated`, `skipped` or `failed`.
+- **Relation set**: the relation groups of an apply document. An edge that
+  already exists is skipped; an omitted group is left alone.
 - **Parent** / **child**: the sub-issue link. A map holds its tickets as child
   issues.
 

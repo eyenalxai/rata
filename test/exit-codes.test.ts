@@ -1,7 +1,6 @@
 import type { Handler } from "@test/fake-linear/model"
 
 import { runIssue, runRoot } from "@test/cli-harness"
-import { body } from "@test/issue-body/fixtures"
 import { jsonResponse } from "@test/issue-fixtures"
 import { afterEach, describe, expect, test } from "bun:test"
 import { CliError } from "effect/cli"
@@ -165,26 +164,6 @@ describe("the process exit code", () => {
     await runIssue(graphqlErrors("Entity not found: Issue"), ["RAT-404", "--format", "json"], [])
 
     expect(process.exitCode).toBe(3)
-  })
-
-  test("a stale --if-unchanged write exits 4", async () => {
-    const { recorder } = body("Intro.")
-
-    await runIssue(
-      recorder.handler,
-      [
-        "update",
-        "RAT-1",
-        "--priority",
-        "high",
-        "--if-unchanged",
-        "2025-01-01T09:00:00.000Z",
-        "--json",
-      ],
-      [],
-    )
-
-    expect(process.exitCode).toBe(4)
   })
 
   test("a missing key exits 5", async () => {

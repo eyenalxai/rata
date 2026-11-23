@@ -113,7 +113,7 @@ const renderOutput = (
           )
         }
         yield* renderResource(output, spec, options)
-        return 0
+        return output.exitCode ?? 0
       }
       case "collection": {
         const spec = specFor(outputSpec, "collection")
@@ -123,14 +123,14 @@ const renderOutput = (
           )
         }
         yield* renderCollection(output, spec, options)
-        return 0
+        return output.exitCode ?? 0
       }
       case "text": {
         if (specFor(outputSpec, "text") === undefined) {
           return yield* internalError("The command returned text for a different output shape.")
         }
         yield* Effect.forEach(output.lines, writeLine, { discard: true })
-        return 0
+        return output.exitCode ?? 0
       }
       default: {
         return yield* internalError("The runner received an output kind it cannot render.")

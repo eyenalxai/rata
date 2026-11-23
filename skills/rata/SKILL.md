@@ -46,73 +46,52 @@ needs it; reads without that flag do not.
 
 ## One spelling per operation
 
-| Operation        | Canonical form                                               | Rejected form                |
-| ---------------- | ------------------------------------------------------------ | ---------------------------- |
-| Read an issue    | `rata issue <ref>`                                           | `rata issue show <ref>`      |
-| Read the summary | `rata issue <ref> --summary`                                 | `rata issue status <ref>`    |
-| Read many        | `rata issue <ref> <ref> ...`                                 | repeated `issue <ref>` calls |
-| Comment          | `rata issue comment create <ref> --body-file -`              | `rata issue comment <ref>`   |
-| Assign           | `rata issue assign <ref> --assignee me [--take]`             | `rata issue assign <ref> me` |
-| Edit a section   | `rata issue section replace <ref> "<heading>" --body-file -` |                              |
-| Batch edit       | `rata issue update <ref> --sections-file -`                  | a loop of section writes     |
-| Change an issue  | `rata issue update <ref> <flags>`                            |                              |
-| Close            | `rata issue close <ref> --comment "..."`                     |                              |
+| Operation     | Canonical form                                              | Rejected form                                                                                    |
+| ------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Read an issue | `rata issue <ref>`                                          | `rata issue show <ref>`                                                                          |
+| Read many     | `rata issue <ref> <ref> ...`                                | repeated `issue <ref>` calls                                                                     |
+| Apply a write | `rata issue apply <ref> --file -`                           | `issue update`, `issue label`, `issue section`, `issue assign`, `issue unassign`, `issue reopen` |
+| Add an edge   | `rata issue relate <ref> --blocked-by <ref>`                | `issue link`, `issue unlink`                                                                     |
+| Comment       | `rata issue comment <ref> --body-file - --dedupe-key <key>` | `issue comment create`                                                                           |
+| Close         | `rata issue close <ref> --comment "..."`                    |                                                                                                  |
 
-`issue update` also sets `--assignee` and `--state`: one command with several fields, not a second spelling. An assign to an issue held by another user exits 4 and names the holder; `--take` reassigns it.
-
-## Read loop
-
-```bash
-rata issue <ref>                          # one call: body, sections, blockers, PRs, children, frontier, next child
-rata issue <ref> --comments                # add the comments
-rata issue <ref> --summary                 # summary fields only
-rata issue <ref> --full                    # add relations and full child rows
-rata issue <ref> <ref> ...                 # one list request per page
-rata issue list --parent <ref> --relations # the children with their blocking edges
-rata issue search "<text>"                 # ten summary rows by default
-rata issue search "<text>" --after <cursor> # the next page of results
-```
-
-`issue <ref>` returns the working set: summary fields, `description`, `sections`,
-`blocked`, `blockedBy`, `prs`, lean `children` with `blocked` and `blockedBy`,
-`frontier`, `nextChild` and `comments: null`. One ref prints the object; many
-print `{ "items", "pageInfo" }`. `--select` validates a declared shape and may
-cross arrays (`children.identifier`, `frontier.identifier`).
+`issue apply` is the write. It plans first, then applies. `--dry-run` returns
+the plan and writes nothing. `--if-unchanged <snapshot>` exits 4 when the issue
+changed. A no-op returns `skipped`. A partial failure returns the applied
+actions and the failed action.
 
 ## Write loop
 
 ```bash
 rata issue create --title "<title>" --body-file - --priority <p> --assignee me
-rata issue create --title "<title>" --parent <spec> --body-file - --priority <p> --assignee me --label ready-for-agent
-rata issue update <ref> --priority <p>
-rata issue update <ref> --state "<state from team show>"
-rata issue comment create <ref> --body-file - --dedupe-key <key>
-rata issue label add <ref> <label...>
-rata issue assign <ref> --assignee me
+printf '%s' "$APPLY_JSON" | rata issue apply <ref> --file -
+printf '%s' "$APPLY_JSON" | rata issue apply <ref> --file - --dry-run
+printf '%s' "$APPLY_JSON" | rata issue apply <ref> --file - --if-unchanged <snapshot>
+rata issue relate <ref> --blocked-by <blocker>
+rata issue relate <ref> --blocked-by <blocker> --remove
+printf 'Started work.' | rata issue comment <ref> --body-file - --dedupe-key start-42
 rata issue close <ref> --comment "..."
 ```
 
-`--body-file -` reads stdin. `--dry-run` previews a write; a body write also
-takes `--if-unchanged <updatedAt>` from a read. A write whose desired state
-already holds exits 0 with `skipped`. Priorities: `urgent`, `high`, `medium`,
-`low`, `none`.
+The apply document has optional `title`, `state`, `assignee`, `priority`,
+`project`, `parent`, `labels: { add, remove }`, `sections`, `comment` and
+`relations: { blocks, blockedBy, related, duplicate }`. Sections take
+`mode: "replace" | "append"`. `replace` needs the heading; `append` creates a
+missing heading at the end. A duplicate heading is a conflict. A comment carries
+a `dedupeKey` in `issue apply`; a retry returns `skipped`. Relations are a set;
+an existing edge is skipped. Omit a field to leave it alone.
 
-For one section, preview with `issue section replace <ref> "<heading>" --dry-run`,
-then write with the same command and `--if-unchanged <updatedAt>`.
-
-For several sections, send one document to `issue update --sections-file -`:
-`{"sections":[{"heading":"Flow","content":"..."}]}`. The dry run returns
-`updatedAt`; the write replaces every heading in one read, one diff and one
-write. Never rewrite the whole body for one section: `issue update --body-file`
-drops every heading that the new body leaves out, with no error.
+The write result is `{ issue, result }`. `result` carries `action`, `status`,
+`changed`, `dryRun`, `snapshot`, `actions`, and on failure `failed` and `error`.
 
 ## Errors
 
-A failed command with JSON output writes one object to stderr and exits with the code of
-its class: 2 usage or validation, 3 not found, 4 conflict, 5 auth, 6 retryable,
-1 internal. A parse error writes code `usage`; help prints only for `--help`.
-Read `hint` and retry once. Two cases write a partial result to stdout instead:
-a bulk write by `--parent`, and a failed `issue update --comment`.
+A failed command with JSON output writes one object to stderr and exits with the
+code of its class: 2 usage or validation, 3 not found, 4 conflict, 5 auth,
+6 retryable, 1 internal. A parse error writes code `usage`; help prints only for
+`--help`. Read `hint` and retry once. A partial apply is the exception: it
+writes one resource document with the applied actions, the failed action and
+`result.error` on stdout, and exits with the failed action's code.
 
 ## Pointers
 

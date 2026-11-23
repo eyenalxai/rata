@@ -144,35 +144,22 @@ const findIssue = (args: readonly string[]): number | undefined => {
 }
 
 const issueRef = (args: readonly string[], start: number): string | undefined => {
-  const ref = args[skipFlags(args, start)]
-  return ref !== undefined && Result.isSuccess(parseIssueRef(ref)) ? ref : undefined
-}
-
-const commentBodyHint = (args: readonly string[], start: number): string => {
-  const bodyFile = readFlagValues(args, start, "body-file")
-  if (bodyFile.present) {
-    return `--body-file ${quoteHintValue(bodyFile.values[0] ?? "-")}`
+  let index = skipFlags(args, start)
+  while (index < args.length) {
+    const token = args[index]
+    if (token === undefined || token === "--") {
+      break
+    }
+    if (token.startsWith("-")) {
+      index = skipFlag(args, index)
+      continue
+    }
+    if (Result.isSuccess(parseIssueRef(token))) {
+      return token
+    }
+    index += 1
   }
-  const body = readFlagValues(args, start, "body")
-  if (body.present) {
-    return `--body ${quoteHintValue(body.values[0] ?? "-")}`
-  }
-  return "--body-file -"
-}
-
-const detectCommentForm = (
-  args: readonly string[],
-  groupIndex: number,
-): InvalidForm | undefined => {
-  const ref = args[skipFlags(args, groupIndex + 1)]
-  if (ref === undefined || !Result.isSuccess(parseIssueRef(ref))) {
-    return undefined
-  }
-  return {
-    code: "validation",
-    message: "The comment group needs a subcommand.",
-    hint: `rata issue comment create ${ref} ${commentBodyHint(args, groupIndex + 1)}`,
-  }
+  return undefined
 }
 
 const relationHint = (args: readonly string[], groupIndex: number): string => {
@@ -189,33 +176,54 @@ const detectCreateForm = (args: readonly string[], groupIndex: number): InvalidF
   return {
     code: "validation",
     message: "The --blocked-by flag is not supported by issue create.",
-    hint: `Create the issue, then run rata issue link <new-ref> ${relationHint(args, groupIndex)}.`,
+    hint: `Create the issue, then run rata issue relate <new-ref> ${relationHint(args, groupIndex)}.`,
   }
 }
 
-const detectUpdateForm = (args: readonly string[], groupIndex: number): InvalidForm | undefined => {
-  const ref = issueRef(args, groupIndex + 1) ?? "<ref>"
-  const labels = readFlagValues(args, groupIndex + 1, "label")
-  if (labels.present) {
-    const names = labels.values.length === 0 ? ["<label>"] : labels.values
+const removedReadGroups = new Set(["show", "view", "status"])
+
+const removedApplyGroups = new Set(["update", "section", "label", "assign", "unassign", "reopen"])
+
+const removedRelateGroups = new Set(["link", "unlink"])
+
+const detectRemovedGroup = (
+  args: readonly string[],
+  groupIndex: number,
+  group: string,
+): InvalidForm | undefined => {
+  if (removedApplyGroups.has(group)) {
+    const ref = issueRef(args, groupIndex + 1) ?? "<ref>"
     return {
-      code: "validation",
-      message: "The --label flag is not supported by issue update.",
-      hint: `rata issue label add ${ref} ${names.map(quoteHintValue).join(" ")}`,
+      code: "usage",
+      message: `The issue ${group} command was replaced by issue apply.`,
+      hint: `rata issue apply ${ref} --file -`,
     }
   }
-  const blockedBy = readFlagValues(args, groupIndex + 1, "blocked-by")
-  if (blockedBy.present) {
+  if (removedRelateGroups.has(group)) {
+    const ref = issueRef(args, groupIndex + 1) ?? "<ref>"
     return {
-      code: "validation",
-      message: "The --blocked-by flag is not supported by issue update.",
-      hint: `rata issue link ${ref} ${relationHint(args, groupIndex)}`,
+      code: "usage",
+      message: `The issue ${group} command was replaced by issue relate.`,
+      hint: `rata issue relate ${ref} --blocked-by <target>`,
     }
   }
   return undefined
 }
 
-const removedReadGroups = new Set(["show", "view", "status"])
+const detectOldCommentForm = (
+  args: readonly string[],
+  groupIndex: number,
+): InvalidForm | undefined => {
+  const next = args[skipFlags(args, groupIndex + 1)]
+  if (next === "create" || next === "update" || next === "delete") {
+    return {
+      code: "usage",
+      message: "The issue comment subcommands were replaced by one comment command.",
+      hint: "rata issue comment <ref> --body-file -",
+    }
+  }
+  return undefined
+}
 
 const detectInvalidForm = (args: readonly string[]): InvalidForm | undefined => {
   if (hasActionFlag(args)) {
@@ -233,16 +241,17 @@ const detectInvalidForm = (args: readonly string[]): InvalidForm | undefined => 
     return undefined
   }
 
-  if (group === "comment") {
-    return detectCommentForm(args, groupIndex)
-  }
-
   if (group === "create") {
     return detectCreateForm(args, groupIndex)
   }
 
-  if (group === "update") {
-    return detectUpdateForm(args, groupIndex)
+  if (group === "comment") {
+    return detectOldCommentForm(args, groupIndex)
+  }
+
+  const removed = detectRemovedGroup(args, groupIndex, group)
+  if (removed !== undefined) {
+    return removed
   }
 
   if (removedReadGroups.has(group)) {

@@ -179,6 +179,9 @@ const buildGroup = <
     withModernOutput,
   )
 
+const isIssueWriteCommand = (args: readonly string[]): boolean =>
+  args[0] === "issue" && (args[1] === "apply" || args[1] === "relate" || args[1] === "comment")
+
 const runCli = <Name extends string, Input, ContextInput, E, R>(
   version: string,
   root: CliCommand.Command<Name, Input, ContextInput, E, R>,
@@ -208,6 +211,16 @@ const runCli = <Name extends string, Input, ContextInput, E, R>(
         new TrackerError({
           code: "usage",
           message: "The --json and --fields flags are not supported by issue reads.",
+          hint: "Use --format json; --select replaces --fields.",
+        }),
+        "json",
+      )
+    }
+    if (!helpRequested(args) && isIssueWriteCommand(args) && hasOldOutputFlag(args)) {
+      return yield* reportRunFailure(
+        new TrackerError({
+          code: "usage",
+          message: "The --json and --fields flags are not supported by issue writes.",
           hint: "Use --format json; --select replaces --fields.",
         }),
         "json",

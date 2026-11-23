@@ -24,6 +24,7 @@ import { TeamContext } from "@/context/team"
 import { makeClient } from "@/linear/client"
 import { LinearAuthError } from "@/linear/errors"
 import { ContextCache } from "@/local/context-cache"
+import { IssueApply } from "@/tracker/apply"
 import { IssueReader } from "@/tracker/read"
 import { IssueWriter } from "@/tracker/write"
 
@@ -77,6 +78,9 @@ const hybridApiLayer = (handler: Handler, seed: MemorySeed, options: ApiLayerOpt
     Layer.provide(Layer.mergeAll(gateway, client, repoTeam)),
   )
   const reader = IssueReader.layer.pipe(Layer.provide(Layer.mergeAll(gateway, contextResolver)))
+  const apply = IssueApply.layer.pipe(
+    Layer.provide(Layer.mergeAll(gateway, contextResolver, reader)),
+  )
   const writer = IssueWriter.layer.pipe(Layer.provide(Layer.mergeAll(gateway, contextResolver)))
   const issueWrite = IssueWriteApi.layer.pipe(
     Layer.provide(Layer.mergeAll(contextResolver, writer)),
@@ -98,6 +102,7 @@ const hybridApiLayer = (handler: Handler, seed: MemorySeed, options: ApiLayerOpt
     contextResolver,
     teamContext,
     reader,
+    apply,
     writer,
     labels,
     projects,

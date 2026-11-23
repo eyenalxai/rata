@@ -1,245 +1,78 @@
 import { Effect, Option } from "effect"
-import { Argument, Command, Flag } from "effect/cli"
+import { Argument, Flag } from "effect/cli"
 
-import { IssueWriteApi } from "@/api/issue-write"
-import { confirm } from "@/cli/confirm"
-import { OutputFields, rejectFields } from "@/cli/fields"
-import { withAgentNotes } from "@/cli/help"
-import {
-  bodyFileFlag,
-  bodyFlag,
-  optionalText,
-  refArgument,
-  resolveCommentBody,
-  validateWait,
-  waitFlag,
-  warnWhenInvisible,
-} from "@/cli/issue-write/flags"
-import {
-  JsonOutput,
-  dryRunFlag,
-  errorLine,
-  reportFailure,
-  writeJson,
-  writeLine,
-} from "@/cli/output"
-import { commentId } from "@/domain/id"
+import type { ApplyDocument } from "@/domain/apply"
 
-const commentIdArgument = Argument.String("comment-id").pipe(Argument.withDescription("Comment id"))
+import { resolveIssueContext } from "@/cli/issue/context"
+import { issueWriteShape, readIssue, writeOutput } from "@/cli/issue/write-output"
+import { dryRunFlag } from "@/cli/output"
+import { defineCommand, selectOutput } from "@/cli/spec"
+import { TrackerError } from "@/domain/error"
+import { IssueApply } from "@/tracker/apply"
+import { applyPlan, dryRunPlan } from "@/tracker/plan"
+import { IssueReader } from "@/tracker/read"
 
-const dedupeKeyFlag = optionalText(
-  "dedupe-key",
-  "Stable key: the same key on the same issue returns the existing comment",
-)
+const emptyBody = () =>
+  new TrackerError({
+    code: "validation",
+    message: "The comment body is empty.",
+    hint: "Pass --body-file with the comment text, or - for standard input.",
+  })
 
-const requireCommentFlag = (body: Option.Option<string>, bodyFile: Option.Option<string>) =>
-  Option.isNone(body) && Option.isNone(bodyFile)
-    ? errorLine("validation", "A comment needs --body or --body-file.")
-    : Effect.void
-
-const createCommand = Command.make(
-  "create",
-  {
-    ref: refArgument,
-    body: bodyFlag,
-    bodyFile: bodyFileFlag,
-    dedupeKey: dedupeKeyFlag,
-    wait: waitFlag,
-    dryRun: dryRunFlag,
-  },
-  (config) =>
-    Effect.gen(function* createComment() {
-      const json = yield* JsonOutput
-      yield* rejectFields(yield* OutputFields)
-      const waitSeconds = Option.getOrUndefined(config.wait)
-      if (!(yield* validateWait(waitSeconds))) {
-        return yield* Effect.void
-      }
-      const body = yield* resolveCommentBody(
-        { body: "body", file: "body-file" },
-        config.body,
-        config.bodyFile,
-      )
-      if (Option.isNone(body)) {
-        return yield* requireCommentFlag(config.body, config.bodyFile)
-      }
-      const api = yield* IssueWriteApi
-      if (config.dryRun) {
-        const plan = yield* api.planCommentCreate(config.ref, body.value, {
-          dedupeKey: Option.getOrUndefined(config.dedupeKey),
-        })
-        if (json) {
-          return yield* writeJson({
-            dryRun: true,
-            action: plan.action,
-            target: plan.target,
-            status: plan.status,
-            changes: plan.changes,
-          })
-        }
-        return yield* writeLine(
-          plan.status === "skipped"
-            ? `Comment already exists on ${config.ref}.`
-            : plan.changes.body,
-        )
-      }
-      const result = yield* api.commentCreate(config.ref, body.value, {
-        dedupeKey: Option.getOrUndefined(config.dedupeKey),
-        waitSeconds,
-      })
-      if (json) {
-        return yield* writeJson({
-          status: result.status,
-          comment: result.comment,
-          visible: result.visible,
-        })
-      }
-      if (result.status === "skipped") {
-        return yield* writeLine(`Comment already exists on ${config.ref}.`)
-      }
-      yield* writeLine(`Commented on ${config.ref}.`)
-      return yield* warnWhenInvisible(
-        result.visible,
-        `The comment is not visible on ${config.ref} yet. Linear may catch up later.`,
-      )
-    }).pipe(Effect.catch(reportFailure)),
-).pipe(
-  Command.withDescription("Create a comment on an issue"),
-  Command.withExamples([
+const commentSpec = defineCommand("comment", {
+  summary: "Post one comment on an issue",
+  examples: [
     {
-      command: 'rata issue comment create RAT-42 --body "Looks good."',
-      description: "Comment on an issue",
+      command: "printf 'Started work.' | rata issue comment RAT-42 --body-file -",
+      description: "Post a comment from standard input",
     },
     {
-      command: 'rata issue comment create RAT-42 --body "Handoff." --dedupe-key mission-42-handoff',
-      description: "Post the comment once, even when the command is retried",
+      command: "rata issue comment RAT-42 --body-file note.md --dedupe-key handoff-42",
+      description: "Post a comment that a retry cannot duplicate",
     },
-    {
-      command: 'rata issue comment create RAT-42 --body "Looks good." --wait 0',
-      description: "Skip the read-after-write check",
-    },
-  ]),
-  withAgentNotes,
-)
-
-const updateCommand = Command.make(
-  "update",
-  {
-    commentId: commentIdArgument,
-    body: bodyFlag,
-    bodyFile: bodyFileFlag,
-    dryRun: dryRunFlag,
-  },
-  (config) =>
-    Effect.gen(function* updateComment() {
-      const json = yield* JsonOutput
-      yield* rejectFields(yield* OutputFields)
-      const body = yield* resolveCommentBody(
-        { body: "body", file: "body-file" },
-        config.body,
-        config.bodyFile,
-      )
-      if (Option.isNone(body)) {
-        return yield* requireCommentFlag(config.body, config.bodyFile)
-      }
-      const api = yield* IssueWriteApi
-      const result = yield* api.commentUpdate(commentId(config.commentId), body.value, {
-        dryRun: config.dryRun,
-      })
-      if (result.dryRun) {
-        return yield* json
-          ? writeJson({
-              dryRun: true,
-              action: result.action,
-              target: result.target,
-              diff: result.diff,
-            })
-          : writeLine(result.diff.length === 0 ? "No changes." : result.diff)
-      }
-      if (json) {
-        return yield* writeJson({ comment: result.comment })
-      }
-      return yield* writeLine(`Updated comment ${config.commentId}.`)
-    }).pipe(Effect.catch(reportFailure)),
-).pipe(
-  Command.withDescription("Replace the body of one comment"),
-  Command.withExamples([
-    {
-      command: 'rata issue comment update c1 --body "Revised."',
-      description: "Replace a comment body",
-    },
-    {
-      command: "rata issue comment update c1 --body-file - --dry-run",
-      description: "Preview the change as a unified diff",
-    },
-  ]),
-  withAgentNotes,
-)
-
-const deleteCommand = Command.make(
-  "delete",
-  {
-    commentId: commentIdArgument,
-    yes: Flag.Boolean("yes").pipe(
-      Flag.withDescription("Skip the confirmation prompt"),
-      Flag.withDefault(false),
+  ],
+  input: {
+    ref: Argument.String("ref").pipe(
+      Argument.withDescription("Issue reference: an identifier, a UUID, or a linear.app URL"),
+    ),
+    bodyFile: Flag.String("body-file").pipe(
+      Flag.withDescription("Read the comment from a file. Use - for standard input"),
+    ),
+    dedupeKey: Flag.String("dedupe-key").pipe(
+      Flag.withDescription("Stable key that makes a retry return skipped. Required"),
+      Flag.optional,
     ),
     dryRun: dryRunFlag,
   },
-  (config) =>
-    Effect.gen(function* deleteComment() {
-      const json = yield* JsonOutput
-      yield* rejectFields(yield* OutputFields)
-      if (json && !config.yes) {
-        return yield* errorLine(
-          "validation",
-          "Deleting a comment in JSON mode needs --yes.",
-          "Pass --yes to delete a comment in JSON mode.",
-        )
+  control: (input) => ({
+    dryRun: input.dryRun,
+    bodyFile: Option.some(input.bodyFile),
+  }),
+  output: selectOutput(issueWriteShape),
+  run: (input, control) =>
+    Effect.gen(function* commentOnIssue() {
+      if (Option.isNone(control.body) || control.body.value.trim().length === 0) {
+        return yield* emptyBody()
       }
-      const api = yield* IssueWriteApi
-      const plan = yield* api.planCommentDelete(commentId(config.commentId))
-      if (config.dryRun) {
-        return yield* json
-          ? writeJson({
-              dryRun: true,
-              action: plan.action,
-              target: plan.target,
-              comment: plan.comment,
-            })
-          : writeLine(plan.comment.body)
+      const dedupeKey = Option.getOrUndefined(input.dedupeKey)
+      if (dedupeKey === undefined || dedupeKey.trim().length === 0) {
+        return yield* new TrackerError({
+          code: "validation",
+          message: "The --dedupe-key flag is required.",
+          hint: "Pass a stable key so a retry returns skipped instead of posting again.",
+        })
       }
-      if (!config.yes) {
-        const confirmed = yield* confirm(`Delete comment ${config.commentId}?`, false)
-        if (!confirmed) {
-          return yield* writeLine("Aborted.")
-        }
+      const document: ApplyDocument = {
+        comment: { body: control.body.value, dedupeKey },
       }
-      const result = yield* api.commentDelete(commentId(config.commentId))
-      if (json) {
-        return yield* writeJson({ deleted: true, id: result.commentId })
-      }
-      return yield* writeLine(`Deleted comment ${config.commentId}.`)
-    }).pipe(Effect.catch(reportFailure)),
-).pipe(
-  Command.withDescription("Move a comment to the trash"),
-  Command.withExamples([
-    {
-      command: "rata issue comment delete c1 --yes",
-      description: "Delete a comment without a prompt; Linear keeps it recoverable",
-    },
-    {
-      command: "rata issue comment delete c1 --dry-run",
-      description: "Check that the comment exists without deleting it",
-    },
-  ]),
-  withAgentNotes,
-)
+      const context = yield* resolveIssueContext({ viewer: true })
+      const engine = yield* IssueApply
+      const plan = yield* engine.plan(context, input.ref, document, { command: "comment" })
+      const result = control.dryRun ? dryRunPlan(plan) : yield* applyPlan(plan)
+      const reader = yield* IssueReader
+      const issue = yield* readIssue(reader, input.ref).pipe(Effect.orElseSucceed(() => plan.issue))
+      return writeOutput(issue, result)
+    }),
+})
 
-const commentCommand = Command.make("comment").pipe(
-  Command.withDescription("Create, update and delete comments"),
-  Command.withSubcommands([createCommand, updateCommand, deleteCommand]),
-  withAgentNotes,
-)
-
-export { commentCommand }
+export { commentSpec }

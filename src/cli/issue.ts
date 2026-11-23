@@ -2,16 +2,14 @@ import { Command } from "effect/cli"
 
 import { OutputFields } from "@/cli/fields"
 import { withAgentNotes } from "@/cli/help"
-import { issueLabelCommand } from "@/cli/issue-label"
-import { linkCommand, unlinkCommand } from "@/cli/issue-link"
-import { assignCommand, closeCommand, reopenCommand, unassignCommand } from "@/cli/issue-transition"
+import { closeCommand } from "@/cli/issue-transition"
 import { createCommand } from "@/cli/issue-write/create"
-import { updateCommand } from "@/cli/issue-write/update"
-import { commentCommand } from "@/cli/issue/comment"
+import { applySpec } from "@/cli/issue/apply"
+import { commentSpec } from "@/cli/issue/comment"
 import { listSpec } from "@/cli/issue/list"
 import { readSpec } from "@/cli/issue/read"
+import { relateSpec } from "@/cli/issue/relate"
 import { searchSpec } from "@/cli/issue/search"
-import { sectionCommand } from "@/cli/issue/section"
 import { JsonOutput } from "@/cli/output"
 import { Format, OutputSelect, buildCommand } from "@/cli/runner"
 
@@ -21,16 +19,10 @@ const issueCommand = buildCommand(readSpec).pipe(
     buildCommand(listSpec),
     buildCommand(searchSpec),
     createCommand,
-    commentCommand,
-    updateCommand,
-    sectionCommand,
-    issueLabelCommand,
     withAgentNotes(closeCommand),
-    withAgentNotes(reopenCommand),
-    withAgentNotes(assignCommand),
-    withAgentNotes(unassignCommand),
-    linkCommand,
-    unlinkCommand,
+    buildCommand(applySpec),
+    buildCommand(relateSpec),
+    buildCommand(commentSpec),
   ]),
   Command.withGlobalFlags([Format, OutputSelect, JsonOutput, OutputFields]),
   withAgentNotes,

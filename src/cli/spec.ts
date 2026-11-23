@@ -12,20 +12,24 @@ import { toTrackerError } from "@/cli/error-report"
 const outputFormats = ["json", "text"] as const
 type OutputFormat = (typeof outputFormats)[number]
 
+type CommandOutputBase = {
+  readonly exitCode?: number | undefined
+}
+
 type CommandOutput =
-  | {
+  | ({
       readonly kind: "resource"
       readonly value: unknown
       readonly text: readonly string[]
-    }
-  | {
+    } & CommandOutputBase)
+  | ({
       readonly kind: "collection"
       readonly key: string
       readonly items: readonly unknown[]
       readonly pageInfo: PageInfo
       readonly text: readonly string[]
-    }
-  | { readonly kind: "text"; readonly lines: readonly string[] }
+    } & CommandOutputBase)
+  | ({ readonly kind: "text"; readonly lines: readonly string[] } & CommandOutputBase)
 
 type OutputSpec =
   | {

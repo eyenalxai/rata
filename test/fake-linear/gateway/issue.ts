@@ -256,4 +256,12 @@ const toFullWorking = (
   ...commentsOf(issue, options.comments),
 })
 
-export { byPriority, matchesIssue, summaryNode, toFullWorking, toWorking, withRelations }
+export {
+  byPriority,
+  matchesIssue,
+  relationConnections,
+  summaryNode,
+  toFullWorking,
+  toWorking,
+  withRelations,
+}
