@@ -65,6 +65,13 @@ const deleteRelationMutation = `mutation IssueRelationDelete($id: String!) {
   }
 }`
 
+const attachGitHubPrMutation = `mutation AttachGitHubPr($issueId: String!, $url: String!) {
+  attachmentLinkGitHubPR(issueId: $issueId, url: $url) {
+    success
+    attachment { id }
+  }
+}`
+
 const bulkTargetsQuery = `query IssueChildrenSummary($id: String!, $first: Int!, $after: String) {
   issue(id: $id) {
     children(first: $first, after: $after, orderBy: createdAt) {
@@ -101,6 +108,7 @@ const commentTailQuery = `query IssueCommentTail($id: String!, $last: Int!) {
 
 export {
   addLabelMutation,
+  attachGitHubPrMutation,
   bulkTargetsQuery,
   childTailQuery,
   commentByIdQuery,

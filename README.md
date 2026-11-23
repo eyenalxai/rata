@@ -79,11 +79,13 @@ rata issue list --after <cursor>         # read the next page of a list
 rata issue list --all                    # drain every page of a list
 rata issue search "rate limit"           # ten summary rows by default
 rata issue create --title "Fix login" --team RAT --assignee me  # create an issue
+rata issue start RAT-42                   # claim an unassigned issue and start it
 rata issue apply RAT-42 --file -          # fields, labels, sections, comment and relations
 rata issue apply RAT-42 --file - --dry-run  # print the plan, write nothing
+rata issue handoff RAT-42 --file handoff.json  # attach the PR, state, section and comment
 rata issue relate RAT-43 --blocked-by RAT-42  # RAT-43 waits for RAT-42
 printf 'Started.' | rata issue comment RAT-42 --body-file - --dedupe-key start-42
-rata issue close RAT-42 --comment "..."  # close an issue
+printf 'Done in PR #12.' | rata issue close RAT-42 --comment-file -  # close with one comment
 ```
 
 Every command selects the API key in this order: `LINEAR_API_KEY`, the
@@ -102,6 +104,9 @@ and one hint names the canonical form.
 | Read the summary    | `rata issue <ref> --summary`                                | `rata issue status <ref>`                                                                        |
 | Read many issues    | `rata issue <ref> <ref> ...`                                | repeated `issue <ref>` calls                                                                     |
 | Change an issue     | `rata issue apply <ref> --file -`                           | `issue update`, `issue label`, `issue section`, `issue assign`, `issue unassign`, `issue reopen` |
+| Start an issue      | `rata issue start <ref>`                                    | `issue assign --assignee me`                                                                     |
+| Hand off an issue   | `rata issue handoff <ref> --file -`                         |                                                                                                  |
+| Close an issue      | `rata issue close <ref> --comment-file -`                   | `issue close --comment`                                                                          |
 | Comment on an issue | `rata issue comment <ref> --body-file - --dedupe-key <key>` | `issue comment create`, `issue comment update`, `issue comment delete`                           |
 | Change a relation   | `rata issue relate <ref> --blocked-by <target>...`          | `issue link`, `issue unlink`                                                                     |
 
@@ -1044,22 +1049,31 @@ validated and returns `[]`.
 `--select` is valid on `issue <ref>...`, `issue list`, `issue search`, `status`,
 `team show`, `team list`, `project list`, `label list`, `config show` and
 `whoami`. On an issue read it validates the shape of the active mode: summary,
-working or full. The issue writes still use `--json` and `--fields` until the
-apply engine lands. An unknown path is a `validation` error whose hint lists the
-valid keys at the failing level.
+working or full. The migrated writes (`issue start`, `handoff`, `close`, `apply`,
+`relate` and `comment`) use `--format` and `--select`; `issue create` still uses
+`--json` and `--fields` until its slice. An unknown path is a `validation` error
+whose hint lists the valid keys at the failing level.
 
 For any other shape, use `--format json` and `jq`. There is no custom format or
 template language.
 
 ### Writing issues
 
-All issue writes go through one of three commands:
+Every write goes through the plan/apply engine. `issue apply` takes the general
+document; `issue start`, `issue handoff` and `issue close` are the lifecycle
+forms.
 
 ```bash
 # one document for fields, labels, sections, a comment and relations
 rata issue apply RAT-42 --file update.json
 rata issue apply RAT-42 --file update.json --dry-run
 rata issue apply RAT-42 --file update.json --if-unchanged 2026-01-01T10:00:00.000Z
+# lifecycle
+rata issue start RAT-42
+rata issue start RAT-42 --state "In Progress" --take
+rata issue handoff RAT-42 --file handoff.json
+printf 'Done in PR #12.' | rata issue close RAT-42 --comment-file -
+rata issue close RAT-42 --force
 # one-off relation edges
 rata issue relate RAT-42 --blocked-by RAT-41
 rata issue relate RAT-42 --related RAT-41 --remove
@@ -1074,6 +1088,11 @@ leave it alone. `assignee`, `project` and `parent` accept `null` to clear them.
 Sections take `mode: "replace"` or `"append"`; replace needs the heading, and
 append creates a missing heading at the end. A duplicate heading is a conflict.
 A comment in `issue apply` needs a `dedupeKey`; a retry returns `skipped`.
+The handoff document is an apply document plus `pr`, the pull request URL. It
+attaches the PR, applies the fields and sections, posts one deduped comment, and
+a retry is skipped. `issue close` refuses open children unless `--force`, moves
+to the first completed state, and skips a closed issue; a new close comment posts
+once, and the same comment is skipped.
 
 The engine plans every action first, then applies it. `--dry-run` returns the
 plan and writes nothing. `--if-unchanged` compares the snapshot once before the
@@ -1085,10 +1104,11 @@ The result is `{ issue, result }`; `result` carries `action`, `status`,
 `changed`, `dryRun`, `snapshot`, `actions` and, on failure, `failed` and
 `error`.
 
-`issue create` and `issue close` keep their current behavior. The removed write
-forms (`issue update`, `issue label`, `issue section`, `issue assign`,
-`issue unassign`, `issue reopen`, `issue link`, `issue unlink` and the old
-`issue comment` subcommands) exit 2 with a `usage` error.
+`issue create` keeps its current behavior. The lifecycle commands use the same
+plan/apply engine. The removed write forms (`issue update`, `issue label`,
+`issue section`, `issue assign`, `issue unassign`, `issue reopen`, `issue link`,
+`issue unlink`, the old `issue comment` subcommands and the old `issue close
+--comment` flag) exit 2 with a `usage` error.
 
 ## Changes in 0.10.0
 

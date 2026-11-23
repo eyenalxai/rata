@@ -40,6 +40,7 @@ import { LinearGateway, makeLinearGateway } from "@/linear/gateway"
 import { ContextCache } from "@/local/context-cache"
 import { IssueApply } from "@/tracker/apply"
 import { IssueReader } from "@/tracker/read"
+import { IssueWorkflow } from "@/tracker/workflow"
 import { IssueWriter } from "@/tracker/write"
 
 const platformLayer = BunServices.layer
@@ -92,6 +93,9 @@ const readerLayer = IssueReader.layer.pipe(
 const applyLayer = IssueApply.layer.pipe(
   Layer.provide(Layer.mergeAll(gatewayLayer, contextResolverLayer, readerLayer)),
 )
+const workflowLayer = IssueWorkflow.layer.pipe(
+  Layer.provide(Layer.mergeAll(readerLayer, applyLayer)),
+)
 const labelLayer = LabelService.layer.pipe(
   Layer.provide(Layer.mergeAll(gatewayLayer, clientLayer, repoTeamLayer)),
 )
@@ -133,6 +137,7 @@ const workLayer = Layer.mergeAll(
   teamContextLayer,
   readerLayer,
   applyLayer,
+  workflowLayer,
   writerLayer,
   platformLayer,
 )

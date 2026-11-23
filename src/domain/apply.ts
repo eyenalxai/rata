@@ -46,6 +46,14 @@ type ApplyDocument = typeof ApplyDocumentSchema.Type
 
 const ApplyDocumentJson = Schema.fromJsonString(ApplyDocumentSchema)
 
+const HandoffDocumentSchema = Schema.Struct({
+  ...ApplyDocumentSchema.fields,
+  pr: Schema.String,
+})
+type HandoffDocument = typeof HandoffDocumentSchema.Type
+
+const HandoffDocumentJson = Schema.fromJsonString(HandoffDocumentSchema)
+
 export {
   type ApplyComment,
   type ApplyDocument,
@@ -56,4 +64,7 @@ export {
   type ApplySection,
   type ApplySectionMode,
   applySectionModes,
+  type HandoffDocument,
+  HandoffDocumentJson,
+  HandoffDocumentSchema,
 }

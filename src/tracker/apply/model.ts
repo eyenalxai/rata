@@ -31,6 +31,8 @@ type ApplyDocumentContext = {
 type ApplyPlanOptions = {
   readonly command?: ApplyCommand | undefined
   readonly removeRelations?: boolean | undefined
+  readonly snapshot?: IssueWorkingSetFull | undefined
+  readonly pr?: string | undefined
 }
 
 type RelationDocument = ApplyRelations

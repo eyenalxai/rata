@@ -44,6 +44,7 @@ import { LinearGateway, makeLinearGateway } from "@/linear/gateway"
 import { ContextCache } from "@/local/context-cache"
 import { IssueApply } from "@/tracker/apply"
 import { IssueReader } from "@/tracker/read"
+import { IssueWorkflow } from "@/tracker/workflow"
 import { IssueWriter } from "@/tracker/write"
 
 const handleQuery = (
@@ -251,6 +252,7 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
   const apply = IssueApply.layer.pipe(
     Layer.provide(Layer.mergeAll(gateway, contextResolver, reader)),
   )
+  const workflow = IssueWorkflow.layer.pipe(Layer.provide(Layer.mergeAll(reader, apply)))
   const writer = IssueWriter.layer.pipe(Layer.provide(Layer.mergeAll(gateway, contextResolver)))
   const issueWrite = IssueWriteApi.layer.pipe(
     Layer.provide(Layer.mergeAll(contextResolver, writer)),
@@ -273,6 +275,7 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
     teamContext,
     reader,
     apply,
+    workflow,
     writer,
     labels,
     projects,

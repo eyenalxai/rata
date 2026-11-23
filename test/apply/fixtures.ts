@@ -9,7 +9,7 @@ import type {
 import { defaultPriorities, defaultViewer } from "@test/fake-linear/model"
 import { Option, Schema } from "effect"
 
-import type { IssueChild } from "@/linear/decode/issue"
+import type { IssueChild, IssueUser } from "@/linear/decode/issue"
 
 import {
   commentId,
@@ -72,7 +72,7 @@ type IssueInput = {
   readonly title?: string
   readonly state?: { readonly name: string; readonly type: "unstarted" | "started" | "completed" }
   readonly priority?: "urgent" | "high" | "medium" | "low" | "none"
-  readonly assignee?: typeof viewer | null
+  readonly assignee?: IssueUser | null
   readonly description?: string
   readonly labels?: readonly MemoryLabel[]
 }

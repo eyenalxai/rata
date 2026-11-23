@@ -19,12 +19,13 @@ rata status          # repo, team, states, labels, triage, cache age, docs, view
 `status` works without a link. Fix a failed first command before you retry:
 
 The admin commands (`auth`, `link`, `unlink`, `workspace`, `config`, `team`,
-`project`, `label`, `status`, `whoami`) and the new issue reads (`issue <ref>...`,
+`project`, `label`, `status`, `whoami`) and the issue reads (`issue <ref>...`,
 `issue list`, `issue search`) accept `--format json|text` and `--select`. JSON is
-their default when stdout is not a terminal. The issue writes still accept
-`--json` and `--fields` until the apply engine lands. The old read forms (`issue
-show`, `issue view`, `issue status`, `next`, `why`) and the old read flags
-(`--json`, `--fields`, `--count`, `--ids-only`, `--include`) exit 2.
+their default when stdout is not a terminal. The migrated writes (`start`,
+`handoff`, `close`, `apply`, `relate`, `comment`) use `--format` and `--select`;
+`issue create` still accepts `--json` and `--fields` until its slice. The old
+read forms (`issue show`, `issue view`, `issue status`, `next`, `why`) and the
+old read flags (`--json`, `--fields`, `--count`, `--ids-only`, `--include`) exit 2.
 
 - `auth`: `printf '%s' "$LINEAR_API_KEY" | rata auth login --with-token`. The key
   resolves as `LINEAR_API_KEY`, the repository workspace, then `default`;
@@ -51,9 +52,11 @@ needs it; reads without that flag do not.
 | Read an issue | `rata issue <ref>`                                          | `rata issue show <ref>`                                                                          |
 | Read many     | `rata issue <ref> <ref> ...`                                | repeated `issue <ref>` calls                                                                     |
 | Apply a write | `rata issue apply <ref> --file -`                           | `issue update`, `issue label`, `issue section`, `issue assign`, `issue unassign`, `issue reopen` |
+| Start         | `rata issue start <ref>`                                    | `issue assign --assignee me`                                                                     |
+| Hand off      | `rata issue handoff <ref> --file -`                         |                                                                                                  |
+| Close         | `rata issue close <ref> --comment-file -`                   | `issue close --comment`                                                                          |
 | Add an edge   | `rata issue relate <ref> --blocked-by <ref>`                | `issue link`, `issue unlink`                                                                     |
 | Comment       | `rata issue comment <ref> --body-file - --dedupe-key <key>` | `issue comment create`                                                                           |
-| Close         | `rata issue close <ref> --comment "..."`                    |                                                                                                  |
 
 `issue apply` is the write. It plans first, then applies. `--dry-run` returns
 the plan and writes nothing. `--if-unchanged <snapshot>` exits 4 when the issue
@@ -67,10 +70,12 @@ rata issue create --title "<title>" --body-file - --priority <p> --assignee me
 printf '%s' "$APPLY_JSON" | rata issue apply <ref> --file -
 printf '%s' "$APPLY_JSON" | rata issue apply <ref> --file - --dry-run
 printf '%s' "$APPLY_JSON" | rata issue apply <ref> --file - --if-unchanged <snapshot>
+rata issue start <ref>
+printf '%s' "$HANDOFF_JSON" | rata issue handoff <ref> --file -
 rata issue relate <ref> --blocked-by <blocker>
 rata issue relate <ref> --blocked-by <blocker> --remove
 printf 'Started work.' | rata issue comment <ref> --body-file - --dedupe-key start-42
-rata issue close <ref> --comment "..."
+printf 'Done in PR #12.' | rata issue close <ref> --comment-file -
 ```
 
 The apply document has optional `title`, `state`, `assignee`, `priority`,
@@ -80,6 +85,22 @@ The apply document has optional `title`, `state`, `assignee`, `priority`,
 missing heading at the end. A duplicate heading is a conflict. A comment carries
 a `dedupeKey` in `issue apply`; a retry returns `skipped`. Relations are a set;
 an existing edge is skipped. Omit a field to leave it alone.
+
+`issue start` claims an unassigned issue, skips your own claim, and exits 4 with
+the holder when another user holds it. `--take` reassigns; `--state` picks a
+named state. `issue handoff` takes the apply document plus `pr`, attaches the
+pull request, applies the state and sections, and posts one deduped comment; a
+retry is skipped. `issue close` refuses open children unless `--force`, closes
+to the first completed state, and posts one comment from `--comment-file`; the
+same comment is skipped on a retry, and a new comment posts once.
+
+The lifecycle commands use the same result. `issue start` claims an unassigned
+issue, skips the viewer's claim, exits 4 with the holder, and moves to the first
+started state or `--state`; `--take` reassigns. `issue handoff` takes the apply
+document plus `pr` and attaches the PR, state, sections and one comment; a retry
+is skipped. `issue close` refuses open children unless `--force`, closes to the
+first completed state, and posts one comment from `--comment-file`; a new
+comment posts once, and the same comment is skipped.
 
 The write result is `{ issue, result }`. `result` carries `action`, `status`,
 `changed`, `dryRun`, `snapshot`, `actions`, and on failure `failed` and `error`.
