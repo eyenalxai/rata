@@ -1,6 +1,5 @@
 import { Effect, Result } from "effect"
 
-import type { SectionBatchError } from "@/domain/body/section/batch"
 import type { TrackerError } from "@/domain/error"
 import type { AssigneeInputError } from "@/tracker/error"
 import type { IssueWorkingSetFull } from "@/tracker/model"
@@ -39,7 +38,7 @@ type PlannedActionName = (typeof plannedActionNames)[number]
 type PlannedStatus = "updated" | "skipped"
 type ApplyStatus = PlannedStatus | "failed"
 
-type ApplyPlanError = AssigneeInputError | IssueWriteApiError | SectionBatchError | TrackerError
+type ApplyPlanError = AssigneeInputError | IssueWriteApiError | TrackerError
 
 type ApplyErrorClassifier = (error: ApplyPlanError) => TrackerError
 

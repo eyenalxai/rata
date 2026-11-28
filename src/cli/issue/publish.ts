@@ -1,7 +1,7 @@
 import { Effect, Option } from "effect"
 import { Flag } from "effect/cli"
 
-import { writeTrackerError } from "@/cli/error-report"
+import { classifyWriteError } from "@/cli/error-report"
 import { resolveIssueContext } from "@/cli/issue/context"
 import { decodePublishDocument, emptyPublishDocument } from "@/cli/issue/document"
 import { publishOutput, publishShape } from "@/cli/issue/publish/output"
@@ -44,7 +44,7 @@ const publishSpec = defineCommand("publish", {
       const plan = yield* publisher.plan(context, document)
       const result = control.dryRun
         ? publisher.dryRun(plan)
-        : yield* publisher.execute(plan, writeTrackerError)
+        : yield* publisher.execute(plan, classifyWriteError)
       return publishOutput(result)
     }),
 })

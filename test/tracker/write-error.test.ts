@@ -6,7 +6,7 @@ import { defaultEnv } from "@test/fake-linear/model"
 import { describe, expect, test } from "bun:test"
 import { Effect } from "effect"
 
-import { writeTrackerError } from "@/cli/error-report"
+import { classifyWriteError } from "@/cli/error-report"
 import { ContextResolver } from "@/context/resolve"
 import { TrackerError } from "@/domain/error"
 import { IssueApply } from "@/tracker/apply"
@@ -26,6 +26,9 @@ const run = <A, E>(
     Effect.runPromise,
   )
 
+const conflictClassifier = (): TrackerError =>
+  new TrackerError({ code: "conflict", message: "The stub classifier ran.", hint: null })
+
 describe("the write plan error channel", () => {
   test("a failed apply step carries a TrackerError cause", async () => {
     const result = await run(
@@ -38,7 +41,7 @@ describe("the write plan error channel", () => {
           title: "Changed title",
           comment: { body: "Cannot post.", dedupeKey: "fail-1" },
         })
-        return yield* applyPlan(plan, { classifyError: writeTrackerError })
+        return yield* applyPlan(plan, { classifyError: classifyWriteError })
       }),
     )
 
@@ -63,12 +66,55 @@ describe("the write plan error channel", () => {
             { key: "client", kind: "ticket", title: "The client", blockedBy: ["spec"] },
           ],
         })
-        return yield* publish.execute(plan, writeTrackerError)
+        return yield* publish.execute(plan, classifyWriteError)
       }),
     )
 
     expect(result.status).toBe("failed")
     expect(result.cause).toBeInstanceOf(TrackerError)
     expect(result.cause?.code).toBe("internal")
+  })
+
+  test("a failed apply step uses the injected classifier", async () => {
+    const result = await run(
+      seed({ failOn: ["mutation CreateComment"] }),
+      Effect.gen(function* applyFailingCommentWithStub() {
+        const contexts = yield* ContextResolver
+        const apply = yield* IssueApply
+        const context = yield* contexts.resolve({ team: "RAT", viewer: true })
+        const plan = yield* apply.plan(context, "RAT-1", {
+          comment: { body: "Cannot post.", dedupeKey: "stub-1" },
+        })
+        return yield* applyPlan(plan, { classifyError: conflictClassifier })
+      }),
+    )
+
+    expect(result.status).toBe("failed")
+    expect(result.cause).toBeInstanceOf(TrackerError)
+    expect(result.cause?.code).toBe("conflict")
+  })
+
+  test("a failed publish step uses the injected classifier", async () => {
+    const result = await run(
+      seed({ failOn: ["mutation IssueRelationCreate"] }),
+      Effect.gen(function* publishFailingEdgeWithStub() {
+        const contexts = yield* ContextResolver
+        const publish = yield* IssuePublish
+        const context = yield* contexts.resolve({ team: "RAT", viewer: true })
+        const plan = yield* publish.plan(context, {
+          team: "RAT",
+          parent: "RAT-1",
+          nodes: [
+            { key: "spec", kind: "spec", title: "The spec" },
+            { key: "client", kind: "ticket", title: "The client", blockedBy: ["spec"] },
+          ],
+        })
+        return yield* publish.execute(plan, conflictClassifier)
+      }),
+    )
+
+    expect(result.status).toBe("failed")
+    expect(result.cause).toBeInstanceOf(TrackerError)
+    expect(result.cause?.code).toBe("conflict")
   })
 })
