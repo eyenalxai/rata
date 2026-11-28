@@ -8,13 +8,9 @@ import {
   ready,
   seed,
 } from "@test/issue-read/fixtures"
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 
 import { commentId } from "@/domain/id"
-
-afterEach(() => {
-  process.exitCode = 0
-})
 
 describe("issue <ref>", () => {
   test("returns the working set with sections, blockers, PRs, children and the frontier", async () => {
@@ -122,10 +118,13 @@ describe("issue <ref>", () => {
     })
 
     const rejected: string[] = []
-    await runIssueMemory(seed(), ["RAT-1", "--summary", "--select", "description"], rejected)
+    const exit = await runIssueMemory(
+      seed(),
+      ["RAT-1", "--summary", "--select", "description"],
+      rejected,
+    )
     expect(documentOf(rejected)).toMatchObject({ error: { code: "validation" } })
-    expect(process.exitCode).toBe(2)
-    process.exitCode = 0
+    expect(exit.code).toBe(2)
   })
 
   test("--full adds relations and full child rows", async () => {
@@ -192,19 +191,25 @@ describe("issue <ref>", () => {
 
   test("--summary and --full are mutually exclusive", async () => {
     const lines: string[] = []
-    await runIssueMemory(seed(), ["RAT-1", "--summary", "--full", "--format", "json"], lines)
+    const exit = await runIssueMemory(
+      seed(),
+      ["RAT-1", "--summary", "--full", "--format", "json"],
+      lines,
+    )
 
     expect(documentOf(lines)).toMatchObject({ error: { code: "validation" } })
-    expect(process.exitCode).toBe(2)
-    process.exitCode = 0
+    expect(exit.code).toBe(2)
   })
 
   test("--summary and --comments are mutually exclusive", async () => {
     const lines: string[] = []
-    await runIssueMemory(seed(), ["RAT-1", "--summary", "--comments", "--format", "json"], lines)
+    const exit = await runIssueMemory(
+      seed(),
+      ["RAT-1", "--summary", "--comments", "--format", "json"],
+      lines,
+    )
 
     expect(documentOf(lines)).toMatchObject({ error: { code: "validation" } })
-    expect(process.exitCode).toBe(2)
-    process.exitCode = 0
+    expect(exit.code).toBe(2)
   })
 })

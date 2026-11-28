@@ -2,7 +2,7 @@ import type { GraphQLRequest, Handler } from "@test/fake-linear/model"
 
 import { apiLayer, makeFakeLinear } from "@test/fake-linear"
 import { lastJson, runProject, tracker } from "@test/project/harness"
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { Effect } from "effect"
 
 import { ProjectService } from "@/api/project"
@@ -21,10 +21,6 @@ const resolveTrashedProject = (ref: string) =>
 
 const unarchiveMutation = (requests: readonly GraphQLRequest[]): GraphQLRequest | undefined =>
   requests.find((request) => request.query.includes("mutation ProjectUnarchive"))
-
-afterEach(() => {
-  process.exitCode = 0
-})
 
 describe("ProjectService.resolveTrashed", () => {
   test("reads a trashed project by UUID without listing", async () => {
@@ -152,22 +148,22 @@ describe("project restore", () => {
   test("points at project list when no project matches", async () => {
     const fake = makeFakeLinear({ teams: [], labels: [] })
     const lines: string[] = []
-    await runProject(fake.handler, ["restore", "Nope"], lines)
+    const exit = await runProject(fake.handler, ["restore", "Nope"], lines)
     expect(lines).toEqual([
       "error: No project named Nope. Run `rata admin project list` to see the projects.",
     ])
-    expect(process.exitCode).toBe(3)
+    expect(exit.code).toBe(3)
     expect(unarchiveMutation(fake.requests)).toBeUndefined()
   })
 
   test("points at project delete when the project is live", async () => {
     const fake = makeFakeLinear({ teams: [], labels: [], projects: [tracker] })
     const lines: string[] = []
-    await runProject(fake.handler, ["restore", "Tracker"], lines)
+    const exit = await runProject(fake.handler, ["restore", "Tracker"], lines)
     expect(lines).toEqual([
       "error: The project Tracker (project-1) is not in the trash. Run `rata admin project delete` to move it there.",
     ])
-    expect(process.exitCode).toBe(4)
+    expect(exit.code).toBe(4)
     expect(unarchiveMutation(fake.requests)).toBeUndefined()
   })
 
@@ -175,11 +171,11 @@ describe("project restore", () => {
     const other = { ...trashed, id: "project-2" }
     const fake = makeFakeLinear({ teams: [], labels: [], projects: [trashed, other] })
     const lines: string[] = []
-    await runProject(fake.handler, ["restore", "Tracker"], lines)
+    const exit = await runProject(fake.handler, ["restore", "Tracker"], lines)
     expect(lines).toEqual([
       "error: More than one trashed project is named Tracker. Pass the project UUID instead.",
     ])
-    expect(process.exitCode).toBe(2)
+    expect(exit.code).toBe(2)
     expect(unarchiveMutation(fake.requests)).toBeUndefined()
   })
 })

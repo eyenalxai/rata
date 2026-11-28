@@ -1,6 +1,6 @@
 import { makeFakeLinear } from "@test/fake-linear"
 import { docsDirectory, lastJson, profiles, runStatus, team } from "@test/status/harness"
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { Option, Schema } from "effect"
 import path from "node:path"
 
@@ -31,17 +31,13 @@ const trackerDocument = [
   trackerMarkers.end,
 ].join("\n")
 
-afterEach(() => {
-  process.exitCode = 0
-})
-
 describe("status documents", () => {
   test("reports an unhealthy triage document without a canonical label header", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
     const tracker = path.join(docsDirectory, "issue-tracker.md")
     const triage = path.join(docsDirectory, "triage-labels.md")
-    await runStatus(fake.handler, ["--format", "json"], lines, {
+    const exit = await runStatus(fake.handler, ["--format", "json"], lines, {
       profiles,
       repositories: [
         { key: process.cwd(), team: "RAT", teamId: "00000000-0000-0000-0000-000000000001" },
@@ -68,7 +64,7 @@ describe("status documents", () => {
       )(lastJson(lines)),
     )
 
-    expect(process.exitCode).toBe(0)
+    expect(exit.code).toBe(0)
     expect(document.team).not.toBeNull()
     expect(document.triage).toBeNull()
     expect(document.docs.triage.healthy).toBe(false)
@@ -199,7 +195,7 @@ describe("status documents", () => {
     const lines: string[] = []
     const document = path.join(docsDirectory, "issue-tracker.md")
     const withoutSkill = [trackerMarkers.begin, commandBlock, trackerMarkers.end].join("\n")
-    await runStatus(fake.handler, ["--format", "json"], lines, {
+    const exit = await runStatus(fake.handler, ["--format", "json"], lines, {
       profiles,
       repositories: [
         { key: process.cwd(), team: "RAT", teamId: "00000000-0000-0000-0000-000000000001" },
@@ -207,7 +203,7 @@ describe("status documents", () => {
       files: new Map([[document, withoutSkill]]),
     })
 
-    expect(process.exitCode).toBe(0)
+    expect(exit.code).toBe(0)
     expect(lastJson(lines)).toMatchObject({
       warning: `The tracker document at ${document} does not name the rata skill. Add a line that tells agents to load \`rata\` before the first tracker command.`,
     })

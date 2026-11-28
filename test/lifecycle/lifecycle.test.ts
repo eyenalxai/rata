@@ -4,7 +4,7 @@ import type { MemorySeed } from "@test/fake-linear/gateway/model"
 import { issueChild, makeIssue, seed, viewer } from "@test/apply/fixtures"
 import { lastJson, runIssueMemory } from "@test/cli-harness"
 import { makeMemoryGateway } from "@test/fake-linear/gateway/memory"
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { Option, Schema, Stream } from "effect"
 
 import type { LinearGatewayShape } from "@/linear/gateway"
@@ -29,13 +29,13 @@ const run = async (
   stdin?: string,
 ) => {
   const lines: string[] = []
-  await runIssueMemory(seedValue, [...args, "--format", "json"], lines, undefined, {
+  const exit = await runIssueMemory(seedValue, [...args, "--format", "json"], lines, undefined, {
     gateway,
     ...(stdin === undefined
       ? {}
       : { stdio: { stdin: Stream.make(new TextEncoder().encode(stdin)) } }),
   })
-  return lines
+  return { exit, lines }
 }
 
 const readDoc = async (seedValue: MemorySeed, gateway: LinearGatewayShape, ref: string) => {
@@ -52,25 +52,21 @@ const readDoc = async (seedValue: MemorySeed, gateway: LinearGatewayShape, ref: 
 
 const other = { id: userId("user-2"), name: "Ada", displayName: "Ada" }
 
-afterEach(() => {
-  process.exitCode = 0
-})
-
 describe("issue start", () => {
   test("claims an unassigned issue and moves it to the first started state", async () => {
     const issue = makeIssue({ identifier: "RAT-30", title: "Start me" })
     const seedValue = seed({ issues: [issue] })
     const gateway = makeMemoryGateway(seedValue)
 
-    const lines = await run(seedValue, gateway, ["start", "RAT-30"])
+    const { lines, exit } = await run(seedValue, gateway, ["start", "RAT-30"])
 
-    expect(process.exitCode).toBe(0)
+    expect(exit.code).toBe(0)
     expect(resultOf(lines)).toMatchObject({ action: "start", status: "updated", dryRun: false })
     const after = await readDoc(seedValue, gateway, "RAT-30")
     expect(recordOf(after.assignee)).toMatchObject({ id: viewer.id })
     expect(recordOf(after.state)).toMatchObject({ name: "In Progress", type: "started" })
 
-    const again = await run(seedValue, gateway, ["start", "RAT-30"])
+    const { lines: again } = await run(seedValue, gateway, ["start", "RAT-30"])
     expect(resultOf(again)).toMatchObject({ action: "start", status: "skipped" })
   })
 
@@ -79,7 +75,7 @@ describe("issue start", () => {
     const seedValue = seed({ issues: [issue] })
     const gateway = makeMemoryGateway(seedValue)
 
-    const lines = await run(seedValue, gateway, ["start", "RAT-31"])
+    const { lines } = await run(seedValue, gateway, ["start", "RAT-31"])
 
     expect(resultOf(lines)).toMatchObject({ action: "start", status: "updated" })
     expect(resultOf(lines).changed).toContain("state")
@@ -94,15 +90,15 @@ describe("issue start", () => {
     const seedValue = seed({ issues: [issue] })
     const gateway = makeMemoryGateway(seedValue)
 
-    const blocked = await run(seedValue, gateway, ["start", "RAT-32"])
+    const { lines: blocked, exit } = await run(seedValue, gateway, ["start", "RAT-32"])
 
-    expect(process.exitCode).toBe(4)
+    expect(exit.code).toBe(4)
     expect(errorOf(blocked)).toMatchObject({ code: "conflict" })
     expect(String(errorOf(blocked).message)).toContain("Ada")
     const unchanged = await readDoc(seedValue, gateway, "RAT-32")
     expect(recordOf(unchanged.assignee)).toMatchObject({ name: "Ada" })
 
-    const taken = await run(seedValue, gateway, ["start", "RAT-32", "--take"])
+    const { lines: taken } = await run(seedValue, gateway, ["start", "RAT-32", "--take"])
     expect(resultOf(taken)).toMatchObject({ action: "start", status: "updated" })
     const after = await readDoc(seedValue, gateway, "RAT-32")
     expect(recordOf(after.assignee)).toMatchObject({ id: viewer.id })
@@ -114,7 +110,7 @@ describe("issue start", () => {
     const seedValue = seed({ issues: [issue] })
     const gateway = makeMemoryGateway(seedValue)
 
-    const lines = await run(seedValue, gateway, ["start", "RAT-33", "--state", "Done"])
+    const { lines } = await run(seedValue, gateway, ["start", "RAT-33", "--state", "Done"])
 
     expect(resultOf(lines)).toMatchObject({ status: "updated" })
     const after = await readDoc(seedValue, gateway, "RAT-33")
@@ -126,7 +122,7 @@ describe("issue start", () => {
     const seedValue = seed({ issues: [issue] })
     const gateway = makeMemoryGateway(seedValue)
 
-    const lines = await run(seedValue, gateway, ["start", "RAT-34", "--dry-run"])
+    const { lines } = await run(seedValue, gateway, ["start", "RAT-34", "--dry-run"])
 
     expect(resultOf(lines)).toMatchObject({ status: "updated", dryRun: true })
     const after = await readDoc(seedValue, gateway, "RAT-34")
@@ -152,7 +148,7 @@ describe("issue handoff", () => {
       comment: { body: "Handoff is ready.", dedupeKey: "handoff-58" },
     })
 
-    const lines = await run(seedValue, gateway, ["handoff", "RAT-50", "--file", "-"], document)
+    const { lines } = await run(seedValue, gateway, ["handoff", "RAT-50", "--file", "-"], document)
 
     expect(resultOf(lines)).toMatchObject({ action: "handoff", status: "updated" })
     expect(resultOf(lines).changed).toEqual(
@@ -167,7 +163,12 @@ describe("issue handoff", () => {
     ])
     expect(after.comments).toHaveLength(1)
 
-    const retry = await run(seedValue, gateway, ["handoff", "RAT-50", "--file", "-"], document)
+    const { lines: retry } = await run(
+      seedValue,
+      gateway,
+      ["handoff", "RAT-50", "--file", "-"],
+      document,
+    )
 
     expect(resultOf(retry)).toMatchObject({ action: "handoff", status: "skipped" })
     const afterRetry = await readDoc(seedValue, gateway, "RAT-50")
@@ -187,15 +188,15 @@ describe("issue close", () => {
     const seedValue = seed({ issues: [parent, child] })
     const gateway = makeMemoryGateway(seedValue)
 
-    const blocked = await run(seedValue, gateway, ["close", "RAT-40"])
+    const { lines: blocked, exit } = await run(seedValue, gateway, ["close", "RAT-40"])
 
-    expect(process.exitCode).toBe(4)
+    expect(exit.code).toBe(4)
     expect(errorOf(blocked)).toMatchObject({ code: "conflict" })
     expect(String(errorOf(blocked).message)).toContain("RAT-41")
     const unchanged = await readDoc(seedValue, gateway, "RAT-40")
     expect(recordOf(unchanged.state)).toMatchObject({ type: "unstarted" })
 
-    const forced = await run(seedValue, gateway, ["close", "RAT-40", "--force"])
+    const { lines: forced } = await run(seedValue, gateway, ["close", "RAT-40", "--force"])
     expect(resultOf(forced)).toMatchObject({ action: "close", status: "updated" })
     const after = await readDoc(seedValue, gateway, "RAT-40")
     expect(recordOf(after.state)).toMatchObject({ name: "Done", type: "completed" })
@@ -206,18 +207,28 @@ describe("issue close", () => {
     const seedValue = seed({ issues: [issue] })
     const gateway = makeMemoryGateway(seedValue)
 
-    const first = await run(seedValue, gateway, ["close", "RAT-42", "--comment-file", "-"], "Done.")
+    const { lines: first } = await run(
+      seedValue,
+      gateway,
+      ["close", "RAT-42", "--comment-file", "-"],
+      "Done.",
+    )
     expect(resultOf(first)).toMatchObject({ action: "close", status: "updated" })
     const after = await readDoc(seedValue, gateway, "RAT-42")
     expect(recordOf(after.state)).toMatchObject({ name: "Done", type: "completed" })
     expect(after.comments).toEqual([expect.objectContaining({ body: "Done." })])
 
-    const retry = await run(seedValue, gateway, ["close", "RAT-42", "--comment-file", "-"], "Done.")
+    const { lines: retry } = await run(
+      seedValue,
+      gateway,
+      ["close", "RAT-42", "--comment-file", "-"],
+      "Done.",
+    )
     expect(resultOf(retry)).toMatchObject({ action: "close", status: "skipped" })
     const afterRetry = await readDoc(seedValue, gateway, "RAT-42")
     expect(afterRetry.comments).toHaveLength(1)
 
-    const changed = await run(
+    const { lines: changed } = await run(
       seedValue,
       gateway,
       ["close", "RAT-42", "--comment-file", "-"],
@@ -236,7 +247,7 @@ describe("issue close", () => {
     const seedValue = seed({ issues: [issue] })
     const gateway = makeMemoryGateway(seedValue)
 
-    const lines = await run(seedValue, gateway, ["close", "RAT-43"])
+    const { lines } = await run(seedValue, gateway, ["close", "RAT-43"])
 
     expect(resultOf(lines)).toMatchObject({ action: "close", status: "skipped" })
     const after = await readDoc(seedValue, gateway, "RAT-43")

@@ -4,12 +4,12 @@ import { cliLayer, lastJson } from "@test/cli-harness"
 import { makeFakeLinear } from "@test/fake-linear"
 import { defaultViewer, readRequest } from "@test/fake-linear/model"
 import { jsonResponse, summaryNode } from "@test/issue-fixtures"
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { Effect } from "effect"
-import { Command } from "effect/cli"
 
 import { issueCommand } from "@/cli/issue"
 import { labelCommand, projectCommand } from "@/cli/registry"
+import { runCli } from "@/cli/runner"
 
 const team = {
   id: "00000000-0000-0000-0000-000000000001",
@@ -21,44 +21,40 @@ const otherTeam = { id: "team-2", key: "OPS", name: "Operations", timezone: "Ame
 const seed = [{ key: process.cwd(), team: "RAT" }]
 
 const runProject = (handler: Handler, args: readonly string[], lines: string[]) =>
-  Command.run(projectCommand, { version: "test" }).pipe(
+  runCli("test", projectCommand).pipe(
     Effect.provide(cliLayer(handler, args, lines, seed)),
     Effect.runPromise,
   )
 
 const runLabel = (handler: Handler, args: readonly string[], lines: string[]) =>
-  Command.run(labelCommand, { version: "test" }).pipe(
+  runCli("test", labelCommand).pipe(
     Effect.provide(cliLayer(handler, args, lines, seed)),
     Effect.runPromise,
   )
 
 const runLabelUnlinked = (handler: Handler, args: readonly string[], lines: string[]) =>
-  Command.run(labelCommand, { version: "test" }).pipe(
+  runCli("test", labelCommand).pipe(
     Effect.provide(cliLayer(handler, args, lines)),
     Effect.runPromise,
   )
 
 const runSearch = (handler: Handler, args: readonly string[], lines: string[]) =>
-  Command.run(issueCommand, { version: "test" }).pipe(
+  runCli("test", issueCommand).pipe(
     Effect.provide(cliLayer(handler, ["search", ...args], lines, seed)),
     Effect.runPromise,
   )
 
 const runProjectUnlinked = (handler: Handler, args: readonly string[], lines: string[]) =>
-  Command.run(projectCommand, { version: "test" }).pipe(
+  runCli("test", projectCommand).pipe(
     Effect.provide(cliLayer(handler, args, lines)),
     Effect.runPromise,
   )
 
 const runSearchUnlinked = (handler: Handler, args: readonly string[], lines: string[]) =>
-  Command.run(issueCommand, { version: "test" }).pipe(
+  runCli("test", issueCommand).pipe(
     Effect.provide(cliLayer(handler, ["search", ...args], lines)),
     Effect.runPromise,
   )
-
-afterEach(() => {
-  process.exitCode = 0
-})
 
 describe("project list team default", () => {
   test("lists the projects of the linked team without --team", async () => {
@@ -108,10 +104,10 @@ describe("project list team default", () => {
   test("fails without a link and without --team", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [], projects: [] })
     const lines: string[] = []
-    await runProjectUnlinked(fake.handler, ["list"], lines)
+    const exit = await runProjectUnlinked(fake.handler, ["list"], lines)
 
     expect(lines).toContain("error: No team. Pass --team, or run `rata admin link`.")
-    expect(process.exitCode).toBe(2)
+    expect(exit.code).toBe(2)
   })
 })
 
@@ -162,10 +158,10 @@ describe("label list team default", () => {
   test("fails without a link and without --team", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
-    await runLabelUnlinked(fake.handler, ["list"], lines)
+    const exit = await runLabelUnlinked(fake.handler, ["list"], lines)
 
     expect(lines).toContain("error: No team. Pass --team, or run `rata admin link`.")
-    expect(process.exitCode).toBe(2)
+    expect(exit.code).toBe(2)
   })
 })
 
@@ -233,9 +229,9 @@ describe("issue search pages", () => {
   test("fails without a link and without --team", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
-    await runSearchUnlinked(fake.handler, ["login"], lines)
+    const exit = await runSearchUnlinked(fake.handler, ["login"], lines)
 
     expect(lines).toContain("error: No team. Pass --team, or run `rata admin link`.")
-    expect(process.exitCode).toBe(2)
+    expect(exit.code).toBe(2)
   })
 })

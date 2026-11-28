@@ -16,6 +16,17 @@ type CommandOutputBase = {
   readonly exitCode?: number | undefined
 }
 
+type RenderedOutput = {
+  readonly stream: "stdout" | "stderr"
+  readonly lines: readonly string[]
+}
+
+type CliExit = {
+  readonly code: number
+  readonly output: RenderedOutput | null
+  readonly error: TrackerError | null
+}
+
 type CommandOutput =
   | ({
       readonly kind: "resource"
@@ -130,6 +141,7 @@ const defineCommand = <
 }
 
 export {
+  type CliExit,
   type CommandControl,
   type CommandOutput,
   type CommandSpec,
@@ -139,6 +151,7 @@ export {
   type OutputFormat,
   type OutputSpec,
   type OutputSpecs,
+  type RenderedOutput,
   resourceOutput,
   type RunnerControlInput,
   selectOutput,

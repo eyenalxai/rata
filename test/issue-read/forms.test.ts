@@ -1,10 +1,6 @@
 import { lastJsonRecord, runRootMemory } from "@test/cli-harness"
 import { seed } from "@test/issue-read/fixtures"
-import { afterEach, describe, expect, test } from "bun:test"
-
-afterEach(() => {
-  process.exitCode = 0
-})
+import { describe, expect, test } from "bun:test"
 
 const checkUsage = async (forms: readonly (readonly string[])[], index = 0): Promise<void> => {
   const form = forms[index]
@@ -12,10 +8,9 @@ const checkUsage = async (forms: readonly (readonly string[])[], index = 0): Pro
     return
   }
   const lines: string[] = []
-  await runRootMemory(seed(), form, lines)
-  expect(process.exitCode).toBe(2)
+  const exit = await runRootMemory(seed(), form, lines)
+  expect(exit.code).toBe(2)
   expect(lastJsonRecord(lines)).toMatchObject({ error: { code: "usage" } })
-  process.exitCode = 0
   await checkUsage(forms, index + 1)
 }
 

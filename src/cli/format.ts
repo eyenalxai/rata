@@ -37,6 +37,7 @@ type ScannedArgs = {
   tokens: string[]
   validFlags: boolean
   format: OutputFormat | undefined
+  select: boolean
   hasOldOutputFlag: boolean
 }
 
@@ -55,6 +56,7 @@ const scanFlag = (args: readonly string[], index: number, state: ScannedArgs): n
     return inline === undefined ? index + 2 : index + 1
   }
   if (name === "--select") {
+    state.select = true
     return inline === undefined ? index + 2 : index + 1
   }
   if (name === "--json" || name === "--no-json" || name === "--fields") {
@@ -81,6 +83,7 @@ const scanArgs = (args: readonly string[]): ScannedArgs => {
     tokens: [],
     validFlags: true,
     format: undefined,
+    select: false,
     hasOldOutputFlag: false,
   }
   let index = 0
@@ -112,15 +115,31 @@ const isIssueReadCommand = (args: readonly string[]): boolean => {
   return scanned.tokens[0] === "issue" && !isIssueWriteGroup(scanned.tokens[1])
 }
 
-const formatFromArgs = (args: readonly string[], stdoutIsTerminal: boolean): OutputFormat => {
-  const scanned = scanArgs(args)
-  if (scanned.format !== undefined) {
-    return scanned.format
+type FormatChoice = {
+  readonly requested: OutputFormat | undefined
+  readonly json: boolean
+  readonly select: boolean
+  readonly stdoutIsTerminal: boolean
+}
+
+const resolveFormat = (choice: FormatChoice): OutputFormat => {
+  if (choice.requested !== undefined) {
+    return choice.requested
   }
-  if (jsonEnabled(args) || !stdoutIsTerminal) {
+  if (choice.json || choice.select || !choice.stdoutIsTerminal) {
     return "json"
   }
   return "text"
+}
+
+const formatFromArgs = (args: readonly string[], stdoutIsTerminal: boolean): OutputFormat => {
+  const scanned = scanArgs(args)
+  return resolveFormat({
+    requested: scanned.format,
+    json: jsonEnabled(args),
+    select: scanned.select,
+    stdoutIsTerminal,
+  })
 }
 
 const helpRequested = (args: readonly string[]): boolean =>
@@ -153,4 +172,5 @@ export {
   isBareInvocation,
   isIssueReadCommand,
   isIssueWriteCommand,
+  resolveFormat,
 }

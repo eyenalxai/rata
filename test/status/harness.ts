@@ -5,11 +5,11 @@ import { apiLayer } from "@test/fake-linear"
 import { defaultViewer } from "@test/fake-linear/model"
 import { recordingConsoleWithErrors } from "@test/recording-console"
 import { Clock, Console, Effect, FileSystem, Layer, Path, Stdio, Terminal } from "effect"
-import { Command } from "effect/cli"
 import { ChildProcessSpawner } from "effect/process"
 import path from "node:path"
 
 import { statusCommand } from "@/cli/registry"
+import { runCli } from "@/cli/runner"
 
 const terminal = Terminal.make({
   columns: Effect.succeed(80),
@@ -49,7 +49,7 @@ const runStatus = (
   options: ApiLayerOptions = {},
   errors: string[] = lines,
 ) =>
-  Command.run(statusCommand, { version: "test" }).pipe(
+  runCli("test", statusCommand).pipe(
     Effect.provide(statusLayer(handler, args, lines, options, errors)),
     Effect.runPromise,
   )

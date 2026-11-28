@@ -1,6 +1,6 @@
 import { lastJson, runIssueMemory } from "@test/cli-harness"
 import { seed } from "@test/issue-read/fixtures"
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { Option, Schema } from "effect"
 
 const PageDocument = Schema.Struct({
@@ -9,10 +9,6 @@ const PageDocument = Schema.Struct({
 
 const pageOf = (lines: readonly string[]) =>
   Option.getOrThrow(Schema.decodeUnknownOption(PageDocument)(lastJson(lines)))
-
-afterEach(() => {
-  process.exitCode = 0
-})
 
 describe("issue list", () => {
   test("reads a page and adds relation groups with --relations", async () => {

@@ -1,6 +1,6 @@
 import { lastJson, lastJsonRecord, runIssueMemory } from "@test/cli-harness"
 import { makeIssue, seed } from "@test/issue-read/fixtures"
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { Option, Schema } from "effect"
 
 const PageDocument = Schema.Struct({
@@ -15,10 +15,6 @@ const extraIssues = () =>
   Array.from({ length: 12 }, (_, index) =>
     makeIssue({ identifier: `RAT-${20 + index}`, title: `Searchable ${index}` }),
   )
-
-afterEach(() => {
-  process.exitCode = 0
-})
 
 describe("issue search", () => {
   test("returns ten summary rows by default", async () => {

@@ -4,9 +4,8 @@ import type { Handler } from "@test/fake-linear/model"
 
 import { apiLayer } from "@test/fake-linear"
 import { memoryApiLayer } from "@test/fake-linear/memory-layer"
-import { recordingConsole } from "@test/recording-console"
+import { recordingConsoleWithErrors } from "@test/recording-console"
 import { Console, Effect, FileSystem, Layer, Option, Path, Schema, Stdio, Terminal } from "effect"
-import { Command } from "effect/cli"
 import { ChildProcessSpawner } from "effect/process"
 
 import type { LinearGatewayShape } from "@/linear/gateway"
@@ -28,6 +27,7 @@ const terminal = Terminal.make({
 
 type CliOptions = Omit<ApiLayerOptions, "repositories" | "stdio"> & {
   readonly stdio?: Partial<Stdio.Stdio> | undefined
+  readonly errors?: string[] | undefined
 }
 
 type MemoryCliOptions = CliOptions & {
@@ -41,7 +41,7 @@ const cliLayer = (
   repositories?: ApiLayerOptions["repositories"],
   options: CliOptions = {},
 ) => {
-  const { stdio, ...rest } = options
+  const { stdio, errors, ...rest } = options
   const stdioOptions = {
     stdoutIsTerminal: Effect.succeed(true),
     ...stdio,
@@ -61,7 +61,7 @@ const cliLayer = (
       ChildProcessSpawner.ChildProcessSpawner,
       ChildProcessSpawner.make(() => Effect.die("unused")),
     ),
-    Layer.succeed(Console.Console, recordingConsole(lines)),
+    Layer.succeed(Console.Console, recordingConsoleWithErrors(lines, errors ?? lines)),
     helpLayer,
   )
 }
@@ -75,7 +75,7 @@ const memoryCliLayer = (
   repositories?: ApiLayerOptions["repositories"],
   options: MemoryCliOptions = {},
 ) => {
-  const { stdio, ...rest } = options
+  const { stdio, errors, ...rest } = options
   const stdioOptions = {
     stdoutIsTerminal: Effect.succeed(true),
     ...stdio,
@@ -105,7 +105,7 @@ const memoryCliLayer = (
       ChildProcessSpawner.ChildProcessSpawner,
       ChildProcessSpawner.make(() => Effect.die("unused")),
     ),
-    Layer.succeed(Console.Console, recordingConsole(lines)),
+    Layer.succeed(Console.Console, recordingConsoleWithErrors(lines, errors ?? lines)),
     helpLayer,
   )
 }
@@ -117,7 +117,7 @@ const runIssueMemory = (
   repositories: ApiLayerOptions["repositories"] = defaultRepositories,
   options: MemoryCliOptions = {},
 ) =>
-  Command.run(issueCommand, { version: "test" }).pipe(
+  runCli("test", issueCommand).pipe(
     Effect.provide(memoryCliLayer(seed, args, lines, repositories, options)),
     Effect.runPromise,
   )
@@ -148,7 +148,7 @@ const runIssue = (
   repositories: ApiLayerOptions["repositories"] = defaultRepositories,
   options: CliOptions = {},
 ) =>
-  Command.run(issueCommand, { version: "test" }).pipe(
+  runCli("test", issueCommand).pipe(
     Effect.provide(cliLayer(handler, args, lines, repositories, options)),
     Effect.runPromise,
   )

@@ -4,7 +4,7 @@ import type { MemorySeed } from "@test/fake-linear/gateway/model"
 import { issueWithDuplicateHeading, issueWithNestedSections, seed } from "@test/apply/fixtures"
 import { lastJson, runIssueMemory, runRootMemory } from "@test/cli-harness"
 import { makeMemoryGateway } from "@test/fake-linear/gateway/memory"
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { Option, Schema, Stream } from "effect"
 
 import type { LinearGatewayShape } from "@/linear/gateway"
@@ -23,7 +23,7 @@ const runApply = async (
   extraArgs: readonly string[] = [],
 ) => {
   const lines: string[] = []
-  await runIssueMemory(
+  const exit = await runIssueMemory(
     seedValue,
     ["apply", ref, "--file", "-", "--format", "json", ...extraArgs],
     lines,
@@ -33,7 +33,7 @@ const runApply = async (
       stdio: { stdin: Stream.make(new TextEncoder().encode(JSON.stringify(document))) },
     },
   )
-  return lines
+  return { exit, lines }
 }
 
 const readIssue = async (seedValue: MemorySeed, gateway: LinearGatewayShape, ref = "RAT-1") => {
@@ -48,15 +48,11 @@ const readIssue = async (seedValue: MemorySeed, gateway: LinearGatewayShape, ref
   return recordOf(lastJson(lines))
 }
 
-afterEach(() => {
-  process.exitCode = 0
-})
-
 describe("issue apply", () => {
   test("updates fields, labels, sections, a comment and relations in one document", async () => {
     const seedValue = seed()
     const gateway = makeMemoryGateway(seedValue)
-    const lines = await runApply(seedValue, gateway, {
+    const { lines } = await runApply(seedValue, gateway, {
       title: "The map, updated",
       state: "Done",
       assignee: "me",
@@ -123,7 +119,7 @@ describe("issue apply", () => {
   test("a dry run returns the plan and writes nothing", async () => {
     const seedValue = seed()
     const gateway = makeMemoryGateway(seedValue)
-    const lines = await runApply(
+    const { lines } = await runApply(
       seedValue,
       gateway,
       {
@@ -148,7 +144,7 @@ describe("issue apply", () => {
   test("a no-op returns skipped", async () => {
     const seedValue = seed()
     const gateway = makeMemoryGateway(seedValue)
-    const lines = await runApply(seedValue, gateway, {
+    const { lines } = await runApply(seedValue, gateway, {
       title: "The map",
       labels: { add: ["ready-for-agent"] },
       relations: { blockedBy: ["RAT-9"], blocks: ["RAT-2"] },
@@ -160,12 +156,15 @@ describe("issue apply", () => {
   test("a stale --if-unchanged exits 4", async () => {
     const seedValue = seed()
     const gateway = makeMemoryGateway(seedValue)
-    const lines = await runApply(seedValue, gateway, { title: "Changed title" }, "RAT-1", [
-      "--if-unchanged",
-      "2025-01-01T00:00:00.000Z",
-    ])
+    const { lines, exit } = await runApply(
+      seedValue,
+      gateway,
+      { title: "Changed title" },
+      "RAT-1",
+      ["--if-unchanged", "2025-01-01T00:00:00.000Z"],
+    )
 
-    expect(process.exitCode).toBe(4)
+    expect(exit.code).toBe(4)
     expect(lastJson(lines)).toMatchObject({ error: { code: "conflict" } })
     expect((await readIssue(seedValue, gateway)).title).toBe("The map")
   })
@@ -173,13 +172,15 @@ describe("issue apply", () => {
   test("a dry run with a stale --if-unchanged exits 4", async () => {
     const seedValue = seed()
     const gateway = makeMemoryGateway(seedValue)
-    const lines = await runApply(seedValue, gateway, { title: "Changed title" }, "RAT-1", [
-      "--dry-run",
-      "--if-unchanged",
-      "2025-01-01T00:00:00.000Z",
-    ])
+    const { lines, exit } = await runApply(
+      seedValue,
+      gateway,
+      { title: "Changed title" },
+      "RAT-1",
+      ["--dry-run", "--if-unchanged", "2025-01-01T00:00:00.000Z"],
+    )
 
-    expect(process.exitCode).toBe(4)
+    expect(exit.code).toBe(4)
     expect(lastJson(lines)).toMatchObject({ error: { code: "conflict" } })
     expect((await readIssue(seedValue, gateway)).title).toBe("The map")
   })
@@ -188,7 +189,7 @@ describe("issue apply", () => {
     const seedValue = seed()
     const gateway = makeMemoryGateway(seedValue)
     const lines: string[] = []
-    await runRootMemory(
+    const exit = await runRootMemory(
       seedValue,
       ["issue", "apply", "RAT-1", "--file", "-", "--format", "json", "--fields", "title"],
       lines,
@@ -201,7 +202,7 @@ describe("issue apply", () => {
       },
     )
 
-    expect(process.exitCode).toBe(2)
+    expect(exit.code).toBe(2)
     expect(lastJson(lines)).toMatchObject({
       error: { code: "usage", hint: "Use --format json; --select replaces --fields." },
     })
@@ -210,7 +211,7 @@ describe("issue apply", () => {
   test("a partial failure returns the applied actions and the failed action", async () => {
     const seedValue = seed({ failOn: ["mutation CreateComment"] })
     const gateway = makeMemoryGateway(seedValue)
-    const lines = await runApply(seedValue, gateway, {
+    const { lines, exit } = await runApply(seedValue, gateway, {
       title: "Changed title",
       comment: { body: "Cannot post.", dedupeKey: "fail-1" },
     })
@@ -228,7 +229,7 @@ describe("issue apply", () => {
     expect(result.actions).toEqual([
       expect.objectContaining({ action: "update-fields", status: "updated" }),
     ])
-    expect(process.exitCode).toBe(1)
+    expect(exit.code).toBe(1)
     expect((await readIssue(seedValue, gateway)).title).toBe("Changed title")
   })
 })
@@ -237,7 +238,7 @@ describe("issue apply sections", () => {
   test("replace rewrites the content under one heading", async () => {
     const seedValue = seed()
     const gateway = makeMemoryGateway(seedValue)
-    const lines = await runApply(seedValue, gateway, {
+    const { lines } = await runApply(seedValue, gateway, {
       sections: [{ heading: "Notes", mode: "replace", content: "Replaced." }],
     })
 
@@ -318,7 +319,7 @@ describe("issue apply sections", () => {
   test("a replace of a missing heading fails before the first write", async () => {
     const seedValue = seed()
     const gateway = makeMemoryGateway(seedValue)
-    const lines = await runApply(seedValue, gateway, {
+    const { lines } = await runApply(seedValue, gateway, {
       title: "Changed title",
       sections: [{ heading: "Missing", mode: "replace", content: "Nothing." }],
     })
@@ -330,14 +331,14 @@ describe("issue apply sections", () => {
   test("a duplicate heading is ambiguous", async () => {
     const seedValue = seed({ issues: [issueWithDuplicateHeading] })
     const gateway = makeMemoryGateway(seedValue)
-    const lines = await runApply(
+    const { lines, exit } = await runApply(
       seedValue,
       gateway,
       { sections: [{ heading: "Notes", mode: "replace", content: "Replaced." }] },
       "RAT-20",
     )
 
-    expect(process.exitCode).toBe(2)
+    expect(exit.code).toBe(2)
     expect(lastJson(lines)).toMatchObject({ error: { code: "ambiguous" } })
     expect((await readIssue(seedValue, gateway, "RAT-20")).description).toBe(
       issueWithDuplicateHeading.description,
@@ -349,7 +350,7 @@ describe("issue apply relations and comments", () => {
   test("relations are a set: an existing edge is skipped", async () => {
     const seedValue = seed()
     const gateway = makeMemoryGateway(seedValue)
-    const lines = await runApply(seedValue, gateway, {
+    const { lines } = await runApply(seedValue, gateway, {
       relations: {
         blocks: ["RAT-2"],
         blockedBy: ["RAT-9"],
@@ -380,10 +381,10 @@ describe("issue apply relations and comments", () => {
     const gateway = makeMemoryGateway(seedValue)
     const document = { comment: { body: "Started.", dedupeKey: "start-1" } }
 
-    const first = await runApply(seedValue, gateway, document)
+    const { lines: first } = await runApply(seedValue, gateway, document)
     expect(resultOf(first)).toMatchObject({ status: "updated" })
 
-    const second = await runApply(seedValue, gateway, document)
+    const { lines: second } = await runApply(seedValue, gateway, document)
     expect(resultOf(second)).toMatchObject({ status: "skipped", changed: [] })
 
     expect((await readIssue(seedValue, gateway)).comments).toEqual([
@@ -444,7 +445,7 @@ describe("issue apply relations and comments", () => {
     const seedValue = seed()
     const gateway = makeMemoryGateway(seedValue)
     const lines: string[] = []
-    await runIssueMemory(
+    const exit = await runIssueMemory(
       seedValue,
       ["comment", "RAT-1", "--body-file", "-", "--format", "json"],
       lines,
@@ -455,7 +456,7 @@ describe("issue apply relations and comments", () => {
       },
     )
 
-    expect(process.exitCode).toBe(2)
+    expect(exit.code).toBe(2)
     expect(lastJson(lines)).toMatchObject({ error: { code: "validation" } })
     expect((await readIssue(seedValue, gateway)).comments).toEqual([])
   })
@@ -500,8 +501,8 @@ describe("removed write forms", () => {
   for (const args of removedForms) {
     test(`${args[0]} exits 2`, async () => {
       const lines: string[] = []
-      await runRootMemory(seed(), ["issue", ...args, "--format", "json"], lines)
-      expect(process.exitCode).toBe(2)
+      const exit = await runRootMemory(seed(), ["issue", ...args, "--format", "json"], lines)
+      expect(exit.code).toBe(2)
       expect(lastJson(lines)).toMatchObject({ error: { code: "usage" } })
     })
   }

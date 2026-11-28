@@ -3,7 +3,7 @@ import type { MemorySeed, MemoryTeam } from "@test/fake-linear/gateway/model"
 import { lastJson, runRootMemory } from "@test/cli-harness"
 import { memoryApiLayer } from "@test/fake-linear/memory-layer"
 import { defaultEnv, defaultViewer } from "@test/fake-linear/model"
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { Effect, Option, Schema } from "effect"
 
 import { TeamService } from "@/api/team"
@@ -84,10 +84,6 @@ const showTeam = () =>
     return yield* teams.details("RAT")
   }).pipe(Effect.provide(memoryApiLayer(seed, { env: defaultEnv })), Effect.runPromise)
 
-afterEach(() => {
-  process.exitCode = 0
-})
-
 describe("TeamService.details", () => {
   test("returns every state, label and member, with priorities sorted", async () => {
     const detail = await showTeam()
@@ -123,10 +119,10 @@ describe("team show", () => {
 
   test("fails with not_linked without a reference or a link", async () => {
     const lines: string[] = []
-    await runRootMemory(seed, ["admin", "team", "show", "--format", "json"], lines, [])
+    const exit = await runRootMemory(seed, ["admin", "team", "show", "--format", "json"], lines, [])
 
     const error = Option.getOrThrow(Schema.decodeUnknownOption(ErrorEnvelope)(lastJson(lines)))
     expect(error.error.code).toBe("not_linked")
-    expect(process.exitCode).toBe(2)
+    expect(exit.code).toBe(2)
   })
 })

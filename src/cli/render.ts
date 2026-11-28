@@ -1,11 +1,18 @@
 import { Effect, Option, Predicate } from "effect"
 
 import type { FieldPath, FieldShape } from "@/cli/field/shape"
-import type { CommandOutput, OutputFormat, OutputSpec, OutputSpecs } from "@/cli/spec"
+import type {
+  CliExit,
+  CommandOutput,
+  OutputFormat,
+  OutputSpec,
+  OutputSpecs,
+  RenderedOutput,
+} from "@/cli/spec"
 
 import { toTrackerError } from "@/cli/error-report"
 import { selectItems, selectObject } from "@/cli/fields"
-import { writeJson, writeLine } from "@/cli/output"
+import { jsonText, writeLine } from "@/cli/output"
 import { TrackerError } from "@/domain/error"
 
 type RenderOptions = {
@@ -22,6 +29,14 @@ const specFor = (spec: OutputSpecs, kind: OutputSpec["kind"]): OutputSpec | unde
   const specs = isSpecList(spec) ? spec : [spec]
   return specs.find((item) => item.kind === kind)
 }
+
+const stdoutOutput = (lines: readonly string[]): RenderedOutput => ({
+  stream: "stdout",
+  lines,
+})
+
+const writeLines = (lines: readonly string[]): Effect.Effect<void> =>
+  Effect.forEach(lines, writeLine, { discard: true })
 
 const valueAt = (value: unknown, path: readonly string[]): unknown => {
   let current = value
@@ -69,10 +84,11 @@ const renderResource = (
   output: CommandOutput & { readonly kind: "resource" },
   spec: OutputSpec & { readonly kind: "resource" },
   options: RenderOptions,
-) =>
+): Effect.Effect<RenderedOutput, TrackerError> =>
   Effect.gen(function* renderResourceOutput() {
     if (options.format === "text") {
-      return yield* Effect.forEach(output.text, writeLine, { discard: true })
+      yield* writeLines(output.text)
+      return stdoutOutput(output.text)
     }
     const selected = yield* selectResource(
       output.value,
@@ -80,29 +96,34 @@ const renderResource = (
       options.select,
       spec.select?.at ?? [],
     )
-    return yield* writeJson(selected)
+    const text = yield* jsonText(selected)
+    yield* writeLine(text)
+    return stdoutOutput([text])
   })
 
 const renderCollection = (
   output: CommandOutput & { readonly kind: "collection" },
   spec: OutputSpec & { readonly kind: "collection" },
   options: RenderOptions,
-) =>
+): Effect.Effect<RenderedOutput, TrackerError> =>
   Effect.gen(function* renderCollectionOutput() {
     if (options.format === "text") {
-      return yield* Effect.forEach(output.text, writeLine, { discard: true })
+      yield* writeLines(output.text)
+      return stdoutOutput(output.text)
     }
     const items = yield* selectItems(options.select, spec.shape, output.items).pipe(
       Effect.mapError(toTrackerError),
     )
-    return yield* writeJson({ [output.key]: items, pageInfo: output.pageInfo })
+    const text = yield* jsonText({ [output.key]: items, pageInfo: output.pageInfo })
+    yield* writeLine(text)
+    return stdoutOutput([text])
   })
 
 const renderOutput = (
   output: CommandOutput,
   outputSpec: OutputSpecs,
   options: RenderOptions,
-): Effect.Effect<number, TrackerError> =>
+): Effect.Effect<CliExit, TrackerError> =>
   Effect.gen(function* renderCommandOutput() {
     switch (output.kind) {
       case "resource": {
@@ -112,8 +133,8 @@ const renderOutput = (
             "The command returned a resource for a different output shape.",
           )
         }
-        yield* renderResource(output, spec, options)
-        return output.exitCode ?? 0
+        const rendered = yield* renderResource(output, spec, options)
+        return { code: output.exitCode ?? 0, output: rendered, error: null }
       }
       case "collection": {
         const spec = specFor(outputSpec, "collection")
@@ -122,15 +143,15 @@ const renderOutput = (
             "The command returned a collection for a different output shape.",
           )
         }
-        yield* renderCollection(output, spec, options)
-        return output.exitCode ?? 0
+        const rendered = yield* renderCollection(output, spec, options)
+        return { code: output.exitCode ?? 0, output: rendered, error: null }
       }
       case "text": {
         if (specFor(outputSpec, "text") === undefined) {
           return yield* internalError("The command returned text for a different output shape.")
         }
-        yield* Effect.forEach(output.lines, writeLine, { discard: true })
-        return output.exitCode ?? 0
+        yield* writeLines(output.lines)
+        return { code: output.exitCode ?? 0, output: stdoutOutput(output.lines), error: null }
       }
       default: {
         return yield* internalError("The runner received an output kind it cannot render.")

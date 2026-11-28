@@ -4,10 +4,10 @@ import { apiLayer } from "@test/fake-linear"
 import { recordingConsole } from "@test/recording-console"
 import { fakeTerminal } from "@test/terminal-harness"
 import { Console, Effect, FileSystem, Layer, Path, Stdio, Terminal } from "effect"
-import { Command } from "effect/cli"
 import { ChildProcessSpawner } from "effect/process"
 
 import { projectCommand } from "@/cli/registry"
+import { runCli } from "@/cli/runner"
 import { projectId } from "@/domain/id"
 
 const tracker = {
@@ -48,7 +48,7 @@ const runProject = (
   input: readonly Terminal.UserInput[] = [],
   stdinIsTerminal = true,
 ) =>
-  Command.run(projectCommand, { version: "test" }).pipe(
+  runCli("test", projectCommand).pipe(
     Effect.provide(cliLayer(handler, args, lines, input, stdinIsTerminal)),
     Effect.runPromise,
   )

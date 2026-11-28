@@ -2,7 +2,7 @@ import type { MemoryIssue, MemorySeed } from "@test/fake-linear/gateway/model"
 
 import { lastJson, runIssueMemory } from "@test/cli-harness"
 import { defaultViewer } from "@test/fake-linear/model"
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { Option, Schema } from "effect"
 
 import { issueId, projectId, teamId, userId } from "@/domain/id"
@@ -176,10 +176,6 @@ const IssuePageDocument = Schema.Struct({
 
 const pageOf = (lines: readonly string[]) =>
   Option.getOrThrow(Schema.decodeUnknownOption(IssuePageDocument)(lastJson(lines)))
-
-afterEach(() => {
-  process.exitCode = 0
-})
 
 describe("issue list --relations", () => {
   test("adds every relation group to the rows", async () => {

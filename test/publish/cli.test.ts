@@ -3,7 +3,7 @@ import type { MemorySeed } from "@test/fake-linear/gateway/model"
 import { seed, viewer } from "@test/apply/fixtures"
 import { lastJson, runIssueMemory } from "@test/cli-harness"
 import { makeMemoryGateway } from "@test/fake-linear/gateway/memory"
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { Option, Predicate, Schema, Stream } from "effect"
 
 import type { LinearGatewayShape } from "@/linear/gateway"
@@ -26,7 +26,7 @@ const runPublish = async (
   extraArgs: readonly string[] = [],
 ) => {
   const lines: string[] = []
-  await runIssueMemory(
+  const exit = await runIssueMemory(
     seedValue,
     ["publish", "--file", "-", "--format", "json", ...extraArgs],
     lines,
@@ -36,7 +36,7 @@ const runPublish = async (
       stdio: { stdin: Stream.make(new TextEncoder().encode(JSON.stringify(document))) },
     },
   )
-  return lines
+  return { exit, lines }
 }
 
 const readDoc = async (seedValue: MemorySeed, gateway: LinearGatewayShape, ref: string) => {
@@ -106,15 +106,11 @@ const retryDocument = (specBlocker: boolean) => ({
   ],
 })
 
-afterEach(() => {
-  process.exitCode = 0
-})
-
 describe("issue publish", () => {
   test("creates a parent, its children and their blocking edges", async () => {
     const seedValue = seed()
     const gateway = makeMemoryGateway(seedValue)
-    const lines = await runPublish(seedValue, gateway, {
+    const { lines } = await runPublish(seedValue, gateway, {
       team: "RAT",
       parent: "RAT-1",
       defaults: { priority: "medium", labels: ["ready-for-agent"], assignee: "me" },
@@ -204,7 +200,7 @@ describe("issue publish", () => {
   test("a child names a parent created in the same call", async () => {
     const seedValue = seed()
     const gateway = makeMemoryGateway(seedValue)
-    const lines = await runPublish(seedValue, gateway, {
+    const { lines } = await runPublish(seedValue, gateway, {
       team: "RAT",
       defaults: { assignee: "me" },
       nodes: [
@@ -241,7 +237,7 @@ describe("issue publish", () => {
   test("a node parent and a blocker may name existing issue references", async () => {
     const seedValue = seed()
     const gateway = makeMemoryGateway(seedValue)
-    const lines = await runPublish(seedValue, gateway, {
+    const { lines } = await runPublish(seedValue, gateway, {
       team: "RAT",
       nodes: [
         {
@@ -268,7 +264,7 @@ describe("issue publish", () => {
   test("a retry reuses the nodes and adds only the missing edge", async () => {
     const seedValue = seed()
     const counted = countingGateway(makeMemoryGateway(seedValue))
-    const first = await runPublish(seedValue, counted.gateway, retryDocument(false))
+    const { lines: first } = await runPublish(seedValue, counted.gateway, retryDocument(false))
     expect(counted.batches()).toBe(1)
     expect(counted.relations()).toBe(1)
     const firstIdentifiers = new Map(
@@ -276,7 +272,7 @@ describe("issue publish", () => {
     )
 
     counted.reset()
-    const second = await runPublish(seedValue, counted.gateway, retryDocument(true))
+    const { lines: second } = await runPublish(seedValue, counted.gateway, retryDocument(true))
     expect(counted.batches()).toBe(0)
     expect(counted.relations()).toBe(1)
     expect(resultOf(second)).toMatchObject({ status: "updated", changed: ["edge:spec:client"] })
@@ -298,7 +294,7 @@ describe("issue publish", () => {
       expect.objectContaining({ action: "reuse", target: "spec", status: "skipped" }),
     )
 
-    const third = await runPublish(seedValue, counted.gateway, retryDocument(true))
+    const { lines: third } = await runPublish(seedValue, counted.gateway, retryDocument(true))
     expect(resultOf(third)).toMatchObject({ status: "skipped", changed: [] })
     expect(counted.batches()).toBe(0)
     expect(counted.relations()).toBe(1)
@@ -307,7 +303,7 @@ describe("issue publish", () => {
   test("a dry run returns the plan and writes nothing", async () => {
     const seedValue = seed()
     const counted = countingGateway(makeMemoryGateway(seedValue))
-    const lines = await runPublish(
+    const { lines } = await runPublish(
       seedValue,
       counted.gateway,
       {
@@ -364,24 +360,23 @@ describe("issue publish", () => {
     const seedValue = seed()
     const counted = countingGateway(makeMemoryGateway(seedValue))
 
-    const cycle = await runPublish(seedValue, counted.gateway, {
+    const { lines: cycle, exit } = await runPublish(seedValue, counted.gateway, {
       team: "RAT",
       nodes: [
         { key: "a", kind: "ticket", title: "A", parent: "b" },
         { key: "b", kind: "ticket", title: "B", parent: "a" },
       ],
     })
-    expect(process.exitCode).toBe(2)
+    expect(exit.code).toBe(2)
     expect(lastJson(cycle)).toMatchObject({ error: { code: "validation" } })
     expect(counted.batches()).toBe(0)
     expect(counted.relations()).toBe(0)
 
-    process.exitCode = 0
-    const missing = await runPublish(seedValue, counted.gateway, {
+    const { lines: missing, exit: missingExit } = await runPublish(seedValue, counted.gateway, {
       team: "RAT",
       nodes: [{ key: "a", kind: "ticket", title: "A", blockedBy: ["missing"] }],
     })
-    expect(process.exitCode).toBe(2)
+    expect(missingExit.code).toBe(2)
     expect(lastJson(missing)).toMatchObject({ error: { code: "validation" } })
     expect(counted.batches()).toBe(0)
     expect(counted.relations()).toBe(0)
@@ -390,7 +385,7 @@ describe("issue publish", () => {
   test("a partial edge failure reports the created nodes and the failed edge", async () => {
     const seedValue = seed({ failOn: ["mutation IssueRelationCreate"] })
     const gateway = makeMemoryGateway(seedValue)
-    const lines = await runPublish(seedValue, gateway, {
+    const { lines, exit } = await runPublish(seedValue, gateway, {
       team: "RAT",
       parent: "RAT-1",
       defaults: { priority: "medium", labels: ["ready-for-agent"], assignee: "me" },
@@ -415,7 +410,7 @@ describe("issue publish", () => {
     expect(itemsOf(lines, "edges")).toEqual([
       expect.objectContaining({ from: "spec", to: "client", action: "failed" }),
     ])
-    expect(process.exitCode).toBe(1)
+    expect(exit.code).toBe(1)
 
     const spec = itemsOf(lines, "nodes").find((node) => node.key === "spec")
     const specDoc = await readDoc(seedValue, gateway, String(spec?.identifier))
@@ -425,7 +420,7 @@ describe("issue publish", () => {
   test("a failed batch reports the failed nodes and no created nodes", async () => {
     const seedValue = seed({ failOn: ["mutation IssueBatchCreate"] })
     const gateway = makeMemoryGateway(seedValue)
-    const lines = await runPublish(seedValue, gateway, {
+    const { lines, exit } = await runPublish(seedValue, gateway, {
       team: "RAT",
       parent: "RAT-1",
       nodes: [
@@ -447,13 +442,13 @@ describe("issue publish", () => {
     expect(itemsOf(lines, "edges")).toEqual([
       expect.objectContaining({ from: "spec", to: "client", action: "create" }),
     ])
-    expect(process.exitCode).toBe(1)
+    expect(exit.code).toBe(1)
   })
 
   test("creates at most fifty nodes per batch", async () => {
     const seedValue = seed()
     const counted = countingGateway(makeMemoryGateway(seedValue))
-    const lines = await runPublish(seedValue, counted.gateway, {
+    const { lines } = await runPublish(seedValue, counted.gateway, {
       team: "RAT",
       nodes: Array.from({ length: 51 }, (_, index) => ({
         key: `node-${index}`,

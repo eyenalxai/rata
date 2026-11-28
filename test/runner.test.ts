@@ -1,5 +1,5 @@
 import { recordingConsoleWithErrors } from "@test/recording-console"
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { Console, Effect, FileSystem, Layer, Option, Path, Stdio, Terminal } from "effect"
 import { Command, Flag } from "effect/cli"
 import { ChildProcessSpawner } from "effect/process"
@@ -137,7 +137,7 @@ const run = (
   options: RunOptions = {},
   errors: string[] = output,
 ) =>
-  Command.run(testGroup, { version: "test" }).pipe(
+  runCli("test", testGroup).pipe(
     Effect.provide(testLayer(args, output, errors, options)),
     Effect.runPromise,
   )
@@ -154,10 +154,6 @@ const runRoot = (
   )
 
 const lastJson = (lines: readonly string[]): unknown => JSON.parse(lines.at(-1) ?? "")
-
-afterEach(() => {
-  process.exitCode = 0
-})
 
 describe("the command runner", () => {
   test("rejects selectable without outputFor", () => {
@@ -229,7 +225,7 @@ describe("the command runner", () => {
   test("rejects --select on a terminal with --format text", async () => {
     const lines: string[] = []
     const errors: string[] = []
-    await run(
+    const exit = await run(
       ["echo", "--name", "Ada", "--format", "text", "--select", "name"],
       lines,
       { stdoutIsTerminal: true },
@@ -237,18 +233,36 @@ describe("the command runner", () => {
     )
 
     expect(errors.join("\n")).toContain("--select requires JSON output.")
-    expect(process.exitCode).toBe(2)
+    expect(exit.code).toBe(2)
+  })
+
+  test("a select parse error on a terminal writes one JSON error and no help", async () => {
+    const lines: string[] = []
+    const errors: string[] = []
+    const exit = await run(
+      ["echo", "--name", "Ada", "--select", "nope"],
+      lines,
+      {
+        stdoutIsTerminal: true,
+      },
+      errors,
+    )
+
+    expect(lines).toEqual([])
+    expect(errors).toHaveLength(1)
+    expect(lastJson(errors)).toMatchObject({ error: { code: "validation" } })
+    expect(exit.code).toBe(2)
   })
 
   test("a parse error writes one usage error object and no help", async () => {
     const lines: string[] = []
     const errors: string[] = []
-    await runRoot(["echo", "--bogus", "--json"], lines, {}, errors)
+    const exit = await runRoot(["echo", "--bogus", "--json"], lines, {}, errors)
 
     expect(lines).toEqual([])
     expect(errors).toHaveLength(1)
     expect(lastJson(errors)).toMatchObject({ error: { code: "usage" } })
-    expect(process.exitCode).toBe(2)
+    expect(exit.code).toBe(2)
   })
 
   test("maps every exit code", async () => {
@@ -262,16 +276,14 @@ describe("the command runner", () => {
       { args: ["fail", "--code", "rate_limited"], exitCode: 6 },
     ] as const
 
-    const check = (index: number): Promise<void> => {
+    const check = async (index: number): Promise<void> => {
       const item = cases[index]
       if (item === undefined) {
-        return Promise.resolve()
+        return
       }
-      return run(item.args, []).then(() => {
-        expect(process.exitCode).toBe(item.exitCode)
-        process.exitCode = 0
-        return check(index + 1)
-      })
+      const exit = await run(item.args, [])
+      expect(exit.code).toBe(item.exitCode)
+      await check(index + 1)
     }
     await check(0)
   })

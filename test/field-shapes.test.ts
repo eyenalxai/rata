@@ -2,7 +2,7 @@ import type { Handler } from "@test/fake-linear/model"
 
 import { cliLayer, lastJson } from "@test/cli-harness"
 import { makeFakeLinear } from "@test/fake-linear"
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { Effect, Result } from "effect"
 import { Command } from "effect/cli"
 
@@ -28,10 +28,6 @@ const runTeam = (handler: Handler, args: readonly string[], lines: string[]) =>
     Effect.provide(cliLayer(handler, args, lines, repositories)),
     Effect.runPromise,
   )
-
-afterEach(() => {
-  process.exitCode = 0
-})
 
 describe("field shape validation", () => {
   test("rejects a path through an array of scalars", () => {

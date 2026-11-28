@@ -1,11 +1,11 @@
 import { makeFakeLinear } from "@test/fake-linear"
 import { defaultViewer } from "@test/fake-linear/model"
 import { lastJson, now, profiles, runStatus, statusLayer, team } from "@test/status/harness"
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { Effect, Option, Schema } from "effect"
-import { Command } from "effect/cli"
 
 import { statusCommand } from "@/cli/registry"
+import { runCli } from "@/cli/runner"
 import { hashApiKey } from "@/context/key-hash"
 import { TeamDetail } from "@/linear/decode/team"
 import { Viewer } from "@/linear/decode/viewer"
@@ -25,18 +25,14 @@ const cachedDetail: TeamDetail = Option.getOrThrow(
 
 const cachedViewer = Option.getOrThrow(Schema.decodeOption(Viewer)(defaultViewer))
 
-afterEach(() => {
-  process.exitCode = 0
-})
-
 describe("status context", () => {
   test("serves a warm read from SQLite without a Linear request", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
     const requests = await Effect.gen(function* runTwice() {
-      yield* Command.run(statusCommand, { version: "test" })
+      yield* runCli("test", statusCommand)
       const afterFirst = fake.requests.length
-      yield* Command.run(statusCommand, { version: "test" })
+      yield* runCli("test", statusCommand)
       return { afterFirst, afterSecond: fake.requests.length }
     }).pipe(
       Effect.provide(

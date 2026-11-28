@@ -2,7 +2,7 @@ import type { Handler } from "@test/fake-linear/model"
 
 import { runIssue, runRoot } from "@test/cli-harness"
 import { jsonResponse } from "@test/issue-fixtures"
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { CliError } from "effect/cli"
 
 import type { ErrorCode } from "@/domain/error"
@@ -69,10 +69,6 @@ const unusedHandler: Handler = () => {
 
 const classify = (error: unknown): ErrorCode => toTrackerError(error).code
 
-afterEach(() => {
-  process.exitCode = 0
-})
-
 describe("the exit code map", () => {
   test("maps every error code to its stable exit code", () => {
     for (const code of errorCodes) {
@@ -125,9 +121,14 @@ describe("the exit code map", () => {
 describe("the process exit code", () => {
   test("a bad flag exits 2 with a usage error object", async () => {
     const lines: string[] = []
-    await runRoot(unusedHandler, ["issue", "RAT-1", "--bogus", "--format", "json"], lines)
+    const exit = await runRoot(
+      unusedHandler,
+      ["issue", "RAT-1", "--bogus", "--format", "json"],
+      lines,
+    )
 
-    expect(process.exitCode).toBe(2)
+    expect(exit.code).toBe(2)
+    expect(lines).toHaveLength(1)
     expect(JSON.parse(lines.at(-1) ?? "")).toMatchObject({
       error: { code: "usage" },
     })
@@ -146,50 +147,70 @@ describe("the process exit code", () => {
 
   test("issue create without a linked team exits 2", async () => {
     const lines: string[] = []
-    await runIssue(unusedHandler, ["create", "--title", "T", "--format", "json"], lines, [])
+    const exit = await runIssue(
+      unusedHandler,
+      ["create", "--title", "T", "--format", "json"],
+      lines,
+      [],
+    )
 
-    expect(process.exitCode).toBe(2)
+    expect(exit.code).toBe(2)
     expect(JSON.parse(lines.at(-1) ?? "")).toMatchObject({
       error: { code: "not_linked" },
     })
   })
 
   test("a bad limit exits 2", async () => {
-    await runIssue(unusedHandler, ["list", "--limit", "0", "--format", "json"], [])
+    const exit = await runIssue(unusedHandler, ["list", "--limit", "0", "--format", "json"], [])
 
-    expect(process.exitCode).toBe(2)
+    expect(exit.code).toBe(2)
   })
 
-  test("a missing issue exits 3", async () => {
-    await runIssue(graphqlErrors("Entity not found: Issue"), ["RAT-404", "--format", "json"], [])
+  test("a missing issue exits 3 and writes one error object", async () => {
+    const errors: string[] = []
+    const exit = await runIssue(
+      graphqlErrors("Entity not found: Issue"),
+      ["RAT-404", "--format", "json"],
+      [],
+      undefined,
+      { errors },
+    )
 
-    expect(process.exitCode).toBe(3)
+    expect(exit.code).toBe(3)
+    expect(errors).toHaveLength(1)
+    expect(JSON.parse(errors[0] ?? "")).toMatchObject({ error: { code: "not_found" } })
   })
 
   test("a missing key exits 5", async () => {
-    await runRoot(unusedHandler, ["admin", "auth", "status", "--format", "json"], [], undefined, {
-      env: { HOME: "/home/test" },
-      profiles: [],
-    })
+    const exit = await runRoot(
+      unusedHandler,
+      ["admin", "auth", "status", "--format", "json"],
+      [],
+      undefined,
+      {
+        env: { HOME: "/home/test" },
+        profiles: [],
+      },
+    )
 
-    expect(process.exitCode).toBe(5)
+    expect(exit.code).toBe(5)
   })
 
   test("a forbidden request exits 5", async () => {
-    await runRoot(forbidden, ["admin", "auth", "status", "--format", "json"], [])
+    const exit = await runRoot(forbidden, ["admin", "auth", "status", "--format", "json"], [])
 
-    expect(process.exitCode).toBe(5)
+    expect(exit.code).toBe(5)
   })
 
   test("a rate limit exits 6", async () => {
-    await runIssue(rateLimited, ["RAT-1", "--format", "json"], [])
+    const exit = await runIssue(rateLimited, ["RAT-1", "--format", "json"], [])
 
-    expect(process.exitCode).toBe(6)
+    expect(exit.code).toBe(6)
   })
 
   test("an unexpected failure exits 1", async () => {
-    await runIssue(graphqlErrors("Something broke"), ["RAT-1", "--format", "json"], [])
+    const exit = await runIssue(graphqlErrors("Something broke"), ["RAT-1", "--format", "json"], [])
 
-    expect(process.exitCode).toBe(1)
+    expect(exit.code).toBe(1)
   })
 })
