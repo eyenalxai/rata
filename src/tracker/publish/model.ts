@@ -17,7 +17,7 @@ const publishBatchSize = 50
 
 type PublishNodePlanBase = {
   readonly key: string
-  readonly kind: PublishKind
+  readonly kind: PublishKind | null
   readonly title: string
   readonly id: string
   readonly parent: string | null
@@ -26,6 +26,8 @@ type PublishNodePlanBase = {
   readonly state: string | null
   readonly assignee: string | null
   readonly body: string | null
+  readonly changed: boolean
+  readonly changes: readonly string[]
 }
 
 type PublishCreateNodePlan = PublishNodePlanBase & {
@@ -66,7 +68,7 @@ type PublishNodeResultAction = "create" | "reuse" | "created" | "reused" | "fail
 
 type PublishNodeResult = {
   readonly key: string
-  readonly kind: PublishKind
+  readonly kind: PublishKind | null
   readonly title: string
   readonly id: string
   readonly identifier: string | null
@@ -76,6 +78,8 @@ type PublishNodeResult = {
   readonly state: string | null
   readonly assignee: string | null
   readonly body: string | null
+  readonly changed: boolean
+  readonly changes: readonly string[]
   readonly action: PublishNodeResultAction
 }
 
@@ -105,6 +109,7 @@ type PublishResult = {
   readonly actions: readonly PlanStep[]
   readonly nodes: readonly PublishNodeResult[]
   readonly edges: readonly PublishEdgeResult[]
+  readonly warning: string | null
   readonly failed?: FailedPublishAction | undefined
   readonly cause?: unknown
 }
@@ -139,6 +144,8 @@ const nodeStep = (node: PublishNodePlan, status: PlanStatus): PlanStep => ({
     priority: node.priority,
     state: node.state,
     assignee: node.assignee,
+    changed: node.changed,
+    fields: node.changes,
   },
 })
 

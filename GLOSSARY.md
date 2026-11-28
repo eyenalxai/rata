@@ -84,6 +84,16 @@ they explore the codebase. Use these terms; do not drift to synonyms.
 - **Apply result**: the `result` object of a write: `action`, `status`,
   `changed`, `dryRun`, `snapshot`, `actions` and, on failure, `failed` and
   `error`. `status` is `updated`, `skipped` or `failed`.
+- **Publish node**: one node of an `issue publish` document. It has a `key`, a
+  `kind`, a title and optional fields.
+- **Publish node identity** (short: **node identity**): the stable UUID of a
+  published node. It is derived from the parent issue and the node `key`, so a
+  retry with the same parent and key reuses the issue and a new key creates a
+  new issue. Linear does not store the publish `kind`.
+- **Publish node `changed` flag**: the `changed` boolean and `changes` list on a
+  publish node result. They are set when a reused issue's stored values differ
+  from the effective document values. This is not the apply result `changed`
+  list, which names the actions that a write applied.
 - **Relation set**: the relation groups of an apply document. An edge that
   already exists is skipped; an omitted group is left alone.
 - **Parent** / **child**: the sub-issue link. A map holds its tickets as child

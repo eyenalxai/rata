@@ -89,8 +89,14 @@ the document. `--dry-run` returns the plan and writes nothing.
 
 `issue publish` takes one document with `team`, `parent`, `defaults` and `nodes`.
 Each node requires `key`, `kind` and `title`; `body`, `priority`, `labels`,
-`assignee`, `state`, `parent` and `blockedBy` are optional. A retry reuses the
-nodes and skips the edges that already exist.
+`assignee`, `state`, `parent` and `blockedBy` are optional. Use a unique `key`
+per child. The key is the node identity: a retry with the same key reuses the
+issue, and a new key creates a new issue. A retry reuses the nodes and skips the
+edges that already exist. A reused node reports the stored title, parent,
+labels, priority, state and assignee, plus `changed` and the changed field names
+in `changes`. The retry keeps the stored values and never updates or rejects the
+node; `result.warning` names the changed fields and the next step. Linear does
+not store `kind`, so a reused node reports `kind: null`.
 
 `issue start` claims an unassigned issue, skips your own claim, and exits 4 with
 the holder when another user holds it; `--take` reassigns. `issue handoff`
