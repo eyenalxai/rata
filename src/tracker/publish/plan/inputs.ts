@@ -151,6 +151,7 @@ export {
   createInput,
   effectiveAssignee,
   effectiveLabels,
+  effectivePriority,
   effectiveState,
   makeEdges,
   resolvedNodeLabels,

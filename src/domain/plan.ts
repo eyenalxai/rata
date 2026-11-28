@@ -6,6 +6,7 @@ const planActionNames = [
   "close",
   "reopen",
   "create",
+  "reuse",
   "update",
   "config-set",
   "config-unset",

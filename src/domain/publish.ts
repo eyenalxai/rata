@@ -5,19 +5,9 @@ import { TrackerError } from "@/domain/error"
 import { parseIssueRef } from "@/domain/issue-ref"
 import { PrioritySchema } from "@/domain/priority"
 
-const publishKinds = [
-  "spec",
-  "ticket",
-  "map",
-  "decision",
-  "research",
-  "prototype",
-  "grilling",
-  "task",
-] as const
-type PublishKind = (typeof publishKinds)[number]
+type PublishKind = string
 
-const PublishKindSchema = Schema.Literals(publishKinds)
+const PublishKindSchema = Schema.String
 
 const PublishDefaultsSchema = Schema.Struct({
   priority: Schema.optional(PrioritySchema),
@@ -168,7 +158,7 @@ const publishOrder = (
     const cycle = nodes.filter((node) => !visited.has(node.key)).map((node) => node.key)
     return Result.fail(
       validationError(
-        `The publish graph has a cycle: ${cycle.join(", ")}.`,
+        `The publish graph has a cycle among: ${cycle.join(", ")}.`,
         "Remove one parent or blockedBy edge between the nodes.",
       ),
     )
