@@ -1206,8 +1206,10 @@ The lifecycle commands use the same plan/apply engine. The removed write forms (
   exit 2. `whoami` is gone; `status` and `admin auth status` carry the viewer.
 - `admin api` runs a read-only GraphQL query. It rejects mutations and
   subscriptions before the request and never prints the API key.
-- `admin doctor` checks every `rata` command in `docs/agents/issue-tracker.md`
-  against the registry. `--write` repairs the generated command block.
+- `status --full` adds the team timezone, members and priorities.
+- `admin doctor` checks every `rata` command and removed flag in
+  `docs/agents/issue-tracker.md` against the registry. `--write` repairs the
+  generated command block.
 - `skills/rata/reference.md` and the tracker command block are generated from
   the command registry. Run `bun run docs:generate`; `bun run docs:check` fails
   when either block is stale.
