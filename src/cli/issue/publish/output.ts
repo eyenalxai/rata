@@ -13,6 +13,10 @@ const publishNodeShape = objectField({
   identifier: scalarField,
   parent: scalarField,
   labels: arrayField(scalarField),
+  priority: scalarField,
+  state: scalarField,
+  assignee: scalarField,
+  body: scalarField,
   action: scalarField,
 })
 
@@ -23,6 +27,8 @@ const publishEdgeShape = objectField({
 })
 
 const publishShape = objectField({
+  order: arrayField(scalarField),
+  batches: arrayField(arrayField(scalarField)),
   nodes: arrayField(publishNodeShape),
   edges: arrayField(publishEdgeShape),
   result: applyResultShape,
@@ -74,8 +80,18 @@ const publishOutput = (result: PublishResult): CommandOutput => {
   const report = result.cause === undefined ? undefined : toTrackerError(result.cause)
   return {
     kind: "resource",
-    value: { nodes: result.nodes, edges: result.edges, result: publicResult(result) },
+    value: {
+      order: result.order,
+      batches: result.batches,
+      nodes: result.nodes,
+      edges: result.edges,
+      result: publicResult(result),
+    },
     text: [
+      ...(result.order.length === 0 ? [] : [`order: ${result.order.join(" -> ")}`]),
+      ...(result.batches.length === 0
+        ? []
+        : [`batches: ${result.batches.map((batch) => batch.join(", ")).join(" | ")}`]),
       ...(result.nodes.length === 0 ? [] : ["nodes:", ...result.nodes.map(nodeLine)]),
       ...(result.edges.length === 0 ? [] : ["edges:", ...result.edges.map(edgeLine)]),
       "",

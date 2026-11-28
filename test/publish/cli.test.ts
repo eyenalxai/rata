@@ -165,6 +165,20 @@ describe("issue publish", () => {
     expect(spec?.identifier).toBeDefined()
     expect(client?.identifier).toBeDefined()
     expect(cache?.identifier).toBeDefined()
+    expect(spec).toMatchObject({
+      priority: "high",
+      state: "Todo",
+      assignee: viewer.id,
+      labels: ["ready-for-agent"],
+      body: "The spec body",
+    })
+    expect(client).toMatchObject({
+      priority: "medium",
+      state: "Todo",
+      assignee: viewer.id,
+      labels: ["ready-for-agent"],
+      body: "Client body",
+    })
 
     const specDoc = await readDoc(seedValue, gateway, String(spec?.identifier))
     expect(recordOf(specDoc.parent)).toMatchObject({ identifier: "RAT-1" })
@@ -280,6 +294,10 @@ describe("issue publish", () => {
         .toSorted(),
     ).toEqual(["client->cache:skipped", "client->spec:created"].toSorted())
 
+    expect(resultOf(second).actions).toContainEqual(
+      expect.objectContaining({ action: "reuse", target: "spec", status: "skipped" }),
+    )
+
     const third = await runPublish(seedValue, counted.gateway, retryDocument(true))
     expect(resultOf(third)).toMatchObject({ status: "skipped", changed: [] })
     expect(counted.batches()).toBe(0)
@@ -307,9 +325,31 @@ describe("issue publish", () => {
     expect(resultOf(lines)).toMatchObject({ status: "updated", dryRun: true })
     expect(counted.batches()).toBe(0)
     expect(counted.relations()).toBe(0)
+    expect(lastJson(lines)).toMatchObject({
+      order: ["spec", "client"],
+      batches: [["spec", "client"]],
+    })
     expect(itemsOf(lines, "nodes")).toEqual([
-      expect.objectContaining({ key: "spec", action: "create", identifier: null }),
-      expect.objectContaining({ key: "client", action: "create", identifier: null }),
+      expect.objectContaining({
+        key: "spec",
+        action: "create",
+        identifier: null,
+        priority: "medium",
+        state: null,
+        assignee: "me",
+        labels: ["ready-for-agent"],
+        body: null,
+      }),
+      expect.objectContaining({
+        key: "client",
+        action: "create",
+        identifier: null,
+        priority: "medium",
+        state: null,
+        assignee: "me",
+        labels: ["ready-for-agent"],
+        body: null,
+      }),
     ])
     expect(itemsOf(lines, "edges")).toEqual([
       expect.objectContaining({ from: "spec", to: "client", action: "create" }),

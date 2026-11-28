@@ -5,6 +5,7 @@ import type { ContextResolver } from "@/context/resolve"
 import type { TrackerError } from "@/domain/error"
 import type { TeamId } from "@/domain/id"
 import type { PlanStatus, PlanStep } from "@/domain/plan"
+import type { Priority } from "@/domain/priority"
 import type { PublishDocument, PublishKind } from "@/domain/publish"
 import type { LinearClientShape } from "@/linear/client"
 import type { LinearGatewayShape } from "@/linear/gateway"
@@ -21,6 +22,10 @@ type PublishNodePlanBase = {
   readonly id: string
   readonly parent: string | null
   readonly labels: readonly string[]
+  readonly priority: Priority | null
+  readonly state: string | null
+  readonly assignee: string | null
+  readonly body: string | null
 }
 
 type PublishCreateNodePlan = PublishNodePlanBase & {
@@ -67,6 +72,10 @@ type PublishNodeResult = {
   readonly identifier: string | null
   readonly parent: string | null
   readonly labels: readonly string[]
+  readonly priority: Priority | null
+  readonly state: string | null
+  readonly assignee: string | null
+  readonly body: string | null
   readonly action: PublishNodeResultAction
 }
 
@@ -91,6 +100,8 @@ type PublishResult = {
   readonly changed: readonly string[]
   readonly dryRun: boolean
   readonly snapshot: string | null
+  readonly order: readonly string[]
+  readonly batches: readonly (readonly string[])[]
   readonly actions: readonly PlanStep[]
   readonly nodes: readonly PublishNodeResult[]
   readonly edges: readonly PublishEdgeResult[]
@@ -117,7 +128,7 @@ type IssuePublishShape = {
 }
 
 const nodeStep = (node: PublishNodePlan, status: PlanStatus): PlanStep => ({
-  action: "create",
+  action: node.action === "reuse" ? "reuse" : "create",
   target: node.key,
   status,
   changes: {
@@ -125,6 +136,9 @@ const nodeStep = (node: PublishNodePlan, status: PlanStatus): PlanStep => ({
     title: node.title,
     parent: node.parent,
     id: node.id,
+    priority: node.priority,
+    state: node.state,
+    assignee: node.assignee,
   },
 })
 

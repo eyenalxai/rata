@@ -96,7 +96,7 @@ describe("publish order", () => {
     if (Result.isFailure(ordered)) {
       expect(ordered.failure).toMatchObject({
         code: "validation",
-        message: "The publish graph has a cycle: a, b.",
+        message: "The publish graph has a cycle among: a, b.",
       })
     }
   })
@@ -108,7 +108,7 @@ describe("publish order", () => {
     if (Result.isFailure(ordered)) {
       expect(ordered.failure).toMatchObject({
         code: "validation",
-        message: "The publish graph has a cycle: a, b.",
+        message: "The publish graph has a cycle among: a, b.",
       })
     }
   })
@@ -120,7 +120,7 @@ describe("publish order", () => {
     if (Result.isFailure(ordered)) {
       expect(ordered.failure).toMatchObject({
         code: "validation",
-        message: "The publish graph has a cycle: a, b.",
+        message: "The publish graph has a cycle among: a, b.",
       })
     }
   })

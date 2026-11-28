@@ -28,8 +28,15 @@ const initialNodeResult = (node: PublishPlan["nodes"][number]): PublishNodeResul
   identifier: node.action === "reuse" ? node.existing.identifier : null,
   parent: node.parent,
   labels: node.labels,
+  priority: node.priority,
+  state: node.state,
+  assignee: node.assignee,
+  body: node.body,
   action: node.action,
 })
+
+const batchKeys = (plan: PublishPlan): readonly (readonly string[])[] =>
+  plan.batches.map((batch) => batch.map((node) => node.key))
 
 const initialNodeResults = (plan: PublishPlan): MutableNodeResults =>
   new Map(
@@ -113,6 +120,8 @@ const failureResult = (
   changed: changedFrom(plan, nodes, edges),
   dryRun: false,
   snapshot: plan.snapshot,
+  order: plan.order,
+  batches: batchKeys(plan),
   actions: actionsFrom(plan, nodes, edges),
   nodes: nodesInOrder(plan, nodes),
   edges,
@@ -126,6 +135,8 @@ const dryRunPublish = (plan: PublishPlan): PublishResult => ({
   changed: plan.changed,
   dryRun: true,
   snapshot: plan.snapshot,
+  order: plan.order,
+  batches: batchKeys(plan),
   actions: plan.actions,
   nodes: plan.nodes.map(initialNodeResult),
   edges: initialEdgeResults(plan),
@@ -220,6 +231,10 @@ const executePublish = Effect.fn("IssuePublish.execute")(function* runPublish(
         ...nodeResult(nodes, node.key),
         id: String(issue.id),
         identifier: issue.identifier,
+        priority: issue.priority,
+        state: issue.state.name,
+        assignee: issue.assignee?.id ?? null,
+        labels: issue.labels.nodes.map((label) => label.name),
         action: "created",
       })
     }
@@ -271,6 +286,8 @@ const executePublish = Effect.fn("IssuePublish.execute")(function* runPublish(
     changed,
     dryRun: false,
     snapshot: plan.snapshot,
+    order: plan.order,
+    batches: batchKeys(plan),
     actions: actionsFrom(plan, nodes, edges),
     nodes: nodesInOrder(plan, nodes),
     edges,
