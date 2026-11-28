@@ -4,8 +4,8 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { Option, Schema } from "effect"
 import path from "node:path"
 
-import { buildTrackerBlock, trackerMarkers } from "@/cli/docs"
 import { surface } from "@/cli/registry"
+import { buildTrackerBlock, trackerMarkers } from "@/docs/blocks"
 
 const triageDocument = [
   "# Triage labels",

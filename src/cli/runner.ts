@@ -134,10 +134,7 @@ const runSpec = <Name extends string, Config extends CliCommand.Command.Config, 
       }
       const select = yield* resolveSelect(activeOutput, fields, selectedFields, format)
       const runnerInput: RunnerControlInput = spec.control?.(input) ?? {}
-      const body = yield* readBodyInput(
-        runnerInput.body ?? OptionValue.none(),
-        runnerInput.bodyFile ?? OptionValue.none(),
-      )
+      const body = yield* readBodyInput(runnerInput.bodyFile ?? OptionValue.none())
       const control: CommandControl = {
         format,
         select,
@@ -159,11 +156,7 @@ const buildCommand = <Name extends string, Config extends CliCommand.Command.Con
   const command = Command.make(spec.name, spec.input, (input) => runSpec(spec, input)).pipe(
     Command.withDescription(spec.summary),
     Command.withExamples(spec.examples ?? []),
-    Command.annotate(CommandMetadata, {
-      summary: spec.summary,
-      examples: spec.examples ?? [],
-      input: spec.input,
-    }),
+    Command.annotate(CommandMetadata, { input: spec.input }),
   )
   const modern = withModernOutput(command)
   const selectable = spec.selectable ?? (spec.output !== undefined && supportsSelect(spec.output))

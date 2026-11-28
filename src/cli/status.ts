@@ -8,18 +8,18 @@ import type { DefaultsDocument } from "@/config/defaults"
 import type { RepoConfig } from "@/config/repo/model"
 import type { ContextDocs, TriageMap } from "@/context/docs"
 import type { ResolvedTeamContext } from "@/context/team/model"
-import type { TeamLabel, TeamState } from "@/linear/decode/team"
+import type { TeamLabel, TeamMember, TeamPriority, TeamState } from "@/linear/decode/team"
 
-import { trackerCommandWarning } from "@/cli/docs/check"
 import { warningLine } from "@/cli/output"
 import { defineCommand, selectOutput } from "@/cli/spec"
-import { statusShape } from "@/cli/status/shape"
+import { statusFullShape, statusShape } from "@/cli/status/shape"
 import { Auth } from "@/config/auth"
 import { defaultsDocument, formatDefaults } from "@/config/defaults"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
 import { RepositoryIdentity } from "@/config/repo-identity"
 import { readContextDocs } from "@/context/docs"
 import { TeamContext } from "@/context/team"
+import { trackerCommandWarning } from "@/docs/check"
 import { issueDefaults } from "@/domain/issue-defaults"
 
 type StatusViewer = {
@@ -45,6 +45,12 @@ type StatusCache = {
   readonly fetchedAt: string
 }
 
+type StatusTeamDetail = {
+  readonly timezone: string
+  readonly members: readonly TeamMember[]
+  readonly priorities: readonly TeamPriority[]
+}
+
 type StatusDocument = {
   readonly repository: {
     readonly root: string
@@ -64,6 +70,7 @@ type StatusDocument = {
   readonly cache: StatusCache | null
   readonly docs: ContextDocs["docs"]
   readonly warning: string | null
+  readonly teamDetail?: StatusTeamDetail | undefined
 }
 
 type StatusInput = {
@@ -72,10 +79,16 @@ type StatusInput = {
   readonly resolved: ResolvedAuth
   readonly context: ResolvedTeamContext
   readonly docs: ContextDocs
+  readonly full: boolean
 }
 
 const refreshFlag = Flag.Boolean("refresh").pipe(
   Flag.withDescription("Read the team context from Linear and update the cache"),
+  Flag.withDefault(false),
+)
+
+const fullFlag = Flag.Boolean("full").pipe(
+  Flag.withDescription("Include the team timezone, members and priorities"),
   Flag.withDefault(false),
 )
 
@@ -125,6 +138,14 @@ const statusDocument = (input: StatusInput): StatusDocument => {
   const linked = storedTeam !== undefined
   const team = context.team
   const isLinked = repo !== undefined && storedTeam !== undefined && team !== null
+  const teamDetail =
+    input.full && team !== null
+      ? {
+          timezone: team.detail.timezone,
+          members: team.detail.members,
+          priorities: team.detail.priorities,
+        }
+      : undefined
   return {
     repository: { root: input.root, linked },
     workspace: { name: Option.getOrNull(resolved.profile), keySource: resolved.keySource },
@@ -144,6 +165,7 @@ const statusDocument = (input: StatusInput): StatusDocument => {
     cache: statusCache(team),
     docs: docs.docs,
     warning: statusWarning(context.warning, docs.docs),
+    ...(teamDetail === undefined ? {} : { teamDetail }),
   }
 }
 
@@ -181,6 +203,18 @@ const statusText = (document: StatusDocument, storedTeam: string | undefined): s
     row("docs:", docsLine(document.docs)),
     row("viewer:", `${document.viewer.name} <${document.viewer.email}>`),
     row("org:", `${document.viewer.organization.name} (${document.viewer.organization.urlKey})`),
+    ...(document.teamDetail === undefined
+      ? []
+      : [
+          row("timezone:", document.teamDetail.timezone),
+          row("members:", String(document.teamDetail.members.length)),
+          row(
+            "priorities:",
+            document.teamDetail.priorities
+              .map((priority) => `${priority.priority}:${priority.label}`)
+              .join(", ") || "none",
+          ),
+        ]),
   ].join(EOL)
 
 const statusSpec = (surface: () => Surface) =>
@@ -199,9 +233,14 @@ const statusSpec = (surface: () => Surface) =>
         command: "rata status --refresh",
         description: "Read the team context from Linear and update the cache",
       },
+      {
+        command: "rata status --full",
+        description: "Add the team timezone, members and priorities",
+      },
     ],
-    input: { refresh: refreshFlag },
-    output: selectOutput(statusShape),
+    input: { refresh: refreshFlag, full: fullFlag },
+    selectable: true,
+    outputFor: (input) => selectOutput(input.full ? statusFullShape : statusShape),
     run: (input, control) =>
       Effect.gen(function* status() {
         const auth = yield* Auth
@@ -217,7 +256,14 @@ const statusSpec = (surface: () => Surface) =>
         const docs = yield* readContextDocs(location.root, (content, file) =>
           trackerCommandWarning(content, surface(), file),
         )
-        const document = statusDocument({ root: location.root, repo, resolved, context, docs })
+        const document = statusDocument({
+          root: location.root,
+          repo,
+          resolved,
+          context,
+          docs,
+          full: input.full,
+        })
         if (control.format === "text" && document.warning !== null) {
           yield* warningLine(document.warning)
         }

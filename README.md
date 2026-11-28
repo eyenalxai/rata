@@ -12,9 +12,10 @@ the output is deterministic.
 The project is in early development. This repository is the first user: its own
 work is tracked in Linear and driven with `rata`. The 0.11.0 release gives the
 CLI five roots: `status`, `issue`, `triage`, `map` and `admin`. `admin` holds the
-setup commands and a read-only GraphQL escape hatch. The command reference and
-the tracker command block are generated from the command registry. See
-**Changes in 0.11.0** for the surface that moved.
+setup commands and a read-only GraphQL escape hatch. The command registry
+generates the reference and the tracker command block; run `bun run
+docs:generate` after a command change. See **Changes in 0.11.0** for the five-root
+surface and the removed commands.
 
 ## For agents
 
@@ -205,8 +206,8 @@ show`, it starts at the `defaults` object. The command validates every path
 against its declared shape before it reads the value, so a typo fails even on an
 empty list or a null object. A path may cross an array: `labels.name` returns the
 names, and `children.identifier` returns the child identifiers. A path through an
-array of scalars is a `validation` error. A write rejects field selection with a
-hint. See **Field selection**.
+array of scalars is a `validation` error. A command that does not declare a
+selectable output rejects `--select` with a hint. See **Field selection**.
 
 ## Output and errors
 
@@ -296,6 +297,8 @@ project, the issue defaults, the team states and labels, the triage map, the
 cache age, the tracker document health, the viewer and the organization. It
 works without a link: the team line then reads `not linked (run rata admin link)` and
 the command exits 0. Without an API key it fails with an `auth` error.
+`status --full` adds the team timezone, members and priorities to the JSON
+object. The default status keeps the compact team summary.
 
 The context cache holds the team detail in the local SQLite database for seven
 days. The detail holds the states, labels, members and priorities. The cache key
@@ -333,6 +336,7 @@ cache.
 rata status
 rata status --format json
 rata status --refresh
+rata status --full
 ```
 
 Human output:
@@ -798,9 +802,8 @@ warning. The reader and writer take that context as an argument.
 A team-scoped single write uses the issue's team when it differs from the linked
 team, or when the repository has no link. Otherwise it uses the linked team.
 Cross-team bulk label writes resolve the label names against each child's team.
-The old `label`, `project` and `config` commands still use the migration adapter
-`RepoTeam`; that is a ticket-scoped migration path, not a compatibility
-guarantee.
+The `admin label`, `admin project` and `admin config` commands still use the
+migration adapter `RepoTeam`; moving it into the six-layer split is a follow-up.
 
 `issue <ref> --summary` and the lean read do not read the viewer and do not
 repair the repository link. `issue list` and `issue search` print the stale-link
@@ -941,8 +944,9 @@ unset` clears only the named fields.
 
 `issue create` resolves each field in this order: the explicit flag, the
 repository default, unset. An explicit `--priority low` wins, and `--label bug`
-adds `bug` to the default labels. `--no-default-labels` drops the default labels
-for one call. `--assignee none` and `--priority none` clear their fields.
+adds `bug` to the default labels. `--assignee none` and `--priority none` clear
+their fields. To create a graph without the repository labels, set
+`defaults.labels` in an `issue publish` document.
 
 When `rata admin link --team` changes the team, rata validates the stored default
 labels against the new team. A missing label fails the link and lists the
@@ -1184,10 +1188,10 @@ The result is `{ issue, result }`; `result` carries `action`, `status`,
 `error`. `issue publish` returns `{ nodes, edges, result }` instead of one
 `issue`.
 
-`issue create` returns the same `{ issue, result }` contract; its result action
-is `create`. A dry run returns `issue: null`, the planned action and
-`result.dryRun: true`, and writes nothing. The lifecycle commands use the same
-plan/apply engine. The removed write forms (`issue update`, `issue label`,
+`issue create` returns `{ issue, result }`; its result action is `create`. A
+failed create is a normal error, not a partial result. A dry run returns
+`issue: null`, the planned action and `result.dryRun: true`, and writes nothing.
+The lifecycle commands use the same plan/apply engine. The removed write forms (`issue update`, `issue label`,
 `issue section`, `issue assign`, `issue unassign`, `issue reopen`, `issue link`,
 `issue unlink`, the old `issue comment` subcommands and the old `issue close
 --comment` flag) exit 2 with a `usage` error.
@@ -1210,6 +1214,8 @@ plan/apply engine. The removed write forms (`issue update`, `issue label`,
 - `issue <ref>` is the only read form. `issue apply` is the general write,
   `issue publish` owns a graph, and `start`, `handoff` and `close` own the
   lifecycle.
+- `issue create` uses `--format` and `--select`; `--json`, `--fields`, `--body`,
+  `--wait` and `--no-default-labels` are gone.
 - The old read and write forms stay removed: `issue show`, `issue view`,
   `issue status`, `next`, `why`, `issue update`, `issue label`, `issue section`,
   `issue assign`, `issue unassign`, `issue reopen`, `issue link`, `issue unlink`,

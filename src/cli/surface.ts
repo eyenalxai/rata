@@ -30,8 +30,6 @@ type Surface = {
 }
 
 type CommandMetadata = {
-  readonly summary: string
-  readonly examples: readonly CliCommand.Command.Example[]
   readonly input: CliCommand.Command.Config
 }
 
@@ -84,12 +82,15 @@ const shapeOf = (param: Param.Any): ParamShape => {
       variadic: shape.variadic || param._tag === "Variadic",
     }
   }
-  return { kind: param.kind, optional: false, variadic: false, singles: [] }
+  throw new TypeError(`The command surface cannot read the ${param._tag} parameter wrapper.`)
 }
 
 const choiceKeysOf = (primitive: Primitive.Primitive<unknown>): readonly string[] => {
-  if (!Predicate.hasProperty("choiceKeys")(primitive) || !Array.isArray(primitive.choiceKeys)) {
+  if (!Predicate.hasProperty("choiceKeys")(primitive)) {
     return []
+  }
+  if (!Array.isArray(primitive.choiceKeys)) {
+    throw new TypeError("The command surface found a choice parameter without a key list.")
   }
   return primitive.choiceKeys.filter((key): key is string => typeof key === "string")
 }
@@ -99,16 +100,23 @@ const paramDocsOf = (params: readonly Param.Any[]): readonly SurfaceParam[] =>
     const shape = shapeOf(param)
     return shape.singles
       .filter((single) => !single.hidden)
-      .map((single) => ({
-        name: single.name,
-        kind: shape.kind,
-        type: single.typeName ?? Primitive.getTypeName(single.primitiveType),
-        description: Option.getOrNull(single.description),
-        required: !shape.optional,
-        variadic: shape.variadic,
-        aliases: single.aliases,
-        choices: choiceKeysOf(single.primitiveType),
-      }))
+      .map((single) => {
+        const type = single.typeName ?? Primitive.getTypeName(single.primitiveType)
+        const choices = choiceKeysOf(single.primitiveType)
+        if (type === "choice" && choices.length === 0) {
+          throw new TypeError(`The command surface cannot read the choices for --${single.name}.`)
+        }
+        return {
+          name: single.name,
+          kind: shape.kind,
+          type,
+          description: Option.getOrNull(single.description),
+          required: !shape.optional,
+          variadic: shape.variadic,
+          aliases: single.aliases,
+          choices,
+        }
+      })
   })
 
 const paramDocs = (config: CliCommand.Command.Config): readonly SurfaceParam[] =>
@@ -125,7 +133,7 @@ const nodeOf = (command: CliCommand.Command.Any, parent: readonly string[]): Sur
     kind: metadata === null ? "group" : "command",
     name: command.name,
     path,
-    summary: command.description ?? metadata?.summary ?? "",
+    summary: command.description ?? "",
     params: metadata === null ? [] : paramDocs(metadata.input),
     examples: command.examples,
     children,

@@ -1,6 +1,7 @@
 import type { Surface } from "@/cli/surface"
 
-import { blockContent, buildTrackerBlock, trackerMarkers } from "@/cli/docs"
+import { blockContent, buildTrackerBlock, trackerMarkers } from "@/docs/blocks"
+import { staleFlags } from "@/docs/check/flags"
 
 type StaleCommand = {
   readonly command: string
@@ -48,9 +49,7 @@ const commandTokens = (text: string): readonly string[] => {
 const invocations = (content: string): readonly string[] =>
   content
     .split(/\r?\n/u)
-    .flatMap((line) =>
-      [...line.matchAll(/\brata(?:\s+[a-z][a-z0-9-]*){1,4}/gu)].map((match) => match[0]),
-    )
+    .flatMap((line) => [...line.matchAll(/\brata\b[^\n`|;)]*/gu)].map((match) => match[0].trim()))
 
 const knownRoots = (surface: Surface): ReadonlySet<string> =>
   new Set([
@@ -176,9 +175,17 @@ const staleCommands = (content: string, surface: Surface): readonly StaleCommand
       continue
     }
     const result = resolveCommand(tokens, surface)
-    if (result !== null && !seen.has(result.command)) {
-      seen.add(result.command)
-      stale.push(result)
+    if (result !== null) {
+      if (!seen.has(result.command)) {
+        seen.add(result.command)
+        stale.push(result)
+      }
+      continue
+    }
+    const staleFlag = staleFlags(text, tokens)
+    if (staleFlag !== null && !seen.has(staleFlag.command)) {
+      seen.add(staleFlag.command)
+      stale.push(staleFlag)
     }
   }
   return stale.filter(

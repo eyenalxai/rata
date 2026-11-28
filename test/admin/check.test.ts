@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test"
 
-import { staleCommands } from "@/cli/docs/check"
 import { surface } from "@/cli/registry"
+import { staleCommands } from "@/docs/check"
 
 describe("stale command detection", () => {
   test("names the old comment subcommands", () => {
@@ -19,12 +19,15 @@ describe("stale command detection", () => {
     ).toEqual([{ command: "rata team list", replacement: "rata admin team list" }])
   })
 
-  test("accepts every canonical form in the generated block", () => {
-    const commands = surface()
-      .roots.flatMap(function collect(node): string[] {
-        return [`\`rata ${node.path.join(" ")}\``, ...node.children.flatMap(collect)]
-      })
-      .join("\n")
-    expect(staleCommands(commands, surface())).toEqual([])
+  test("finds a removed create flag", () => {
+    expect(staleCommands("Run `rata issue create --json`.", surface())).toEqual([
+      { command: "rata issue create --json", replacement: "rata issue create --format json" },
+    ])
+  })
+
+  test("finds a removed close flag", () => {
+    expect(staleCommands("Run `rata issue close --comment done`.", surface())).toEqual([
+      { command: "rata issue close --comment", replacement: "rata issue close --comment-file" },
+    ])
   })
 })

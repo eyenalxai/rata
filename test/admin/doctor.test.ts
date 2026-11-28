@@ -6,8 +6,8 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { Option, Schema } from "effect"
 import path from "node:path"
 
-import { buildTrackerBlock, trackerMarkers } from "@/cli/docs"
 import { surface } from "@/cli/registry"
+import { buildTrackerBlock, trackerMarkers } from "@/docs/blocks"
 import { Viewer } from "@/linear/decode/viewer"
 
 const viewer = Option.getOrThrow(Schema.decodeOption(Viewer)(defaultViewer))
@@ -102,5 +102,16 @@ describe("admin doctor", () => {
     await runDoctor(["--write", "--format", "json"], files, lines)
 
     expect([...files.keys()]).toEqual([trackerFile])
+  })
+
+  test("--write refuses a half marker pair", async () => {
+    const lines: string[] = []
+    const content = withBlock(`Run \`rata status\`.\n${trackerMarkers.begin}\nold`)
+    const files = new Map([[trackerFile, content]])
+    await runDoctor(["--write", "--format", "json"], files, lines)
+
+    expect(lastJson(lines)).toMatchObject({ error: { code: "validation" } })
+    expect(files.get(trackerFile)).toBe(content)
+    expect(process.exitCode).toBe(2)
   })
 })

@@ -52,7 +52,6 @@ type CommandControl = {
 
 type RunnerControlInput = {
   readonly dryRun?: boolean | undefined
-  readonly body?: Option.Option<string> | undefined
   readonly bodyFile?: Option.Option<string> | undefined
   readonly ifUnchanged?: Option.Option<string> | undefined
 }

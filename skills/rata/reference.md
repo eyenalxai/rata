@@ -10,8 +10,9 @@ and the loops. `docs/agents/issue-tracker.md` covers the repository rules.
 - `<ref>` is an issue identifier (`ABC-42`), a UUID, or a `linear.app` URL.
 - The issue reads and every issue write, including `issue create`, accept
   `--format json|text` and `--select <paths>`. The admin commands accept
-  `--format json|text`; the admin reads that declare a shape also accept
-  `--select`. JSON is the default when stdout is not a terminal.
+  `--format json|text`; the selectable admin reads also accept `--select`.
+  `admin api` and `admin doctor` do not. JSON is the default when stdout is not a
+  terminal.
 - The old read forms (`issue show`, `issue view`, `issue status`, `next`, `why`)
   and the old read flags (`--json`, `--fields`, `--count`, `--ids-only`,
   `--include`) exit 2 with a `usage` error.
@@ -45,9 +46,9 @@ Generated from the command registry by `bun run docs:generate`. Do not edit this
 | `rata issue apply` | Apply one document to fields, labels, sections, a comment and relations |
 | `rata issue relate` | Add or remove relation edges on an issue |
 | `rata issue comment` | Post one comment on an issue |
-| `rata triage` | Triage the queue and change roles. Phase 2. |
-| `rata map` | Claim and resolve wayfinding work. Phase 2. |
-| `rata admin` | Set up the workspace, the repository link and the API access |
+| `rata triage` | Triage the queue and change roles. Not available yet. |
+| `rata map` | Claim and resolve wayfinding work. Not available yet. |
+| `rata admin` | Manage auth, the repository link, teams, projects, labels, the tracker doctor and the read-only API |
 | `rata admin auth` | Manage Linear authentication |
 | `rata admin auth login` | Store a Linear API key as a workspace profile |
 | `rata admin auth status` | Show the selected profile, viewer and organization |
@@ -100,12 +101,14 @@ rata status [flags]
 | Name | Type | Required | Description |
 | --- | --- | --- | --- |
 | `--refresh` | `boolean` | no | Read the team context from Linear and update the cache |
+| `--full` | `boolean` | no | Include the team timezone, members and priorities |
 
 **Examples**
 
 - `rata status`: Show the cached context in one call
 - `rata status --format json`: Print the context for an agent
 - `rata status --refresh`: Read the team context from Linear and update the cache
+- `rata status --full`: Add the team timezone, members and priorities
 
 ### `rata issue`
 
@@ -215,13 +218,11 @@ rata issue create [flags]
 | `--body-file <string>` | `string` | no | Read the body from a file. Use - for standard input |
 | `--team <string>` | `string` | no | Team key or id. Defaults to the team from `rata admin link` |
 | `--label <string>` | `string` | no | Label name. Repeat for more labels |
-| `--no-default-labels` | `boolean` | no | Ignore the repository default labels |
 | `--parent <string>` | `string` | no | Parent issue reference |
 | `--project <string>` | `string` | no | Project id or name |
 | `--state <string>` | `string` | no | Workflow state name |
 | `--assignee <string>` | `string` | no | Assignee: `me`, a user id, or `none` |
 | `--priority <string>` | `string` | no | Priority: none, urgent, high, medium, low, or 0-4 |
-| `--wait <integer>` | `integer` | no | Seconds to wait for the write to appear on a re-read. Default 5, 0 disables |
 | `--dry-run` | `boolean` | no | Resolve the targets and print the actions without writing |
 
 **Examples**
@@ -421,7 +422,7 @@ rata issue comment [flags] <ref>
 
 ### `rata triage`
 
-Triage the queue and change roles. Phase 2.
+Triage the queue and change roles. Not available yet.
 
 ```text
 rata triage
@@ -430,7 +431,7 @@ rata triage
 
 ### `rata map`
 
-Claim and resolve wayfinding work. Phase 2.
+Claim and resolve wayfinding work. Not available yet.
 
 ```text
 rata map
@@ -439,7 +440,7 @@ rata map
 
 ### `rata admin`
 
-Set up the workspace, the repository link and the API access
+Manage auth, the repository link, teams, projects, labels, the tracker doctor and the read-only API
 
 ```text
 rata admin <subcommand>
@@ -1180,15 +1181,6 @@ old `--comment` string flag is gone.
 The old write forms (`issue update`, `issue label`, `issue section`,
 `issue assign`, `issue unassign`, `issue reopen`, `issue link`, `issue unlink`
 and `issue comment create/update/delete`) exit 2 with a `usage` error.
-
-## Read-after-write
-
-`issue create --parent` checks that the new object appears on a bounded
-re-read. The default is 5 seconds; `--wait <seconds>` changes it and `--wait 0`
-disables it. A timeout still exits 0: the mutation payload is the source of
-truth. The create result carries `visible`: `false` on timeout and `null` when
-disabled. The apply comment does not wait; its mutation payload is the source of
-truth.
 
 ## Idempotency
 

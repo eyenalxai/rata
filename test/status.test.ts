@@ -71,6 +71,23 @@ describe("status", () => {
     expect(cache?.ageSeconds).toBe(0)
   })
 
+  test("adds the team detail with --full", async () => {
+    const fake = makeFakeLinear({ teams: [team], labels: [] })
+    const lines: string[] = []
+    await runStatus(fake.handler, ["--full", "--format", "json"], lines, {
+      env: { HOME: "/home/test" },
+      profiles,
+      repositories: [{ key: process.cwd(), team: "RAT", workspace: "work" }],
+    })
+
+    expect(lastJson(lines)).toMatchObject({
+      teamDetail: {
+        timezone: "America/Los_Angeles",
+        members: [],
+      },
+    })
+  })
+
   test("uses the repository profile and shows the linked team and project", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
