@@ -240,7 +240,7 @@ describe("the command runner", () => {
     const lines: string[] = []
     const errors: string[] = []
     const exit = await run(
-      ["echo", "--name", "Ada", "--select", "nope"],
+      ["echo", "--name", "Ada", "--select", "title"],
       lines,
       {
         stdoutIsTerminal: true,
@@ -258,7 +258,7 @@ describe("the command runner", () => {
     const lines: string[] = []
     const errors: string[] = []
     const exit = await run(
-      ["echo", "--name", "Ada", "--select=nope"],
+      ["echo", "--name", "Ada", "--select=title"],
       lines,
       {
         stdoutIsTerminal: true,
