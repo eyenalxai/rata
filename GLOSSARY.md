@@ -50,7 +50,8 @@ they explore the codebase. Use these terms; do not drift to synonyms.
   heading is ATX (`#` to `######`), and the section ends at the next heading of
   the same or higher level. Deeper headings stay inside it. A heading inside a
   fenced code block is not a section. The heading text is trimmed, and the match
-  is exact and case-sensitive. A repeated heading is **ambiguous**. `append`
+  is exact and case-sensitive. A repeated heading is **ambiguous**. A batch that
+  edits a heading and a heading nested under it is also **ambiguous**. `append`
   creates a missing heading at the end of the body.
 - **Body append**: adding content to the end of the description, or to the end
   of one section, without replacing the rest.

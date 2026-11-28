@@ -120,6 +120,11 @@ const stringArrayField = (error: unknown, key: string): readonly string[] | null
   return Array.isArray(value) && value.every((item) => Predicate.isString(item)) ? value : null
 }
 
+const numberArrayField = (error: unknown, key: string): readonly number[] | null => {
+  const value = fieldOf(error, key)
+  return Array.isArray(value) && value.every((item) => Predicate.isNumber(item)) ? value : null
+}
+
 const availableHeadingsHint = (error: unknown): string => {
   const headings = stringArrayField(error, "available") ?? []
   return headings.length === 0
@@ -166,26 +171,29 @@ const report = (
   return error === undefined ? new TrackerError(base) : new TrackerError({ ...base, cause: error })
 }
 
+const sectionBatchReport = (error: unknown): TrackerError => {
+  const reason = fieldOf(error, "reason")
+  const code =
+    reason === "missing"
+      ? "not_found"
+      : reason === "duplicate" || reason === "overlap"
+        ? "ambiguous"
+        : "validation"
+  const hint =
+    reason === "overlap"
+      ? "Edit only one of the overlapping sections."
+      : availableHeadingsHint(error)
+  const lines = numberArrayField(error, "lines") ?? []
+  return report(error, code, hint, lines.length === 0 ? undefined : { lines })
+}
+
 const classifyTagged = (error: unknown): TrackerError | undefined => {
   const tag = tagOf(error)
   if (tag === "SectionNotFoundError") {
     return report(error, "not_found", availableHeadingsHint(error))
   }
   if (tag === "SectionBatchError") {
-    const reason = fieldOf(error, "reason")
-    const code =
-      reason === "missing"
-        ? "not_found"
-        : reason === "duplicate" || reason === "overlap"
-          ? "ambiguous"
-          : "validation"
-    const hint =
-      reason === "duplicate"
-        ? "Use one edit for each heading and a heading that appears once."
-        : reason === "overlap"
-          ? "Edit only one of the overlapping sections."
-          : availableHeadingsHint(error)
-    return report(error, code, hint)
+    return sectionBatchReport(error)
   }
   if (tag === "FieldSelectionError") {
     const path = stringField(error, "path")

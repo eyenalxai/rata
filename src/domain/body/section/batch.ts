@@ -18,6 +18,7 @@ type SectionBatchReason = (typeof sectionBatchReasons)[number]
 class SectionBatchError extends Schema.TaggedError<SectionBatchError>()("SectionBatchError", {
   reason: Schema.Literals(sectionBatchReasons),
   heading: Schema.String,
+  lines: Schema.optional(Schema.Array(Schema.Finite)),
   available: Schema.Array(Schema.String),
   message: Schema.String,
 }) {}
@@ -27,13 +28,12 @@ type SectionEditResult = {
   readonly sections: readonly SectionEditAction[]
 }
 
-type SectionEditOutcome = SectionEditAction["action"]
-
 const batchError = (
   reason: SectionBatchReason,
   heading: string,
   sections: readonly ParsedSection[],
   message?: string,
+  lines?: readonly number[],
 ): SectionBatchError => {
   const fallback =
     reason === "missing"
@@ -46,6 +46,7 @@ const batchError = (
   return new SectionBatchError({
     reason,
     heading,
+    ...(lines === undefined ? {} : { lines }),
     available: availableHeadings(sections),
     message: message ?? fallback,
   })
@@ -82,7 +83,16 @@ const resolveEdits = (
     seen.add(heading)
     const matches = findMatches(sections, heading)
     if (matches.length > 1) {
-      return Result.fail(batchError("duplicate", heading, sections))
+      const lines = matches.map((section) => section.line)
+      return Result.fail(
+        batchError(
+          "duplicate",
+          heading,
+          sections,
+          `Heading "${heading}" appears on lines ${lines.join(", ")}.`,
+          lines,
+        ),
+      )
     }
     const section = matches[0]
     if (section === undefined && edit.mode === "replace") {
@@ -132,7 +142,7 @@ const editSections = (
   if (Result.isFailure(resolved)) {
     return Result.fail(resolved.failure)
   }
-  const outcomes = new Map<string, SectionEditOutcome>()
+  const outcomes = new Map<string, SectionEditAction["action"]>()
   let next = normalized
   const existing = resolved.success
     .filter(

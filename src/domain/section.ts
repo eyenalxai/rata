@@ -45,7 +45,6 @@ export {
   SectionEdit,
   SectionEditAction,
   type SectionEditMode,
-  sectionEditModes,
   type SectionLevel,
   SectionReplacement,
 }
