@@ -6,17 +6,7 @@ import type { Connection, PageOptions } from "@/linear/connection"
 import type { LinearApiError } from "@/linear/errors"
 
 import { pageOrDrain } from "@/linear/connection"
-import { PageInfo } from "@/linear/decode/page"
-import { Project } from "@/linear/decode/project"
-
-const projectFields = `
-      id
-      name
-      progress
-      status {
-        name
-      }
-      trashed`
+import { Project, ProjectConnection, projectFields } from "@/linear/decode/project"
 
 const listProjectsQuery = `query Projects($first: Int!, $after: String, $includeArchived: Boolean, $filter: ProjectFilter) {
   projects(first: $first, after: $after, orderBy: createdAt, includeArchived: $includeArchived, filter: $filter) {
@@ -34,10 +24,7 @@ const projectByIdQuery = `query ProjectById($id: ID!, $includeArchived: Boolean)
 }`
 
 const ProjectListResponse = Schema.Struct({
-  projects: Schema.Struct({
-    nodes: Schema.Array(Project),
-    pageInfo: PageInfo,
-  }),
+  projects: ProjectConnection,
 })
 
 const ProjectByIdResponse = Schema.Struct({

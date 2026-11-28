@@ -1,11 +1,4 @@
-const projectFields = `
-      id
-      name
-      progress
-      status {
-        name
-      }
-      trashed`
+import { projectFields } from "@/linear/decode/project"
 
 const projectCreateMutation = `mutation ProjectCreate($input: ProjectCreateInput!) {
   projectCreate(input: $input) {

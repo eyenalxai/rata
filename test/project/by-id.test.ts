@@ -1,7 +1,7 @@
 import type { Handler } from "@test/fake-linear/model"
 
 import { apiLayer } from "@test/fake-linear"
-import { jsonResponse } from "@test/fake-linear/model"
+import { jsonResponse, readRequest } from "@test/fake-linear/model"
 import { describe, expect, test } from "bun:test"
 import { Effect } from "effect"
 
@@ -26,20 +26,19 @@ const recordedById = {
   },
 }
 
-const recordedHandler: Handler = () => jsonResponse(recordedById)
+let query = ""
 
-const resolveByUuid = (ref: string) =>
-  Effect.gen(function* resolveProject() {
-    const projects = yield* ProjectService
-    return yield* projects.resolve(ref)
-  })
+const recordedHandler: Handler = (request) => {
+  query = readRequest(request).query
+  return jsonResponse(recordedById)
+}
 
 describe("ProjectService.resolve by UUID", () => {
   test("decodes a recorded response that selects nodes only", async () => {
-    const project = await resolveByUuid(id).pipe(
-      Effect.provide(apiLayer(recordedHandler)),
-      Effect.runPromise,
-    )
+    const project = await Effect.gen(function* resolveProject() {
+      const projects = yield* ProjectService
+      return yield* projects.resolve(id)
+    }).pipe(Effect.provide(apiLayer(recordedHandler)), Effect.runPromise)
     expect(project).toEqual({
       id: projectId(id),
       name: "Tracker",
@@ -47,5 +46,7 @@ describe("ProjectService.resolve by UUID", () => {
       status: { name: "Started" },
       trashed: false,
     })
+    expect(query).toContain("query ProjectById")
+    expect(query).not.toContain("pageInfo")
   })
 })
