@@ -78,7 +78,11 @@ afterEach(() => {
 describe("team list pages", () => {
   test("returns one page with pageInfo and continues from --after", async () => {
     const first: string[] = []
-    await runRootMemory(seed(), ["team", "list", "--limit", "1", "--format", "json"], first)
+    await runRootMemory(
+      seed(),
+      ["admin", "team", "list", "--limit", "1", "--format", "json"],
+      first,
+    )
     expect(lastJson(first)).toEqual({
       teams: [team],
       pageInfo: { hasNextPage: true, endCursor: "team-1" },
@@ -87,7 +91,7 @@ describe("team list pages", () => {
     const second: string[] = []
     await runRootMemory(
       seed(),
-      ["team", "list", "--limit", "1", "--after", "team-1", "--format", "json"],
+      ["admin", "team", "list", "--limit", "1", "--after", "team-1", "--format", "json"],
       second,
     )
     expect(lastJson(second)).toEqual({
@@ -98,7 +102,7 @@ describe("team list pages", () => {
 
   test("prints a next-page hint in the human output", async () => {
     const lines: string[] = []
-    await runRootMemory(seed(), ["team", "list", "--limit", "1"], lines)
+    await runRootMemory(seed(), ["admin", "team", "list", "--limit", "1"], lines)
     expect(lines.flatMap((line) => line.split("\n"))).toEqual([
       "RAT\tRata\tteam-1",
       "More teams available. Continue with --after team-1",
@@ -107,7 +111,7 @@ describe("team list pages", () => {
 
   test("rejects --limit above 250 before the API call", async () => {
     const lines: string[] = []
-    await runRootMemory(seed(), ["team", "list", "--limit", "500"], lines)
+    await runRootMemory(seed(), ["admin", "team", "list", "--limit", "500"], lines)
     expect(lines).toContain("error: The --limit flag must be at most 250.")
   })
 })
@@ -115,7 +119,11 @@ describe("team list pages", () => {
 describe("project list pages", () => {
   test("returns one page with pageInfo", async () => {
     const lines: string[] = []
-    await runRootMemory(seed(), ["project", "list", "--limit", "1", "--format", "json"], lines)
+    await runRootMemory(
+      seed(),
+      ["admin", "project", "list", "--limit", "1", "--format", "json"],
+      lines,
+    )
     expect(lastJson(lines)).toEqual({
       projects: [projects[0]],
       pageInfo: { hasNextPage: true, endCursor: "project-1" },
@@ -126,7 +134,7 @@ describe("project list pages", () => {
     const lines: string[] = []
     await runRootMemory(
       seed({ projects: trashedProjects }),
-      ["project", "list", "--include-archived"],
+      ["admin", "project", "list", "--include-archived"],
       lines,
     )
     expect(lines.flatMap((line) => line.split("\n"))).toEqual([
@@ -139,7 +147,7 @@ describe("project list pages", () => {
     const lines: string[] = []
     await runRootMemory(
       seed({ projects: trashedProjects }),
-      ["project", "list", "--include-archived", "--format", "json"],
+      ["admin", "project", "list", "--include-archived", "--format", "json"],
       lines,
     )
     expect(lastJson(lines)).toEqual({
@@ -150,7 +158,7 @@ describe("project list pages", () => {
 
   test("hides trashed projects without the flag", async () => {
     const lines: string[] = []
-    await runRootMemory(seed({ projects: trashedProjects }), ["project", "list"], lines)
+    await runRootMemory(seed({ projects: trashedProjects }), ["admin", "project", "list"], lines)
     expect(lines.flatMap((line) => line.split("\n"))).toEqual(["Tracker\tStarted\t50%\tproject-1"])
   })
 })
@@ -160,7 +168,7 @@ describe("label list pages", () => {
     const lines: string[] = []
     await runRootMemory(
       seed(),
-      ["label", "list", "--team", "RAT", "--limit", "1", "--format", "json"],
+      ["admin", "label", "list", "--team", "RAT", "--limit", "1", "--format", "json"],
       lines,
     )
     expect(lastJson(lines)).toEqual({
@@ -171,7 +179,7 @@ describe("label list pages", () => {
 
   test("prints the color in the human output", async () => {
     const lines: string[] = []
-    await runRootMemory(seed(), ["label", "list", "--team", "RAT"], lines)
+    await runRootMemory(seed(), ["admin", "label", "list", "--team", "RAT"], lines)
     expect(lines.flatMap((line) => line.split("\n"))).toEqual([
       "ready-for-agent\tlabel-1\t#111111",
       "bug\tlabel-2\t#EB5757",

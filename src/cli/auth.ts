@@ -1,40 +1,27 @@
-import { Effect, Option, Schema, Stdio, Stream } from "effect"
+import { Effect, Option } from "effect"
 import { Flag } from "effect/cli"
 
 import { objectField, scalarField } from "@/cli/field/shape"
+import { readStandardInput } from "@/cli/input"
 import { defineCommand, resourceOutput, selectOutput } from "@/cli/spec"
 import { Auth } from "@/config/auth"
 import { TrackerError } from "@/domain/error"
 import { LinearGateway } from "@/linear/gateway"
-
-class InputError extends Schema.TaggedError<InputError>()("InputError", {
-  message: Schema.String,
-}) {}
 
 const workspaceFlag = Flag.String("workspace").pipe(
   Flag.withDescription("Workspace profile name"),
   Flag.optional,
 )
 
-const readStandardInput = Effect.fn("Cli.readStandardInput")(function* readStandardInput() {
-  const stdio = yield* Stdio.Stdio
-  const text = yield* stdio.stdin.pipe(
-    Stream.decodeText(),
-    Stream.mkString,
-    Effect.mapError(() => new InputError({ message: "Could not read standard input." })),
-  )
-  return text.trim()
-})
-
 const loginSpec = defineCommand("login", {
   summary: "Store a Linear API key as a workspace profile",
   examples: [
     {
-      command: "pbpaste | rata auth login --with-token",
+      command: "pbpaste | rata admin auth login --with-token",
       description: "Store the API key from the clipboard as the default profile",
     },
     {
-      command: "pbpaste | rata auth login --with-token --workspace work",
+      command: "pbpaste | rata admin auth login --with-token --workspace work",
       description: "Store the API key as the work profile",
     },
   ],
@@ -60,7 +47,7 @@ const loginSpec = defineCommand("login", {
           hint: null,
         })
       }
-      const apiKey = yield* readStandardInput()
+      const apiKey = (yield* readStandardInput()).trim()
       if (apiKey.length === 0) {
         return yield* new TrackerError({
           code: "validation",
@@ -80,16 +67,30 @@ const loginSpec = defineCommand("login", {
     }),
 })
 
+const viewerShape = objectField({
+  id: scalarField,
+  name: scalarField,
+  displayName: scalarField,
+  email: scalarField,
+  active: scalarField,
+  admin: scalarField,
+  organization: objectField({
+    id: scalarField,
+    name: scalarField,
+    urlKey: scalarField,
+  }),
+})
+
 const statusSpec = defineCommand("status", {
   summary: "Show the selected profile, viewer and organization",
   input: { workspace: workspaceFlag },
-  output: resourceOutput(
+  output: selectOutput(
     objectField({
       authenticated: scalarField,
       source: scalarField,
       profile: scalarField,
       storePath: scalarField,
-      viewer: scalarField,
+      viewer: viewerShape,
     }),
   ),
   run: (input) =>
@@ -104,7 +105,7 @@ const statusSpec = defineCommand("status", {
         if (profile === undefined) {
           return yield* new TrackerError({
             code: "validation",
-            message: `No workspace named "${name}". Run \`rata auth login --workspace ${name} --with-token\` to add it.`,
+            message: `No workspace named "${name}". Run \`rata admin auth login --workspace ${name} --with-token\` to add it.`,
             hint: null,
           })
         }
@@ -127,7 +128,8 @@ const statusSpec = defineCommand("status", {
       if (Option.isNone(resolved)) {
         return yield* new TrackerError({
           code: "auth",
-          message: "Not authenticated. Run `rata auth login --with-token`, or set LINEAR_API_KEY.",
+          message:
+            "Not authenticated. Run `rata admin auth login --with-token`, or set LINEAR_API_KEY.",
           hint: null,
         })
       }
@@ -179,36 +181,4 @@ const logoutSpec = defineCommand("logout", {
     }),
 })
 
-const organizationShape = objectField({
-  id: scalarField,
-  name: scalarField,
-  urlKey: scalarField,
-})
-
-const viewerShape = objectField({
-  id: scalarField,
-  name: scalarField,
-  displayName: scalarField,
-  email: scalarField,
-  active: scalarField,
-  admin: scalarField,
-  organization: organizationShape,
-})
-
-const whoamiSpec = defineCommand("whoami", {
-  summary: "Print the authenticated Linear viewer",
-  input: {},
-  output: selectOutput(viewerShape),
-  run: () =>
-    Effect.gen(function* whoami() {
-      const gateway = yield* LinearGateway
-      const viewer = yield* gateway.viewer
-      return {
-        kind: "resource",
-        value: viewer,
-        text: [`${viewer.name} <${viewer.email}>`],
-      }
-    }),
-})
-
-export { loginSpec, logoutSpec, statusSpec, whoamiSpec }
+export { loginSpec, logoutSpec, statusSpec }

@@ -81,13 +81,23 @@ const memoryCliLayer = (
     ...stdio,
     args: Effect.succeed(args),
   }
+  const files = rest.files ?? new Map<string, string>()
   return Layer.mergeAll(
     memoryApiLayer(seed, {
       ...rest,
+      files,
       stdio: stdioOptions,
       ...(repositories === undefined ? {} : { repositories }),
     }),
-    FileSystem.layerNoop({}),
+    FileSystem.layerNoop({
+      exists: (file) => Effect.succeed(files.has(file)),
+      readFileString: (file) => Effect.succeed(files.get(file) ?? ""),
+      writeFileString: (file, data) => {
+        files.set(file, data)
+        return Effect.void
+      },
+      makeDirectory: () => Effect.void,
+    }),
     Path.layer,
     Stdio.layerTest(stdioOptions),
     Layer.succeed(Terminal.Terminal, terminal),

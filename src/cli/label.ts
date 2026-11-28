@@ -13,7 +13,7 @@ import { collectionOutput, defineCommand, resourceOutput } from "@/cli/spec"
 import { TrackerError } from "@/domain/error"
 
 const teamFlag = Flag.String("team").pipe(
-  Flag.withDescription("Team key or id. Defaults to the team from `rata link`"),
+  Flag.withDescription("Team key or id. Defaults to the team from `rata admin link`"),
   Flag.optional,
 )
 
@@ -71,22 +71,22 @@ const labelCreateSpec = defineCommand("create", {
   summary: "Create a label",
   examples: [
     {
-      command: 'rata label create --team RAT --name bug --color "#EB5757"',
+      command: 'rata admin label create --team RAT --name bug --color "#EB5757"',
       description: "Create a label with a color",
     },
     {
-      command: "rata label create --team RAT --name bug",
+      command: "rata admin label create --team RAT --name bug",
       description: "Create a label and let Linear pick the color",
     },
     {
-      command: "rata label create --team RAT --name bug --if-not-exists",
+      command: "rata admin label create --team RAT --name bug --if-not-exists",
       description: "Return the existing label when the name is taken",
     },
   ],
   input: {
     name: Flag.String("name").pipe(Flag.withDescription("Label name")),
     color: colorFlag,
-    team: optionalText("team", "Team key or id. Defaults to the team from `rata link`"),
+    team: optionalText("team", "Team key or id. Defaults to the team from `rata admin link`"),
     ifNotExists: Flag.Boolean("if-not-exists").pipe(
       Flag.withDescription("Return the existing label instead of failing on a duplicate name"),
       Flag.withDefault(false),
@@ -119,11 +119,11 @@ const labelEditSpec = defineCommand("edit", {
   summary: "Update a label",
   examples: [
     {
-      command: 'rata label edit bug --color "#0F783C"',
+      command: 'rata admin label edit bug --color "#0F783C"',
       description: "Change the color of a label",
     },
     {
-      command: "rata label edit bug --name regression --team RAT",
+      command: "rata admin label edit bug --name regression --team RAT",
       description: "Rename a label",
     },
   ],
@@ -133,7 +133,7 @@ const labelEditSpec = defineCommand("edit", {
     ),
     name: optionalText("name", "New label name"),
     color: colorFlag,
-    team: optionalText("team", "Team key or id. Defaults to the team from `rata link`"),
+    team: optionalText("team", "Team key or id. Defaults to the team from `rata admin link`"),
   },
   output: resourceOutput(objectField({ label: scalarField })),
   run: (input) =>

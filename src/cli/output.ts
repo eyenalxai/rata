@@ -1,16 +1,29 @@
 import { Config, Console, Effect, Option, Predicate, Result, Schema } from "effect"
 import { Flag, GlobalFlag } from "effect/cli"
 
-import type { ErrorCode, TrackerError } from "@/domain/error"
+import type { ErrorCode } from "@/domain/error"
 import type { PlanAction } from "@/domain/plan"
 import type { IssueSummary } from "@/tracker/model"
 import type { BulkWriteResult, BulkWriteSuccess } from "@/tracker/write/model"
 
 import { commandError, exitCodeOf, toTrackerError } from "@/cli/error-report"
+import { TrackerError } from "@/domain/error"
 import { maxPageSize } from "@/linear/connection"
 
 const jsonOutput = Schema.fromJsonString(Schema.Unknown, { space: 2 })
 const defectJson = Schema.Defect()
+
+const jsonText = (value: unknown): Effect.Effect<string, TrackerError> =>
+  Schema.encodeEffect(jsonOutput)(value).pipe(
+    Effect.mapError(
+      () =>
+        new TrackerError({
+          code: "internal",
+          message: "Could not encode the JSON output.",
+          hint: null,
+        }),
+    ),
+  )
 
 const JsonOutput = GlobalFlag.Setting("json")({
   flag: Flag.Boolean("json").pipe(
@@ -243,6 +256,7 @@ export {
   JsonOutput,
   dryRunFlag,
   errorLine,
+  jsonText,
   nextPageHint,
   noChange,
   reportFailure,

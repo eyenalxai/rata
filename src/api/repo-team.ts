@@ -69,7 +69,7 @@ class RepoTeam extends Context.Service<RepoTeam, RepoTeamShape>()(
         const linked = yield* linkedTeam
         if (Option.isNone(linked)) {
           return yield* new TeamResolutionError({
-            message: "No team. Pass --team, or run `rata link`.",
+            message: "No team. Pass --team, or run `rata admin link`.",
           })
         }
         if (linked.value.warning !== null) {

@@ -2,6 +2,7 @@ import { DateTime, Effect, Option } from "effect"
 import { Flag } from "effect/cli"
 import { EOL } from "node:os"
 
+import type { Surface } from "@/cli/surface"
 import type { KeySource, ResolvedAuth } from "@/config/auth"
 import type { DefaultsDocument } from "@/config/defaults"
 import type { RepoConfig } from "@/config/repo/model"
@@ -9,6 +10,7 @@ import type { ContextDocs, TriageMap } from "@/context/docs"
 import type { ResolvedTeamContext } from "@/context/team/model"
 import type { TeamLabel, TeamState } from "@/linear/decode/team"
 
+import { trackerCommandWarning } from "@/cli/docs/check"
 import { warningLine } from "@/cli/output"
 import { defineCommand, selectOutput } from "@/cli/spec"
 import { statusShape } from "@/cli/status/shape"
@@ -153,9 +155,9 @@ const teamLine = (team: StatusTeam | null, storedTeam: string | undefined): stri
     return `${team.key} (${team.name})`
   }
   if (storedTeam === undefined) {
-    return "not linked (run rata link)"
+    return "not linked (run rata admin link)"
   }
-  return `missing key ${storedTeam} (run rata link --team ${storedTeam})`
+  return `missing key ${storedTeam} (run rata admin link --team ${storedTeam})`
 }
 
 const triageLine = (triage: TriageMap | null): string =>
@@ -181,47 +183,50 @@ const statusText = (document: StatusDocument, storedTeam: string | undefined): s
     row("org:", `${document.viewer.organization.name} (${document.viewer.organization.urlKey})`),
   ].join(EOL)
 
-const statusSpec = defineCommand("status", {
-  summary: "Show the repository, workspace, team context and tracker document health",
-  examples: [
-    {
-      command: "rata status",
-      description: "Show the cached context in one call",
-    },
-    {
-      command: "rata status --format json",
-      description: "Print the context for an agent",
-    },
-    {
-      command: "rata status --refresh",
-      description: "Read the team context from Linear and update the cache",
-    },
-  ],
-  input: { refresh: refreshFlag },
-  output: selectOutput(statusShape),
-  run: (input, control) =>
-    Effect.gen(function* status() {
-      const auth = yield* Auth
-      const repoConfig = yield* RepoConfigService
-      const identity = yield* RepositoryIdentity
-      const teamContext = yield* TeamContext
+const statusSpec = (surface: () => Surface) =>
+  defineCommand("status", {
+    summary: "Show the repository, workspace, team context and tracker document health",
+    examples: [
+      {
+        command: "rata status",
+        description: "Show the cached context in one call",
+      },
+      {
+        command: "rata status --format json",
+        description: "Print the context for an agent",
+      },
+      {
+        command: "rata status --refresh",
+        description: "Read the team context from Linear and update the cache",
+      },
+    ],
+    input: { refresh: refreshFlag },
+    output: selectOutput(statusShape),
+    run: (input, control) =>
+      Effect.gen(function* status() {
+        const auth = yield* Auth
+        const repoConfig = yield* RepoConfigService
+        const identity = yield* RepositoryIdentity
+        const teamContext = yield* TeamContext
 
-      const directory = yield* currentDirectory
-      const location = yield* identity.locate(directory)
-      const resolved = yield* auth.require
-      const context = yield* teamContext.resolve({ refresh: input.refresh })
-      const repo = Option.getOrUndefined(yield* repoConfig.read(directory))
-      const docs = yield* readContextDocs(location.root)
-      const document = statusDocument({ root: location.root, repo, resolved, context, docs })
-      if (control.format === "text" && document.warning !== null) {
-        yield* warningLine(document.warning)
-      }
-      return {
-        kind: "resource",
-        value: document,
-        text: [statusText(document, repo?.team ?? repo?.teamId)],
-      }
-    }),
-})
+        const directory = yield* currentDirectory
+        const location = yield* identity.locate(directory)
+        const resolved = yield* auth.require
+        const context = yield* teamContext.resolve({ refresh: input.refresh })
+        const repo = Option.getOrUndefined(yield* repoConfig.read(directory))
+        const docs = yield* readContextDocs(location.root, (content, file) =>
+          trackerCommandWarning(content, surface(), file),
+        )
+        const document = statusDocument({ root: location.root, repo, resolved, context, docs })
+        if (control.format === "text" && document.warning !== null) {
+          yield* warningLine(document.warning)
+        }
+        return {
+          kind: "resource",
+          value: document,
+          text: [statusText(document, repo?.team ?? repo?.teamId)],
+        }
+      }),
+  })
 
 export { statusSpec }

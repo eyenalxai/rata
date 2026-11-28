@@ -40,16 +40,19 @@ describe("global output flags", () => {
     })
   })
 
-  test("migrates whoami to the JSON default off a terminal", async () => {
+  test("migrates admin auth status to the JSON default off a terminal", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
-    await runRoot(fake.handler, ["whoami"], lines, [], {
+    await runRoot(fake.handler, ["admin", "auth", "status"], lines, [], {
       stdio: { stdoutIsTerminal: Effect.succeed(false) },
     })
 
     expect(lastJson(lines)).toMatchObject({
-      name: defaultViewer.name,
-      email: defaultViewer.email,
+      authenticated: true,
+      viewer: {
+        name: defaultViewer.name,
+        email: defaultViewer.email,
+      },
     })
   })
 
@@ -81,6 +84,17 @@ describe("global output flags", () => {
       teams: [{ key: "RAT", name: "Rata" }],
       pageInfo: { hasNextPage: false, endCursor: "team-1" },
     })
+  })
+
+  test("selects fields on admin auth status", async () => {
+    const fake = makeFakeLinear({ teams: [team], labels: [] })
+    const lines: string[] = []
+    await runRoot(
+      fake.handler,
+      ["admin", "auth", "status", "--format", "json", "--select", "viewer.name"],
+      lines,
+    )
+    expect(lastJson(lines)).toEqual({ viewer: { name: defaultViewer.name } })
   })
 
   test("team delete without a TTY exits 2 with a --yes hint", async () => {

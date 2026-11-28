@@ -105,7 +105,7 @@ describe("project list team default", () => {
     const lines: string[] = []
     await runProjectUnlinked(fake.handler, ["list"], lines)
 
-    expect(lines).toContain("error: No team. Pass --team, or run `rata link`.")
+    expect(lines).toContain("error: No team. Pass --team, or run `rata admin link`.")
     expect(process.exitCode).toBe(2)
   })
 })
@@ -143,7 +143,7 @@ describe("label list team default", () => {
     const lines: string[] = []
     await runLabelUnlinked(fake.handler, ["list"], lines)
 
-    expect(lines).toContain("error: No team. Pass --team, or run `rata link`.")
+    expect(lines).toContain("error: No team. Pass --team, or run `rata admin link`.")
     expect(process.exitCode).toBe(2)
   })
 })
@@ -214,7 +214,7 @@ describe("issue search pages", () => {
     const lines: string[] = []
     await runSearchUnlinked(fake.handler, ["login"], lines)
 
-    expect(lines).toContain("error: No team. Pass --team, or run `rata link`.")
+    expect(lines).toContain("error: No team. Pass --team, or run `rata admin link`.")
     expect(process.exitCode).toBe(2)
   })
 })

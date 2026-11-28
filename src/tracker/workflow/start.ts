@@ -22,7 +22,7 @@ const planStart = (
       return yield* new TrackerError({
         code: "auth",
         message: "The viewer is unknown.",
-        hint: "Run `rata auth login` first.",
+        hint: "Run `rata admin auth login` first.",
       })
     }
     const assignee = snapshot.assignee

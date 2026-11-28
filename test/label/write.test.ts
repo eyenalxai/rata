@@ -51,7 +51,7 @@ const createHandler = (existing: readonly { id: string; name: string; color: str
     return jsonResponse({ errors: [{ message: `Unexpected query: ${request.query}` }] }, 400)
   })
 
-describe("rata label create", () => {
+describe("rata admin label create", () => {
   test("creates a team label with a normalized color", async () => {
     const recorder = createHandler()
     const lines: string[] = []
@@ -119,7 +119,7 @@ describe("rata label create", () => {
     const recorder = createHandler()
     const lines: string[] = []
     await runLabel(recorder.handler, ["create", "--name", "bug"], lines, [])
-    expect(lines).toContain("error: No team. Pass --team, or run `rata link`.")
+    expect(lines).toContain("error: No team. Pass --team, or run `rata admin link`.")
     expect(recorder.requests).toHaveLength(0)
     expect(process.exitCode).toBe(2)
   })
@@ -154,7 +154,7 @@ const editHandler = () =>
     return jsonResponse({ errors: [{ message: `Unexpected query: ${request.query}` }] }, 400)
   })
 
-describe("rata label edit", () => {
+describe("rata admin label edit", () => {
   test("edits a label by name, ignoring case", async () => {
     const recorder = editHandler()
     const lines: string[] = []
@@ -194,7 +194,7 @@ describe("rata label edit", () => {
     const output = lines.join("\n")
     expect(output).toContain("No team with key NOPE")
     expect(output).toContain("A team key and an issue identifier prefix can differ after a rename.")
-    expect(output).toContain("`rata team list`")
+    expect(output).toContain("`rata admin team list`")
     expect(requestOf(recorder, "mutation UpdateLabel")).toBeUndefined()
     expect(process.exitCode).toBe(3)
   })

@@ -32,7 +32,10 @@ const formatProgress = (progress: number): string => `${Math.round(progress * 10
 const projectListSpec = defineCommand("list", {
   summary: "List the projects in the workspace",
   input: {
-    team: optionalText("team", "Filter by team key or id. Defaults to the team from `rata link`"),
+    team: optionalText(
+      "team",
+      "Filter by team key or id. Defaults to the team from `rata admin link`",
+    ),
     limit: limitFlag,
     after: afterFlag,
     all: allFlag,
@@ -81,11 +84,11 @@ const projectCreateSpec = defineCommand("create", {
   summary: "Create a project in one or more teams",
   examples: [
     {
-      command: 'rata project create --name "Spec: login" --team RAT',
+      command: 'rata admin project create --name "Spec: login" --team RAT',
       description: "Create a project in one team",
     },
     {
-      command: 'rata project create --name "Spec: login" --team RAT --team OPS',
+      command: 'rata admin project create --name "Spec: login" --team RAT --team OPS',
       description: "Create a project in several teams",
     },
   ],
@@ -93,7 +96,7 @@ const projectCreateSpec = defineCommand("create", {
     name: Flag.String("name").pipe(Flag.withDescription("Project name")),
     team: Flag.atLeast(Flag.String("team"), 0).pipe(
       Flag.withDescription(
-        "Team key or id. Repeat for more teams. Defaults to the team from `rata link`",
+        "Team key or id. Repeat for more teams. Defaults to the team from `rata admin link`",
       ),
     ),
     description: optionalText("description", "Project description"),
@@ -119,11 +122,11 @@ const projectDeleteSpec = defineCommand("delete", {
   summary: "Move a project to the trash, where Linear keeps it recoverable",
   examples: [
     {
-      command: 'rata project delete "Login revamp"',
+      command: 'rata admin project delete "Login revamp"',
       description: "Move a project to the trash after a confirmation prompt",
     },
     {
-      command: 'rata project delete "Login revamp" --yes',
+      command: 'rata admin project delete "Login revamp" --yes',
       description: "Move a project to the trash without a prompt",
     },
   ],
@@ -156,11 +159,11 @@ const projectRestoreSpec = defineCommand("restore", {
   summary: "Bring a project back from the trash, without a prompt",
   examples: [
     {
-      command: 'rata project restore "Login revamp"',
+      command: 'rata admin project restore "Login revamp"',
       description: "Bring a project back from the trash by name",
     },
     {
-      command: "rata project restore 0f8fad5b-d9cb-469f-a165-70867728950e",
+      command: "rata admin project restore 0f8fad5b-d9cb-469f-a165-70867728950e",
       description: "Bring a project back from the trash by UUID",
     },
   ],

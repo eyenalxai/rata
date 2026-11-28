@@ -31,6 +31,7 @@ import { detectInvalidForm, jsonEnabled, reportInvalidForm } from "@/cli/pre-par
 import { renderOutput } from "@/cli/render"
 import { resolveSelect, supportsSelect } from "@/cli/runner/select"
 import { outputFormats } from "@/cli/spec"
+import { CommandMetadata } from "@/cli/surface"
 import { TrackerError } from "@/domain/error"
 
 // Canonical-form detection lives in pre-parse.ts because it needs raw flag values for the replacement hint; format.ts only classifies the command and output flags.
@@ -159,6 +160,11 @@ const buildCommand = <Name extends string, Config extends CliCommand.Command.Con
   const command = Command.make(spec.name, spec.input, (input) => runSpec(spec, input)).pipe(
     Command.withDescription(spec.summary),
     Command.withExamples(spec.examples ?? []),
+    Command.annotate(CommandMetadata, {
+      summary: spec.summary,
+      examples: spec.examples ?? [],
+      input: spec.input,
+    }),
   )
   const modern = withModernOutput(command)
   const selectable = spec.selectable ?? (spec.output !== undefined && supportsSelect(spec.output))

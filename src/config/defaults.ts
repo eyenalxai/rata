@@ -118,7 +118,7 @@ class IssueDefaultsService extends Context.Service<
         const config = yield* readConfig()
         if (config === undefined || config.team === undefined) {
           return yield* new TeamResolutionError({
-            message: "No repository link. Run `rata link --team <key>` first.",
+            message: "No repository link. Run `rata admin link --team <key>` first.",
           })
         }
         const teamId = yield* repoTeam.resolve()

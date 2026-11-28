@@ -57,7 +57,7 @@ describe("--help", () => {
   })
 
   test("does not build a command layer for a subcommand help", async () => {
-    const child = Bun.spawn([process.execPath, "src/main.ts", "team", "show", "--help"], {
+    const child = Bun.spawn([process.execPath, "src/main.ts", "admin", "team", "show", "--help"], {
       cwd: path.resolve(import.meta.dir, ".."),
       env: { PATH: "/usr/local/bin:/usr/bin:/bin" },
       stdout: "pipe",

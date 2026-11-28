@@ -168,9 +168,10 @@ export default defineConfig({
       },
     },
     {
-      // main.ts is the application entry point. It owns the layer graph, so
-      // providing the final platform layer there is the intended boundary.
-      files: ["src/main.ts"],
+      // main.ts and the docs generator are application entry points. They own
+      // the final platform layer, so providing it there is the intended
+      // boundary.
+      files: ["src/main.ts", "src/docs/generate.ts"],
       rules: {
         "effecttsgo/strict-effect-provide": "off",
       },

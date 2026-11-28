@@ -64,7 +64,7 @@ const describeQueryFailure =
 
 const noWorkspace = (workspace: string): AuthStoreError =>
   new AuthStoreError({
-    message: `No workspace named "${workspace}" in the stored profiles. Run \`rata auth login --workspace ${workspace} --with-token\` to add it.`,
+    message: `No workspace named "${workspace}" in the stored profiles. Run \`rata admin auth login --workspace ${workspace} --with-token\` to add it.`,
   })
 
 const readEnvKey = Config.Redacted("LINEAR_API_KEY").pipe(
@@ -185,7 +185,7 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
         if (defaultProfile === undefined) {
           if (stored.length > 0) {
             return yield* new AuthStoreError({
-              message: "No default workspace. Run `rata workspace use <name>`.",
+              message: "No default workspace. Run `rata admin workspace use <name>`.",
             })
           }
           return Option.none<ResolvedAuth>()
@@ -205,7 +205,7 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
         if (Option.isNone(resolved)) {
           return yield* new AuthStoreError({
             message:
-              "Not authenticated. Run `rata auth login --with-token`, or set LINEAR_API_KEY.",
+              "Not authenticated. Run `rata admin auth login --with-token`, or set LINEAR_API_KEY.",
           })
         }
         return resolved.value

@@ -116,7 +116,7 @@ describe("reportFailure", () => {
   test("maps a missing team link to not_linked", async () => {
     const lines: string[] = []
     await runReport(
-      new TeamResolutionError({ message: "No team. Pass --team, or run `rata link`." }),
+      new TeamResolutionError({ message: "No team. Pass --team, or run `rata admin link`." }),
       {},
       lines,
       true,

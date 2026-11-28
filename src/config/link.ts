@@ -117,7 +117,7 @@ class LinkService extends Context.Service<LinkService, LinkServiceShape>()(
             return yield* Effect.void
           }
           return yield* new LinkError({
-            message: `Team ${team.key} does not have these default labels: ${missing.join(", ")}. Run \`rata config unset --label\`, then link again.`,
+            message: `Team ${team.key} does not have these default labels: ${missing.join(", ")}. Run \`rata admin config unset --label\`, then link again.`,
           })
         },
       )

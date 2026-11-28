@@ -35,19 +35,19 @@ const linkSpec = defineCommand("link", {
   summary: "Bind this repository to a Linear team and set its timezone",
   examples: [
     {
-      command: "rata link",
+      command: "rata admin link",
       description: "Choose the workspace and the team interactively",
     },
     {
-      command: "rata link --team RAT --project rata",
+      command: "rata admin link --team RAT --project rata",
       description: "Link the repository to a team found in the stored workspaces",
     },
     {
-      command: 'rata link --team SCR --create --name "Scratch"',
+      command: 'rata admin link --team SCR --create --name "Scratch"',
       description: "Create the team, then link the repository",
     },
     {
-      command: "rata link --workspace work --team RAT",
+      command: "rata admin link --workspace work --team RAT",
       description: "Link to a team in the work workspace",
     },
   ],
@@ -87,7 +87,7 @@ const linkSpec = defineCommand("link", {
       text.push(
         "",
         "Next steps:",
-        "  - Confirm the connection: `rata whoami`.",
+        "  - Confirm the connection: `rata admin auth status`.",
         "  - List the issues: `rata issue list`.",
       )
       return {

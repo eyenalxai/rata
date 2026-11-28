@@ -41,12 +41,12 @@ const messageOf = (error: unknown): string => {
 }
 
 const errorRules: Record<string, ErrorRule> = {
-  LinearAuthError: { code: "auth", hint: "Run `rata auth login --with-token`." },
+  LinearAuthError: { code: "auth", hint: "Run `rata admin auth login --with-token`." },
   LinearNetworkError: { code: "network", hint: "Check the connection and retry." },
   TeamResolutionError: { code: "not_linked", hint: null },
   TeamNotFoundError: {
     code: "not_found",
-    hint: "A team key and an issue identifier prefix can differ after a rename. Run `rata team list` to see the team keys, then run `rata link --team <key>` to repair the link.",
+    hint: "A team key and an issue identifier prefix can differ after a rename. Run `rata admin team list` to see the team keys, then run `rata admin link --team <key>` to repair the link.",
   },
   ContextLabelNotFoundError: { code: "not_found", hint: null },
   LabelNotFoundError: { code: "not_found", hint: null },
@@ -64,11 +64,11 @@ const errorRules: Record<string, ErrorRule> = {
   IssueRefNotFoundError: { code: "not_found", hint: "Check the reference and retry." },
   AssigneeInputError: {
     code: "validation",
-    hint: "Use `me` or a user UUID. Run `rata team show --json` to see the members.",
+    hint: "Use `me` or a user UUID. Run `rata admin team show --format json` to see the members.",
   },
   AssigneeNotFoundError: {
     code: "not_found",
-    hint: "Run `rata team show --json` to see the members.",
+    hint: "Run `rata admin team show --format json` to see the members.",
   },
   ProjectAlreadyDeletedError: { code: "conflict", hint: null },
   ProjectNotDeletedError: { code: "conflict", hint: null },
@@ -85,7 +85,7 @@ const errorRules: Record<string, ErrorRule> = {
   ColorInputError: { code: "validation", hint: null },
   PriorityInputError: { code: "validation", hint: null },
   LinkError: { code: "validation", hint: null },
-  AuthStoreError: { code: "auth", hint: "Run `rata auth login --with-token`." },
+  AuthStoreError: { code: "auth", hint: "Run `rata admin auth login --with-token`." },
   DatabaseError: { code: "internal", hint: "Run with RATA_DEBUG=1 for details." },
   LinearInternalError: { code: "internal", hint: "Run with RATA_DEBUG=1 for details." },
   PromptRequiredError: { code: "validation", hint: "Pass --yes to skip the prompt." },
@@ -126,9 +126,9 @@ const availableHeadingsHint = (error: unknown): string => {
 }
 
 const filterSubjects = {
-  state: { subject: "states", command: "rata team show --json" },
-  label: { subject: "labels", command: "rata label list" },
-  project: { subject: "projects", command: "rata project list" },
+  state: { subject: "states", command: "rata admin team show --format json" },
+  label: { subject: "labels", command: "rata admin label list" },
+  project: { subject: "projects", command: "rata admin project list" },
 } as const
 
 type FilterName = keyof typeof filterSubjects
@@ -141,7 +141,7 @@ const filterNameHint = (error: unknown): string => {
   const filter = fieldOf(error, "filter")
   const subject = isFilterName(filter) ? filterSubjects[filter] : undefined
   const label = subject?.subject ?? "values"
-  const command = subject?.command ?? "rata team show --json"
+  const command = subject?.command ?? "rata admin team show --format json"
   return valid.length === 0
     ? `Run \`${command}\` to see the ${label}.`
     : `Valid ${label}: ${valid.join(", ")}.`
