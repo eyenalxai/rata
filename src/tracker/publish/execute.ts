@@ -145,22 +145,59 @@ const markBatchFailed = (
 const batchTarget = (batch: PublishPlan["batches"][number]): string =>
   batch.map((node) => node.key).join(", ")
 
-const executePublish = (
+const executePublish = Effect.fn("IssuePublish.execute")(function* runPublish(
   client: LinearClientShape,
   plan: PublishPlan,
-): Effect.Effect<PublishResult> =>
-  Effect.gen(function* runPublish() {
-    let nodes: MutableNodeResults = initialNodeResults(plan)
-    const edges = initialEdgeResults(plan)
-    for (const batch of plan.batches) {
-      const outcome = yield* Effect.result(
-        client.execute(
-          issueBatchCreateMutation,
-          { input: { issues: batch.map((node) => node.input) } },
-          IssueBatchCreateResponse,
-        ),
+): Effect.fn.Return<PublishResult> {
+  let nodes: MutableNodeResults = initialNodeResults(plan)
+  const edges = initialEdgeResults(plan)
+  for (const batch of plan.batches) {
+    const outcome = yield* Effect.result(
+      client.execute(
+        issueBatchCreateMutation,
+        { input: { issues: batch.map((node) => node.input) } },
+        IssueBatchCreateResponse,
+      ),
+    )
+    if (Result.isFailure(outcome)) {
+      nodes = markBatchFailed(nodes, batch)
+      return failureResult(
+        plan,
+        nodes,
+        edges,
+        {
+          action: "create",
+          target: batchTarget(batch),
+          status: "failed",
+          changes: { keys: batch.map((node) => node.key) },
+        },
+        outcome.failure,
       )
-      if (Result.isFailure(outcome)) {
+    }
+    const payload = outcome.success.issueBatchCreate
+    if (!payload.success) {
+      nodes = markBatchFailed(nodes, batch)
+      return failureResult(
+        plan,
+        nodes,
+        edges,
+        {
+          action: "create",
+          target: batchTarget(batch),
+          status: "failed",
+          changes: { keys: batch.map((node) => node.key) },
+        },
+        new TrackerError({
+          code: "internal",
+          message: "Linear did not create the issue batch.",
+          hint: null,
+        }),
+      )
+    }
+    const byId = new Map(payload.issues.map((issue) => [String(issue.id), issue] as const))
+    for (const node of batch) {
+      const issue = byId.get(node.id)
+      if (issue === undefined) {
         nodes = markBatchFailed(nodes, batch)
         return failureResult(
           plan,
@@ -170,112 +207,74 @@ const executePublish = (
             action: "create",
             target: batchTarget(batch),
             status: "failed",
-            changes: { keys: batch.map((node) => node.key) },
-          },
-          outcome.failure,
-        )
-      }
-      const payload = outcome.success.issueBatchCreate
-      if (!payload.success) {
-        nodes = markBatchFailed(nodes, batch)
-        return failureResult(
-          plan,
-          nodes,
-          edges,
-          {
-            action: "create",
-            target: batchTarget(batch),
-            status: "failed",
-            changes: { keys: batch.map((node) => node.key) },
+            changes: { keys: batch.map((item) => item.key) },
           },
           new TrackerError({
             code: "internal",
-            message: "Linear did not create the issue batch.",
+            message: `The Linear batch response is missing the issue ${node.id}.`,
             hint: null,
           }),
         )
       }
-      const byId = new Map(payload.issues.map((issue) => [String(issue.id), issue] as const))
-      for (const node of batch) {
-        const issue = byId.get(node.id)
-        if (issue === undefined) {
-          nodes = markBatchFailed(nodes, batch)
-          return failureResult(
-            plan,
-            nodes,
-            edges,
-            {
-              action: "create",
-              target: batchTarget(batch),
-              status: "failed",
-              changes: { keys: batch.map((item) => item.key) },
-            },
-            new TrackerError({
+      nodes.set(node.key, {
+        ...nodeResult(nodes, node.key),
+        id: String(issue.id),
+        identifier: issue.identifier,
+        action: "created",
+      })
+    }
+  }
+  for (let index = 0; index < plan.edges.length; index += 1) {
+    const edge = plan.edges[index]
+    const current = edges[index]
+    if (edge === undefined || current === undefined) {
+      continue
+    }
+    if (edge.action === "skip") {
+      edges[index] = { ...current, action: "skipped" }
+      continue
+    }
+    const outcome = yield* Effect.result(
+      client.execute(
+        createRelationMutation,
+        { input: { issueId: edge.fromId, relatedIssueId: edge.toId, type: "blocks" } },
+        CreateRelationResponse,
+      ),
+    )
+    if (Result.isFailure(outcome) || !outcome.success.issueRelationCreate.success) {
+      edges[index] = { ...current, action: "failed" }
+      return failureResult(
+        plan,
+        nodes,
+        edges,
+        {
+          action: "link",
+          target: `${edge.to} <- ${edge.from}`,
+          status: "failed",
+          changes: { from: edge.from, to: edge.to, type: "blocks" },
+        },
+        Result.isFailure(outcome)
+          ? outcome.failure
+          : new TrackerError({
               code: "internal",
-              message: `The Linear batch response is missing the issue ${node.id}.`,
+              message: "Linear did not create the blocking edge.",
               hint: null,
             }),
-          )
-        }
-        nodes.set(node.key, {
-          ...nodeResult(nodes, node.key),
-          id: String(issue.id),
-          identifier: issue.identifier,
-          action: "created",
-        })
-      }
-    }
-    for (let index = 0; index < plan.edges.length; index += 1) {
-      const edge = plan.edges[index]
-      const current = edges[index]
-      if (edge === undefined || current === undefined) {
-        continue
-      }
-      if (edge.action === "skip") {
-        edges[index] = { ...current, action: "skipped" }
-        continue
-      }
-      const outcome = yield* Effect.result(
-        client.execute(
-          createRelationMutation,
-          { input: { issueId: edge.fromId, relatedIssueId: edge.toId, type: "blocks" } },
-          CreateRelationResponse,
-        ),
       )
-      if (Result.isFailure(outcome) || !outcome.success.issueRelationCreate.success) {
-        edges[index] = { ...current, action: "failed" }
-        return failureResult(
-          plan,
-          nodes,
-          edges,
-          {
-            action: "link",
-            target: `${edge.to} <- ${edge.from}`,
-            status: "failed",
-            changes: { from: edge.from, to: edge.to, type: "blocks" },
-          },
-          Result.isFailure(outcome)
-            ? outcome.failure
-            : new TrackerError({
-                code: "internal",
-                message: "Linear did not create the blocking edge.",
-                hint: null,
-              }),
-        )
-      }
-      edges[index] = { ...current, action: "created" }
     }
-    const changed = changedFrom(plan, nodes, edges)
-    return {
-      action: "publish" as const,
-      status: changed.length === 0 ? ("skipped" as const) : ("updated" as const),
-      changed,
-      dryRun: false,
-      snapshot: plan.snapshot,
-      actions: actionsFrom(plan, nodes, edges),
-      nodes: nodesInOrder(plan, nodes),
-      edges,
-    }
-  })
+    edges[index] = { ...current, action: "created" }
+  }
+  const changed = changedFrom(plan, nodes, edges)
+  return {
+    action: "publish",
+    status: changed.length === 0 ? "skipped" : "updated",
+    changed,
+    dryRun: false,
+    snapshot: plan.snapshot,
+    actions: actionsFrom(plan, nodes, edges),
+    nodes: nodesInOrder(plan, nodes),
+    edges,
+  }
+})
 
 export { dryRunPublish, executePublish }

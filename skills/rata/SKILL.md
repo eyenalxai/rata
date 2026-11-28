@@ -22,10 +22,11 @@ The admin commands (`auth`, `link`, `unlink`, `workspace`, `config`, `team`,
 `project`, `label`, `status`, `whoami`) and the issue reads (`issue <ref>...`,
 `issue list`, `issue search`) accept `--format json|text` and `--select`. JSON is
 their default when stdout is not a terminal. The migrated writes (`start`,
-`handoff`, `close`, `apply`, `relate`, `comment`) use `--format` and `--select`;
-`issue create` still accepts `--json` and `--fields` until its slice. The old
-read forms (`issue show`, `issue view`, `issue status`, `next`, `why`) and the
-old read flags (`--json`, `--fields`, `--count`, `--ids-only`, `--include`) exit 2.
+`handoff`, `close`, `apply`, `relate`, `publish`, `comment`) use `--format` and
+`--select`; `issue create` still accepts `--json` and `--fields` until its slice.
+The old read forms (`issue show`, `issue view`, `issue status`, `next`, `why`)
+and the old read flags (`--json`, `--fields`, `--count`, `--ids-only`,
+`--include`) exit 2.
 
 - `auth`: `printf '%s' "$LINEAR_API_KEY" | rata auth login --with-token`. The key
   resolves as `LINEAR_API_KEY`, the repository workspace, then `default`;
@@ -47,26 +48,35 @@ needs it; reads without that flag do not.
 
 ## One spelling per operation
 
-| Operation     | Canonical form                                              | Rejected form                                                                                    |
-| ------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Read an issue | `rata issue <ref>`                                          | `rata issue show <ref>`                                                                          |
-| Read many     | `rata issue <ref> <ref> ...`                                | repeated `issue <ref>` calls                                                                     |
-| Apply a write | `rata issue apply <ref> --file -`                           | `issue update`, `issue label`, `issue section`, `issue assign`, `issue unassign`, `issue reopen` |
-| Start         | `rata issue start <ref>`                                    | `issue assign --assignee me`                                                                     |
-| Hand off      | `rata issue handoff <ref> --file -`                         |                                                                                                  |
-| Close         | `rata issue close <ref> --comment-file -`                   | `issue close --comment`                                                                          |
-| Add an edge   | `rata issue relate <ref> --blocked-by <ref>`                | `issue link`, `issue unlink`                                                                     |
-| Comment       | `rata issue comment <ref> --body-file - --dedupe-key <key>` | `issue comment create`                                                                           |
+| Operation       | Canonical form                                              | Rejected form                                                                                    |
+| --------------- | ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Read an issue   | `rata issue <ref>`                                          | `rata issue show <ref>`                                                                          |
+| Read many       | `rata issue <ref> <ref> ...`                                | repeated `issue <ref>` calls                                                                     |
+| Apply a write   | `rata issue apply <ref> --file -`                           | `issue update`, `issue label`, `issue section`, `issue assign`, `issue unassign`, `issue reopen` |
+| Publish a graph | `rata issue publish --file -`                               | create then link in a loop                                                                       |
+| Start           | `rata issue start <ref>`                                    | `issue assign --assignee me`                                                                     |
+| Hand off        | `rata issue handoff <ref> --file -`                         |                                                                                                  |
+| Close           | `rata issue close <ref> --comment-file -`                   | `issue close --comment`                                                                          |
+| Add an edge     | `rata issue relate <ref> --blocked-by <ref>`                | `issue link`, `issue unlink`                                                                     |
+| Comment         | `rata issue comment <ref> --body-file - --dedupe-key <key>` | `issue comment create`                                                                           |
 
-`issue apply` is the write. It plans first, then applies. `--dry-run` returns
-the plan and writes nothing. `--if-unchanged <snapshot>` exits 4 when the issue
-changed. A no-op returns `skipped`. A partial failure returns the applied
+`issue apply` is the general write. It plans first, then applies. `--dry-run`
+returns the plan and writes nothing. `--if-unchanged <snapshot>` exits 4 when the
+issue changed. A no-op returns `skipped`. A partial failure returns the applied
 actions and the failed action.
+
+`issue publish --file -` is the graph write. It takes one document with `team`,
+`parent`, `defaults` and `nodes`. Each node requires `key`, `kind` and `title`;
+`body`, `priority`, `labels`, `assignee`, `state`, `parent` and `blockedBy` are
+optional. A parent or blocker may name a node key or an existing ref. A retry
+reuses the nodes and skips the edges that already exist. `kind` is recorded, not
+applied as a label.
 
 ## Write loop
 
 ```bash
 rata issue create --title "<title>" --body-file - --priority <p> --assignee me
+printf '%s' "$GRAPH_JSON" | rata issue publish --file -
 printf '%s' "$APPLY_JSON" | rata issue apply <ref> --file -
 printf '%s' "$APPLY_JSON" | rata issue apply <ref> --file - --dry-run
 printf '%s' "$APPLY_JSON" | rata issue apply <ref> --file - --if-unchanged <snapshot>

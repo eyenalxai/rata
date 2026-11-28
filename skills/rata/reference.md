@@ -9,9 +9,9 @@ and the loops. `docs/agents/issue-tracker.md` covers the repository rules.
 
 - `<ref>` is an issue identifier (`ABC-42`), a UUID, or a `linear.app` URL.
 - The issue reads, the migrated writes (`issue start`, `handoff`, `close`,
-  `apply`, `relate`, `comment`) and the admin commands accept `--format
-json|text` and `--select <paths>`. JSON is the default when stdout is not a
-  terminal. `issue create` still accepts `--json` until its slice.
+  `apply`, `relate`, `publish`, `comment`) and the admin commands accept
+  `--format json|text` and `--select <paths>`. JSON is the default when stdout
+  is not a terminal. `issue create` still accepts `--json` until its slice.
 - The old read forms (`issue show`, `issue view`, `issue status`, `next`, `why`)
   and the old read flags (`--json`, `--fields`, `--count`, `--ids-only`,
   `--include`) exit 2 with a `usage` error.
@@ -176,9 +176,10 @@ a cursor is bound to its query.
 
 ## Issue writes
 
-Every write goes through the plan/apply engine. `issue apply` takes the general
-document; `issue start`, `issue handoff` and `issue close` are the lifecycle
-forms. `issue apply <ref> --file -` reads one JSON document:
+Every write uses the same plan and result contract. `issue apply` takes the
+general document; `issue publish` creates a graph; `issue start`, `issue handoff`
+and `issue close` are the lifecycle forms. `issue apply <ref> --file -` reads
+one JSON document:
 
 ```json
 {
@@ -217,6 +218,20 @@ Relations are a set. An existing edge is `skipped`. Omit a group to leave it
 alone. `issue relate <ref> (--blocks|--blocked-by|--related|--duplicate)
 <target>...` adds one-off edges; `--remove` removes them.
 
+### Publish
+
+`issue publish --file - [--dry-run]` reads one JSON document with `team`,
+`parent`, `defaults` and `nodes`. Each node requires `key`, `kind` and `title`;
+`body`, `priority`, `labels`, `assignee`, `state`, `parent` and `blockedBy` are
+optional. A parent or a blocker may name a node key or an existing issue
+reference. The engine orders the nodes, derives a stable client UUID from the
+parent and key (the team scopes a top-level node), reads the existing ids before
+it creates, and creates up to 50 nodes per `issueBatchCreate`. It adds only the
+missing blocking edges. A cycle or an unknown key fails before the first write.
+A retry reuses the nodes and skips the edges that already exist. `kind` is
+recorded on the node and in the result; in this slice it does not set labels or
+assignees. The result is `{ nodes, edges, result }`; `--dry-run` writes nothing.
+
 ### Lifecycle
 
 `issue start <ref> [--state <name>] [--take] [--dry-run]` claims an unassigned
@@ -249,8 +264,8 @@ apply comment does not wait; its mutation payload is the source of truth.
 ## Idempotency
 
 A write that finds the desired state in place exits 0 and reports `skipped`;
-this covers `issue apply`, `issue start`, `issue handoff`, `issue close`,
-`issue relate`, `issue comment`, `link` and `unlink`. A closed issue is skipped
+this covers `issue apply`, `issue publish`, `issue start`, `issue handoff`,
+`issue close`, `issue relate`, `issue comment`, `link` and `unlink`. A closed issue is skipped
 by `issue close`; a new comment posts once, and the same comment is skipped. A
 `canceled` or `duplicate` issue counts as closed. `issue create` always creates a
 new object. `label create` fails on a duplicate name with `conflict` unless
