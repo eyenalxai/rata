@@ -6,53 +6,18 @@ import type { IssueComment } from "@/linear/decode/issue"
 import type { IssueWriteApiError } from "@/tracker/write/model"
 import type { makeIssueWriteResolvers } from "@/tracker/write/resolvers"
 import type { makeVisibilityChecks } from "@/tracker/write/visibility"
-import type {
-  CommentCreateOptions,
-  CommentCreatePlan,
-  CommentCreateResult,
-  CommentDeletePlan,
-  CommentDeleteResult,
-  CommentUpdateOptions,
-  CommentUpdateResult,
-} from "@/tracker/write/write-types"
+import type { CommentCreateOptions, CommentCreateResult } from "@/tracker/write/write-types"
 
-import { unifiedDiff } from "@/domain/body/diff"
 import { dedupeCommentId } from "@/domain/comment"
-import {
-  CommentByIdResponse,
-  CreateCommentResponse,
-  DeleteCommentResponse,
-  UpdateCommentResponse,
-} from "@/linear/decode/issue"
-import {
-  commentByIdQuery,
-  createCommentMutation,
-  deleteCommentMutation,
-  updateCommentMutation,
-} from "@/tracker/write/documents"
-import { CommentNotFoundError, unwrapComment, unwrapDelete } from "@/tracker/write/model"
+import { CommentByIdResponse, CreateCommentResponse } from "@/linear/decode/issue"
+import { commentByIdQuery, createCommentMutation } from "@/tracker/write/documents"
+import { unwrapComment } from "@/tracker/write/model"
 
 type CommentDependencies = {
   readonly client: LinearClientShape
   readonly resolvers: ReturnType<typeof makeIssueWriteResolvers>
   readonly visibility: ReturnType<typeof makeVisibilityChecks>
 }
-
-const missingComment = (commentId: CommentId): CommentNotFoundError =>
-  new CommentNotFoundError({
-    id: commentId,
-    message: `No comment ${commentId}.`,
-  })
-
-const createChanges = (
-  body: string,
-  options: CommentCreateOptions,
-  id: CommentId | undefined,
-): CommentCreatePlan["changes"] => ({
-  body,
-  ...(options.dedupeKey === undefined ? {} : { dedupeKey: options.dedupeKey }),
-  ...(id === undefined ? {} : { commentId: id }),
-})
 
 const makeCommentWrites = ({ client, resolvers, visibility }: CommentDependencies) => {
   const findComment = Effect.fn("IssueWriter.findComment")(function* findComment(
@@ -85,20 +50,6 @@ const makeCommentWrites = ({ client, resolvers, visibility }: CommentDependencie
     },
   )
 
-  const planCommentCreate = Effect.fn("IssueWriter.planCommentCreate")(function* planCommentCreate(
-    ref: string,
-    body: string,
-    options: CommentCreateOptions = {},
-  ): Effect.fn.Return<CommentCreatePlan, IssueWriteApiError> {
-    const resolved = yield* resolveCreate(ref, options)
-    return {
-      status: Option.isSome(resolved.existing) ? "skipped" : "created",
-      action: "comment-create",
-      target: ref,
-      changes: createChanges(body, options, resolved.id),
-    }
-  })
-
   const commentCreate = Effect.fn("IssueWriter.commentCreate")(function* commentCreate(
     ref: string,
     body: string,
@@ -129,64 +80,7 @@ const makeCommentWrites = ({ client, resolvers, visibility }: CommentDependencie
     return { status: "created", comment: attempt.success, visible }
   })
 
-  const existingComment = Effect.fn("IssueWriter.existingComment")(function* existingComment(
-    commentId: CommentId,
-  ): Effect.fn.Return<IssueComment, IssueWriteApiError> {
-    const current = yield* findComment(commentId)
-    return yield* Effect.fromOption(current, () => missingComment(commentId))
-  })
-
-  const commentUpdate = Effect.fn("IssueWriter.commentUpdate")(function* commentUpdate(
-    commentId: CommentId,
-    body: string,
-    options: CommentUpdateOptions = {},
-  ): Effect.fn.Return<CommentUpdateResult, IssueWriteApiError> {
-    const current = yield* existingComment(commentId)
-    if (options.dryRun === true) {
-      return {
-        dryRun: true,
-        action: "comment-update",
-        target: commentId,
-        diff: unifiedDiff(current.body, body),
-      }
-    }
-    const data = yield* client.execute(
-      updateCommentMutation,
-      { id: commentId, input: { body } },
-      UpdateCommentResponse,
-    )
-    const comment = yield* unwrapComment(data.commentUpdate, "Linear did not update the comment.")
-    return { dryRun: false, status: "updated", comment }
-  })
-
-  const planCommentDelete = Effect.fn("IssueWriter.planCommentDelete")(function* planCommentDelete(
-    commentId: CommentId,
-  ): Effect.fn.Return<CommentDeletePlan, IssueWriteApiError> {
-    const comment = yield* existingComment(commentId)
-    return { action: "comment-delete", target: commentId, comment }
-  })
-
-  const commentDelete = Effect.fn("IssueWriter.commentDelete")(function* commentDelete(
-    commentId: CommentId,
-  ): Effect.fn.Return<CommentDeleteResult, IssueWriteApiError> {
-    yield* existingComment(commentId)
-    const data = yield* client.execute(
-      deleteCommentMutation,
-      { id: commentId },
-      DeleteCommentResponse,
-    )
-    yield* unwrapDelete(data.commentDelete, "Linear did not delete the comment.")
-    return { status: "deleted", commentId }
-  })
-
-  return {
-    commentCreate,
-    commentDelete,
-    commentUpdate,
-    findComment,
-    planCommentCreate,
-    planCommentDelete,
-  }
+  return { commentCreate, findComment }
 }
 
 export { makeCommentWrites }

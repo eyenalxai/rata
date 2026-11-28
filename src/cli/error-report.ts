@@ -62,7 +62,6 @@ const errorRules: Record<string, ErrorRule> = {
   },
   ProjectNotFoundError: { code: "not_found", hint: null },
   ProjectNameAmbiguousError: { code: "ambiguous", hint: null },
-  CommentNotFoundError: { code: "not_found", hint: "Check the comment id." },
   IssueRefNotFoundError: { code: "not_found", hint: "Check the reference and retry." },
   AssigneeInputError: {
     code: "validation",
@@ -75,7 +74,6 @@ const errorRules: Record<string, ErrorRule> = {
   ProjectAlreadyDeletedError: { code: "conflict", hint: null },
   ProjectNotDeletedError: { code: "conflict", hint: null },
   ContextStateNotFoundError: { code: "not_found", hint: null },
-  StateNotFoundError: { code: "not_found", hint: null },
   SectionAmbiguousError: {
     code: "ambiguous",
     hint: "Rename one heading, or quote a heading that appears once.",
@@ -91,7 +89,6 @@ const errorRules: Record<string, ErrorRule> = {
   DatabaseError: { code: "internal", hint: "Run with RATA_DEBUG=1 for details." },
   LinearInternalError: { code: "internal", hint: "Run with RATA_DEBUG=1 for details." },
   PromptRequiredError: { code: "validation", hint: "Pass --yes to skip the prompt." },
-  AssigneeConflictError: { code: "conflict", hint: "Pass --take to reassign it." },
 }
 
 const exitCodes: Record<ErrorCode, number> = {

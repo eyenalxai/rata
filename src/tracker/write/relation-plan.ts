@@ -1,21 +1,7 @@
 import type { IssueId, RelationId } from "@/domain/id"
-import type { RelationKind, RelationType } from "@/domain/relation"
+import type { RelationKind } from "@/domain/relation"
 import type { IssueInverseRelation, IssueRelation } from "@/linear/decode/issue"
 import type { ResolvedRelationTarget, WriteStatus } from "@/tracker/write/model"
-
-import { relationKindInfo } from "@/domain/relation"
-
-type PlannedRelationLink = {
-  readonly kind: RelationKind
-  readonly target: string
-  readonly targetId: IssueId
-  readonly status: WriteStatus
-  readonly input: {
-    readonly issueId: IssueId
-    readonly relatedIssueId: IssueId
-    readonly type: RelationType
-  }
-}
 
 type PlannedRelationUnlink = {
   readonly kind: RelationKind
@@ -55,30 +41,6 @@ const matchingRelationIds = (
     .map((relation) => relation.id)
 }
 
-const linkRelationPlans = (
-  issueId: IssueId,
-  targets: readonly ResolvedRelationTarget[],
-  outgoing: readonly IssueRelation[],
-  incoming: readonly IssueInverseRelation[],
-): readonly PlannedRelationLink[] =>
-  targets.map((entry) => {
-    const info = relationKindInfo[entry.kind]
-    return {
-      kind: entry.kind,
-      target: entry.target,
-      targetId: entry.targetId,
-      status:
-        matchingRelationIds(entry.kind, entry.targetId, outgoing, incoming).length > 0
-          ? "skipped"
-          : "updated",
-      input: {
-        issueId: info.inverse ? entry.targetId : issueId,
-        relatedIssueId: info.inverse ? issueId : entry.targetId,
-        type: info.type,
-      },
-    }
-  })
-
 const planRelationUnlinks = (
   targets: readonly ResolvedRelationTarget[],
   outgoing: readonly IssueRelation[],
@@ -94,10 +56,4 @@ const planRelationUnlinks = (
     }
   })
 
-export {
-  linkRelationPlans,
-  matchingRelationIds,
-  type PlannedRelationLink,
-  type PlannedRelationUnlink,
-  planRelationUnlinks,
-}
+export { matchingRelationIds, type PlannedRelationUnlink, planRelationUnlinks }
