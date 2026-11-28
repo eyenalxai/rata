@@ -7,7 +7,7 @@ import {
   requestOf,
   teamDetailResponse,
 } from "@test/issue-write/fixtures"
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 
 const rat = {
   id: "00000000-0000-0000-0000-000000000001",
@@ -34,10 +34,6 @@ const handler = () =>
     return jsonResponse({ errors: [{ message: `Unexpected query: ${request.query}` }] }, 400)
   })
 
-afterEach(() => {
-  process.exitCode = 0
-})
-
 describe("issue create team", () => {
   test("prefers --team over the linked team", async () => {
     const recorder = handler()
@@ -59,7 +55,7 @@ describe("issue create team", () => {
 
   test("fails with not_linked when there is no team flag and no link", async () => {
     const lines: string[] = []
-    await runIssue(
+    const exit = await runIssue(
       makeRecorder(() => {
         throw new Error("the missing team must fail before a request")
       }).handler,
@@ -68,7 +64,7 @@ describe("issue create team", () => {
       [],
     )
 
-    expect(process.exitCode).toBe(2)
+    expect(exit.code).toBe(2)
     expect(lastJson(lines)).toMatchObject({
       error: {
         code: "not_linked",

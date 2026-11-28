@@ -275,7 +275,7 @@ describe("issue apply sections", () => {
   test("two non-overlapping section edits both apply", async () => {
     const seedValue = seed()
     const gateway = makeMemoryGateway(seedValue)
-    const lines = await runApply(seedValue, gateway, {
+    const { lines } = await runApply(seedValue, gateway, {
       sections: [
         { heading: "Notes", mode: "replace", content: "Replaced." },
         { heading: "Handoff log", mode: "append", content: "Started." },
@@ -297,7 +297,7 @@ describe("issue apply sections", () => {
   test("a nested child replace and its parent replace fail as ambiguous", async () => {
     const seedValue = seed({ issues: [issueWithNestedSections] })
     const gateway = makeMemoryGateway(seedValue)
-    const lines = await runApply(
+    const { exit, lines } = await runApply(
       seedValue,
       gateway,
       {
@@ -309,7 +309,7 @@ describe("issue apply sections", () => {
       "RAT-21",
     )
 
-    expect(process.exitCode).toBe(2)
+    expect(exit.code).toBe(2)
     expect(lastJson(lines)).toMatchObject({ error: { code: "ambiguous" } })
     expect((await readIssue(seedValue, gateway, "RAT-21")).description).toBe(
       issueWithNestedSections.description,
