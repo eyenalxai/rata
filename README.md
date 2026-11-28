@@ -210,13 +210,12 @@ hint. See **Field selection**.
 
 ## Output and errors
 
-The issue reads (`issue <ref>...`, `issue list`, `issue search`), the migrated
-writes and the `admin` group use `--format json|text`. JSON is the default when
-standard output is not a terminal, and `--format text` forces text. The issue
-reads and the selectable admin reads (`admin auth status`, `admin team show`,
-`admin team list`, `admin project list`, `admin label list`, `admin config show`)
-also use `--select`; `issue create` still uses `--json` and `--fields` until its
-slice.
+The issue reads (`issue <ref>...`, `issue list`, `issue search`), every issue
+write and the `admin` group use `--format json|text`. JSON is the default when
+standard output is not a terminal, and `--format text` forces text. Every issue
+command, including `issue create`, and the selectable admin reads (`admin auth
+status`, `admin team show`, `admin team list`, `admin project list`, `admin
+label list`, `admin config show`) also use `--select`.
 
 ```bash
 rata status
@@ -1109,15 +1108,13 @@ returns an array of objects: `children.state` gives
 A path through an array of scalars is a `validation` error. An empty array is
 validated and returns `[]`.
 
-`--select` is valid on `issue <ref>...`, `issue list`, `issue search`, `status`,
-`admin team show`, `admin team list`, `admin project list`, `admin label list`,
-`admin config show` and `admin auth status`. On an issue read it validates the
-shape of the active mode: summary, working or full. The migrated writes (`issue
-start`, `handoff`, `close`, `apply`, `relate`, `publish` and `comment`) use
-`--format` and `--select`; `issue create` still uses `--json` and `--fields`
-until its slice. `admin api` returns a raw shape, so it does not take `--select`.
-An unknown path is a `validation` error whose hint lists the valid keys at the
-failing level.
+`--select` is valid on every issue command (reads and writes, including `issue
+create`), on `status`, and on the selectable admin reads (`admin team show`,
+`admin team list`, `admin project list`, `admin label list`, `admin config show`
+and `admin auth status`). On an issue read it validates the shape of the active
+mode: summary, working or full. `admin api` returns a raw shape, so it does not
+take `--select`. An unknown path is a `validation` error whose hint lists the
+valid keys at the failing level.
 
 For any other shape, use `--format json` and `jq`. There is no custom format or
 template language.
@@ -1187,7 +1184,9 @@ The result is `{ issue, result }`; `result` carries `action`, `status`,
 `error`. `issue publish` returns `{ nodes, edges, result }` instead of one
 `issue`.
 
-`issue create` keeps its current behavior. The lifecycle commands use the same
+`issue create` returns the same `{ issue, result }` contract; its result action
+is `create`. A dry run returns `issue: null`, the planned action and
+`result.dryRun: true`, and writes nothing. The lifecycle commands use the same
 plan/apply engine. The removed write forms (`issue update`, `issue label`,
 `issue section`, `issue assign`, `issue unassign`, `issue reopen`, `issue link`,
 `issue unlink`, the old `issue comment` subcommands and the old `issue close

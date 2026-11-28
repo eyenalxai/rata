@@ -146,7 +146,7 @@ describe("the process exit code", () => {
 
   test("issue create without a linked team exits 2", async () => {
     const lines: string[] = []
-    await runIssue(unusedHandler, ["create", "--title", "T", "--json"], lines, [])
+    await runIssue(unusedHandler, ["create", "--title", "T", "--format", "json"], lines, [])
 
     expect(process.exitCode).toBe(2)
     expect(JSON.parse(lines.at(-1) ?? "")).toMatchObject({

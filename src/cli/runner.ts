@@ -17,17 +17,16 @@ import { commandError, exitCodeOf, toTrackerError } from "@/cli/error-report"
 import { OutputFields } from "@/cli/fields"
 import {
   formatFromArgs,
-  hasNewOutputFlag,
   hasOldOutputFlag,
   helpRequested,
   isBareInvocation,
   isIssueReadCommand,
-  isLegacyIssueCommand,
+  isIssueWriteCommand,
 } from "@/cli/format"
 import { setSuppressHelp, withModernOutput, withSelectable } from "@/cli/help"
 import { readBodyInput } from "@/cli/input"
 import { JsonOutput, reportTrackerError } from "@/cli/output"
-import { detectInvalidForm, jsonEnabled, reportInvalidForm } from "@/cli/pre-parse"
+import { detectInvalidForm, reportInvalidForm } from "@/cli/pre-parse"
 import { renderOutput } from "@/cli/render"
 import { resolveSelect, supportsSelect } from "@/cli/runner/select"
 import { outputFormats } from "@/cli/spec"
@@ -185,16 +184,6 @@ const buildGroup = <
     withModernOutput,
   )
 
-const isIssueWriteCommand = (args: readonly string[]): boolean =>
-  args[0] === "issue" &&
-  (args[1] === "apply" ||
-    args[1] === "relate" ||
-    args[1] === "comment" ||
-    args[1] === "start" ||
-    args[1] === "handoff" ||
-    args[1] === "close" ||
-    args[1] === "publish")
-
 const runCli = <Name extends string, Input, ContextInput, E, R>(
   version: string,
   root: CliCommand.Command<Name, Input, ContextInput, E, R>,
@@ -208,16 +197,6 @@ const runCli = <Name extends string, Input, ContextInput, E, R>(
     const invalid = detectInvalidForm(args)
     if (invalid !== undefined) {
       return yield* reportInvalidForm(invalid, format === "json")
-    }
-    if (!helpRequested(args) && isLegacyIssueCommand(args) && hasNewOutputFlag(args)) {
-      return yield* reportRunFailure(
-        new TrackerError({
-          code: "usage",
-          message: "The --format and --select flags are not supported by this command.",
-          hint: "Use --json for JSON output; --fields applies to reads.",
-        }),
-        jsonEnabled(args) ? "json" : "text",
-      )
     }
     if (!helpRequested(args) && isIssueReadCommand(args) && hasOldOutputFlag(args)) {
       return yield* reportRunFailure(

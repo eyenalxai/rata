@@ -187,14 +187,23 @@ describe("issue apply", () => {
   test("apply rejects the old --fields flag", async () => {
     const seedValue = seed()
     const gateway = makeMemoryGateway(seedValue)
-    const lines = await runApply(seedValue, gateway, { title: "Changed title" }, "RAT-1", [
-      "--fields",
-      "title",
-    ])
+    const lines: string[] = []
+    await runRootMemory(
+      seedValue,
+      ["issue", "apply", "RAT-1", "--file", "-", "--format", "json", "--fields", "title"],
+      lines,
+      undefined,
+      {
+        gateway,
+        stdio: {
+          stdin: Stream.make(new TextEncoder().encode(JSON.stringify({ title: "Changed" }))),
+        },
+      },
+    )
 
     expect(process.exitCode).toBe(2)
     expect(lastJson(lines)).toMatchObject({
-      error: { code: "validation", hint: "Valid paths: issue, result." },
+      error: { code: "usage", hint: "Use --format json; --select replaces --fields." },
     })
   })
 

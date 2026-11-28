@@ -5,7 +5,6 @@ import { Command } from "effect/cli"
 import { FetchHttpClient, HttpClient } from "effect/http"
 
 import { LinearClient } from "@/api/client"
-import { IssueWriteApi } from "@/api/issue-write"
 import { LabelService } from "@/api/label"
 import { ProjectService } from "@/api/project"
 import { RepoTeam } from "@/api/repo-team"
@@ -108,9 +107,6 @@ const linkLayer = LinkService.layer.pipe(
   Layer.provide(authLayer),
   Layer.provide(gatewayLayer),
 )
-const issueWriteLayer = IssueWriteApi.layer.pipe(
-  Layer.provide(Layer.mergeAll(contextResolverLayer, writerLayer)),
-)
 const workLayer = Layer.mergeAll(
   authLayer,
   gatewayLayer,
@@ -123,7 +119,6 @@ const workLayer = Layer.mergeAll(
   repoTeamLayer,
   defaultsLayer,
   linkLayer,
-  issueWriteLayer,
   contextCacheLayer,
   contextResolverLayer,
   teamContextLayer,

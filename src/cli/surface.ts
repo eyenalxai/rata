@@ -11,6 +11,7 @@ type SurfaceParam = {
   readonly required: boolean
   readonly variadic: boolean
   readonly aliases: readonly string[]
+  readonly choices: readonly string[]
 }
 
 type SurfaceNode = {
@@ -25,6 +26,7 @@ type SurfaceNode = {
 
 type Surface = {
   readonly roots: readonly SurfaceNode[]
+  readonly globalParams: readonly SurfaceParam[]
 }
 
 type CommandMetadata = {
@@ -74,17 +76,26 @@ const shapeOf = (param: Param.Any): ParamShape => {
   }
   if (Predicate.hasProperty("param")(param) && Param.isParam(param.param)) {
     const shape = shapeOf(param.param)
+    const min = Predicate.hasProperty("min")(param) ? param.min : undefined
+    const allowsZero = Option.isOption(min) && Option.isSome(min) && min.value === 0
     return {
       ...shape,
-      optional: shape.optional || param._tag === "Optional",
+      optional: shape.optional || param._tag === "Optional" || allowsZero,
       variadic: shape.variadic || param._tag === "Variadic",
     }
   }
   return { kind: param.kind, optional: false, variadic: false, singles: [] }
 }
 
-const paramDocs = (config: CliCommand.Command.Config): readonly SurfaceParam[] =>
-  collectParams(config).flatMap((param) => {
+const choiceKeysOf = (primitive: Primitive.Primitive<unknown>): readonly string[] => {
+  if (!Predicate.hasProperty("choiceKeys")(primitive) || !Array.isArray(primitive.choiceKeys)) {
+    return []
+  }
+  return primitive.choiceKeys.filter((key): key is string => typeof key === "string")
+}
+
+const paramDocsOf = (params: readonly Param.Any[]): readonly SurfaceParam[] =>
+  params.flatMap((param) => {
     const shape = shapeOf(param)
     return shape.singles
       .filter((single) => !single.hidden)
@@ -96,8 +107,12 @@ const paramDocs = (config: CliCommand.Command.Config): readonly SurfaceParam[] =
         required: !shape.optional,
         variadic: shape.variadic,
         aliases: single.aliases,
+        choices: choiceKeysOf(single.primitiveType),
       }))
   })
+
+const paramDocs = (config: CliCommand.Command.Config): readonly SurfaceParam[] =>
+  paramDocsOf(collectParams(config))
 
 const nodeOf = (command: CliCommand.Command.Any, parent: readonly string[]): SurfaceNode => {
   const path = [...parent, command.name]
@@ -117,8 +132,12 @@ const nodeOf = (command: CliCommand.Command.Any, parent: readonly string[]): Sur
   }
 }
 
-const surfaceOf = (commands: readonly CliCommand.Command.Any[]): Surface => ({
+const surfaceOf = (
+  commands: readonly CliCommand.Command.Any[],
+  globalParams: readonly Param.Any[] = [],
+): Surface => ({
   roots: commands.filter((command) => !command.unlisted).map((command) => nodeOf(command, [])),
+  globalParams: paramDocsOf(globalParams),
 })
 
 export { CommandMetadata, type Surface, type SurfaceNode, type SurfaceParam, surfaceOf }

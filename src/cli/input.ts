@@ -8,11 +8,6 @@ import { toTrackerError } from "@/cli/error-report"
 import { TrackerError } from "@/domain/error"
 import { maxPageSize } from "@/linear/connection"
 
-const bodyFlag = Flag.String("body").pipe(
-  Flag.withDescription("Body text in markdown"),
-  Flag.optional,
-)
-
 const bodyFileFlag = Flag.String("body-file").pipe(
   Flag.withDescription("Read the body from a file. Use - for standard input"),
   Flag.optional,
@@ -66,11 +61,4 @@ const requirePageSize = (limit: number): Effect.Effect<number, TrackerError> => 
   return Effect.succeed(limit)
 }
 
-export {
-  bodyFileFlag,
-  bodyFlag,
-  ifUnchangedFlag,
-  readBodyInput,
-  readStandardInput,
-  requirePageSize,
-}
+export { bodyFileFlag, ifUnchangedFlag, readBodyInput, readStandardInput, requirePageSize }
