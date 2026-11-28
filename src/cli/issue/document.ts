@@ -3,9 +3,11 @@ import type { Result } from "effect"
 import { Effect, Schema, SchemaIssue } from "effect"
 
 import type { ApplyComment, ApplyDocument, HandoffDocument } from "@/domain/apply"
+import type { PublishDocument } from "@/domain/publish"
 
 import { ApplyDocumentJson, HandoffDocumentJson } from "@/domain/apply"
 import { TrackerError } from "@/domain/error"
+import { PublishDocumentJson } from "@/domain/publish"
 
 const formatIssue = SchemaIssue.makeFormatterDefault()
 type Issue = Parameters<typeof formatIssue>[0]
@@ -13,6 +15,7 @@ type Issue = Parameters<typeof formatIssue>[0]
 const applyHint = "Pass one JSON object with fields, labels, sections, comment or relations."
 const handoffHint =
   "Pass one JSON object with pr and optional fields, labels, sections, comment or relations."
+const publishHint = "Pass one JSON object with team, parent, defaults and nodes."
 
 const emptyDocument = (label: string, hint: string): TrackerError =>
   new TrackerError({
@@ -23,6 +26,7 @@ const emptyDocument = (label: string, hint: string): TrackerError =>
 
 const emptyApplyDocument = (): TrackerError => emptyDocument("apply", applyHint)
 const emptyHandoffDocument = (): TrackerError => emptyDocument("handoff", handoffHint)
+const emptyPublishDocument = (): TrackerError => emptyDocument("publish", publishHint)
 
 const decodeResult = <A, E extends { readonly issue: Issue }>(
   decoded: Result.Result<A, E>,
@@ -55,6 +59,13 @@ const decodeHandoffDocument = (text: string): Effect.Effect<HandoffDocument, Tra
     handoffHint,
   )
 
+const decodePublishDocument = (text: string): Effect.Effect<PublishDocument, TrackerError> =>
+  decodeResult(
+    Schema.decodeResult(PublishDocumentJson, { onExcessProperty: "error" })(text),
+    "publish",
+    publishHint,
+  )
+
 const requireDedupeKey = (document: {
   readonly comment?: ApplyComment | undefined
 }): Effect.Effect<void, TrackerError> => {
@@ -77,7 +88,9 @@ const requireDedupeKey = (document: {
 export {
   decodeApplyDocument,
   decodeHandoffDocument,
+  decodePublishDocument,
   emptyApplyDocument,
   emptyHandoffDocument,
+  emptyPublishDocument,
   requireDedupeKey,
 }

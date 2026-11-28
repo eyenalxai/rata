@@ -186,7 +186,8 @@ const isIssueWriteCommand = (args: readonly string[]): boolean =>
     args[1] === "comment" ||
     args[1] === "start" ||
     args[1] === "handoff" ||
-    args[1] === "close")
+    args[1] === "close" ||
+    args[1] === "publish")
 
 const runCli = <Name extends string, Input, ContextInput, E, R>(
   version: string,
