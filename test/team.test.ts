@@ -13,7 +13,7 @@ import { TeamService } from "@/api/team"
 import { PromptRequiredError, confirm } from "@/cli/confirm"
 import { teamId } from "@/domain/id"
 
-const team = { id: teamId("team-1"), key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
+const team = { id: teamId("00000000-0000-0000-0000-000000000001"), key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
 
 const run = <A, E>(handler: Handler, effect: Effect.Effect<A, E, TeamService>) =>
   effect.pipe(Effect.provide(apiLayer(handler)), Effect.runPromise)
@@ -93,7 +93,7 @@ describe("TeamService.create", () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     await run(fake.handler, createTeam({ name: "Scratch", copySettingsFrom: "RAT" }))
     const create = mutationOf(fake.requests)
-    expect(create?.variables.copySettingsFromTeamId).toBe("team-1")
+    expect(create?.variables.copySettingsFromTeamId).toBe("00000000-0000-0000-0000-000000000001")
   })
 
   test("passes a copy-settings UUID through without a team lookup", async () => {

@@ -12,7 +12,12 @@ import type { TeamId } from "@/domain/id"
 import type { Team } from "@/linear/decode/team"
 
 import { TeamService } from "@/api/team"
-import { missingWarning, repairStoredLink, resolveLinkedTeam } from "@/api/team/link"
+import {
+  missingWarning,
+  repairStoredLink,
+  repairStoredTeamId,
+  resolveLinkedTeam,
+} from "@/api/team/link"
 import { Auth } from "@/config/auth"
 import { RepoConfigService } from "@/config/repo"
 import { RepositoryIdentity } from "@/config/repo-identity"
@@ -21,7 +26,7 @@ import { profileKey, resolveKey } from "@/context/memo-key"
 import { teamAge } from "@/context/model"
 import { makeContextSources } from "@/context/resolve/sources"
 import { requireTeamError } from "@/context/team-error"
-import { isUuid, teamId as asTeamId } from "@/domain/id"
+import { isUuid } from "@/domain/id"
 import { issueDefaults } from "@/domain/issue-defaults"
 import { LinearGateway } from "@/linear/gateway"
 import { ContextCache } from "@/local/context-cache"
@@ -124,20 +129,15 @@ class ContextResolver extends Context.Service<ContextResolver, ContextResolverSh
           }
           const storedId =
             config.teamId ??
-            (config.team !== undefined && isUuid(config.team) ? asTeamId(config.team) : undefined)
+            (config.team !== undefined && isUuid(config.team) ? config.team : undefined)
           if (!refresh && storedId !== undefined) {
             const cached = yield* cache.readTeam(profile, storedId, keyHash, now)
             if (Option.isSome(cached)) {
-              const warning = yield* repairStoredLink(repoConfig, config, cached.value.detail)
+              const warning = yield* repairStoredTeamId(repoConfig, config, cached.value.detail)
               return {
                 missing: false,
                 team: {
-                  identity: {
-                    id: cached.value.detail.id,
-                    key: cached.value.detail.key,
-                    name: cached.value.detail.name,
-                    timezone: cached.value.detail.timezone,
-                  },
+                  identity: cached.value.detail,
                   detail: cached.value.detail,
                   ageSeconds: teamAge(cached.value.fetchedAt, now),
                   fetchedAt: cached.value.fetchedAt,

@@ -18,7 +18,7 @@ import { IssueReader } from "@/tracker/read"
 const viewer = Option.getOrThrow(Schema.decodeOption(Viewer)(defaultViewer))
 
 const team: MemoryTeam = {
-  id: teamId("team-1"),
+  id: teamId("00000000-0000-0000-0000-000000000001"),
   key: "RAT",
   name: "Rata",
   timezone: "America/Los_Angeles",
@@ -35,7 +35,7 @@ const team: MemoryTeam = {
 }
 
 const otherTeam: MemoryTeam = {
-  id: teamId("team-2"),
+  id: teamId("00000000-0000-0000-0000-000000000002"),
   key: "OPS",
   name: "Operations",
   timezone: "America/New_York",
@@ -58,7 +58,9 @@ const seed: MemorySeed = {
   issues: [issue("RAT-1", team), issue("RAT-2", team), issue("OPS-1", otherTeam)],
 }
 
-const repositories = [{ key: process.cwd(), team: "RAT", teamId: "team-1" }]
+const repositories = [
+  { key: process.cwd(), team: "RAT", teamId: "00000000-0000-0000-0000-000000000001" },
+]
 const env = { HOME: "/home/test", LINEAR_API_KEY: "test-key" }
 
 const program = <A, E>(
@@ -162,7 +164,9 @@ describe("IssueReader context use", () => {
         memoryApiLayer(seed, {
           env,
           gateway: counting.gateway,
-          repositories: [{ key: process.cwd(), team: "OLD", teamId: "team-1" }],
+          repositories: [
+            { key: process.cwd(), team: "OLD", teamId: "00000000-0000-0000-0000-000000000001" },
+          ],
         }),
       ),
       Effect.provideService(Console.Console, recordingConsoleWithErrors([], errors)),

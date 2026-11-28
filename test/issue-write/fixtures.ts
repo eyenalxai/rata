@@ -11,7 +11,7 @@ import type { HttpClientRequest } from "effect/http"
 import { defaultPriorities, readRequest } from "@test/fake-linear/model"
 import { jsonResponse, pageInfo, summaryNode } from "@test/issue-fixtures"
 
-const team = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
+const team = { id: "00000000-0000-0000-0000-000000000001", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
 
 const states = [
   { id: "s-backlog", name: "Backlog", type: "backlog" },
@@ -88,7 +88,7 @@ const makeRecorder = (respond: (request: GraphQLRequest) => Response): Recorder 
     const request = readRequest(httpRequest)
     requests.push(request)
     if (request.query.includes("query IssueTeam")) {
-      return jsonResponse({ data: { issue: { team: { id: "team-1" } } } })
+      return jsonResponse({ data: { issue: { team: { id: "00000000-0000-0000-0000-000000000001" } } } })
     }
     return respond(request)
   }

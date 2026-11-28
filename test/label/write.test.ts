@@ -61,7 +61,7 @@ describe("rata admin label create", () => {
       lines,
     )
     expect(requestOf(recorder, "mutation CreateLabel")?.variables).toEqual({
-      input: { name: "bug", color: "#eb5757", teamId: "team-1" },
+      input: { name: "bug", color: "#eb5757", teamId: "00000000-0000-0000-0000-000000000001" },
     })
     expect(lastJson(lines)).toEqual({
       label: { id: "label-9", name: "bug", color: "#eb5757" },
@@ -101,7 +101,7 @@ describe("rata admin label create", () => {
     const lines: string[] = []
     await runLabel(recorder.handler, ["create", "--name", "bug"], lines)
     expect(requestOf(recorder, "mutation CreateLabel")?.variables).toEqual({
-      input: { name: "bug", teamId: "team-1" },
+      input: { name: "bug", teamId: "00000000-0000-0000-0000-000000000001" },
     })
     expect(lines).toContain("Created label bug.")
   })

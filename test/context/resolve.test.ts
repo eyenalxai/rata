@@ -16,7 +16,7 @@ import { Viewer } from "@/linear/decode/viewer"
 const viewer = Option.getOrThrow(Schema.decodeOption(Viewer)(defaultViewer))
 
 const team: MemoryTeam = {
-  id: teamId("team-1"),
+  id: teamId("00000000-0000-0000-0000-000000000001"),
   key: "RAT",
   name: "Rata",
   timezone: "America/Los_Angeles",
@@ -41,7 +41,7 @@ const team: MemoryTeam = {
 }
 
 const otherTeam: MemoryTeam = {
-  id: teamId("team-2"),
+  id: teamId("00000000-0000-0000-0000-000000000002"),
   key: "OPS",
   name: "Operations",
   timezone: "America/New_York",
@@ -61,7 +61,7 @@ const repositories: readonly RepositorySeed[] = [
   {
     key: process.cwd(),
     team: "RAT",
-    teamId: "team-1",
+    teamId: "00000000-0000-0000-0000-000000000001",
     project: "Tracker",
     defaultAssignee: "me",
     defaultLabels: ["ready-for-agent"],
@@ -86,7 +86,11 @@ describe("ResolvedContext", () => {
     expect(context.profile).toBeNull()
     expect(context.keySource).toBe("env")
     expect(context.viewer).toEqual(viewer)
-    expect(context.team?.identity).toMatchObject({ id: "team-1", key: "RAT", name: "Rata" })
+    expect(context.team?.identity).toMatchObject({
+      id: "00000000-0000-0000-0000-000000000001",
+      key: "RAT",
+      name: "Rata",
+    })
     expect(context.states.map((state) => state.name)).toEqual(["Todo", "Done"])
     expect(context.labels.map((label) => label.name)).toEqual(["ready-for-agent", "bug"])
     expect(context.defaults).toEqual({
@@ -145,7 +149,7 @@ describe("ResolvedContext", () => {
       Effect.runPromise,
     )
 
-    expect(String(context.team?.identity.id)).toBe("team-2")
+    expect(String(context.team?.identity.id)).toBe("00000000-0000-0000-0000-000000000002")
     expect(context.states).toEqual([])
     expect(counting.counts.byKey()).toBe(1)
   })
@@ -188,7 +192,15 @@ describe("ResolvedContext", () => {
       }),
     )
     const cache: CacheSeed = {
-      teams: [{ profile: "env", teamId: "team-1", keyHash, detail, fetchedAt }],
+      teams: [
+        {
+          profile: "env",
+          teamId: "00000000-0000-0000-0000-000000000001",
+          keyHash,
+          detail,
+          fetchedAt,
+        },
+      ],
       viewers: [
         {
           profile: "env",
@@ -206,7 +218,7 @@ describe("ResolvedContext", () => {
       Effect.runPromise,
     )
 
-    expect(String(context.team?.identity.id)).toBe("team-1")
+    expect(String(context.team?.identity.id)).toBe("00000000-0000-0000-0000-000000000001")
     expect(counting.counts.viewer()).toBe(0)
     expect(counting.counts.details()).toBe(0)
   })

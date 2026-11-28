@@ -3,16 +3,22 @@ import type { FakeLabel, FakeTeam, FakeTeamMember, FakeTeamState } from "@test/f
 
 import { apiLayer, makeFakeLinear } from "@test/fake-linear"
 import { defaultPriorities, defaultViewer } from "@test/fake-linear/model"
+import { fakeTerminal } from "@test/terminal-harness"
 import { describe, expect, test } from "bun:test"
-import { Clock, Effect, Option, Schema } from "effect"
+import { Clock, Effect, FileSystem, Layer, Option, Path, Schema, Terminal } from "effect"
 
 import type { StateType } from "@/domain/workflow-state"
 
+import { LinkService } from "@/config/link"
+import { currentDirectory, RepoConfigService } from "@/config/repo"
 import { hashApiKey } from "@/context/key-hash"
 import { ContextResolver } from "@/context/resolve"
+import { teamId } from "@/domain/id"
 import { TeamDetail } from "@/linear/decode/team"
 import { Viewer } from "@/linear/decode/viewer"
 import { contextCacheTtlMillis } from "@/local/context-cache"
+
+const teamUuid = "0f8fad5b-d9cb-469f-a165-70867728950e"
 
 const states: readonly (Omit<FakeTeamState, "type"> & { readonly type: StateType })[] = [
   { id: "state-todo", name: "Todo", type: "unstarted", position: 1 },
@@ -31,12 +37,12 @@ const members: readonly FakeTeamMember[] = [
 ]
 
 const labels: readonly FakeLabel[] = [
-  { id: "label-bug", name: "bug", color: "#EB5757", teamId: "team-1" },
-  { id: "label-enhancement", name: "enhancement", color: "#5E6AD2", teamId: "team-1" },
+  { id: "label-bug", name: "bug", color: "#EB5757", teamId: teamUuid },
+  { id: "label-enhancement", name: "enhancement", color: "#5E6AD2", teamId: teamUuid },
 ]
 
 const team: FakeTeam = {
-  id: "team-1",
+  id: teamUuid,
   key: "RAT",
   name: "Rata",
   timezone: "America/Los_Angeles",
@@ -178,23 +184,102 @@ describe("ContextResolver resolution", () => {
     expect(result.team?.detail.id).toBe(detail.id)
   })
 
-  test("falls back to the key when the stored UUID is stale", async () => {
+  test("falls back to the key and repairs a stale stored UUID", async () => {
     const fake = makeFakeLinear(seed)
+    const staleUuid = "11111111-1111-1111-1111-111111111111"
     const result = await Effect.gen(function* readStaleId() {
       const context = yield* ContextResolver
-      return yield* context.resolve({})
+      const repoConfig = yield* RepoConfigService
+      const resolved = yield* context.resolve({})
+      const stored = yield* repoConfig.read(yield* currentDirectory)
+      return { resolved, stored }
     }).pipe(
       Effect.provide(
         apiLayer(fake.handler, {
-          repositories: [{ key: process.cwd(), team: "RAT", teamId: "gone-id" }],
+          repositories: [{ key: process.cwd(), team: "RAT", teamId: staleUuid }],
         }),
       ),
       Effect.runPromise,
     )
 
     expect(fake.requests.length).toBeGreaterThan(0)
-    expect(result.team?.detail.id).toBe(detail.id)
-    expect(result.warning).toBe("The stored team id gone-id is stale. Repaired the link to RAT.")
+    expect(result.resolved.team?.detail.id).toBe(detail.id)
+    expect(result.resolved.warning).toBe(
+      `The stored team id ${staleUuid} is stale. Repaired the link to RAT.`,
+    )
+    expect(result.stored).toEqual(Option.some({ team: "RAT", teamId: teamId(teamUuid) }))
+  })
+
+  test("keeps a linked key when the warm cache holds an older key", async () => {
+    const fake = makeFakeLinear(seed)
+    const olderDetail = Option.getOrThrow(
+      Schema.decodeOption(TeamDetail)({
+        ...detail,
+        key: "OLD",
+      }),
+    )
+    const result = await Effect.gen(function* readWarmRepair() {
+      const context = yield* ContextResolver
+      const repoConfig = yield* RepoConfigService
+      const resolved = yield* context.resolve({})
+      const stored = yield* repoConfig.read(yield* currentDirectory)
+      return { resolved, stored }
+    }).pipe(
+      Effect.provide(
+        apiLayer(fake.handler, {
+          repositories: [{ key: process.cwd(), team: "RAT", teamId: teamUuid }],
+          cache: await warmCache({ detail: olderDetail }),
+        }),
+      ),
+      Effect.runPromise,
+    )
+
+    expect(result.stored).toEqual(Option.some({ team: "RAT", teamId: teamId(teamUuid) }))
+    expect(result.resolved.warning).toBeNull()
+  })
+
+  test("keeps a re-linked key after a warm cache read", async () => {
+    const fake = makeFakeLinear(seed)
+    const olderDetail = Option.getOrThrow(
+      Schema.decodeOption(TeamDetail)({
+        ...detail,
+        key: "OLD",
+      }),
+    )
+    const result = await Effect.gen(function* relink() {
+      const link = yield* LinkService
+      const context = yield* ContextResolver
+      const repoConfig = yield* RepoConfigService
+      yield* link.link({
+        team: Option.some("RAT"),
+        project: Option.none(),
+        workspace: Option.none(),
+        create: false,
+        name: Option.none(),
+        timezone: Option.none(),
+      })
+      const afterLink = yield* repoConfig.read(yield* currentDirectory)
+      const resolved = yield* context.resolve({})
+      const afterRead = yield* repoConfig.read(yield* currentDirectory)
+      return { afterLink, afterRead, resolved }
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          apiLayer(fake.handler, {
+            repositories: [{ key: process.cwd(), team: "OLD", teamId: teamUuid }],
+            cache: await warmCache({ detail: olderDetail }),
+          }),
+          FileSystem.layerNoop({}),
+          Path.layer,
+        ),
+      ),
+      Effect.provideService(Terminal.Terminal, fakeTerminal([])),
+      Effect.runPromise,
+    )
+
+    expect(result.afterLink).toEqual(Option.some({ team: "RAT", teamId: teamId(teamUuid) }))
+    expect(result.afterRead).toEqual(Option.some({ team: "RAT", teamId: teamId(teamUuid) }))
+    expect(result.resolved.team?.detail.key).toBe("RAT")
   })
 
   test("uses the team UUID stored by link", async () => {

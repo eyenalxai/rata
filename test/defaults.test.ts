@@ -8,10 +8,20 @@ import { IssueDefaultsService } from "@/config/defaults"
 import { RepoConfigService } from "@/config/repo"
 import { teamId } from "@/domain/id"
 
-const team = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
+const team = {
+  id: "00000000-0000-0000-0000-000000000001",
+  key: "RAT",
+  name: "Rata",
+  timezone: "America/Los_Angeles",
+}
 const labels = [
-  { id: "l-enh", name: "enhancement", color: "#111111", teamId: "team-1" },
-  { id: "l-bug", name: "bug", color: "#EB5757", teamId: "team-1" },
+  {
+    id: "l-enh",
+    name: "enhancement",
+    color: "#111111",
+    teamId: "00000000-0000-0000-0000-000000000001",
+  },
+  { id: "l-bug", name: "bug", color: "#EB5757", teamId: "00000000-0000-0000-0000-000000000001" },
 ]
 
 const linked: readonly RepositorySeed[] = [{ key: process.cwd(), team: "RAT" }]
@@ -52,7 +62,7 @@ describe("IssueDefaultsService.set", () => {
     expect(result.stored).toEqual(
       Option.some({
         team: "RAT",
-        teamId: teamId("team-1"),
+        teamId: teamId("00000000-0000-0000-0000-000000000001"),
         defaultAssignee: "me",
         defaultLabels: ["enhancement"],
         defaultPriority: "medium",
@@ -85,7 +95,9 @@ describe("IssueDefaultsService.set", () => {
     )
 
     expect(result.error._tag).toBe("LabelNotFoundError")
-    expect(result.stored).toEqual(Option.some({ team: "RAT", teamId: teamId("team-1") }))
+    expect(result.stored).toEqual(
+      Option.some({ team: "RAT", teamId: teamId("00000000-0000-0000-0000-000000000001") }),
+    )
   })
 
   test("fails with not_linked without a repository link", async () => {
@@ -116,7 +128,7 @@ describe("IssueDefaultsService.set", () => {
     expect(result.stored).toEqual(
       Option.some({
         team: "RAT",
-        teamId: teamId("team-1"),
+        teamId: teamId("00000000-0000-0000-0000-000000000001"),
         defaultAssignee: "me",
         defaultPriority: "medium",
       }),

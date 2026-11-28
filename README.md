@@ -306,7 +306,9 @@ is the workspace profile, the team UUID and a SHA-256 hash of the API key. A war
 read makes no Linear request. A changed key misses the cache because the hash
 changed. `status --refresh` reads Linear and replaces the cache. A team stored by
 an old key only resolves by key, then by name, and `status` repairs the link to
-the team UUID.
+the team UUID. A link invalidates the cached detail of the linked team, so the
+next read fetches the current key. A warm repair writes only the team UUID and
+never writes a cached key over the linked key.
 
 A read resolves the stored team by UUID, then by key, then by name. A stale team
 UUID or key that resolves is repaired in place, and the command prints a warning

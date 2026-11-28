@@ -73,7 +73,11 @@ describe("LinkService.link workspace", () => {
 
     expect(result.team).toEqual(scratch)
     expect(stored).toEqual(
-      Option.some({ team: "SCR", teamId: teamId("team-2"), workspace: "work" }),
+      Option.some({
+        team: "SCR",
+        teamId: teamId("00000000-0000-0000-0000-000000000002"),
+        workspace: "work",
+      }),
     )
     expect(
       harness.output.some(
@@ -100,7 +104,11 @@ describe("LinkService.link workspace", () => {
 
     expect(result.team).toEqual(rat)
     expect(stored).toEqual(
-      Option.some({ team: "RAT", teamId: teamId("team-1"), workspace: "default" }),
+      Option.some({
+        team: "RAT",
+        teamId: teamId("00000000-0000-0000-0000-000000000001"),
+        workspace: "default",
+      }),
     )
   })
 
@@ -148,7 +156,11 @@ describe("LinkService.link workspace", () => {
 
     expect(result.team.key).toBe("LINKZ")
     expect(stored).toEqual(
-      Option.some({ team: "LINKZ", teamId: teamId("team-2"), workspace: "work" }),
+      Option.some({
+        team: "LINKZ",
+        teamId: teamId("00000000-0000-0000-0000-000000000002"),
+        workspace: "work",
+      }),
     )
     const create = fake.requests.find((request) => request.query.includes("mutation TeamCreate"))
     expect(create?.authorization).toBe("work-key")
@@ -171,7 +183,11 @@ describe("LinkService.link workspace", () => {
 
     expect(result.team).toEqual(rat)
     expect(stored).toEqual(
-      Option.some({ team: "RAT", teamId: teamId("team-1"), workspace: "default" }),
+      Option.some({
+        team: "RAT",
+        teamId: teamId("00000000-0000-0000-0000-000000000001"),
+        workspace: "default",
+      }),
     )
   })
 
@@ -185,7 +201,9 @@ describe("LinkService.link workspace", () => {
     )
 
     expect(result.team).toEqual(rat)
-    expect(stored).toEqual(Option.some({ team: "RAT", teamId: teamId("team-1") }))
+    expect(stored).toEqual(
+      Option.some({ team: "RAT", teamId: teamId("00000000-0000-0000-0000-000000000001") }),
+    )
     expect(harness.output.some((frame) => frame.includes("Select a workspace"))).toBe(false)
     expect(harness.output.some((frame) => frame.includes("Select a team"))).toBe(true)
   })
@@ -200,7 +218,11 @@ describe("LinkService.link workspace", () => {
     )
 
     expect(stored).toEqual(
-      Option.some({ team: "RAT", teamId: teamId("team-1"), workspace: "work" }),
+      Option.some({
+        team: "RAT",
+        teamId: teamId("00000000-0000-0000-0000-000000000001"),
+        workspace: "work",
+      }),
     )
     expect(result.workspace).toEqual(Option.some("work"))
   })
@@ -236,7 +258,11 @@ describe("LinkService.link workspace", () => {
 
     expect(result.workspace).toEqual(Option.some("work"))
     expect(stored).toEqual(
-      Option.some({ team: "RAT", teamId: teamId("team-1"), workspace: "work" }),
+      Option.some({
+        team: "RAT",
+        teamId: teamId("00000000-0000-0000-0000-000000000001"),
+        workspace: "work",
+      }),
     )
   })
 
@@ -248,7 +274,9 @@ describe("LinkService.link workspace", () => {
     const { result, stored } = await linkTeam(fake.handler, harness, options({}))
 
     expect(result.team).toEqual(rat)
-    expect(stored).toEqual(Option.some({ team: "RAT", teamId: teamId("team-1") }))
+    expect(stored).toEqual(
+      Option.some({ team: "RAT", teamId: teamId("00000000-0000-0000-0000-000000000001") }),
+    )
   })
 
   test("lists a profile with a rejected key in the prompt and links the others", async () => {
@@ -272,7 +300,11 @@ describe("LinkService.link workspace", () => {
 
     expect(result.team).toEqual(scratch)
     expect(stored).toEqual(
-      Option.some({ team: "SCR", teamId: teamId("team-2"), workspace: "work" }),
+      Option.some({
+        team: "SCR",
+        teamId: teamId("00000000-0000-0000-0000-000000000002"),
+        workspace: "work",
+      }),
     )
     expect(harness.output.some((frame) => frame.includes("default") && frame.includes("!"))).toBe(
       true,

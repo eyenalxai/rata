@@ -19,7 +19,7 @@ const viewer = Option.getOrThrow(Schema.decodeUnknownOption(Viewer)(defaultViewe
 const user = { id: userId("u1"), name: "Ada", displayName: "ada" }
 const label = { id: labelId("l1"), name: "ready-for-agent" }
 const team: MemoryTeam = {
-  id: teamId("team-1"),
+  id: teamId("00000000-0000-0000-0000-000000000001"),
   key: "RAT",
   name: "Rata",
   timezone: "America/Los_Angeles",

@@ -9,7 +9,7 @@ import {
 } from "@test/issue-write/fixtures"
 import { afterEach, describe, expect, test } from "bun:test"
 
-const rat = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
+const rat = { id: "00000000-0000-0000-0000-000000000001", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
 const ops = { id: "team-2", key: "OPS", name: "Operations", timezone: "America/Los_Angeles" }
 
 const handler = () =>

@@ -43,7 +43,9 @@ describe("status documents", () => {
     const triage = path.join(docsDirectory, "triage-labels.md")
     await runStatus(fake.handler, ["--format", "json"], lines, {
       profiles,
-      repositories: [{ key: process.cwd(), team: "RAT", teamId: "team-1" }],
+      repositories: [
+        { key: process.cwd(), team: "RAT", teamId: "00000000-0000-0000-0000-000000000001" },
+      ],
       files: new Map([
         [tracker, trackerDocument],
         [triage, "# Triage labels\n\nNo table."],
@@ -81,7 +83,7 @@ describe("status documents", () => {
     const triage = path.join(docsDirectory, "triage-labels.md")
     await runStatus(fake.handler, ["--format", "json"], lines, {
       profiles,
-      repositories: [{ key: process.cwd(), teamId: "team-1" }],
+      repositories: [{ key: process.cwd(), teamId: "00000000-0000-0000-0000-000000000001" }],
       files: new Map([
         [tracker, trackerDocument],
         [triage, triageDocument],
@@ -129,7 +131,7 @@ describe("status documents", () => {
     ].join("\n")
     await runStatus(fake.handler, ["--format", "json"], lines, {
       profiles,
-      repositories: [{ key: process.cwd(), teamId: "team-1" }],
+      repositories: [{ key: process.cwd(), teamId: "00000000-0000-0000-0000-000000000001" }],
       files: new Map([
         [tracker, trackerDocument],
         [triage, reordered],
@@ -161,7 +163,7 @@ describe("status documents", () => {
     const triage = path.join(docsDirectory, "triage-labels.md")
     await runStatus(fake.handler, ["--format", "json"], lines, {
       profiles,
-      repositories: [{ key: process.cwd(), teamId: "team-1" }],
+      repositories: [{ key: process.cwd(), teamId: "00000000-0000-0000-0000-000000000001" }],
       files: new Map([
         [tracker, trackerDocument],
         [
@@ -199,7 +201,9 @@ describe("status documents", () => {
     const withoutSkill = [trackerMarkers.begin, commandBlock, trackerMarkers.end].join("\n")
     await runStatus(fake.handler, ["--format", "json"], lines, {
       profiles,
-      repositories: [{ key: process.cwd(), team: "RAT", teamId: "team-1" }],
+      repositories: [
+        { key: process.cwd(), team: "RAT", teamId: "00000000-0000-0000-0000-000000000001" },
+      ],
       files: new Map([[document, withoutSkill]]),
     })
 
@@ -224,7 +228,9 @@ describe("status documents", () => {
     ].join("\n")
     await runStatus(fake.handler, ["--format", "json"], lines, {
       profiles,
-      repositories: [{ key: process.cwd(), team: "RAT", teamId: "team-1" }],
+      repositories: [
+        { key: process.cwd(), team: "RAT", teamId: "00000000-0000-0000-0000-000000000001" },
+      ],
       files: new Map([[document, stale]]),
     })
 

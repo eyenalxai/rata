@@ -22,7 +22,7 @@ const handleMutation = (graphql: GraphQLRequest, state: FakeState): Response | u
     const input = inputOf(graphql.variables)
     const name = stringField(input, "name")
     const created = {
-      id: `team-${state.teams.length + 1}`,
+      id: `00000000-0000-0000-0000-${String(state.teams.length + 1).padStart(12, "0")}`,
       key: typeof input.key === "string" ? input.key : "AUTO",
       name,
       timezone: typeof input.timezone === "string" ? input.timezone : "America/Los_Angeles",

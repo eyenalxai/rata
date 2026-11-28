@@ -8,9 +8,9 @@ errors. This file covers this repository's facts.
   `rata status` prints them with the workflow states, labels, triage map,
   cache age and document health. A warm `status` makes no Linear request;
   `--refresh` reads Linear again. A cache miss or `--refresh` repairs a renamed
-  team UUID or key and warns; if the team is gone, the error or `status` names
-  the repair. Do not pass `--team` for work in this repository, which does not
-  use Linear projects: a spec is an issue.
+  team UUID or key and warns; a link invalidates the cached detail. If the team
+  is gone, the error or `status` names the repair. Do not pass `--team` for work
+  in this repository, which does not use Linear projects: a spec is an issue.
 - **Labels**: the triage roles map to label strings in
   `docs/agents/triage-labels.md`. Read that file before you apply a label; the
   role name is not always the label string.

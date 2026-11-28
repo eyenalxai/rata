@@ -980,7 +980,9 @@ The key resolves as `LINEAR_API_KEY`, the repository `workspace`, then
 `default`. A stored team resolves by UUID, key, then name. A stale UUID or key
 that resolves is repaired with a warning; `status` keeps the warning. A warm
 cache can serve the stored UUID for up to seven days; `--refresh` revalidates
-it. A team that no longer exists fails a read with `not_found` and the repair
+it. A link invalidates the cached detail of the linked team. A warm repair
+writes only the team UUID and never writes a cached key over the linked key. A
+team that no longer exists fails a read with `not_found` and the repair
 hint; `status` exits 0 with `team`, `defaults` and `cache` at `null` and
 `states` and `labels` empty. The triage map and the document health stay. A
 legacy `.rata.json` is imported and removed on first use; a failed remove warns.

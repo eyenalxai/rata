@@ -44,7 +44,7 @@ describe("IssueReader search team default", () => {
 
     expect(captured[0]).toEqual({
       term: "login",
-      filter: { team: { id: { eq: "team-1" } } },
+      filter: { team: { id: { eq: "00000000-0000-0000-0000-000000000001" } } },
       first: 10,
       after: null,
     })
@@ -59,7 +59,9 @@ describe("IssueReader search team default", () => {
 
     await run(handler, search("login", { team: "OPS", after: null, limit: 10 }))
 
-    expect(captured[0]?.filter).toEqual({ team: { id: { eq: "team-2" } } })
+    expect(captured[0]?.filter).toEqual({
+      team: { id: { eq: "00000000-0000-0000-0000-000000000002" } },
+    })
   })
 })
 
@@ -73,7 +75,9 @@ describe("IssueReader team default", () => {
 
     await run(handler, listWithoutTeam)
 
-    expect(captured[0]?.filter).toEqual({ team: { id: { eq: "team-1" } } })
+    expect(captured[0]?.filter).toEqual({
+      team: { id: { eq: "00000000-0000-0000-0000-000000000001" } },
+    })
   })
 
   test("lets --team override the linked team", async () => {
@@ -85,7 +89,9 @@ describe("IssueReader team default", () => {
 
     await run(handler, list({ team: "OPS", after: null, limit: 50 }))
 
-    expect(captured[0]?.filter).toEqual({ team: { id: { eq: "team-2" } } })
+    expect(captured[0]?.filter).toEqual({
+      team: { id: { eq: "00000000-0000-0000-0000-000000000002" } },
+    })
   })
 
   test("fails without a link and without a team", async () => {

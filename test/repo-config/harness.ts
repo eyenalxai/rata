@@ -1,3 +1,4 @@
+import type { RepositorySeed } from "@test/database-harness"
 import type { MemoryTree } from "@test/memory-file-system"
 
 import { databaseLayer } from "@test/database-harness"
@@ -15,10 +16,11 @@ const withRepoConfig = <A, E>(
   lines: string[],
   use: Effect.Effect<A, E, RepoConfigService | Database>,
   console: Console.Console = recordingConsole(lines),
+  repositories: readonly RepositorySeed[] = [],
 ): Promise<A> => {
   const platform = Layer.mergeAll(memoryFileSystem(tree), Path.layer)
   const identity = RepositoryIdentity.layer.pipe(Layer.provide(platform))
-  const database = databaseLayer()
+  const database = databaseLayer(repositories)
   const repoConfig = RepoConfigService.layer.pipe(
     Layer.provide(Layer.mergeAll(platform, identity, database)),
   )

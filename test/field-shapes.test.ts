@@ -11,7 +11,7 @@ import { arrayField, objectField, scalarField } from "@/cli/field/shape"
 import { teamCommand } from "@/cli/registry"
 
 const team = {
-  id: "team-1",
+  id: "00000000-0000-0000-0000-000000000001",
   key: "RAT",
   name: "Rata",
   timezone: "America/Los_Angeles",
