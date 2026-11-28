@@ -323,7 +323,7 @@ stderr.
 `docs/agents/triage-labels.md`. `exists` says whether the file is present,
 `healthy` is `true`, `false`, or `null` when the file is missing, and `warning`
 names the repair. The tracker check also finds the known `rata` commands in the
-document and compares its path with the registry. A stale command, a missing
+document and compares their paths with the registry. A stale command, a missing
 generated block or a stale block makes `docs.tracker` unhealthy; `admin doctor`
 names each replacement and `--write` repairs the block. `triage` is the
 role-to-label map parsed from the triage document. A reordered table parses by
