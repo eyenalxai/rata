@@ -508,6 +508,7 @@ rata admin auth logout [flags]
 
 - `rata admin auth logout`: Remove the default profile and select the next profile by name
 - `rata admin auth logout --workspace work`: Remove the work profile
+- `rata admin auth logout --format json`: Report removed, defaultProfile and remaining as JSON
 
 #### `rata admin link`
 
@@ -969,7 +970,8 @@ failed action and `result.error`, and exits with the failed action's code.
 
 `admin auth login --with-token [--workspace <name>]` saves a key from stdin;
 `admin auth status`, `admin auth logout`, `admin workspace list` and
-`admin workspace use <name>` manage it; `admin unlink` removes the link and
+`admin workspace use <name>` manage it. `auth logout --format json` reports
+`removed`, `defaultProfile` and `remaining`; `admin unlink` removes the link and
 defaults. `status [--refresh]` prints the repo, workspace, key source, team,
 project, defaults, states, labels, triage map, cache age, document health, viewer
 and org. The team detail is cached in SQLite for seven days. A warm `status`

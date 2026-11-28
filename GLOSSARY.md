@@ -171,7 +171,9 @@ they explore the codebase. Use these terms; do not drift to synonyms.
   named after the Linear workspace url key. The name selects the workspace.
   Avoid: account, credential.
 - **Default profile**: the profile marked as the default in the local database.
-  `rata admin auth login` and `rata admin workspace use` set it.
+  `rata admin auth login` makes the first profile the default,
+  `rata admin workspace use` selects a profile, and `rata admin auth logout`
+  removes the default and promotes the next profile by name.
 - **Resolution order**: the order rata uses to select the API key:
   `LINEAR_API_KEY`, the repository `workspace`, the default profile.
 - **Page**: one call's slice of a list. Every list command returns one page by

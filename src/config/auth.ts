@@ -14,6 +14,8 @@ import {
   Schema,
 } from "effect"
 
+import type { LogoutResult } from "@/config/auth/profiles"
+
 import { AuthStoreError } from "@/config/auth/error"
 import { makeConfigHome } from "@/config/auth/home"
 import { removeProfile, selectDefaultProfile, storeProfile } from "@/config/auth/profiles"
@@ -35,11 +37,6 @@ type StoredProfile = {
   readonly name: string
   readonly apiKey: Redacted.Redacted
   readonly isDefault: boolean
-}
-
-type LogoutResult = {
-  readonly removed: Option.Option<string>
-  readonly default: Option.Option<string>
 }
 
 type AuthShape = {
@@ -242,14 +239,15 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
       })
 
       const use = Effect.fn("Auth.use")(function* useWorkspace(workspace: string) {
-        const stored = yield* loadRows()
-        if (!stored.some((row) => row.name === workspace)) {
-          return yield* noWorkspace(workspace)
-        }
+        yield* loadRows()
         const opened = yield* openedDatabase
-        return yield* selectDefaultProfile(opened, workspace).pipe(
+        const selected = yield* selectDefaultProfile(opened, workspace).pipe(
           Effect.mapError(describeQueryFailure("write")),
         )
+        if (!selected) {
+          return yield* noWorkspace(workspace)
+        }
+        return yield* Effect.void
       })
 
       const profilesList: Effect.Effect<readonly StoredProfile[], AuthStoreError | DatabaseError> =
@@ -276,4 +274,4 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
   )
 }
 
-export { Auth, type KeySource, type LogoutResult, type ResolvedAuth, type StoredProfile }
+export { Auth, type KeySource, type ResolvedAuth, type StoredProfile }
