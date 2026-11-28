@@ -1,4 +1,11 @@
-import { projectFields } from "@/linear/documents/project"
+const projectFields = `
+      id
+      name
+      progress
+      status {
+        name
+      }
+      trashed`
 
 const projectCreateMutation = `mutation ProjectCreate($input: ProjectCreateInput!) {
   projectCreate(input: $input) {

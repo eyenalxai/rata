@@ -67,10 +67,10 @@ const handleProjectQuery = (
   if (graphql.query.includes("query ProjectById")) {
     const id = graphql.variables.id
     const includeArchived = graphql.variables.includeArchived === true
-    const visible = projects
+    const nodes = projects
       .filter((project) => project.id === id && (includeArchived || project.trashed !== true))
       .map(withTrashed)
-    return jsonResponse({ data: { projects: paginate(visible, graphql.variables) } })
+    return jsonResponse({ data: { projects: { nodes } } })
   }
   return undefined
 }
