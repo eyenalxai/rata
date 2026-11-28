@@ -173,12 +173,21 @@ const issueWithDuplicateHeading = makeIssue({
   labels: [readyLabel],
 })
 
+const issueWithNestedSections = makeIssue({
+  identifier: "RAT-21",
+  title: "Nested sections",
+  description:
+    "## Parent\n\nParent body.\n\n### Child\n\nChild body.\n\n## Sibling\n\nSibling body.",
+  labels: [readyLabel],
+})
+
 export {
   blocker,
   bugLabel,
   comment,
   issueChild,
   issueWithDuplicateHeading,
+  issueWithNestedSections,
   makeIssue,
   map,
   project,

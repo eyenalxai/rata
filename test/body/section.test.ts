@@ -2,12 +2,8 @@ import { describe, expect, test } from "bun:test"
 import { Result } from "effect"
 
 import { parseSections, readSection } from "@/domain/body/section"
-import {
-  appendSection,
-  replaceSection,
-  replaceSections,
-  SectionBatchError,
-} from "@/domain/body/section/edit"
+import { editSections, SectionBatchError } from "@/domain/body/section/batch"
+import { appendSection, replaceSection } from "@/domain/body/section/edit"
 import { SectionAmbiguousError, SectionNotFoundError } from "@/domain/body/section/model"
 
 const success = (result: Result.Result<string, unknown>): string => {
@@ -226,40 +222,69 @@ describe("replaceSection", () => {
   })
 })
 
-describe("replaceSections", () => {
-  test("replaces several sections in one pass", () => {
+describe("editSections", () => {
+  test("replaces and appends two non-overlapping sections in one pass", () => {
     const result = Result.getOrThrow(
-      replaceSections("## A\n\nOld A.\n\n## B\n\nOld B.\n", [
-        { heading: "A", content: "New A." },
-        { heading: "B", content: "New B." },
+      editSections("## A\n\nOld A.\n\n## B\n\nOld B.\n", [
+        { heading: "A", mode: "replace", content: "New A." },
+        { heading: "B", mode: "append", content: "More B." },
       ]),
     )
 
-    expect(result.body).toBe("## A\n\nNew A.\n\n## B\n\nNew B.\n")
+    expect(result.body).toBe("## A\n\nNew A.\n\n## B\n\nOld B.\n\nMore B.\n")
     expect(result.sections).toEqual([
-      { heading: "A", action: "replaced" },
-      { heading: "B", action: "replaced" },
+      { heading: "A", mode: "replace", action: "replaced" },
+      { heading: "B", mode: "append", action: "appended" },
+    ])
+  })
+
+  test("appends a missing heading at the end", () => {
+    const result = Result.getOrThrow(
+      editSections("# Title\n\nIntro.\n", [
+        { heading: "Handoff log", mode: "append", content: "Started." },
+      ]),
+    )
+
+    expect(result.body).toBe("# Title\n\nIntro.\n\n## Handoff log\n\nStarted.\n")
+    expect(result.sections).toEqual([
+      { heading: "Handoff log", mode: "append", action: "appended" },
     ])
   })
 
   test("reports an unchanged section as skipped", () => {
     const result = Result.getOrThrow(
-      replaceSections("## A\n\nSame.\n\n## B\n\nOld.\n", [
-        { heading: "A", content: "Same." },
-        { heading: "B", content: "New." },
+      editSections("## A\n\nSame.\n\n## B\n\nOld.\n", [
+        { heading: "A", mode: "replace", content: "Same." },
+        { heading: "B", mode: "replace", content: "New." },
       ]),
     )
 
     expect(result.sections).toEqual([
-      { heading: "A", action: "skipped" },
-      { heading: "B", action: "replaced" },
+      { heading: "A", mode: "replace", action: "skipped" },
+      { heading: "B", mode: "replace", action: "replaced" },
     ])
     expect(result.body).toBe("## A\n\nSame.\n\n## B\n\nNew.\n")
   })
 
+  test("rejects a parent replace and a nested child replace as overlapping", () => {
+    const error = failure(
+      editSections("## Parent\n\nParent.\n\n### Child\n\nChild.\n\n## Sibling\n\nSibling.\n", [
+        { heading: "Child", mode: "replace", content: "New child." },
+        { heading: "Parent", mode: "replace", content: "New parent." },
+      ]),
+    )
+
+    expect(error).toBeInstanceOf(SectionBatchError)
+    expect(error).toMatchObject({
+      reason: "overlap",
+      heading: "Child",
+      message: 'The edits to "Parent" and "Child" overlap.',
+    })
+  })
+
   test("fails on a missing heading with the available headings", () => {
     const error = failure(
-      replaceSections("## A\n\nx\n\n## B\n\ny\n", [{ heading: "C", content: "z" }]),
+      editSections("## A\n\nx\n\n## B\n\ny\n", [{ heading: "C", mode: "replace", content: "z" }]),
     )
 
     expect(error).toBeInstanceOf(SectionBatchError)
@@ -272,9 +297,9 @@ describe("replaceSections", () => {
 
   test("fails on a duplicate heading in the input", () => {
     const error = failure(
-      replaceSections("## A\n\nx\n", [
-        { heading: "A", content: "one" },
-        { heading: "A", content: "two" },
+      editSections("## A\n\nx\n", [
+        { heading: "A", mode: "replace", content: "one" },
+        { heading: "A", mode: "append", content: "two" },
       ]),
     )
 
@@ -283,14 +308,16 @@ describe("replaceSections", () => {
 
   test("fails on a duplicate heading in the body", () => {
     const error = failure(
-      replaceSections("## A\n\nx\n\n## A\n\ny\n", [{ heading: "A", content: "z" }]),
+      editSections("## A\n\nx\n\n## A\n\ny\n", [{ heading: "A", mode: "replace", content: "z" }]),
     )
 
     expect(error).toMatchObject({ reason: "duplicate", heading: "A" })
   })
 
   test("fails on an empty heading", () => {
-    const error = failure(replaceSections("## A\n\nx\n", [{ heading: "  ", content: "z" }]))
+    const error = failure(
+      editSections("## A\n\nx\n", [{ heading: "  ", mode: "replace", content: "z" }]),
+    )
 
     expect(error).toMatchObject({ reason: "empty" })
   })

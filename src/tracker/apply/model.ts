@@ -1,5 +1,6 @@
 import type { ContextResolver } from "@/context/resolve"
 import type { ApplyDocument, ApplyRelations } from "@/domain/apply"
+import type { SectionBatchError } from "@/domain/body/section/batch"
 import type { TrackerError } from "@/domain/error"
 import type { LinearClientShape } from "@/linear/client"
 import type { LinearGatewayShape } from "@/linear/gateway"
@@ -20,7 +21,7 @@ type ApplyDependencies = {
   readonly comments: ReturnType<typeof makeCommentWrites>
 }
 
-type ApplyPlanError = AssigneeInputError | IssueWriteApiError | TrackerError
+type ApplyPlanError = AssigneeInputError | IssueWriteApiError | SectionBatchError | TrackerError
 
 type ApplyDocumentContext = {
   readonly ref: string

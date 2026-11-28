@@ -1,6 +1,6 @@
 import type { CommentId } from "@/domain/id"
 import type { Priority } from "@/domain/priority"
-import type { SectionReplacementAction } from "@/domain/section"
+import type { SectionEditAction } from "@/domain/section"
 import type { IssueComment } from "@/linear/decode/issue"
 import type { IssueSummary } from "@/tracker/model"
 
@@ -54,7 +54,7 @@ type IssueUpdateSectionsOptions = Omit<IssueUpdateOptions, "body" | "append">
 type IssueUpdateSectionsPlan = {
   readonly status: "updated" | "skipped"
   readonly updatedAt: string
-  readonly sections: readonly SectionReplacementAction[]
+  readonly sections: readonly SectionEditAction[]
   readonly diff: string
 }
 
@@ -62,7 +62,7 @@ type IssueUpdateSectionsResult = {
   readonly status: "updated" | "skipped"
   readonly updatedAt: string
   readonly issue: IssueSummary
-  readonly sections: readonly SectionReplacementAction[]
+  readonly sections: readonly SectionEditAction[]
 }
 
 type CommentCreateOptions = VisibilityOptions & {

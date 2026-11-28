@@ -13,7 +13,7 @@ import type {
 } from "@/tracker/write/write-types"
 
 import { unifiedDiff } from "@/domain/body/diff"
-import { replaceSections as replaceSectionsInText } from "@/domain/body/section/edit"
+import { editSections as editSectionsInText } from "@/domain/body/section/batch"
 import { UpdateIssueResponse } from "@/linear/decode/issue"
 import { ensureUnchanged, makeReadIssueBody } from "@/tracker/write/body/snapshot"
 import { updateIssueMutation } from "@/tracker/write/documents"
@@ -40,7 +40,12 @@ const makeSectionWrites = ({ client, resolvers }: SectionDependencies) => {
       const issueBody = yield* readIssueBody(ref)
       yield* ensureUnchanged(issueBody.identifier, issueBody.updatedAt, writeOptions.ifUnchanged)
       const current = issueBody.description ?? ""
-      const replaced = yield* Effect.fromResult(replaceSectionsInText(current, sections))
+      const replaced = yield* Effect.fromResult(
+        editSectionsInText(
+          current,
+          sections.map((section) => ({ ...section, mode: "replace" as const })),
+        ),
+      )
       const input = yield* resolveUpdateFields(context, issueBody.id, options)
       if (replaced.body !== current) {
         input.description = replaced.body

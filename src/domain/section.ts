@@ -19,13 +19,33 @@ const SectionReplacement = Schema.Struct({
 })
 type SectionReplacement = typeof SectionReplacement.Type
 
-const SectionReplacementAction = Schema.Struct({
+const sectionEditModes = ["replace", "append"] as const
+type SectionEditMode = (typeof sectionEditModes)[number]
+
+const SectionEdit = Schema.Struct({
   heading: Schema.String,
-  action: Schema.Literals(["replaced", "skipped"]),
+  mode: Schema.Literals(sectionEditModes),
+  content: Schema.String,
 })
-type SectionReplacementAction = typeof SectionReplacementAction.Type
+type SectionEdit = typeof SectionEdit.Type
+
+const SectionEditAction = Schema.Struct({
+  heading: Schema.String,
+  mode: Schema.Literals(sectionEditModes),
+  action: Schema.Literals(["replaced", "appended", "skipped"]),
+})
+type SectionEditAction = typeof SectionEditAction.Type
 
 const isSectionLevel = (value: number): value is SectionLevel =>
   sectionLevels.some((level) => level === value)
 
-export { isSectionLevel, type SectionLevel, Section, SectionReplacement, SectionReplacementAction }
+export {
+  isSectionLevel,
+  Section,
+  SectionEdit,
+  SectionEditAction,
+  type SectionEditMode,
+  sectionEditModes,
+  type SectionLevel,
+  SectionReplacement,
+}
