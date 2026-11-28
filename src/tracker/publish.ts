@@ -4,7 +4,8 @@ import type { IssuePublishShape, PublishDependencies } from "@/tracker/publish/m
 
 import { ContextResolver } from "@/context/resolve"
 import { LinearGateway } from "@/linear/gateway"
-import { dryRunPublish, executePublish } from "@/tracker/publish/execute"
+import { executePublish } from "@/tracker/publish/execute"
+import { dryRunPublish } from "@/tracker/publish/execute/results"
 import { makePublishPlan } from "@/tracker/publish/plan"
 import { makeIssueWriteResolvers } from "@/tracker/write/resolvers"
 

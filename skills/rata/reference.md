@@ -1165,13 +1165,19 @@ alone. `issue relate <ref> (--blocks|--blocked-by|--related|--duplicate)
 `parent`, `defaults` and `nodes`. Each node requires `key`, `kind` and `title`;
 `body`, `priority`, `labels`, `assignee`, `state`, `parent` and `blockedBy` are
 optional. A parent or a blocker may name a node key or an existing issue
-reference. The engine orders the nodes, derives a stable client UUID from the
-parent and key (the team scopes a top-level node), reads the existing ids before
-it creates, and creates up to 50 nodes per `issueBatchCreate`. It adds only the
-missing blocking edges. A cycle or an unknown key fails before the first write.
-A retry reuses the nodes and skips the edges that already exist. `kind` is
-recorded on the node and in the result; in this slice it does not set labels or
-assignees. The result is `{ nodes, edges, result }`; `--dry-run` writes nothing.
+reference. Use a unique `key` per child. The key is the node identity: a retry
+with the same key reuses the issue, and a new key creates a new issue. The
+engine orders the nodes, derives a stable client UUID from the parent and key
+(the team scopes a top-level node), reads the existing ids before it creates,
+and creates up to 50 nodes per `issueBatchCreate`. It adds only the missing
+blocking edges. A cycle or an unknown key fails before the first write. A retry
+reuses the nodes and skips the edges that already exist. A reused node reports
+the stored title, parent, labels, priority, state and assignee, plus `changed`
+and the changed field names in `changes`. The retry keeps the stored values; it
+does not update or reject the node. `result.warning` names the changed fields and
+the next step. Linear does not store `kind`, so a reused node reports
+`kind: null`; the create path echoes the document value. The result is
+`{ nodes, edges, result }`; `--dry-run` writes nothing.
 
 ### Lifecycle
 

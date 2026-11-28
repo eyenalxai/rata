@@ -1,157 +1,25 @@
 import { Effect, Result } from "effect"
 
-import type { PlanStatus } from "@/domain/plan"
 import type { LinearClientShape } from "@/linear/client"
-import type {
-  FailedPublishAction,
-  PublishEdgeResult,
-  PublishNodeResult,
-  PublishPlan,
-  PublishResult,
-} from "@/tracker/publish/model"
+import type { MutableNodeResults } from "@/tracker/publish/execute/results"
+import type { PublishPlan, PublishResult } from "@/tracker/publish/model"
 
 import { TrackerError } from "@/domain/error"
 import { CreateRelationResponse, IssueBatchCreateResponse } from "@/linear/decode/issue"
 import { issueBatchCreateMutation } from "@/tracker/publish/documents"
-import { edgeStep, nodeStep } from "@/tracker/publish/model"
+import {
+  actionsFrom,
+  batchKeys,
+  changedFrom,
+  changedReuseWarning,
+  failureResult,
+  initialEdgeResults,
+  initialNodeResults,
+  markBatchFailed,
+  nodeResult,
+  nodesInOrder,
+} from "@/tracker/publish/execute/results"
 import { createRelationMutation } from "@/tracker/write/documents"
-
-type NodeResults = ReadonlyMap<string, PublishNodeResult>
-
-type MutableNodeResults = Map<string, PublishNodeResult>
-
-const initialNodeResult = (node: PublishPlan["nodes"][number]): PublishNodeResult => ({
-  key: node.key,
-  kind: node.kind,
-  title: node.title,
-  id: node.id,
-  identifier: node.action === "reuse" ? node.existing.identifier : null,
-  parent: node.parent,
-  labels: node.labels,
-  priority: node.priority,
-  state: node.state,
-  assignee: node.assignee,
-  body: node.body,
-  action: node.action,
-})
-
-const batchKeys = (plan: PublishPlan): readonly (readonly string[])[] =>
-  plan.batches.map((batch) => batch.map((node) => node.key))
-
-const initialNodeResults = (plan: PublishPlan): MutableNodeResults =>
-  new Map(
-    plan.nodes.map(
-      (node) =>
-        [
-          node.key,
-          {
-            ...initialNodeResult(node),
-            action: node.action === "reuse" ? "reused" : "create",
-          },
-        ] as const,
-    ),
-  )
-
-const initialEdgeResults = (plan: PublishPlan): PublishEdgeResult[] =>
-  plan.edges.map((edge) => ({ from: edge.from, to: edge.to, action: edge.action }))
-
-const nodeResult = (nodes: NodeResults, key: string): PublishNodeResult => {
-  const result = nodes.get(key)
-  if (result === undefined) {
-    throw new Error(`The publish result is missing the node ${key}.`)
-  }
-  return result
-}
-
-const nodesInOrder = (plan: PublishPlan, nodes: NodeResults): readonly PublishNodeResult[] =>
-  plan.nodes.map((node) => nodeResult(nodes, node.key))
-
-const statusOfNode = (action: PublishNodeResult["action"]): PlanStatus | undefined => {
-  if (action === "reused") {
-    return "skipped"
-  }
-  return action === "created" ? "updated" : undefined
-}
-
-const statusOfEdge = (action: PublishEdgeResult["action"]): PlanStatus | undefined => {
-  if (action === "skipped") {
-    return "skipped"
-  }
-  return action === "created" ? "updated" : undefined
-}
-
-const actionsFrom = (
-  plan: PublishPlan,
-  nodes: NodeResults,
-  edges: readonly PublishEdgeResult[],
-): readonly PublishPlan["actions"][number][] => [
-  ...plan.nodes.flatMap((node) => {
-    const status = statusOfNode(nodeResult(nodes, node.key).action)
-    return status === undefined ? [] : [nodeStep(node, status)]
-  }),
-  ...plan.edges.flatMap((edge, index) => {
-    const status = statusOfEdge(edges[index]?.action ?? "create")
-    return status === undefined ? [] : [edgeStep(edge, status)]
-  }),
-]
-
-const changedFrom = (
-  plan: PublishPlan,
-  nodes: NodeResults,
-  edges: readonly PublishEdgeResult[],
-): readonly string[] => [
-  ...plan.nodes
-    .filter((node) => nodeResult(nodes, node.key).action === "created")
-    .map((node) => `node:${node.key}`),
-  ...plan.edges.flatMap((edge, index) =>
-    edges[index]?.action === "created" ? [`edge:${edge.to}:${edge.from}`] : [],
-  ),
-]
-
-const failureResult = (
-  plan: PublishPlan,
-  nodes: NodeResults,
-  edges: readonly PublishEdgeResult[],
-  failed: FailedPublishAction,
-  cause: unknown,
-): PublishResult => ({
-  action: "publish",
-  status: "failed",
-  changed: changedFrom(plan, nodes, edges),
-  dryRun: false,
-  snapshot: plan.snapshot,
-  order: plan.order,
-  batches: batchKeys(plan),
-  actions: actionsFrom(plan, nodes, edges),
-  nodes: nodesInOrder(plan, nodes),
-  edges,
-  failed,
-  cause,
-})
-
-const dryRunPublish = (plan: PublishPlan): PublishResult => ({
-  action: "publish",
-  status: plan.changed.length === 0 ? "skipped" : "updated",
-  changed: plan.changed,
-  dryRun: true,
-  snapshot: plan.snapshot,
-  order: plan.order,
-  batches: batchKeys(plan),
-  actions: plan.actions,
-  nodes: plan.nodes.map(initialNodeResult),
-  edges: initialEdgeResults(plan),
-})
-
-const markBatchFailed = (
-  nodes: NodeResults,
-  batch: PublishPlan["batches"][number],
-): MutableNodeResults => {
-  const updated = new Map(nodes)
-  for (const node of batch) {
-    updated.set(node.key, { ...nodeResult(nodes, node.key), action: "failed" })
-  }
-  return updated
-}
 
 const batchTarget = (batch: PublishPlan["batches"][number]): string =>
   batch.map((node) => node.key).join(", ")
@@ -291,7 +159,8 @@ const executePublish = Effect.fn("IssuePublish.execute")(function* runPublish(
     actions: actionsFrom(plan, nodes, edges),
     nodes: nodesInOrder(plan, nodes),
     edges,
+    warning: changedReuseWarning(plan),
   }
 })
 
-export { dryRunPublish, executePublish }
+export { executePublish }

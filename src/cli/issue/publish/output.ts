@@ -17,6 +17,8 @@ const publishNodeShape = objectField({
   state: scalarField,
   assignee: scalarField,
   body: scalarField,
+  changed: scalarField,
+  changes: arrayField(scalarField),
   action: scalarField,
 })
 
@@ -53,13 +55,16 @@ const publicResult = (result: PublishResult) => {
     dryRun: result.dryRun,
     snapshot: result.snapshot,
     actions: result.actions,
+    warning: result.warning,
     ...(result.failed === undefined ? {} : { failed: result.failed }),
     ...(error === undefined ? {} : { error }),
   }
 }
 
 const nodeLine = (node: PublishNodeResult): string =>
-  `  ${node.key}  ${node.identifier ?? "-"}  ${node.action}  ${node.title}`
+  `  ${node.key}  ${node.identifier ?? "-"}  ${node.action}  ${node.title}${
+    node.changed ? `  changed: ${node.changes.join(", ")}` : ""
+  }`
 
 const edgeLine = (edge: PublishEdgeResult): string => `  ${edge.from} -> ${edge.to}  ${edge.action}`
 
@@ -68,6 +73,7 @@ const resultLines = (result: PublishResult): readonly string[] => {
   return [
     `result: ${result.status}${result.dryRun ? " (dry run)" : ""}`,
     `changed: ${result.changed.length === 0 ? "none" : result.changed.join(", ")}`,
+    ...(result.warning === null ? [] : [`warning: ${result.warning}`]),
     ...(result.failed === undefined || report === undefined
       ? []
       : [

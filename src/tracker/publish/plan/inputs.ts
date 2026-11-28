@@ -66,6 +66,58 @@ const resolvedNodeLabels = (
   return resolved
 }
 
+const sameNames = (left: readonly string[], right: readonly string[]): boolean => {
+  const leftNames = new Set(left.map((name) => name.toLowerCase()))
+  const rightNames = new Set(right.map((name) => name.toLowerCase()))
+  return leftNames.size === rightNames.size && [...leftNames].every((name) => rightNames.has(name))
+}
+
+const expectedAssigneeId = (value: string, context: ResolvedContext): string | null | undefined => {
+  if (isNoneValue(value)) {
+    return null
+  }
+  return value.toLowerCase() === "me" ? context.viewer?.id : value
+}
+
+const changedFields = (
+  draft: DraftNode,
+  document: PublishDocument,
+  context: ResolvedContext,
+  existing: IssueSummary,
+): readonly string[] => {
+  const fields: string[] = []
+  if (existing.title.trim() !== draft.node.title.trim()) {
+    fields.push("title")
+  }
+  if ((existing.parent?.id ?? null) !== draft.parentId) {
+    fields.push("parent")
+  }
+  if (
+    !sameNames(
+      effectiveLabels(draft.node, document, context),
+      existing.labels.map((label) => label.name),
+    )
+  ) {
+    fields.push("labels")
+  }
+  const priority = effectivePriority(draft.node, document, context) ?? "none"
+  if (existing.priority !== priority) {
+    fields.push("priority")
+  }
+  const state = effectiveState(draft.node, document)
+  if (state !== undefined && existing.state.name.toLowerCase() !== state.toLowerCase()) {
+    fields.push("state")
+  }
+  const assignee = effectiveAssignee(draft.node, document, context)
+  if (assignee !== undefined) {
+    const expected = assignee === null ? null : expectedAssigneeId(assignee, context)
+    if (expected !== undefined && (existing.assignee?.id ?? null) !== expected) {
+      fields.push("assignee")
+    }
+  }
+  return fields
+}
+
 const createInput = (
   draft: DraftNode,
   document: PublishDocument,
@@ -148,6 +200,7 @@ const makeEdges = (
 }
 
 export {
+  changedFields,
   createInput,
   effectiveAssignee,
   effectiveLabels,

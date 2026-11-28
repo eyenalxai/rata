@@ -99,9 +99,13 @@ tickets are child issues.
 
 The map is an issue labelled `wayfinder:map`. Its children carry
 `wayfinder:<type>`, where type is `research`, `prototype`, `grilling` or `task`.
+Give each child a unique `key` among the children of one map. The key is the
+child's identity: a retry with the same key reuses the issue, and a new key
+creates a new issue. A retry keeps the stored values and reports a changed node;
+it never overwrites the issue.
 
 - **Map**: `printf '%s' '{"defaults":{"labels":[],"assignee":null},"nodes":[{"key":"map","kind":"map","title":"<title>","labels":["wayfinder:map"]}]}' | rata issue publish --file -`
-- **Child**: `printf '%s' '{"defaults":{"labels":[],"assignee":null},"parent":"<map-ref>","nodes":[{"key":"task","kind":"task","title":"<title>","labels":["wayfinder:<type>"]}]}' | rata issue publish --file -`
+- **Child**: `printf '%s' '{"defaults":{"labels":[],"assignee":null},"parent":"<map-ref>","nodes":[{"key":"task-<slug>","kind":"task","title":"<title>","labels":["wayfinder:<type>"]}]}' | rata issue publish --file -`
 - **Wire**: `rata issue relate <child-ref> --blocked-by <blocker-ref>`.
 - **Frontier**: `rata issue <map-ref>` returns `frontier` and `nextChild`. For the whole frontier as rows, use `rata issue list --parent <map-ref> --unblocked --unassigned --relations --sort priority --all`.
 - **Claim**: `rata issue start <ref>`. It claims an unassigned issue, skips your own claim, and exits 4 with the holder when another user holds it. Add `--take` to reassign.

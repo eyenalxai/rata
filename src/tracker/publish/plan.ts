@@ -25,6 +25,7 @@ import {
   uniqueValues,
 } from "@/tracker/publish/plan/graph"
 import {
+  changedFields,
   createInput,
   effectiveAssignee,
   effectiveLabels,
@@ -108,17 +109,20 @@ const makePublishPlan = Effect.fn("IssuePublish.plan")(function* planPublishDocu
   const nodes: PublishNodePlan[] = drafts.map((draft) => {
     const found = existingById.get(draft.id)
     if (found !== undefined) {
+      const changes = changedFields(draft, document, target, found)
       return {
         key: draft.node.key,
-        kind: draft.node.kind,
-        title: draft.node.title,
+        kind: null,
+        title: found.title,
         id: String(found.id),
-        parent: draft.parent,
+        parent: found.parent?.identifier ?? null,
         labels: found.labels.map((label) => label.name),
         priority: found.priority,
         state: found.state.name,
         assignee: found.assignee?.id ?? null,
         body: null,
+        changed: changes.length > 0,
+        changes,
         action: "reuse",
         existing: found,
         input: null,
@@ -136,6 +140,8 @@ const makePublishPlan = Effect.fn("IssuePublish.plan")(function* planPublishDocu
       state: effectiveState(draft.node, document) ?? null,
       assignee: effectiveAssignee(draft.node, document, target) ?? null,
       body: draft.node.body ?? null,
+      changed: false,
+      changes: [],
       action: "create",
       existing: null,
       input: createInput(draft, document, target, teamId, nodeLabels, states, assignees),

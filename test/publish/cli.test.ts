@@ -1,12 +1,15 @@
-import type { MemorySeed } from "@test/fake-linear/gateway/model"
+import type { ApiLayerOptions } from "@test/fake-linear"
+import type { MemoryIssue, MemorySeed } from "@test/fake-linear/gateway/model"
 
-import { seed, viewer } from "@test/apply/fixtures"
+import { bugLabel, makeIssue, seed, viewer } from "@test/apply/fixtures"
 import { lastJson, runIssueMemory } from "@test/cli-harness"
 import { makeMemoryGateway } from "@test/fake-linear/gateway/memory"
 import { describe, expect, test } from "bun:test"
 import { Option, Predicate, Schema, Stream } from "effect"
 
 import type { LinearGatewayShape } from "@/linear/gateway"
+
+import { issueId } from "@/domain/id"
 
 const recordOf = (value: unknown): Record<string, unknown> =>
   Option.getOrThrow(Schema.decodeUnknownOption(Schema.Record(Schema.String, Schema.Unknown))(value))
@@ -24,13 +27,14 @@ const runPublish = async (
   gateway: LinearGatewayShape,
   document: unknown,
   extraArgs: readonly string[] = [],
+  repositories?: ApiLayerOptions["repositories"],
 ) => {
   const lines: string[] = []
   const exit = await runIssueMemory(
     seedValue,
     ["publish", "--file", "-", "--format", "json", ...extraArgs],
     lines,
-    undefined,
+    repositories,
     {
       gateway,
       stdio: { stdin: Stream.make(new TextEncoder().encode(JSON.stringify(document))) },
@@ -49,6 +53,25 @@ const readDoc = async (seedValue: MemorySeed, gateway: LinearGatewayShape, ref: 
     { gateway },
   )
   return recordOf(lastJson(lines))
+}
+
+const storedChild = (): MemoryIssue => {
+  const issue = makeIssue({
+    identifier: "RAT-42",
+    title: "Stored title",
+    priority: "high",
+    state: { name: "In Progress", type: "started" },
+    labels: [bugLabel],
+  })
+  return {
+    ...issue,
+    summary: {
+      ...issue.summary,
+      id: issueId("0d5b279e-f726-4470-a828-c8cdd4528abc"),
+      parent: { id: issueId("issue-RAT-1"), identifier: "RAT-1", title: "The map" },
+      assignee: viewer,
+    },
+  }
 }
 
 type CountedGateway = {
@@ -106,6 +129,11 @@ const retryDocument = (specBlocker: boolean) => ({
   ],
 })
 
+const titleDocument = (title: string) => ({
+  team: "RAT",
+  parent: "RAT-1",
+  nodes: [{ key: "task-a", kind: "task", title }],
+})
 describe("issue publish", () => {
   test("creates a parent, its children and their blocking edges", async () => {
     const seedValue = seed()
@@ -195,6 +223,34 @@ describe("issue publish", () => {
     expect(children.map((child) => String(child.identifier)).toSorted()).toEqual(
       [spec?.identifier, client?.identifier, cache?.identifier].map(String).toSorted(),
     )
+  })
+
+  test("two children published in separate calls create two issues", async () => {
+    const seedValue = seed()
+    const gateway = makeMemoryGateway(seedValue)
+    const { lines: first } = await runPublish(seedValue, gateway, {
+      team: "RAT",
+      parent: "RAT-1",
+      nodes: [{ key: "task-a", kind: "task", title: "First child" }],
+    })
+    const { lines: second } = await runPublish(seedValue, gateway, {
+      team: "RAT",
+      parent: "RAT-1",
+      nodes: [{ key: "task-b", kind: "task", title: "Second child" }],
+    })
+
+    const firstNode = itemsOf(first, "nodes")[0]
+    const secondNode = itemsOf(second, "nodes")[0]
+    expect(firstNode?.action).toBe("created")
+    expect(secondNode?.action).toBe("created")
+    expect(firstNode?.identifier).toBeDefined()
+    expect(secondNode?.identifier).toBeDefined()
+    expect(firstNode?.identifier).not.toBe(secondNode?.identifier)
+
+    const firstDoc = await readDoc(seedValue, gateway, String(firstNode?.identifier))
+    const secondDoc = await readDoc(seedValue, gateway, String(secondNode?.identifier))
+    expect(recordOf(firstDoc.parent)).toMatchObject({ identifier: "RAT-1" })
+    expect(recordOf(secondDoc.parent)).toMatchObject({ identifier: "RAT-1" })
   })
 
   test("a child names a parent created in the same call", async () => {
@@ -298,6 +354,109 @@ describe("issue publish", () => {
     expect(resultOf(third)).toMatchObject({ status: "skipped", changed: [] })
     expect(counted.batches()).toBe(0)
     expect(counted.relations()).toBe(1)
+  })
+
+  test("a reused node reports the stored values", async () => {
+    const seedValue = seed({ issues: [storedChild()] })
+    const counted = countingGateway(makeMemoryGateway(seedValue))
+    const { lines } = await runPublish(seedValue, counted.gateway, {
+      team: "RAT",
+      parent: "RAT-1",
+      defaults: { priority: "high", labels: ["bug"], assignee: "me" },
+      nodes: [{ key: "spec", kind: "task", title: "Stored title" }],
+    })
+
+    expect(resultOf(lines)).toMatchObject({ status: "skipped", changed: [], warning: null })
+    expect(itemsOf(lines, "nodes")).toEqual([
+      expect.objectContaining({
+        key: "spec",
+        kind: null,
+        title: "Stored title",
+        identifier: "RAT-42",
+        parent: "RAT-1",
+        labels: ["bug"],
+        priority: "high",
+        state: "In Progress",
+        assignee: viewer.id,
+        changed: false,
+        changes: [],
+        action: "reused",
+      }),
+    ])
+    expect(counted.batches()).toBe(0)
+  })
+
+  test("a retry with a repo default label reports no label change", async () => {
+    const seedValue = seed()
+    const counted = countingGateway(makeMemoryGateway(seedValue))
+    const repositories = [{ key: process.cwd(), team: "RAT", defaultLabels: ["ready-for-agent"] }]
+
+    const { lines: first } = await runPublish(
+      seedValue,
+      counted.gateway,
+      titleDocument("Original title"),
+      [],
+      repositories,
+    )
+    expect(resultOf(first)).toMatchObject({ status: "updated" })
+
+    counted.reset()
+    const { lines: second } = await runPublish(
+      seedValue,
+      counted.gateway,
+      titleDocument("Original title"),
+      [],
+      repositories,
+    )
+    expect(resultOf(second)).toMatchObject({ status: "skipped", warning: null })
+    expect(itemsOf(second, "nodes")).toEqual([
+      expect.objectContaining({
+        key: "task-a",
+        labels: ["ready-for-agent"],
+        changed: false,
+        changes: [],
+        action: "reused",
+      }),
+    ])
+    expect(counted.batches()).toBe(0)
+  })
+
+  test("a changed title on reuse is reported as changed", async () => {
+    const seedValue = seed()
+    const counted = countingGateway(makeMemoryGateway(seedValue))
+
+    const { lines: first } = await runPublish(
+      seedValue,
+      counted.gateway,
+      titleDocument("Original title"),
+    )
+    expect(resultOf(first)).toMatchObject({ status: "updated", warning: null })
+
+    counted.reset()
+    const { lines: second, exit: secondExit } = await runPublish(
+      seedValue,
+      counted.gateway,
+      titleDocument("Changed title"),
+    )
+    const result = resultOf(second)
+    expect(secondExit.code).toBe(0)
+    expect(result).toMatchObject({
+      status: "skipped",
+      changed: [],
+      warning:
+        "The reused node task-a (title) differs from the document. The stored values are kept. Use a new key to publish a changed node, or run `rata issue apply` to change the issue.",
+    })
+    expect(itemsOf(second, "nodes")).toEqual([
+      expect.objectContaining({
+        key: "task-a",
+        kind: null,
+        title: "Original title",
+        changed: true,
+        changes: ["title"],
+        action: "reused",
+      }),
+    ])
+    expect(counted.batches()).toBe(0)
   })
 
   test("a dry run returns the plan and writes nothing", async () => {
