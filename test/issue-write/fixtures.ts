@@ -1,4 +1,3 @@
-import type { ApiLayerOptions } from "@test/fake-linear"
 import type {
   FakeLabel,
   FakePriority,
@@ -9,15 +8,10 @@ import type {
 } from "@test/fake-linear/model"
 import type { HttpClientRequest } from "effect/http"
 
-import { apiLayer } from "@test/fake-linear"
 import { defaultPriorities, readRequest } from "@test/fake-linear/model"
 import { jsonResponse, pageInfo, summaryNode } from "@test/issue-fixtures"
-import { Effect } from "effect"
-
-import type { IssueWriteApi } from "@/api/issue-write"
 
 const team = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
-const otherTeam = { id: "team-2", key: "OPS", name: "Operations", timezone: "America/Los_Angeles" }
 
 const states = [
   { id: "s-backlog", name: "Backlog", type: "backlog" },
@@ -83,9 +77,6 @@ const teamDetailResponse = (
 const issueCreated = (): Response =>
   jsonResponse({ data: { issueCreate: { success: true, issue: summaryNode("RAT-1") } } })
 
-const issueUpdated = (): Response =>
-  jsonResponse({ data: { issueUpdate: { success: true, issue: summaryNode("RAT-1") } } })
-
 type Recorder = {
   readonly handler: Handler
   readonly requests: GraphQLRequest[]
@@ -104,33 +95,7 @@ const makeRecorder = (respond: (request: GraphQLRequest) => Response): Recorder 
   return { handler, requests }
 }
 
-const defaultOptions: ApiLayerOptions = {
-  repositories: [{ key: process.cwd(), team: "RAT" }],
-}
-
-const run = <A, E>(
-  handler: Handler,
-  effect: Effect.Effect<A, E, IssueWriteApi>,
-  options: ApiLayerOptions = defaultOptions,
-): Promise<A> => effect.pipe(Effect.provide(apiLayer(handler, options)), Effect.runPromise)
-
-const configWithTeam = (key: string): ApiLayerOptions => ({
-  repositories: [{ key: process.cwd(), team: key }],
-})
-
 const requestOf = (recorder: Recorder, fragment: string): GraphQLRequest | undefined =>
   recorder.requests.find((request) => request.query.includes(fragment))
 
-export {
-  configWithTeam,
-  issueCreated,
-  issueUpdated,
-  makeRecorder,
-  otherTeam,
-  requestOf,
-  type Recorder,
-  run,
-  states,
-  team,
-  teamDetailResponse,
-}
+export { issueCreated, makeRecorder, requestOf, type Recorder, team, teamDetailResponse }

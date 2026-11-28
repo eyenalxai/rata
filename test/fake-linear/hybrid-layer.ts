@@ -9,7 +9,6 @@ import { ConfigProvider, Effect, FileSystem, Layer, Path, Stdio } from "effect"
 import { HttpClient, HttpClientResponse } from "effect/http"
 
 import { LinearClient } from "@/api/client"
-import { IssueWriteApi } from "@/api/issue-write"
 import { LabelService } from "@/api/label"
 import { ProjectService } from "@/api/project"
 import { RepoTeam } from "@/api/repo-team"
@@ -86,9 +85,6 @@ const hybridApiLayer = (handler: Handler, seed: MemorySeed, options: ApiLayerOpt
   const workflow = IssueWorkflow.layer.pipe(Layer.provide(Layer.mergeAll(reader, apply)))
   const publish = IssuePublish.layer.pipe(Layer.provide(Layer.mergeAll(gateway, contextResolver)))
   const writer = IssueWriter.layer.pipe(Layer.provide(Layer.mergeAll(gateway, contextResolver)))
-  const issueWrite = IssueWriteApi.layer.pipe(
-    Layer.provide(Layer.mergeAll(contextResolver, writer)),
-  )
   const defaults = IssueDefaultsService.layer.pipe(
     Layer.provide(Layer.mergeAll(labels, repoConfig, repoTeam)),
   )
@@ -115,7 +111,6 @@ const hybridApiLayer = (handler: Handler, seed: MemorySeed, options: ApiLayerOpt
     repoConfig,
     identity,
     defaults,
-    issueWrite,
     link,
   )
 }

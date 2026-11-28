@@ -1,17 +1,16 @@
+import type { Recorder } from "@test/issue-write/fixtures"
+
+import { lastJson, runIssue } from "@test/cli-harness"
 import { inputOf } from "@test/fake-linear/model"
 import { jsonResponse, pageInfo, viewer } from "@test/issue-fixtures"
 import {
   issueCreated,
   makeRecorder,
   requestOf,
-  run,
   team,
   teamDetailResponse,
 } from "@test/issue-write/fixtures"
-import { describe, expect, test } from "bun:test"
-import { Effect } from "effect"
-
-import { IssueWriteApi } from "@/api/issue-write"
+import { afterEach, describe, expect, test } from "bun:test"
 
 const handler = () =>
   makeRecorder((request) => {
@@ -59,19 +58,22 @@ const seed = [
   },
 ]
 
-describe("IssueWriteApi create defaults", () => {
+const create = async (recorder: Recorder, args: readonly string[]): Promise<string[]> => {
+  const lines: string[] = []
+  await runIssue(recorder.handler, ["create", ...args, "--format", "json"], lines, seed)
+  return lines
+}
+
+afterEach(() => {
+  process.exitCode = 0
+})
+
+describe("issue create defaults", () => {
   test("applies the repository defaults", async () => {
     const recorder = handler()
-    await run(
-      recorder.handler,
-      Effect.gen(function* createIssue() {
-        const api = yield* IssueWriteApi
-        return yield* api.create({ title: "Fix login", team: "RAT" })
-      }),
-      { repositories: seed },
-    )
-    const create = requestOf(recorder, "mutation CreateIssue")
-    expect(inputOf(create?.variables ?? {})).toEqual({
+    await create(recorder, ["--title", "Fix login", "--team", "RAT"])
+    const createRequest = requestOf(recorder, "mutation CreateIssue")
+    expect(inputOf(createRequest?.variables ?? {})).toEqual({
       teamId: "team-1",
       title: "Fix login",
       labelIds: ["l-enh"],
@@ -82,21 +84,18 @@ describe("IssueWriteApi create defaults", () => {
 
   test("keeps an explicit priority and adds explicit labels to the defaults", async () => {
     const recorder = handler()
-    await run(
-      recorder.handler,
-      Effect.gen(function* createIssue() {
-        const api = yield* IssueWriteApi
-        return yield* api.create({
-          title: "Fix login",
-          team: "RAT",
-          labels: ["bug"],
-          priority: "low",
-        })
-      }),
-      { repositories: seed },
-    )
-    const create = requestOf(recorder, "mutation CreateIssue")
-    expect(inputOf(create?.variables ?? {})).toEqual({
+    await create(recorder, [
+      "--title",
+      "Fix login",
+      "--team",
+      "RAT",
+      "--label",
+      "bug",
+      "--priority",
+      "low",
+    ])
+    const createRequest = requestOf(recorder, "mutation CreateIssue")
+    expect(inputOf(createRequest?.variables ?? {})).toEqual({
       teamId: "team-1",
       title: "Fix login",
       labelIds: ["l-enh", "l-bug"],
@@ -105,60 +104,69 @@ describe("IssueWriteApi create defaults", () => {
     })
   })
 
-  test("drops the defaults with useDefaultLabels false and none values", async () => {
+  test("drops the default assignee and priority with none", async () => {
     const recorder = handler()
-    await run(
-      recorder.handler,
-      Effect.gen(function* createIssue() {
-        const api = yield* IssueWriteApi
-        return yield* api.create({
-          title: "Fix login",
-          team: "RAT",
-          useDefaultLabels: false,
-          assignee: "none",
-          priority: "none",
-        })
-      }),
-      { repositories: seed },
-    )
-    const create = requestOf(recorder, "mutation CreateIssue")
-    expect(inputOf(create?.variables ?? {})).toEqual({ teamId: "team-1", title: "Fix login" })
+    await create(recorder, [
+      "--title",
+      "Fix login",
+      "--team",
+      "RAT",
+      "--assignee",
+      "none",
+      "--priority",
+      "none",
+    ])
+    const createRequest = requestOf(recorder, "mutation CreateIssue")
+    expect(inputOf(createRequest?.variables ?? {})).toEqual({
+      teamId: "team-1",
+      title: "Fix login",
+      labelIds: ["l-enh"],
+    })
   })
 
   test("deduplicates the default and explicit labels case-insensitively", async () => {
     const recorder = handler()
-    await run(
-      recorder.handler,
-      Effect.gen(function* createIssue() {
-        const api = yield* IssueWriteApi
-        return yield* api.create({
-          title: "Fix login",
-          team: "RAT",
-          labels: ["Enhancement", "bug"],
-        })
-      }),
-      { repositories: seed },
-    )
-    const create = requestOf(recorder, "mutation CreateIssue")
-    expect(inputOf(create?.variables ?? {})).toMatchObject({ labelIds: ["l-enh", "l-bug"] })
+    await create(recorder, [
+      "--title",
+      "Fix login",
+      "--team",
+      "RAT",
+      "--label",
+      "Enhancement",
+      "--label",
+      "bug",
+    ])
+    const createRequest = requestOf(recorder, "mutation CreateIssue")
+    expect(inputOf(createRequest?.variables ?? {})).toMatchObject({
+      labelIds: ["l-enh", "l-bug"],
+    })
   })
 
   test("plans the create without a mutation", async () => {
     const recorder = handler()
-    const plan = await run(
-      recorder.handler,
-      Effect.gen(function* planCreate() {
-        const api = yield* IssueWriteApi
-        return yield* api.planCreate({ title: "Fix login", team: "RAT" })
-      }),
-      { repositories: seed },
-    )
-    expect(plan).toEqual({
-      team: "RAT",
-      title: "Fix login",
-      labels: ["enhancement"],
-      assignee: "me",
-      priority: "medium",
+    const lines = await create(recorder, ["--title", "Fix login", "--team", "RAT", "--dry-run"])
+    expect(lastJson(lines)).toMatchObject({
+      issue: null,
+      result: {
+        action: "create",
+        status: "updated",
+        dryRun: true,
+        changed: ["issue"],
+        actions: [
+          {
+            action: "create",
+            target: "new",
+            status: "updated",
+            changes: {
+              team: "RAT",
+              title: "Fix login",
+              labels: ["enhancement"],
+              assignee: "me",
+              priority: "medium",
+            },
+          },
+        ],
+      },
     })
     expect(recorder.requests.some((request) => request.query.includes("mutation"))).toBe(false)
   })
