@@ -30,4 +30,13 @@ describe("stale command detection", () => {
       { command: "rata issue close --comment", replacement: "rata issue close --comment-file" },
     ])
   })
+
+  test("does not name an invalid list flag replacement", () => {
+    expect(staleCommands("Run `rata issue list --children`.", surface())).toEqual([
+      {
+        command: "rata issue list --children",
+        replacement: "Read one issue with rata issue <ref> --full.",
+      },
+    ])
+  })
 })

@@ -103,7 +103,7 @@ const paramDocsOf = (params: readonly Param.Any[]): readonly SurfaceParam[] =>
       .map((single) => {
         const type = single.typeName ?? Primitive.getTypeName(single.primitiveType)
         const choices = choiceKeysOf(single.primitiveType)
-        if (type === "choice" && choices.length === 0) {
+        if (Predicate.hasProperty("choiceKeys")(single.primitiveType) && choices.length === 0) {
           throw new TypeError(`The command surface cannot read the choices for --${single.name}.`)
         }
         return {

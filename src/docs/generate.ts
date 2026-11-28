@@ -60,7 +60,7 @@ const program = Effect.gen(function* generateDocs() {
       stale = true
     }
   }
-  if (check && stale) {
+  if (stale) {
     yield* Effect.sync(() => {
       process.exitCode = 1
     })
