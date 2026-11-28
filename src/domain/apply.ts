@@ -1,14 +1,9 @@
 import { Schema } from "effect"
 
-const applySectionModes = ["replace", "append"] as const
-type ApplySectionMode = (typeof applySectionModes)[number]
+import { SectionEdit } from "@/domain/section"
 
-const ApplySectionSchema = Schema.Struct({
-  heading: Schema.String,
-  mode: Schema.Literals(applySectionModes),
-  content: Schema.String,
-})
-type ApplySection = typeof ApplySectionSchema.Type
+const ApplySectionSchema = SectionEdit
+type ApplySection = SectionEdit
 
 const ApplyLabelsSchema = Schema.Struct({
   add: Schema.optional(Schema.Array(Schema.String)),
@@ -62,8 +57,6 @@ export {
   type ApplyLabels,
   type ApplyRelations,
   type ApplySection,
-  type ApplySectionMode,
-  applySectionModes,
   type HandoffDocument,
   HandoffDocumentJson,
   HandoffDocumentSchema,
