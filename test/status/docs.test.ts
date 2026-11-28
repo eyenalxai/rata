@@ -4,6 +4,9 @@ import { afterEach, describe, expect, test } from "bun:test"
 import { Option, Schema } from "effect"
 import path from "node:path"
 
+import { buildTrackerBlock, trackerMarkers } from "@/cli/docs"
+import { surface } from "@/cli/registry"
+
 const triageDocument = [
   "# Triage labels",
   "",
@@ -18,7 +21,15 @@ const triageDocument = [
   "| `wontfix` | `wontfix` | Will not be addressed |",
 ].join("\n")
 
-const trackerDocument = "Load the `rata` skill before the first tracker command."
+const commandBlock = buildTrackerBlock(surface())
+
+const trackerDocument = [
+  "Load the `rata` skill before the first tracker command.",
+  "",
+  trackerMarkers.begin,
+  commandBlock,
+  trackerMarkers.end,
+].join("\n")
 
 afterEach(() => {
   process.exitCode = 0
@@ -185,15 +196,54 @@ describe("status documents", () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
     const document = path.join(docsDirectory, "issue-tracker.md")
+    const withoutSkill = [trackerMarkers.begin, commandBlock, trackerMarkers.end].join("\n")
     await runStatus(fake.handler, ["--format", "json"], lines, {
       profiles,
       repositories: [{ key: process.cwd(), team: "RAT", teamId: "team-1" }],
-      files: new Map([[document, "# Issue tracker\n\nUse the rata CLI for tracker work."]]),
+      files: new Map([[document, withoutSkill]]),
     })
 
     expect(process.exitCode).toBe(0)
     expect(lastJson(lines)).toMatchObject({
       warning: `The tracker document at ${document} does not name the rata skill. Add a line that tells agents to load \`rata\` before the first tracker command.`,
     })
+  })
+
+  test("reports a stale tracker command with its replacement", async () => {
+    const fake = makeFakeLinear({ teams: [team], labels: [] })
+    const lines: string[] = []
+    const document = path.join(docsDirectory, "issue-tracker.md")
+    const stale = [
+      "Load the `rata` skill before the first tracker command.",
+      "",
+      trackerMarkers.begin,
+      commandBlock,
+      trackerMarkers.end,
+      "",
+      "Run `rata team list` to see the teams.",
+    ].join("\n")
+    await runStatus(fake.handler, ["--format", "json"], lines, {
+      profiles,
+      repositories: [{ key: process.cwd(), team: "RAT", teamId: "team-1" }],
+      files: new Map([[document, stale]]),
+    })
+
+    const result = Option.getOrThrow(
+      Schema.decodeUnknownOption(
+        Schema.Struct({
+          docs: Schema.Struct({
+            tracker: Schema.Struct({
+              healthy: Schema.NullOr(Schema.Boolean),
+              warning: Schema.String,
+            }),
+          }),
+          warning: Schema.String,
+        }),
+      )(lastJson(lines)),
+    )
+
+    expect(result.docs.tracker.healthy).toBe(false)
+    expect(result.docs.tracker.warning).toContain("`rata team list` -> `rata admin team list`")
+    expect(result.warning).toContain("`rata team list` -> `rata admin team list`")
   })
 })

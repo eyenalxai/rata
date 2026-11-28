@@ -102,11 +102,11 @@ const teamCreateSpec = defineCommand("create", {
   summary: "Create a team with the machine timezone",
   examples: [
     {
-      command: 'rata team create --name "Scratch" --key SCR',
+      command: 'rata admin team create --name "Scratch" --key SCR',
       description: "Create a team with an explicit key",
     },
     {
-      command: 'rata team create --name "Scratch" --copy-settings-from RAT',
+      command: 'rata admin team create --name "Scratch" --copy-settings-from RAT',
       description: "Create a team that copies another team's settings",
     },
   ],
@@ -139,11 +139,11 @@ const teamDeleteSpec = defineCommand("delete", {
   summary: "Delete a team",
   examples: [
     {
-      command: "rata team delete SCR",
+      command: "rata admin team delete SCR",
       description: "Delete a team after a confirmation prompt",
     },
     {
-      command: "rata team delete SCR --yes",
+      command: "rata admin team delete SCR --yes",
       description: "Delete a team without a prompt",
     },
   ],
@@ -201,11 +201,11 @@ const teamShowSpec = defineCommand("show", {
   summary: "Show the states, labels, members and priorities of a team",
   examples: [
     {
-      command: "rata team show RAT",
+      command: "rata admin team show RAT",
       description: "Show the team named by its key",
     },
     {
-      command: "rata team show --format json",
+      command: "rata admin team show --format json",
       description: "Show the linked team for an agent",
     },
   ],
@@ -223,7 +223,7 @@ const teamShowSpec = defineCommand("show", {
       const ref = Option.isSome(input.ref) ? input.ref.value : linked?.team
       if (ref === undefined) {
         return yield* new TeamResolutionError({
-          message: "No team. Pass a team key or id, or run `rata link`.",
+          message: "No team. Pass a team key or id, or run `rata admin link`.",
         })
       }
       const teams = yield* TeamService

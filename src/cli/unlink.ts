@@ -9,11 +9,11 @@ const unlinkSpec = defineCommand("unlink", {
   summary: "Remove the stored link of this repository",
   examples: [
     {
-      command: "rata unlink",
+      command: "rata admin unlink",
       description: "Remove the stored team, project and workspace of this repository",
     },
     {
-      command: "rata unlink --format json",
+      command: "rata admin unlink --format json",
       description: "Print the removed link as JSON",
     },
   ],
@@ -33,7 +33,7 @@ const unlinkSpec = defineCommand("unlink", {
       if (Option.isNone(existing)) {
         return yield* new TrackerError({
           code: "not_linked",
-          message: "No repository link. Run `rata link` to link this repository.",
+          message: "No repository link. Run `rata admin link` to link this repository.",
           hint: null,
         })
       }
@@ -41,7 +41,7 @@ const unlinkSpec = defineCommand("unlink", {
       if (!removed) {
         return yield* new TrackerError({
           code: "not_linked",
-          message: "No repository link. Run `rata link` to link this repository.",
+          message: "No repository link. Run `rata admin link` to link this repository.",
           hint: null,
         })
       }

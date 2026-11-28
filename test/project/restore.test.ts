@@ -154,7 +154,7 @@ describe("project restore", () => {
     const lines: string[] = []
     await runProject(fake.handler, ["restore", "Nope"], lines)
     expect(lines).toEqual([
-      "error: No project named Nope. Run `rata project list` to see the projects.",
+      "error: No project named Nope. Run `rata admin project list` to see the projects.",
     ])
     expect(process.exitCode).toBe(3)
     expect(unarchiveMutation(fake.requests)).toBeUndefined()
@@ -165,7 +165,7 @@ describe("project restore", () => {
     const lines: string[] = []
     await runProject(fake.handler, ["restore", "Tracker"], lines)
     expect(lines).toEqual([
-      "error: The project Tracker (project-1) is not in the trash. Run `rata project delete` to move it there.",
+      "error: The project Tracker (project-1) is not in the trash. Run `rata admin project delete` to move it there.",
     ])
     expect(process.exitCode).toBe(4)
     expect(unarchiveMutation(fake.requests)).toBeUndefined()

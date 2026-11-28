@@ -92,7 +92,7 @@ describe("team list --all", () => {
     const lines: string[] = []
     await runRootMemory(
       seed([]),
-      ["team", "list", "--all", "--limit", "1", "--format", "json"],
+      ["admin", "team", "list", "--all", "--limit", "1", "--format", "json"],
       lines,
     )
 
@@ -104,7 +104,7 @@ describe("team list --all", () => {
 
   test("suppresses the human next-page hint", async () => {
     const lines: string[] = []
-    await runRootMemory(seed([]), ["team", "list", "--all", "--limit", "1"], lines)
+    await runRootMemory(seed([]), ["admin", "team", "list", "--all", "--limit", "1"], lines)
 
     expect(lines.flatMap((line) => line.split("\n"))).toEqual([
       "RAT\tRata\tteam-1",
@@ -116,7 +116,7 @@ describe("team list --all", () => {
     const lines: string[] = []
     await runRootMemory(
       seed([]),
-      ["team", "list", "--all", "--after", "team-1", "--limit", "1", "--format", "json"],
+      ["admin", "team", "list", "--all", "--after", "team-1", "--limit", "1", "--format", "json"],
       lines,
     )
 
@@ -129,7 +129,7 @@ describe("project list --all", () => {
     const lines: string[] = []
     await runRootMemory(
       seed([]),
-      ["project", "list", "--all", "--limit", "1", "--format", "json"],
+      ["admin", "project", "list", "--all", "--limit", "1", "--format", "json"],
       lines,
     )
 
@@ -142,7 +142,7 @@ describe("label list --all", () => {
     const lines: string[] = []
     await runRootMemory(
       seed([]),
-      ["label", "list", "--team", "RAT", "--all", "--limit", "1", "--format", "json"],
+      ["admin", "label", "list", "--team", "RAT", "--all", "--limit", "1", "--format", "json"],
       lines,
     )
 

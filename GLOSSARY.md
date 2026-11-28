@@ -129,10 +129,10 @@ they explore the codebase. Use these terms; do not drift to synonyms.
 
 - **rata**: this CLI. The binary name is `rata`; the package name is `rata-cli`.
 - **Repository config**: the team, project and workspace profile that rata
-  applies to one repository. `rata link` writes it to the local database, and
+  applies to one repository. `rata admin link` writes it to the local database, and
   commands read it from any subdirectory.
 - **Repository issue defaults** (short: **issue defaults**): the assignee,
-  labels and priority that `rata config` stores for one repository.
+  labels and priority that `rata admin config` stores for one repository.
   `issue create` applies them unless a flag overrides them. Avoid: preferences.
 - **Context cache** (also **team context cache**): the SQLite copy of one
   team's states, labels, members and priorities, plus the viewer. It stays fresh
@@ -164,13 +164,13 @@ they explore the codebase. Use these terms; do not drift to synonyms.
   payload stays authoritative.
 - **Repository root**: the directory that identifies the repository config.
   Inside Git it is the Git common directory, so the main checkout and every
-  worktree share one config. Outside Git it is the directory where `rata link`
+  worktree share one config. Outside Git it is the directory where `rata admin link`
   ran.
 - **Profile** (or **workspace profile**): an API key in the local database,
   named after the Linear workspace url key. The name selects the workspace.
   Avoid: account, credential.
 - **Default profile**: the profile marked as the default in the local database.
-  `rata auth login` and `rata workspace use` set it.
+  `rata admin auth login` and `rata admin workspace use` set it.
 - **Resolution order**: the order rata uses to select the API key:
   `LINEAR_API_KEY`, the repository `workspace`, the default profile.
 - **Page**: one call's slice of a list. Every list command returns one page by

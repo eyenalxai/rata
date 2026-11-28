@@ -32,7 +32,7 @@ const searchSpec = defineCommand("search", {
   input: {
     text: Argument.String("text").pipe(Argument.withDescription("Text to search for")),
     team: Flag.String("team").pipe(
-      Flag.withDescription("Filter by team key or id. Defaults to the team from `rata link`"),
+      Flag.withDescription("Filter by team key or id. Defaults to the team from `rata admin link`"),
       Flag.optional,
     ),
     limit: searchLimitFlag,

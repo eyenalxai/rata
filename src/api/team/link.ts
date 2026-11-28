@@ -25,7 +25,7 @@ type RepairedLink = {
 }
 
 const missingWarning = (stored: string, isId = false): string =>
-  `The stored team ${isId ? "id" : "key"} ${stored} no longer exists. Run \`rata team list\` to see the team keys, then run \`rata link --team <key>\` to repair the link.`
+  `The stored team ${isId ? "id" : "key"} ${stored} no longer exists. Run \`rata admin team list\` to see the team keys, then run \`rata admin link --team <key>\` to repair the link.`
 
 const staleIdWarning = (storedId: string, currentKey: string): string =>
   `The stored team id ${storedId} is stale. Repaired the link to ${currentKey}.`

@@ -1,6 +1,6 @@
 import type { Option } from "effect"
 
-import { Effect } from "effect"
+import { Effect, Stdio, Stream } from "effect"
 import { Flag } from "effect/cli"
 
 import { resolveBody } from "@/cli/body"
@@ -28,6 +28,22 @@ const readBodyInput = (body: Option.Option<string>, bodyFile: Option.Option<stri
     Effect.mapError(toTrackerError),
   )
 
+const readStandardInput = Effect.fn("Cli.readStandardInput")(function* readStandardInputEffect() {
+  const stdio = yield* Stdio.Stdio
+  return yield* stdio.stdin.pipe(
+    Stream.decodeText(),
+    Stream.mkString,
+    Effect.mapError(
+      () =>
+        new TrackerError({
+          code: "internal",
+          message: "Could not read standard input.",
+          hint: null,
+        }),
+    ),
+  )
+})
+
 const requirePageSize = (limit: number): Effect.Effect<number, TrackerError> => {
   if (limit < 1) {
     return Effect.fail(
@@ -50,4 +66,11 @@ const requirePageSize = (limit: number): Effect.Effect<number, TrackerError> => 
   return Effect.succeed(limit)
 }
 
-export { bodyFileFlag, bodyFlag, ifUnchangedFlag, readBodyInput, requirePageSize }
+export {
+  bodyFileFlag,
+  bodyFlag,
+  ifUnchangedFlag,
+  readBodyInput,
+  readStandardInput,
+  requirePageSize,
+}

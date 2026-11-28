@@ -82,7 +82,7 @@ const workspaceUseSpec = defineCommand("use", {
   summary: "Set the default workspace profile",
   examples: [
     {
-      command: "rata workspace use work",
+      command: "rata admin workspace use work",
       description: "Use the work profile when no repository selects one",
     },
   ],

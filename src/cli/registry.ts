@@ -2,7 +2,11 @@ import type { Command as CliCommand } from "effect/cli"
 
 import { Command } from "effect/cli"
 
-import { loginSpec, logoutSpec, statusSpec as authStatusSpec, whoamiSpec } from "@/cli/auth"
+import type { Surface } from "@/cli/surface"
+
+import { apiSpec } from "@/cli/admin/api"
+import { makeDoctorSpec } from "@/cli/admin/doctor"
+import { loginSpec, logoutSpec, statusSpec as authStatusSpec } from "@/cli/auth"
 import { configSetSpec, configShowSpec, configUnsetSpec } from "@/cli/config"
 import { withAgentNotes } from "@/cli/help"
 import { issueCommand } from "@/cli/issue"
@@ -16,11 +20,21 @@ import {
 } from "@/cli/project"
 import { Format, OutputSelect, buildCommand, buildGroup } from "@/cli/runner"
 import { statusSpec } from "@/cli/status"
+import { surfaceOf } from "@/cli/surface"
 import { teamCreateSpec, teamDeleteSpec, teamListSpec, teamShowSpec } from "@/cli/team"
 import { unlinkSpec } from "@/cli/unlink"
 import { workspaceListSpec, workspaceUseSpec } from "@/cli/workspace"
 
 const globalOutputFlags = [Format, OutputSelect] as const
+
+const surfaceState: { current: Surface | null } = { current: null }
+
+const surface = (): Surface => {
+  if (surfaceState.current === null) {
+    throw new Error("The command surface is not ready.")
+  }
+  return surfaceState.current
+}
 
 const authCommand = buildGroup("auth", "Manage Linear authentication", [
   buildCommand(loginSpec),
@@ -28,9 +42,9 @@ const authCommand = buildGroup("auth", "Manage Linear authentication", [
   buildCommand(logoutSpec),
 ]).pipe(Command.withGlobalFlags(globalOutputFlags))
 
-const whoamiCommand = buildCommand(whoamiSpec).pipe(Command.withGlobalFlags(globalOutputFlags))
-
-const statusCommand = buildCommand(statusSpec).pipe(Command.withGlobalFlags(globalOutputFlags))
+const statusCommand = buildCommand(statusSpec(surface)).pipe(
+  Command.withGlobalFlags(globalOutputFlags),
+)
 
 const configCommand = buildGroup(
   "config",
@@ -71,19 +85,45 @@ const labelCommand = buildGroup("label", "Create and inspect the labels of a tea
   buildCommand(labelEditSpec),
 ]).pipe(Command.withGlobalFlags(globalOutputFlags))
 
+const doctorCommand = buildCommand(makeDoctorSpec(surface)).pipe(
+  Command.withGlobalFlags(globalOutputFlags),
+)
+
+const apiCommand = buildCommand(apiSpec).pipe(Command.withGlobalFlags(globalOutputFlags))
+
+const adminCommand = buildGroup(
+  "admin",
+  "Set up the workspace, the repository link and the API access",
+  [
+    authCommand,
+    linkCommand,
+    unlinkCommand,
+    workspaceCommand,
+    configCommand,
+    teamCommand,
+    projectCommand,
+    labelCommand,
+    doctorCommand,
+    apiCommand,
+  ],
+).pipe(Command.withGlobalFlags(globalOutputFlags))
+
+const phase2Group = (name: string, description: string) =>
+  Command.make(name).pipe(Command.withDescription(description))
+
+const triageCommand = phase2Group("triage", "Triage the queue and change roles. Phase 2.")
+
+const mapCommand = phase2Group("map", "Claim and resolve wayfinding work. Phase 2.")
+
 const commandGroups = [
-  authCommand,
-  whoamiCommand,
   statusCommand,
-  configCommand,
-  linkCommand,
-  unlinkCommand,
-  workspaceCommand,
   issueCommand,
-  teamCommand,
-  projectCommand,
-  labelCommand,
+  triageCommand,
+  mapCommand,
+  adminCommand,
 ] as const
+
+surfaceState.current = surfaceOf(commandGroups)
 
 const createRoot = <const Commands extends readonly CliCommand.Command.Any[]>(commands: Commands) =>
   Command.make("rata").pipe(
@@ -94,16 +134,22 @@ const createRoot = <const Commands extends readonly CliCommand.Command.Any[]>(co
   )
 
 export {
+  adminCommand,
+  apiCommand,
   authCommand,
   commandGroups,
   configCommand,
   createRoot,
+  doctorCommand,
+  issueCommand,
   labelCommand,
   linkCommand,
+  mapCommand,
   projectCommand,
   statusCommand,
+  surface,
   teamCommand,
+  triageCommand,
   unlinkCommand,
-  whoamiCommand,
   workspaceCommand,
 }

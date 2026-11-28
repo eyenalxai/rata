@@ -1,50 +1,53 @@
 ---
 name: rata
-description: Drive Linear from the terminal with the rata CLI — read and write issues, comments, labels, relations, and wayfinding maps. Use when a repository tracks work in Linear, when its docs/agents/issue-tracker.md names rata, or when the user asks to file, triage, comment on, link, block, claim, or close Linear issues.
+description: Drive Linear from the terminal with the rata CLI — read and write issues, comments, relations, and wayfinding maps. Use when a repository tracks work in Linear, when its docs/agents/issue-tracker.md names rata, or when the user asks to file, triage, comment on, link, block, claim, or close Linear issues.
 ---
 
 # rata
 
 `rata` is the Linear CLI for agent workflows. Read
-`docs/agents/issue-tracker.md` for the repository's team, labels and conventions;
-this skill covers the CLI.
+`docs/agents/issue-tracker.md` for the repository's team, labels and conventions.
+`reference.md` has every command, flag and JSON shape.
 
 ## Start here
 
 ```bash
 command -v rata      # the binary is installed
-rata status          # repo, team, states, labels, triage, cache age, docs, viewer (JSON off a TTY)
+rata status          # repo, team, states, labels, triage, cache age, docs, viewer
 ```
 
-`status` works without a link. Fix a failed first command before you retry:
+`status` works without a link. It reports the viewer, the team context and the
+tracker document health. Fix a failed first command before you retry.
 
-The admin commands (`auth`, `link`, `unlink`, `workspace`, `config`, `team`,
-`project`, `label`, `status`, `whoami`) and the issue reads (`issue <ref>...`,
-`issue list`, `issue search`) accept `--format json|text` and `--select`. JSON is
-their default when stdout is not a terminal. The migrated writes (`start`,
-`handoff`, `close`, `apply`, `relate`, `publish`, `comment`) use `--format` and
-`--select`; `issue create` still accepts `--json` and `--fields` until its slice.
-The old read forms (`issue show`, `issue view`, `issue status`, `next`, `why`)
-and the old read flags (`--json`, `--fields`, `--count`, `--ids-only`,
-`--include`) exit 2.
+## Five roots
 
-- `auth`: `printf '%s' "$LINEAR_API_KEY" | rata auth login --with-token`. The key
-  resolves as `LINEAR_API_KEY`, the repository workspace, then `default`;
-  `workspace use <name>` selects a profile.
-- `not_linked`: run `rata team list`, then `rata link --team <key>`. Pass
-  `--team`; the prompt needs a terminal. `LINEAR_API_KEY` changes the profile
-  that `link` writes, and `link` also sets the team timezone. A stale stored key
-  is repaired on read with a warning; if `status` says it is gone, follow the
-  repair hint.
-- Do not guess a workflow state name. Read it from `rata status`; add
-  `--refresh` when `cache.ageSeconds` is stale or the context looks wrong.
+| Root     | Use                                                                             |
+| -------- | ------------------------------------------------------------------------------- |
+| `status` | The cached context, the viewer and the document health                          |
+| `issue`  | Read the working set and write issues                                           |
+| `triage` | Phase 2. No work commands yet.                                                  |
+| `map`    | Phase 2. No work commands yet.                                                  |
+| `admin`  | Setup: auth, link, unlink, workspace, config, team, project, label, doctor, api |
 
-Team resolution follows the issue. A repository with a link writes against the
-linked team. Without a link, a state or label write falls back to the team of
-the issue. A single write on an issue in another team uses that issue's team,
-even when the repository is linked. A write that resolves and repairs a stale
-link prints the warning. `--assignee me` loads the viewer only when the command
-needs it; reads without that flag do not.
+The setup commands live under `admin`:
+
+- `printf '%s' "$LINEAR_API_KEY" | rata admin auth login --with-token` stores a
+  key. The key resolves as `LINEAR_API_KEY`, the repository workspace, then
+  `default`; `rata admin workspace use <name>` selects a profile.
+- `rata admin link --team <key>` links the repository and sets the team
+  timezone. A stale stored key is repaired on read with a warning; follow the
+  repair hint when `status` reports it.
+- `rata admin doctor` checks every `rata` command in the tracker document.
+  `--write` repairs the generated command block.
+- `rata admin api --query "<graphql>"` is the read-only escape hatch. It rejects
+  mutations and subscriptions and never prints the key.
+
+The old root forms (`rata auth`, `rata whoami`, `rata config`, `rata link`,
+`rata team`, ...) exit 2. `whoami` is gone; `rata status` or
+`rata admin auth status` carries the viewer.
+
+Do not guess a workflow state name. Read it from `rata status`; add `--refresh`
+when `cache.ageSeconds` is stale or the context looks wrong.
 
 ## One spelling per operation
 
@@ -60,18 +63,6 @@ needs it; reads without that flag do not.
 | Add an edge     | `rata issue relate <ref> --blocked-by <ref>`                | `issue link`, `issue unlink`                                                                     |
 | Comment         | `rata issue comment <ref> --body-file - --dedupe-key <key>` | `issue comment create`                                                                           |
 
-`issue apply` is the general write. It plans first, then applies. `--dry-run`
-returns the plan and writes nothing. `--if-unchanged <snapshot>` exits 4 when the
-issue changed. A no-op returns `skipped`. A partial failure returns the applied
-actions and the failed action.
-
-`issue publish --file -` is the graph write. It takes one document with `team`,
-`parent`, `defaults` and `nodes`. Each node requires `key`, `kind` and `title`;
-`body`, `priority`, `labels`, `assignee`, `state`, `parent` and `blockedBy` are
-optional. A parent or blocker may name a node key or an existing ref. A retry
-reuses the nodes and skips the edges that already exist. `kind` is recorded, not
-applied as a label.
-
 ## Write loop
 
 ```bash
@@ -83,47 +74,38 @@ printf '%s' "$APPLY_JSON" | rata issue apply <ref> --file - --if-unchanged <snap
 rata issue start <ref>
 printf '%s' "$HANDOFF_JSON" | rata issue handoff <ref> --file -
 rata issue relate <ref> --blocked-by <blocker>
-rata issue relate <ref> --blocked-by <blocker> --remove
 printf 'Started work.' | rata issue comment <ref> --body-file - --dedupe-key start-42
 printf 'Done in PR #12.' | rata issue close <ref> --comment-file -
 ```
 
-The apply document has optional `title`, `state`, `assignee`, `priority`,
-`project`, `parent`, `labels: { add, remove }`, `sections`, `comment` and
-`relations: { blocks, blockedBy, related, duplicate }`. Sections take
-`mode: "replace" | "append"`. `replace` needs the heading; `append` creates a
-missing heading at the end. A duplicate heading is a conflict. A comment carries
-a `dedupeKey` in `issue apply`; a retry returns `skipped`. Relations are a set;
-an existing edge is skipped. Omit a field to leave it alone.
+`issue apply` plans every action first. It touches only the fields and sections in
+the document. `--dry-run` returns the plan and writes nothing.
+`--if-unchanged <snapshot>` exits 4 when the issue changed. A no-op returns
+`skipped`. A partial failure returns the applied actions and the failed action.
+
+`issue publish` takes one document with `team`, `parent`, `defaults` and `nodes`.
+Each node requires `key`, `kind` and `title`; `body`, `priority`, `labels`,
+`assignee`, `state`, `parent` and `blockedBy` are optional. A retry reuses the
+nodes and skips the edges that already exist.
 
 `issue start` claims an unassigned issue, skips your own claim, and exits 4 with
-the holder when another user holds it. `--take` reassigns; `--state` picks a
-named state. `issue handoff` takes the apply document plus `pr`, attaches the
-pull request, applies the state and sections, and posts one deduped comment; a
-retry is skipped. `issue close` refuses open children unless `--force`, closes
-to the first completed state, and posts one comment from `--comment-file`; the
-same comment is skipped on a retry, and a new comment posts once.
-
-The lifecycle commands use the same result. `issue start` claims an unassigned
-issue, skips the viewer's claim, exits 4 with the holder, and moves to the first
-started state or `--state`; `--take` reassigns. `issue handoff` takes the apply
-document plus `pr` and attaches the PR, state, sections and one comment; a retry
-is skipped. `issue close` refuses open children unless `--force`, closes to the
-first completed state, and posts one comment from `--comment-file`; a new
-comment posts once, and the same comment is skipped.
-
-The write result is `{ issue, result }`. `result` carries `action`, `status`,
-`changed`, `dryRun`, `snapshot`, `actions`, and on failure `failed` and `error`.
+the holder when another user holds it; `--take` reassigns. `issue handoff`
+attaches the PR, applies the state and sections, and posts one deduped comment.
+`issue close` refuses open children unless `--force`, closes to the first
+completed state, and posts one comment; a retry is skipped.
 
 ## Errors
 
 A failed command with JSON output writes one object to stderr and exits with the
 code of its class: 2 usage or validation, 3 not found, 4 conflict, 5 auth,
 6 retryable, 1 internal. A parse error writes code `usage`; help prints only for
-`--help`. Read `hint` and retry once. A partial apply is the exception: it
-writes one resource document with the applied actions, the failed action and
-`result.error` on stdout, and exits with the failed action's code.
+`--help`. Read `hint` and retry once. A partial apply writes one resource
+document with the applied actions, the failed action and `result.error` on
+stdout, and exits with the failed action's code.
 
 ## Pointers
 
-- Commands, flags and shapes: `reference.md`. Repo rules: `docs/agents/issue-tracker.md`; labels: `docs/agents/triage-labels.md`. Install and admin: `README.md`.
+- Commands, flags and shapes: `reference.md`.
+- Repo rules: `docs/agents/issue-tracker.md`.
+- Labels: `docs/agents/triage-labels.md`.
+- Install and admin: `README.md`.

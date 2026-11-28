@@ -45,7 +45,7 @@ const labelNotFoundError = (teamId: TeamId, name: string): LabelNotFoundError =>
   new LabelNotFoundError({
     name,
     teamId,
-    message: `No label named ${name} in team ${teamId} or the workspace. Run \`rata label list --team <team key>\` to see the labels.`,
+    message: `No label named ${name} in team ${teamId} or the workspace. Run \`rata admin label list --team <team key>\` to see the labels.`,
   })
 
 type LabelCreateOptions = {

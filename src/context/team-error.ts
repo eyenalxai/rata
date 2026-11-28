@@ -17,7 +17,7 @@ const requireTeamError = (
     )
   }
   return Effect.fail(
-    new TeamResolutionError({ message: "No team. Pass --team, or run `rata link`." }),
+    new TeamResolutionError({ message: "No team. Pass --team, or run `rata admin link`." }),
   )
 }
 

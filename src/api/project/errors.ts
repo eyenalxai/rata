@@ -57,14 +57,14 @@ const alreadyDeletedError = (project: Project): ProjectAlreadyDeletedError =>
   new ProjectAlreadyDeletedError({
     name: project.name,
     id: project.id,
-    message: `The project ${project.name} (${project.id}) is in the trash. Run \`rata project restore\` to bring it back.`,
+    message: `The project ${project.name} (${project.id}) is in the trash. Run \`rata admin project restore\` to bring it back.`,
   })
 
 const notDeletedError = (project: Project): ProjectNotDeletedError =>
   new ProjectNotDeletedError({
     name: project.name,
     id: project.id,
-    message: `The project ${project.name} (${project.id}) is not in the trash. Run \`rata project delete\` to move it there.`,
+    message: `The project ${project.name} (${project.id}) is not in the trash. Run \`rata admin project delete\` to move it there.`,
   })
 
 export {

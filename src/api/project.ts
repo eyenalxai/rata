@@ -109,7 +109,7 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
           if (project === undefined) {
             return yield* new ProjectNotFoundError({
               ref,
-              message: `No project with id ${ref}. Run \`rata project list\` to see the projects.`,
+              message: `No project with id ${ref}. Run \`rata admin project list\` to see the projects.`,
             })
           }
           if (project.trashed !== wantTrashed) {
@@ -133,7 +133,7 @@ class ProjectService extends Context.Service<ProjectService, ProjectServiceShape
           }
           return yield* new ProjectNotFoundError({
             ref,
-            message: `No project named ${ref}. Run \`rata project list\` to see the projects.`,
+            message: `No project named ${ref}. Run \`rata admin project list\` to see the projects.`,
           })
         }
         return match

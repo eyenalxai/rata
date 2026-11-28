@@ -64,11 +64,11 @@ const configShowSpec = defineCommand("show", {
   summary: "Show the issue defaults of this repository",
   examples: [
     {
-      command: "rata config show",
+      command: "rata admin config show",
       description: "Show the defaults of this repository",
     },
     {
-      command: "rata config show --select assignee,labels",
+      command: "rata admin config show --select assignee,labels",
       description: "Read the defaults for an agent",
     },
   ],
@@ -90,11 +90,11 @@ const configSetSpec = defineCommand("set", {
   summary: "Set the issue defaults of this repository",
   examples: [
     {
-      command: "rata config set --assignee me --label enhancement --priority medium",
+      command: "rata admin config set --assignee me --label enhancement --priority medium",
       description: "Apply these values to every new issue",
     },
     {
-      command: "rata config set --priority high",
+      command: "rata admin config set --priority high",
       description: "Change only the default priority",
     },
   ],
@@ -116,7 +116,7 @@ const configSetSpec = defineCommand("set", {
         return yield* new TrackerError({
           code: "validation",
           message: "Pass at least one of --assignee, --label or --priority.",
-          hint: "rata config set --assignee me --label enhancement --priority medium",
+          hint: "rata admin config set --assignee me --label enhancement --priority medium",
         })
       }
       const service = yield* IssueDefaultsService
@@ -147,7 +147,7 @@ const configUnsetSpec = defineCommand("unset", {
   summary: "Clear the issue defaults of this repository",
   examples: [
     {
-      command: "rata config unset --label",
+      command: "rata admin config unset --label",
       description: "Drop the default labels",
     },
   ],
@@ -174,7 +174,7 @@ const configUnsetSpec = defineCommand("unset", {
         return yield* new TrackerError({
           code: "validation",
           message: "Pass at least one of --assignee, --label or --priority.",
-          hint: "rata config unset --label",
+          hint: "rata admin config unset --label",
         })
       }
       const service = yield* IssueDefaultsService

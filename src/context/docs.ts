@@ -37,6 +37,8 @@ type TriageDocument = {
   readonly map: TriageMap | null
 }
 
+type TrackerCheck = (content: string, file: string) => string | null
+
 class TriageMapError extends Schema.TaggedError<TriageMapError>()("TriageMapError", {
   file: Schema.String,
   message: Schema.String,
@@ -107,17 +109,29 @@ const parseTriageMap = (
 const trackerDocument = (
   fs: FileSystem.FileSystem,
   file: string,
+  check: TrackerCheck | undefined,
 ): Effect.Effect<DocHealth, RepoConfigError> =>
   Effect.gen(function* readTrackerDocument() {
     const content = yield* readText(fs, file)
     if (content === null) {
       return { path: file, exists: false, healthy: null, warning: null }
     }
-    if (namesRataSkill(content)) {
-      return { path: file, exists: true, healthy: true, warning: null }
+    const warnings: string[] = []
+    if (!namesRataSkill(content)) {
+      warnings.push(
+        `The tracker document at ${file} does not name the rata skill. Add a line that tells agents to load \`rata\` before the first tracker command.`,
+      )
     }
-    const warning = `The tracker document at ${file} does not name the rata skill. Add a line that tells agents to load \`rata\` before the first tracker command.`
-    return { path: file, exists: true, healthy: false, warning }
+    const commandWarning = check?.(content, file) ?? null
+    if (commandWarning !== null) {
+      warnings.push(commandWarning)
+    }
+    return {
+      path: file,
+      exists: true,
+      healthy: warnings.length === 0,
+      warning: warnings.length === 0 ? null : warnings.join(" "),
+    }
   })
 
 const triageDocument = (
@@ -151,13 +165,16 @@ const triageDocument = (
     }
   })
 
-const readContextDocs = Effect.fn("ContextDocs.read")(function* readDocs(root: string) {
+const readContextDocs = Effect.fn("ContextDocs.read")(function* readDocs(
+  root: string,
+  trackerCheck?: TrackerCheck,
+) {
   const fs = yield* FileSystem.FileSystem
   const path = yield* Path.Path
   const directory = path.join(root, "docs", "agents")
   const trackerFile = path.join(directory, "issue-tracker.md")
   const triageFile = path.join(directory, "triage-labels.md")
-  const tracker = yield* trackerDocument(fs, trackerFile)
+  const tracker = yield* trackerDocument(fs, trackerFile, trackerCheck)
   const triage = yield* triageDocument(fs, triageFile)
   return {
     docs: { tracker, triage: triage.health },

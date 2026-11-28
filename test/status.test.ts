@@ -119,7 +119,7 @@ describe("status", () => {
       cache: null,
       docs: missingDocs,
       warning:
-        "The stored team key GONE no longer exists. Run `rata team list` to see the team keys, then run `rata link --team <key>` to repair the link.",
+        "The stored team key GONE no longer exists. Run `rata admin team list` to see the team keys, then run `rata admin link --team <key>` to repair the link.",
     })
     expect(process.exitCode).toBe(0)
   })
@@ -141,11 +141,11 @@ describe("status", () => {
     )
 
     expect(stderr).toEqual([
-      "warning: The stored team key GONE no longer exists. Run `rata team list` to see the team keys, then run `rata link --team <key>` to repair the link.",
+      "warning: The stored team key GONE no longer exists. Run `rata admin team list` to see the team keys, then run `rata admin link --team <key>` to repair the link.",
     ])
     const output = stdout.join("\n")
     expect(output).toContain("repo:")
-    expect(output).toContain("team:      missing key GONE (run rata link --team GONE)")
+    expect(output).toContain("team:      missing key GONE (run rata admin link --team GONE)")
     expect(output).toContain("project:   rata")
     expect(output).toContain("defaults:  none")
     expect(output).not.toContain("warning:")
@@ -169,7 +169,7 @@ describe("status", () => {
     const lines: string[] = []
     await runStatus(fake.handler, [], lines, { profiles })
 
-    expect(lines[0]).toContain("team:      not linked (run rata link)")
+    expect(lines[0]).toContain("team:      not linked (run rata admin link)")
     expect(lines[0]).toContain("defaults:  none")
     expect(process.exitCode).toBe(0)
   })

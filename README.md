@@ -10,15 +10,11 @@ machine-readable form, issue references accept identifiers, UUIDs and URLs, and
 the output is deterministic.
 
 The project is in early development. This repository is the first user: its own
-work is tracked in Linear and driven with `rata`. The 0.10.0 release makes the
-agent path the primary path: batch section writes, session and batch reads,
-field array projection, stale-team repair, honest filter results, executable
-hints, a lower-cost link and a server-side priority sort. The 0.9.0 release
-added the one-way command forms, `--include relations`, the flat read shapes and
-`createdAt`. The 0.8.0 release added heading section edits, the comment
-lifecycle with retry-safe dedupe, the `next` and `why` frontier commands,
-selectable reads, and `--all` paging. See **Changes in 0.10.0**, **Breaking
-changes in 0.9.0** and **Breaking changes in 0.8.0** for the surface that moved.
+work is tracked in Linear and driven with `rata`. The 0.11.0 release gives the
+CLI five roots: `status`, `issue`, `triage`, `map` and `admin`. `admin` holds the
+setup commands and a read-only GraphQL escape hatch. The command reference and
+the tracker command block are generated from the command registry. See
+**Changes in 0.11.0** for the surface that moved.
 
 ## For agents
 
@@ -49,42 +45,48 @@ bun run rata -- --help
 
 ## Usage
 
+The root has five commands. `status` and `issue` are the work surface.
+`triage` and `map` are visible phase 2 groups with no work commands yet.
+`admin` holds the setup commands.
+
 ```bash
-pbpaste | rata auth login --with-token   # store a Linear API key
-pbpaste | rata auth login --with-token --workspace work  # store a key as a profile
-rata workspace list                      # list profiles: viewer and organization
-rata workspace use work                  # select the default profile
-rata status                              # show the repo, team context, docs and viewer in one call
-rata team list                           # list teams: key, name, id
-rata team show RAT                       # show a team's states, labels, members and priorities
-rata team create --name "Scratch" --key SCR   # create a team
-rata team delete SCR --yes               # delete a team
-rata project list                        # list projects: name, state, progress, id
-rata project create --name "Login revamp" --team RAT  # create a project
-rata project delete "Login revamp" --yes # move a project to the trash
-rata project restore "Login revamp"      # bring a project back from the trash
-rata label list --team RAT               # list a team's labels
-rata link --team RAT                     # bind this repository to a Linear team
-rata config set --assignee me --label enhancement --priority medium  # defaults for new issues
-rata config show                         # read the issue defaults
-rata unlink                              # remove the stored link of this repository
-rata issue RAT-42                        # one call: body, sections, blockers, PRs, children, frontier
-rata issue RAT-42 --comments             # add the comments
-rata issue RAT-42 --summary              # summary fields only
-rata issue RAT-42 --full                 # add relations and full child rows
-rata issue RAT-1 RAT-2 RAT-3             # read a known set in one list request per page
-rata issue list --parent RAT-1 --relations  # the children of a map with their blocking edges
+pbpaste | rata admin auth login --with-token   # store a Linear API key
+pbpaste | rata admin auth login --with-token --workspace work  # store a key as a profile
+rata admin workspace list                      # list profiles: viewer and organization
+rata admin workspace use work                  # select the default profile
+rata status                                    # show the repo, team context, docs and viewer in one call
+rata admin team list                           # list teams: key, name, id
+rata admin team show RAT                       # show a team's states, labels, members and priorities
+rata admin team create --name "Scratch" --key SCR   # create a team
+rata admin team delete SCR --yes               # delete a team
+rata admin project list                        # list projects: name, state, progress, id
+rata admin project create --name "Login revamp" --team RAT  # create a project
+rata admin project delete "Login revamp" --yes # move a project to the trash
+rata admin project restore "Login revamp"      # bring a project back from the trash
+rata admin label list --team RAT               # list a team's labels
+rata admin link --team RAT                     # bind this repository to a Linear team
+rata admin config set --assignee me --label enhancement --priority medium  # defaults
+rata admin config show                         # read the issue defaults
+rata admin unlink                              # remove the stored link of this repository
+rata admin doctor                              # check the tracker command block
+rata admin api --query "query Viewer { viewer { id } }"  # read-only GraphQL
+rata issue RAT-42                              # one call: body, sections, blockers, PRs, children, frontier
+rata issue RAT-42 --comments                   # add the comments
+rata issue RAT-42 --summary                    # summary fields only
+rata issue RAT-42 --full                       # add relations and full child rows
+rata issue RAT-1 RAT-2 RAT-3                   # read a known set in one list request per page
+rata issue list --parent RAT-1 --relations     # the children of a map with their blocking edges
 rata issue list --parent RAT-1 --unblocked --unassigned --sort priority  # the frontier of a map
-rata issue list --after <cursor>         # read the next page of a list
-rata issue list --all                    # drain every page of a list
-rata issue search "rate limit"           # ten summary rows by default
+rata issue list --after <cursor>               # read the next page of a list
+rata issue list --all                          # drain every page of a list
+rata issue search "rate limit"                 # ten summary rows by default
 rata issue create --title "Fix login" --team RAT --assignee me  # create an issue
-rata issue publish --file graph.json     # create a graph of issues and blocking edges
-rata issue start RAT-42                   # claim an unassigned issue and start it
-rata issue apply RAT-42 --file -          # fields, labels, sections, comment and relations
-rata issue apply RAT-42 --file - --dry-run  # print the plan, write nothing
+rata issue publish --file graph.json           # create a graph of issues and blocking edges
+rata issue start RAT-42                        # claim an unassigned issue and start it
+rata issue apply RAT-42 --file -               # fields, labels, sections, comment and relations
+rata issue apply RAT-42 --file - --dry-run     # print the plan, write nothing
 rata issue handoff RAT-42 --file handoff.json  # attach the PR, state, section and comment
-rata issue relate RAT-43 --blocked-by RAT-42  # RAT-43 waits for RAT-42
+rata issue relate RAT-43 --blocked-by RAT-42   # RAT-43 waits for RAT-42
 printf 'Started.' | rata issue comment RAT-42 --body-file - --dedupe-key start-42
 printf 'Done in PR #12.' | rata issue close RAT-42 --comment-file -  # close with one comment
 ```
@@ -92,7 +94,53 @@ printf 'Done in PR #12.' | rata issue close RAT-42 --comment-file -  # close wit
 Every command selects the API key in this order: `LINEAR_API_KEY`, the
 repository `workspace` of the repository config, the `default` profile.
 
-`rata --help` lists every command.
+`rata --help` lists the five roots.
+
+## Admin
+
+`admin` holds ten commands:
+
+| Command           | Purpose                                                 |
+| ----------------- | ------------------------------------------------------- |
+| `admin auth`      | Store, inspect and remove workspace profiles            |
+| `admin link`      | Bind this repository to a team and set its timezone     |
+| `admin unlink`    | Remove the stored repository link                       |
+| `admin workspace` | List the profiles and select the default                |
+| `admin config`    | Read and change the issue defaults of this repository   |
+| `admin team`      | List, show, create and delete teams                     |
+| `admin project`   | List, create, delete and restore projects               |
+| `admin label`     | List, create and edit the labels of a team              |
+| `admin doctor`    | Check the tracker document and repair its command block |
+| `admin api`       | Run a read-only GraphQL query against Linear            |
+
+The old root commands (`auth`, `whoami`, `config`, `link`, `unlink`, `workspace`,
+`team`, `project`, `label`) exit 2 as unknown subcommands. `whoami` is gone;
+`status` and `admin auth status` carry the viewer.
+
+`admin api` reads a GraphQL query from `--query` or standard input. It rejects
+mutations and subscriptions before it sends a request. The JSON output is one
+`{ data }` object with the raw GraphQL response, and the command never prints the
+API key. It uses the same key resolution as every other command.
+
+`admin doctor` reads `docs/agents/issue-tracker.md`, finds every `rata` command
+and compares its path with the command registry. It reports a stale form with its
+replacement. `--write` rewrites the block between
+`<!-- rata:commands:begin -->` and `<!-- rata:commands:end -->`. It writes only
+that file under the repository.
+
+## Generated docs
+
+`skills/rata/reference.md` and the tracker command block come from the command
+registry. Do not edit their generated blocks by hand.
+
+```bash
+bun run docs:generate   # rewrite both blocks
+bun run docs:check      # fail when either block is stale
+```
+
+`status` runs the same cheap check and reports a stale tracker document in
+`docs.tracker`. The test suite checks the generated files, so a stale block
+fails `bun run check`.
 
 ## One spelling per operation
 
@@ -115,25 +163,32 @@ and one hint names the canonical form.
 `issue <ref>` is the only read form. `issue show`, `issue view`, `issue status`,
 `next` and `why` do not exist.
 
+The setup commands have one home: `admin`. The old root forms `auth`, `whoami`,
+`config`, `link`, `unlink`, `workspace`, `team`, `project` and `label` exit 2.
+`triage` and `map` exist as phase 2 groups with a description and no work
+commands.
+
 ## Read shapes
 
 A read of one resource prints the resource object. A read of many prints
 `{ items, pageInfo }`. A collection prints `{ <plural>, pageInfo }`. A context
 document keeps its named sections. A write prints its result object.
 
-| Command                                   | JSON                                                                                                                                             |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `issue <ref>`                             | The working set: summary fields, `description`, `sections`, `blocked`, `blockedBy`, `prs`, `children`, `frontier`, `nextChild`, `comments: null` |
-| `issue <ref> --summary`                   | The summary fields: `id`, `identifier`, `title`, `state`, `priority`, `labels`, `assignee`, `project`, `parent`, `url`, `createdAt`, `updatedAt` |
-| `issue <ref> --full`                      | The working set plus `relations` and full child rows                                                                                             |
-| `issue <ref> <ref> ...`                   | `{ items, pageInfo }`; one working set per ref, one list request per page                                                                        |
-| `team show [<ref>]`                       | The team object                                                                                                                                  |
-| `issue list`                              | `{ issues, pageInfo }`; `--relations` adds the six relation groups                                                                               |
-| `issue search`                            | `{ issues, pageInfo }`; ten summary rows by default, no description                                                                              |
-| `team list`, `project list`, `label list` | `{ <plural>, pageInfo }`                                                                                                                         |
-| `status`                                  | Named sections: `repository`, `workspace`, `viewer`, `team`, `project`, `defaults`, `states`, `labels`, `triage`, `cache`, `docs`, `warning`     |
-| `config show`                             | `{ defaults }`                                                                                                                                   |
-| A write                                   | The write result object                                                                                                                          |
+| Command                                                     | JSON                                                                                                                                             |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `issue <ref>`                                               | The working set: summary fields, `description`, `sections`, `blocked`, `blockedBy`, `prs`, `children`, `frontier`, `nextChild`, `comments: null` |
+| `issue <ref> --summary`                                     | The summary fields: `id`, `identifier`, `title`, `state`, `priority`, `labels`, `assignee`, `project`, `parent`, `url`, `createdAt`, `updatedAt` |
+| `issue <ref> --full`                                        | The working set plus `relations` and full child rows                                                                                             |
+| `issue <ref> <ref> ...`                                     | `{ items, pageInfo }`; one working set per ref, one list request per page                                                                        |
+| `admin team show [<ref>]`                                   | The team object                                                                                                                                  |
+| `issue list`                                                | `{ issues, pageInfo }`; `--relations` adds the six relation groups                                                                               |
+| `issue search`                                              | `{ issues, pageInfo }`; ten summary rows by default, no description                                                                              |
+| `admin team list`, `admin project list`, `admin label list` | `{ <plural>, pageInfo }`                                                                                                                         |
+| `status`                                                    | Named sections: `repository`, `workspace`, `viewer`, `team`, `project`, `defaults`, `states`, `labels`, `triage`, `cache`, `docs`, `warning`     |
+| `admin config show`                                         | `{ defaults }`                                                                                                                                   |
+| `admin doctor`                                              | `{ document, healthy, stale, block, written }`                                                                                                   |
+| `admin api`                                                 | `{ data }` with the raw GraphQL response                                                                                                         |
+| A write                                                     | The write result object                                                                                                                          |
 
 The working set carries the summary fields, the parsed `sections`, `blocked` and
 `blockedBy`, the Linear `github` attachments as `prs`, lean `children` with
@@ -145,22 +200,23 @@ the default working set. `issue list` and `issue search` rows are
 summaries with `url`, timestamps and labels; search rows have no description.
 
 For an issue read, `--select` starts at the resource for one ref and at each row
-for a list. For an admin read it starts at the same place; for `config show`, it
-starts at the `defaults` object. The command validates every path against its
-declared shape before it reads the value, so a typo fails even on an empty list
-or a null object. A path may cross an array: `labels.name` returns the names, and
-`children.identifier` returns the child identifiers. A path through an array of
-scalars is a `validation` error. A write rejects field selection with a hint.
-See **Field selection**.
+for a list. For an admin read it starts at the same place; for `admin config
+show`, it starts at the `defaults` object. The command validates every path
+against its declared shape before it reads the value, so a typo fails even on an
+empty list or a null object. A path may cross an array: `labels.name` returns the
+names, and `children.identifier` returns the child identifiers. A path through an
+array of scalars is a `validation` error. A write rejects field selection with a
+hint. See **Field selection**.
 
 ## Output and errors
 
-The issue reads (`issue <ref>...`, `issue list`, `issue search`) and the admin
-commands (`auth`, `link`, `unlink`, `workspace`, `config`, `team`, `project`,
-`label`, `status`, `whoami`) use `--format json|text`. JSON is the default when
+The issue reads (`issue <ref>...`, `issue list`, `issue search`), the migrated
+writes and the `admin` group use `--format json|text`. JSON is the default when
 standard output is not a terminal, and `--format text` forces text. The issue
-reads also use `--select`; the issue writes still use `--json` until the apply
-engine lands.
+reads and the selectable admin reads (`admin auth status`, `admin team show`,
+`admin team list`, `admin project list`, `admin label list`, `admin config show`)
+also use `--select`; `issue create` still uses `--json` and `--fields` until its
+slice.
 
 ```bash
 rata status
@@ -217,16 +273,17 @@ JSON. The admin reads use the same flag:
 rata issue RAT-42 --select identifier,title,state.name,children.identifier
 rata issue list --select identifier,title,state.name
 rata status --select repository.root,team.key
-rata config show --select assignee,labels
+rata admin config show --select assignee,labels
 ```
 
 The path applies to the command's own resource, not to a wrapper: the working set
-of a single-issue read, the team object of `team show`, each row of a list, the
-`defaults` object of `config show`, or the whole `status` document. A wrapper key stays only for a
-named section or a list. An unknown path is a `validation` error, and the hint
-lists the valid keys at the failing level; the shape check runs even when the
-list is empty or the object is null. A path may cross an array, as `labels.name`
-and `children.identifier` do. See **Field selection**.
+of a single-issue read, the team object of `admin team show`, each row of a list,
+the `defaults` object of `admin config show`, or the whole `status` document. A
+wrapper key stays only for a named section or a list. An unknown path is a
+`validation` error, and the hint lists the valid keys at the failing level; the
+shape check runs even when the list is empty or the object is null. A path may
+cross an array, as `labels.name` and `children.identifier` do. See **Field
+selection**.
 
 Rata's own output is plain text. Effect's help and error presenter honor
 `NO_COLOR`, so set `NO_COLOR=1` to drop color from help and errors. There is no
@@ -238,7 +295,7 @@ Rata's own output is plain text. Effect's help and error presenter honor
 workspace profile and where its API key came from, the linked team, the default
 project, the issue defaults, the team states and labels, the triage map, the
 cache age, the tracker document health, the viewer and the organization. It
-works without a link: the team line then reads `not linked (run rata link)` and
+works without a link: the team line then reads `not linked (run rata admin link)` and
 the command exits 0. Without an API key it fails with an `auth` error.
 
 The context cache holds the team detail in the local SQLite database for seven
@@ -256,18 +313,22 @@ expiry, or on `status --refresh`. A warm cache can keep serving the stored UUID
 for up to seven days. When the stored team no longer exists, `status` still
 reports the rest of the context: it exits 0, sets `team`, `defaults` and `cache`
 to `null`, sets `states` and `labels` to empty, and adds a `warning` that names
-the key and the repair: run `rata team list`, then `rata link --team <key>`. The
+the key and the repair: run `rata admin team list`, then `rata admin link --team <key>`. The
 triage map and the document health stay. Human output prints the warning on
 stderr.
 
 `docs` reports the health of `docs/agents/issue-tracker.md` and
 `docs/agents/triage-labels.md`. `exists` says whether the file is present,
 `healthy` is `true`, `false`, or `null` when the file is missing, and `warning`
-names the repair. `triage` is the role-to-label map parsed from the triage
-document. A reordered table parses by header name. A headerless or incomplete
-document is an unhealthy `docs.triage` with a warning; `status` still prints the
-rest. The first state or label resolution after a cache miss fetches the full
-team detail; later calls use the cache.
+names the repair. The tracker check also finds every `rata` command in the
+document and compares its path with the registry. A stale command, a missing
+generated block or a stale block makes `docs.tracker` unhealthy; `admin doctor`
+names each replacement and `--write` repairs the block. `triage` is the
+role-to-label map parsed from the triage document. A reordered table parses by
+header name. A headerless or incomplete document is an unhealthy `docs.triage`
+with a warning; `status` still prints the rest. The first state or label
+resolution after a cache miss fetches the full team detail; later calls use the
+cache.
 
 ```bash
 rata status
@@ -355,10 +416,10 @@ is missing, or a document is unhealthy.
 
 ## Paging lists
 
-`issue list`, `issue search`, `team list`, `project list` and `label list` return
-one page per call. `--limit` sets the page size: 50 by default, 10 for `issue
-search`, 250 at most. A value above 250 fails before the API call.
-`--after <cursor>` reads the page after a cursor.
+`issue list`, `issue search`, `admin team list`, `admin project list` and
+`admin label list` return one page per call. `--limit` sets the page size: 50 by
+default, 10 for `issue search`, 250 at most. A value above 250 fails before the
+API call. `--after <cursor>` reads the page after a cursor.
 
 `--all` drains every page in one call. `--limit` stays the page size; it is not
 a total bound. `--all` with `--after` starts from the cursor. JSON returns the
@@ -368,7 +429,7 @@ output prints no next-page hint.
 ```bash
 rata issue list --all --format json
 rata issue search "rate limit" --all --format json
-rata team list --all
+rata admin team list --all
 ```
 
 `--format json` prints one page and its page state:
@@ -408,13 +469,13 @@ One Linear API key belongs to one Linear workspace. `rata` stores named
 workspace profiles, and each repository selects one:
 
 ```bash
-pbpaste | rata auth login --with-token                  # store the default profile
-pbpaste | rata auth login --with-token --workspace work # store the work profile
-rata auth status                                        # show the selected profile, viewer and organization
-rata auth status --workspace work                       # show one profile
-rata auth logout --workspace work                       # remove one profile
-rata workspace list                                     # list the profiles with their viewer and organization
-rata workspace use work                                 # set the default profile
+pbpaste | rata admin auth login --with-token                  # store the default profile
+pbpaste | rata admin auth login --with-token --workspace work # store the work profile
+rata admin auth status                                        # show the selected profile, viewer and organization
+rata admin auth status --workspace work                       # show one profile
+rata admin auth logout --workspace work                       # remove one profile
+rata admin workspace list                                     # list the profiles with their viewer and organization
+rata admin workspace use work                                 # set the default profile
 ```
 
 The profiles live in the local database at `$XDG_DATA_HOME/rata/rata.sqlite`,
@@ -449,14 +510,14 @@ Every command selects the profile in this order:
 
 1. `LINEAR_API_KEY` from the environment.
 2. The `workspace` of the repository config, recorded by
-   `rata link --workspace <name>`.
+   `rata admin link --workspace <name>`.
 3. The `default` profile.
 
 A repository that names a missing profile fails with a clear error. The
 environment key wins over every stored profile, so a script can point every
 repository at one key.
 
-`rata workspace list --format json` prints one document:
+`rata admin workspace list --format json` prints one document:
 
 ```json
 {
@@ -476,20 +537,20 @@ repository at one key.
 }
 ```
 
-`rata auth status --workspace <name>` reads that profile directly; it does not
-consult `LINEAR_API_KEY` or the repository config. `rata auth logout` without
+`rata admin auth status --workspace <name>` reads that profile directly; it does not
+consult `LINEAR_API_KEY` or the repository config. `rata admin auth logout` without
 `--workspace` removes the `default` profile. When the removed profile was the
 default and other profiles remain, no profile is the default. Later commands
-fail with ``No default workspace. Run `rata workspace use <name>`.`` Run
-`rata workspace use <name>` to select one.
+fail with ``No default workspace. Run `rata admin workspace use <name>`.`` Run
+`rata admin workspace use <name>` to select one.
 
 ## Teams
 
-`rata team list` prints the teams in the workspace: key, name, id. It returns
+`rata admin team list` prints the teams in the workspace: key, name, id. It returns
 one page per call: see **Paging lists**. `--format json` prints
 `{ "teams": [...], "pageInfo": { "hasNextPage": ..., "endCursor": ... } }`.
 
-`rata team show [<team-ref>]` prints the full read model of a team: the id, key,
+`rata admin team show [<team-ref>]` prints the full read model of a team: the id, key,
 name, timezone, every workflow state with its type and position, every label
 with its color and scope, the active members and the workspace priorities.
 Without a reference it uses the linked team. Without a reference and without a
@@ -497,8 +558,8 @@ link it fails with `not_linked`. The command drains every page of states,
 labels and members.
 
 ```bash
-rata team show JYO
-rata team show --format json
+rata admin team show JYO
+rata admin team show --format json
 ```
 
 `--format json` prints the team object at the top level:
@@ -522,14 +583,14 @@ rata team show --format json
 `scope` is `team` for a team label and `workspace` for a workspace label.
 Priorities are workspace-wide, not team-specific.
 
-`rata team create` creates a team. The viewer becomes the team owner. Linear
+`rata admin team create` creates a team. The viewer becomes the team owner. Linear
 creates the default workflow states and labels with the team. `create` sets the
 team timezone from the machine: the IANA name that the machine reports. When the
 machine reports no timezone, the create skips it.
 
 ```bash
-rata team create --name "Scratch" --key SCR --description "A scratch team"
-rata team create --name "Scratch" --copy-settings-from RAT
+rata admin team create --name "Scratch" --key SCR --description "A scratch team"
+rata admin team create --name "Scratch" --copy-settings-from RAT
 ```
 
 | Flag                   | Meaning                                                      |
@@ -555,13 +616,13 @@ another team. The value is a team key or a UUID.
 }
 ```
 
-`rata team delete` deletes a team. It accepts a team key or a UUID. It asks for
+`rata admin team delete` deletes a team. It accepts a team key or a UUID. It asks for
 confirmation before it calls the API, and it aborts unless the answer is `y` or
 `yes`, in any case.
 
 ```bash
-rata team delete SCR
-rata team delete SCR --yes
+rata admin team delete SCR
+rata admin team delete SCR --yes
 ```
 
 | Flag    | Meaning                       |
@@ -581,11 +642,11 @@ rata team delete SCR --yes
 
 ## Projects
 
-A Linear project groups issues. `rata project create` creates one:
+A Linear project groups issues. `rata admin project create` creates one:
 
 ```bash
-rata project create --name "Login revamp" --team RAT
-rata project create --name "Login revamp" --team RAT --team OPS --description "The login work."
+rata admin project create --name "Login revamp" --team RAT
+rata admin project create --name "Login revamp" --team RAT --team OPS --description "The login work."
 ```
 
 | Flag            | Meaning                                                                |
@@ -608,20 +669,20 @@ rata project create --name "Login revamp" --team RAT --team OPS --description "T
 }
 ```
 
-`rata project list` prints the name, state, progress and id of one page of the
+`rata admin project list` prints the name, state, progress and id of one page of the
 projects that include the linked team. Pass `--team <key>` to look at another
-team; run `rata link` once to set the link.
+team; run `rata admin link` once to set the link.
 
 ```bash
-rata project list
-rata project list --team RAT
+rata admin project list
+rata admin project list --team RAT
 ```
 
-`rata project list --include-archived` also shows trashed and archived
+`rata admin project list --include-archived` also shows trashed and archived
 projects. A trashed row carries a ` (deleted)` marker after the name:
 
 ```bash
-rata project list --include-archived
+rata admin project list --include-archived
 ```
 
 `--format json` prints
@@ -630,13 +691,13 @@ with the same fields, and every item carries the `trashed` flag. `--limit` and
 `--after` page the list; see **Paging lists**. `progress` is the fraction of
 the project's issues that are done, between 0 and 1.
 
-`rata project delete` moves a project to the trash. It accepts a project name
+`rata admin project delete` moves a project to the trash. It accepts a project name
 or a UUID. A name matches case-insensitively across every page. Linear keeps a
 deleted project recoverable for 30 days.
 
 ```bash
-rata project delete "Login revamp"
-rata project delete "Login revamp" --yes
+rata admin project delete "Login revamp"
+rata admin project delete "Login revamp" --yes
 ```
 
 | Flag    | Meaning                       |
@@ -646,7 +707,7 @@ rata project delete "Login revamp" --yes
 The command asks for confirmation before it calls the API, and it aborts unless
 the answer is `y` or `yes`, in any case. The prompt names the project and its
 id. An ambiguous name fails and asks for the UUID. A project that is already in
-the trash fails and points at `project restore`.
+the trash fails and points at `admin project restore`.
 
 `--format json` prints one stable document:
 
@@ -659,16 +720,16 @@ the trash fails and points at `project restore`.
 }
 ```
 
-`rata project restore` brings a trashed project back. It accepts a project name
+`rata admin project restore` brings a trashed project back. It accepts a project name
 or a UUID. A name matches case-insensitively across every page. It runs without
 a confirmation prompt. Restore works within the 30 days that Linear keeps a
 trashed project.
 
 ```bash
-rata project restore "Login revamp"
+rata admin project restore "Login revamp"
 ```
 
-A project that is not in the trash fails and points at `project delete`. An
+A project that is not in the trash fails and points at `admin project delete`. An
 ambiguous name fails and asks for the UUID.
 
 `--format json` prints one stable document:
@@ -705,18 +766,18 @@ UUID. A wayfinding map stays an issue with child issues.
 
 ## Labels
 
-`rata label list` prints the labels of the linked team: name, id, color. Pass
+`rata admin label list` prints the labels of the linked team: name, id, color. Pass
 `--team <key>` for another team. It returns one page per call: see
 **Paging lists**. `--format json` prints
 `{ "labels": [...], "pageInfo": { "hasNextPage": ..., "endCursor": ... } }`.
 
-`rata label create --name <name> [--color <hex>] [--team <key>] [--if-not-exists]`
-creates a team-scoped label. `--team` defaults to the team from `rata link`. A
+`rata admin label create --name <name> [--color <hex>] [--team <key>] [--if-not-exists]`
+creates a team-scoped label. `--team` defaults to the team from `rata admin link`. A
 missing `--color` lets Linear pick the color. A duplicate name, ignoring case,
 fails with `conflict` and names the existing label. `--if-not-exists` returns
 the existing label instead.
 
-`rata label edit <label-ref> [--name <new-name>] [--color <hex>] [--team <key>]`
+`rata admin label edit <label-ref> [--name <new-name>] [--color <hex>] [--team <key>]`
 changes an existing label. A label reference is a name or a UUID. A name
 resolves, ignoring case, against the team labels and the workspace labels. Pass
 at least one of `--name` and `--color`.
@@ -751,12 +812,12 @@ The read gateway exposes its raw client for writes. The write documents stay in
 
 ## Linking a repository
 
-`rata link` binds this repository to a Linear team:
+`rata admin link` binds this repository to a Linear team:
 
 ```bash
-rata link
-rata link --team RAT --project rata
-rata link --team SCR --create --name "Scratch"
+rata admin link
+rata admin link --team RAT --project rata
+rata admin link --team SCR --create --name "Scratch"
 ```
 
 Without flags, `link` prompts. It lists the stored workspace profiles with their
@@ -831,11 +892,11 @@ repository config:
 profile is recorded. `timezone` holds the previous and current IANA names when
 `link` changed the team timezone, and `null` otherwise.
 
-`rata unlink` removes the stored link of this repository:
+`rata admin unlink` removes the stored link of this repository:
 
 ```bash
-rata unlink
-rata unlink --format json
+rata admin unlink
+rata admin unlink --format json
 ```
 
 It prints what it removed, for example `Unlinked RAT from this repository.`, and
@@ -852,28 +913,28 @@ stable document with the removed team, project and workspace:
 
 ## Repository issue defaults
 
-`rata config` stores the values that `issue create` applies without explicit
+`rata admin config` stores the values that `issue create` applies without explicit
 flags:
 
 ```bash
-rata config set --assignee me --label enhancement --priority medium
-rata config show
-rata config show --format json
-rata config unset --label
+rata admin config set --assignee me --label enhancement --priority medium
+rata admin config show
+rata admin config show --format json
+rata admin config unset --label
 ```
 
-| Flag         | Meaning                                                                                 |
-| ------------ | --------------------------------------------------------------------------------------- |
-| `--assignee` | `me`, a user id, or `none` to clear it. `me` follows the current viewer.                |
-| `--label`    | Label name. Repeat to replace the default list. `config unset --label` clears the list. |
-| `--priority` | `none`, `urgent`, `high`, `medium`, `low`, or `0`-`4`. `none` and `0` clear it.         |
+| Flag         | Meaning                                                                                       |
+| ------------ | --------------------------------------------------------------------------------------------- |
+| `--assignee` | `me`, a user id, or `none` to clear it. `me` follows the current viewer.                      |
+| `--label`    | Label name. Repeat to replace the default list. `admin config unset --label` clears the list. |
+| `--priority` | `none`, `urgent`, `high`, `medium`, `low`, or `0`-`4`. `none` and `0` clear it.               |
 
-`config set` needs a linked team because labels are team-scoped. It resolves
-every label against the team and fails with `not_found` for a missing label.
-`config set --label` replaces the default list; `config unset` clears only the
-named fields.
+`admin config set` needs a linked team because labels are team-scoped. It
+resolves every label against the team and fails with `not_found` for a missing
+label. `admin config set --label` replaces the default list; `admin config
+unset` clears only the named fields.
 
-`config show --format json` prints:
+`admin config show --format json` prints:
 
 ```json
 { "defaults": { "assignee": "me", "labels": ["enhancement"], "priority": "medium" } }
@@ -884,9 +945,9 @@ repository default, unset. An explicit `--priority low` wins, and `--label bug`
 adds `bug` to the default labels. `--no-default-labels` drops the default labels
 for one call. `--assignee none` and `--priority none` clear their fields.
 
-When `rata link --team` changes the team, rata validates the stored default
+When `rata admin link --team` changes the team, rata validates the stored default
 labels against the new team. A missing label fails the link and lists the
-missing labels. `rata unlink` clears the defaults with the rest of the
+missing labels. `rata admin unlink` clears the defaults with the rest of the
 repository config.
 
 ## Reading issues
@@ -948,7 +1009,7 @@ carry them. Each PR says `source: "linear"`. A missing attachment gives
 token.
 
 `rata issue list` accepts filters. Combine any of them. Without `--team`, the
-list shows only the linked team's issues; run `rata link` once to set the link:
+list shows only the linked team's issues; run `rata admin link` once to set the link:
 
 ```bash
 rata issue list --team RAT --state "In Progress" --label bug --limit 100
@@ -962,7 +1023,7 @@ rata issue list --priority urgent --sort priority --limit 10
 
 | Flag           | Meaning                                                                                                                                                                                       |
 | -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--team`       | Team key or id. Default: the team from `rata link`.                                                                                                                                           |
+| `--team`       | Team key or id. Default: the team from `rata admin link`.                                                                                                                                     |
 | `--state`      | Workflow state name, for example `In Progress`.                                                                                                                                               |
 | `--state-type` | One of `triage`, `backlog`, `unstarted`, `started`, `completed`, `canceled`, `duplicate`.                                                                                                     |
 | `--priority`   | `none`, `urgent`, `high`, `medium`, `low`, or `0`-`4`.                                                                                                                                        |
@@ -1049,12 +1110,14 @@ A path through an array of scalars is a `validation` error. An empty array is
 validated and returns `[]`.
 
 `--select` is valid on `issue <ref>...`, `issue list`, `issue search`, `status`,
-`team show`, `team list`, `project list`, `label list`, `config show` and
-`whoami`. On an issue read it validates the shape of the active mode: summary,
-working or full. The migrated writes (`issue start`, `handoff`, `close`, `apply`,
-`relate`, `publish` and `comment`) use `--format` and `--select`; `issue create`
-still uses `--json` and `--fields` until its slice. An unknown path is a
-`validation` error whose hint lists the valid keys at the failing level.
+`admin team show`, `admin team list`, `admin project list`, `admin label list`,
+`admin config show` and `admin auth status`. On an issue read it validates the
+shape of the active mode: summary, working or full. The migrated writes (`issue
+start`, `handoff`, `close`, `apply`, `relate`, `publish` and `comment`) use
+`--format` and `--select`; `issue create` still uses `--json` and `--fields`
+until its slice. `admin api` returns a raw shape, so it does not take `--select`.
+An unknown path is a `validation` error whose hint lists the valid keys at the
+failing level.
 
 For any other shape, use `--format json` and `jq`. There is no custom format or
 template language.
@@ -1130,77 +1193,29 @@ plan/apply engine. The removed write forms (`issue update`, `issue label`,
 `issue unlink`, the old `issue comment` subcommands and the old `issue close
 --comment` flag) exit 2 with a `usage` error.
 
-## Changes in 0.10.0
+## Changes in 0.11.0
 
-- `issue update --sections-file -` replaces several headings in one read, one
-  diff and one write. A dry run returns the snapshot `updatedAt`.
-- `issue status` gains `--with-body`, `--comments` and `--children`. The default
-  shape stays; the child list reuses the detail id, so the common read drops from
-  three requests to two.
-- `issue list` gains `--id`, `--count` and `--ids-only`; `search` gains
-  `--count` and `--ids-only`; `next` gains `--ids-only`.
-- `--fields` validates each path against the command's declared shape, so a typo
-  fails on an empty list or a null object. A path may cross an array, and a
-  scalar or object leaf projects to an array.
-- A read resolves a stale team key and repairs the stored link with a warning. A
-  key that no longer exists fails with `not_found` and the repair hint; `status`
-  keeps its exit 0 and reports the warning.
-- An unknown state, label or project name on an empty list is `not_found` with
-  the valid names. A valid name with no issues stays an empty page.
-- Known wrong forms now fail with an executable command: `issue update --label`,
-  `issue update --blocked-by`, `issue create --blocked-by`, a bare `issue link`,
-  and a write with `--fields`. Write help ends with an agent notes block.
-- `issue link` resolves the source and every target in one id query, reads both
-  relation directions in one query, and needs no id query for a UUID reference.
-  One target and three targets each cost two requests in the common case.
-- `--sort priority` uses Linear's server sort. `--limit` is the page size and
-  `--after` continues the sorted result; the command no longer reads every page
-  to sort.
-
-This is the one 0.10.0 agent-experience release. The 0.10 map's
-import/export/apply, graph read, PR awareness, cache and audit log, and API
-escape hatch stay out.
-
-## Breaking changes in 0.9.0
-
-- `issue <ref>` and a positional assignee are rejected. Read with
-  `issue show <ref>` and assign with `issue assign <ref> --assignee <value>`.
-  The error hint names the canonical form.
-- `issue list` gains `--include relations`, which adds the six relation groups
-  to every row with one list request per page and no per-child read.
-- Single-resource reads print the resource object: `issue show` (summary and
-  detail), `issue status`, `next`, `why`, `team show` and `issue section get`.
-  `issue list` and `search` keep `{ "issues", "pageInfo" }`.
-- `--fields` starts at the resource, returns `null` for a path through a null
-  object, and rejects a path into an array. `next` and `why` accept it.
-- `IssueSummary` and `IssueDetail` gain `createdAt`. Every issue read carries
-  it, and so does every write result that returns a full issue summary.
-- `rata status` reports the rest of the context when the stored team key is
-  stale: `team` and `defaults` are `null` and `warning` names the repair. It
-  exits 0.
-- A failed legacy `.rata.json` cleanup prints a warning instead of failing the
-  command.
-
-## Breaking changes in 0.8.0
-
-- `issue comment <ref>` becomes `issue comment create <ref>`. The group also
-  gains `update` and `delete`.
-- `issue section` is new: `get`, `append` and `replace`.
-- `issue update` gains `--append`, `--dry-run`, `--if-unchanged`, `--comment`
-  and `--comment-file`.
-- `issue show` gains `--summary`, `--no-body`, `--no-relations`, `--no-children`
-  and `--no-attachments`.
-- `issue list`, `search`, `team list`, `project list` and `label list` gain
-  `--all`.
-- `issue show` gains the `view` alias.
-- `IssueSummary` and `IssueDetail` gain `updatedAt`. Every issue in every read
-  and write result carries it.
-- `--dry-run` now covers every issue write, including `issue comment create`,
-  `issue comment update`, `issue comment delete`, `issue close` and
-  `issue reopen`.
-- `rata next` and `rata why` are new top-level commands.
-- An unknown `--fields` path now fails with a hint that lists the valid keys at
-  the failing level.
+- The root has five commands: `status`, `issue`, `triage`, `map` and `admin`.
+  `triage` and `map` are visible phase 2 groups; they have a description and no
+  work commands yet.
+- The setup commands moved under `admin`: `auth`, `link`, `unlink`, `workspace`,
+  `config`, `team`, `project`, `label`, `doctor` and `api`. The old root forms
+  exit 2. `whoami` is gone; `status` and `admin auth status` carry the viewer.
+- `admin api` runs a read-only GraphQL query. It rejects mutations and
+  subscriptions before the request and never prints the API key.
+- `admin doctor` checks every `rata` command in `docs/agents/issue-tracker.md`
+  against the registry. `--write` repairs the generated command block.
+- `skills/rata/reference.md` and the tracker command block are generated from
+  the command registry. Run `bun run docs:generate`; `bun run docs:check` fails
+  when either block is stale.
+- `issue <ref>` is the only read form. `issue apply` is the general write,
+  `issue publish` owns a graph, and `start`, `handoff` and `close` own the
+  lifecycle.
+- The old read and write forms stay removed: `issue show`, `issue view`,
+  `issue status`, `next`, `why`, `issue update`, `issue label`, `issue section`,
+  `issue assign`, `issue unassign`, `issue reopen`, `issue link`, `issue unlink`,
+  the old `issue comment` subcommands and `--json`/`--fields` on the migrated
+  commands. They exit 2.
 
 ## Documentation
 
@@ -1209,7 +1224,7 @@ escape hatch stay out.
 - `docs/agents/triage-labels.md`: the triage roles and their label strings.
 - `docs/agents/domain.md`: how the skills consume the domain documentation.
 - `skills/rata/SKILL.md`: the agent entry point for the CLI.
-- `skills/rata/reference.md`: every command, flag and JSON shape.
+- `skills/rata/reference.md`: the generated command catalog and the JSON shapes.
 - `AGENTS.md`: how to work in this repository.
 
 ## License

@@ -93,7 +93,7 @@ describe("IssueReader team default", () => {
 
     expect(error._tag).toBe("TeamResolutionError")
     if (error._tag === "TeamResolutionError") {
-      expect(error.message).toBe("No team. Pass --team, or run `rata link`.")
+      expect(error.message).toBe("No team. Pass --team, or run `rata admin link`.")
     }
   })
 })

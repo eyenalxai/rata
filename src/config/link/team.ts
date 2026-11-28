@@ -62,7 +62,7 @@ const promptForTeam = Effect.fn("LinkTeam.promptForTeam")(function* promptForTea
   if (all.length === 0) {
     return yield* new LinkError({
       message:
-        "No teams in the workspace. Run `rata link --team <key> --create --name <name>` to create one.",
+        "No teams in the workspace. Run `rata admin link --team <key> --create --name <name>` to create one.",
     })
   }
   return yield* runPrompt(

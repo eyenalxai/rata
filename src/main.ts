@@ -12,19 +12,7 @@ import { RepoTeam } from "@/api/repo-team"
 import { TeamService } from "@/api/team"
 import { helpLayer } from "@/cli/help"
 import { issueCommand } from "@/cli/issue"
-import {
-  authCommand,
-  configCommand,
-  createRoot,
-  labelCommand,
-  linkCommand,
-  projectCommand,
-  statusCommand,
-  teamCommand,
-  unlinkCommand,
-  whoamiCommand,
-  workspaceCommand,
-} from "@/cli/registry"
+import { adminCommand, createRoot, mapCommand, statusCommand, triageCommand } from "@/cli/registry"
 import { runCli } from "@/cli/runner"
 import { Auth } from "@/config/auth"
 import { IssueDefaultsService } from "@/config/defaults"
@@ -160,22 +148,26 @@ const statusAdminLayer = Layer.mergeAll(
   teamContextLayer,
 )
 const workspaceAdminLayer = Layer.mergeAll(authLayer, gatewayLayer)
+const adminLayer = Layer.mergeAll(
+  authAdminLayer,
+  unlinkAdminLayer,
+  configAdminLayer,
+  teamAdminLayer,
+  projectAdminLayer,
+  labelAdminLayer,
+  linkLayer,
+  workspaceAdminLayer,
+)
 
 const root = createRoot([
-  Command.provide(authCommand, authAdminLayer),
-  Command.provide(whoamiCommand, gatewayLayer),
   Command.provide(statusCommand, statusAdminLayer),
-  Command.provide(configCommand, configAdminLayer),
-  Command.provide(linkCommand, linkLayer),
-  Command.provide(unlinkCommand, unlinkAdminLayer),
-  Command.provide(workspaceCommand, workspaceAdminLayer),
   Command.provide(issueCommand, workLayer),
-  Command.provide(teamCommand, teamAdminLayer),
-  Command.provide(projectCommand, projectAdminLayer),
-  Command.provide(labelCommand, labelAdminLayer),
+  triageCommand,
+  mapCommand,
+  Command.provide(adminCommand, adminLayer),
 ])
 
-const program = runCli("0.10.0", root).pipe(
+const program = runCli("0.11.0", root).pipe(
   Effect.provide(Layer.mergeAll(platformLayer, helpLayer)),
 )
 

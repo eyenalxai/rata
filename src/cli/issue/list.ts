@@ -34,7 +34,10 @@ const listSpec = defineCommand("list", {
     },
   ],
   input: {
-    team: optionalText("team", "Filter by team key or id. Defaults to the team from `rata link`"),
+    team: optionalText(
+      "team",
+      "Filter by team key or id. Defaults to the team from `rata admin link`",
+    ),
     state: optionalText("state", "Filter by workflow state name"),
     stateType: Flag.Literals("state-type", stateTypes).pipe(
       Flag.withDescription("Filter by workflow state type"),

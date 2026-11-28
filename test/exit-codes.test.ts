@@ -167,7 +167,7 @@ describe("the process exit code", () => {
   })
 
   test("a missing key exits 5", async () => {
-    await runRoot(unusedHandler, ["whoami", "--format", "json"], [], undefined, {
+    await runRoot(unusedHandler, ["admin", "auth", "status", "--format", "json"], [], undefined, {
       env: { HOME: "/home/test" },
       profiles: [],
     })
@@ -176,7 +176,7 @@ describe("the process exit code", () => {
   })
 
   test("a forbidden request exits 5", async () => {
-    await runRoot(forbidden, ["whoami", "--format", "json"], [])
+    await runRoot(forbidden, ["admin", "auth", "status", "--format", "json"], [])
 
     expect(process.exitCode).toBe(5)
   })

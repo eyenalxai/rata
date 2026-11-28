@@ -36,6 +36,8 @@ vocabulary.
 ```bash
 bun install
 bun run check          # format check, type-aware oxlint, tsc and tests
+bun run docs:generate  # rewrite the generated reference and tracker blocks
+bun run docs:check     # fail when a generated block is stale
 bun run rata -- --help # run the CLI from source
 bun install -g .       # install the `rata` binary globally
 ```
@@ -66,6 +68,7 @@ upstream version.
 | -------------- | --------------------------------------------------------------------- |
 | `src/main.ts`  | The `rata` binary entry point and the root command.                   |
 | `src/cli/`     | One module per command group. Parsing, output, exit codes.            |
+| `src/docs/`    | The docs generator for the reference and tracker blocks.              |
 | `src/api/`     | Legacy service adapters for the current command surface.              |
 | `src/domain/`  | Pure logic: references, labels, priorities, prompts, timezones.       |
 | `src/linear/`  | The Linear HTTP client, GraphQL documents, decoders and read gateway. |
@@ -127,7 +130,8 @@ then delete them. Never commit a wizard to this repository. They follow the
 - **Keep the docs in step.** A change to commands, flags or behaviour updates
   `README.md`, the CLI help text, `skills/rata/reference.md`, and
   `skills/rata/SKILL.md` and `docs/agents/issue-tracker.md` when the tracker
-  workflow changes.
+  workflow changes. The command index in `reference.md` and the command block in
+  the tracker document are generated; run `bun run docs:generate`.
 - **All database migrations go through Drizzle, including custom ones.** Create
   every migration with `drizzle-kit generate`. Write hand-written SQL migrations
   with `drizzle-kit generate --custom`. Apply migrations only through Drizzle's

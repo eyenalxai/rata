@@ -77,8 +77,8 @@ describe("issue list filter existence", () => {
     const error = errorOf(lines)
     expect(process.exitCode).toBe(3)
     expect(error.code).toBe("not_found")
-    expect(error.hint).toContain("rata team list")
-    expect(error.hint).toContain("rata link")
+    expect(error.hint).toContain("rata admin team list")
+    expect(error.hint).toContain("rata admin link")
   })
 
   test("rejects an unknown state with the valid state names", async () => {

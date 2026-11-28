@@ -142,7 +142,7 @@ const makeIssueWriteResolvers = ({ client, contexts, gateway }: IssueWriteDepend
     if (match === undefined) {
       return yield* new ProjectNotFoundError({
         ref: value,
-        message: `No project named ${value}. Run \`rata project list\` to see the projects.`,
+        message: `No project named ${value}. Run \`rata admin project list\` to see the projects.`,
       })
     }
     return match.id
