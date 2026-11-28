@@ -165,6 +165,11 @@ const root = createRoot([
 
 const program = runCli("0.11.0", root).pipe(
   Effect.provide(Layer.mergeAll(platformLayer, helpLayer)),
+  Effect.tap((exit) =>
+    Effect.sync(() => {
+      process.exitCode = exit.code
+    }),
+  ),
 )
 
 BunRuntime.runMain(program)

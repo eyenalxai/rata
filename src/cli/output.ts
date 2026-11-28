@@ -1,6 +1,7 @@
 import { Config, Console, Effect, Option, Predicate, Result, Schema } from "effect"
 import { Flag, GlobalFlag } from "effect/cli"
 
+import type { CliExit } from "@/cli/spec"
 import type { ErrorCode } from "@/domain/error"
 import type { PlanAction } from "@/domain/plan"
 import type { IssueSummary } from "@/tracker/model"
@@ -73,14 +74,10 @@ const debugText = (error: unknown): string => {
 const fallbackErrorJson =
   '{"error":{"code":"internal","message":"Could not serialize the error.","hint":null}}'
 
-const writeJsonError = (value: unknown): Effect.Effect<void> =>
-  Effect.gen(function* writeErrorJson() {
-    const encoded = Schema.encodeResult(jsonOutput)(value)
-    if (Result.isSuccess(encoded)) {
-      return yield* Console.error(encoded.success)
-    }
-    return yield* Console.error(fallbackErrorJson)
-  })
+const errorJsonText = (value: unknown): string => {
+  const encoded = Schema.encodeResult(jsonOutput)(value)
+  return Result.isSuccess(encoded) ? encoded.success : fallbackErrorJson
+}
 
 const writeJson = (value: unknown): Effect.Effect<void> =>
   Effect.sync(() => {
@@ -148,7 +145,7 @@ const writeBulkResults = (
   dryRun: boolean,
   results: readonly BulkWriteResult[],
   format: (result: BulkWriteSuccess) => string,
-): Effect.Effect<void> =>
+): Effect.Effect<number> =>
   Effect.gen(function* writeBulk() {
     const firstFailure = results.find((result) => result.status === "failed")
     yield* json
@@ -158,12 +155,7 @@ const writeBulkResults = (
           (result) => writeLine(result.status === "failed" ? failureLine(result) : format(result)),
           { discard: true },
         )
-    if (firstFailure !== undefined && firstFailure.status === "failed") {
-      const code = toTrackerError(firstFailure.error).code
-      yield* Effect.sync(() => {
-        process.exitCode = exitCodeOf(code)
-      })
-    }
+    return firstFailure === undefined ? 0 : exitCodeOf(toTrackerError(firstFailure.error).code)
   })
 
 const isEnabledFlag = (value: string): boolean => value !== "" && value !== "0" && value !== "false"
@@ -182,47 +174,51 @@ const writeTrackerError = (
     readonly cause?: unknown
     readonly extra?: Readonly<Record<string, unknown>>
   } = {},
-): Effect.Effect<void> =>
+): Effect.Effect<CliExit> =>
   Effect.gen(function* writeErrorReport() {
-    if (json) {
-      const details = {
-        ...report.details,
-        ...(options.debug === true ? { cause: encodeCause(options.cause ?? report) } : {}),
+    const lines = yield* Effect.sync(() => {
+      if (json) {
+        const details = {
+          ...report.details,
+          ...(options.debug === true ? { cause: encodeCause(options.cause ?? report) } : {}),
+        }
+        return [
+          errorJsonText({
+            ...options.extra,
+            error: {
+              code: report.code,
+              message: report.message,
+              hint: report.hint,
+              ...(report.retryAfterSeconds === undefined
+                ? {}
+                : { retryAfterSeconds: report.retryAfterSeconds }),
+              ...(Object.keys(details).length === 0 ? {} : { details }),
+            },
+          }),
+        ]
       }
-      yield* writeJsonError({
-        ...options.extra,
-        error: {
-          code: report.code,
-          message: report.message,
-          hint: report.hint,
-          ...(report.retryAfterSeconds === undefined
-            ? {}
-            : { retryAfterSeconds: report.retryAfterSeconds }),
-          ...(Object.keys(details).length === 0 ? {} : { details }),
-        },
-      })
-    } else {
-      yield* Console.error(`error: ${report.message}`)
-      if (report.hint !== null) {
-        yield* Console.error(`hint: ${report.hint}`)
-      }
-      if (options.debug === true) {
-        yield* Console.error(debugText(options.cause ?? report))
-      }
-    }
-    yield* Effect.sync(() => {
-      process.exitCode = exitCodeOf(report.code)
+      return [
+        `error: ${report.message}`,
+        ...(report.hint === null ? [] : [`hint: ${report.hint}`]),
+        ...(options.debug === true ? [debugText(options.cause ?? report)] : []),
+      ]
     })
+    yield* Effect.forEach(lines, (line) => Console.error(line), { discard: true })
+    return {
+      code: exitCodeOf(report.code),
+      output: { stream: "stderr", lines },
+      error: report,
+    }
   })
 
 const reportTrackerError = (
   report: TrackerError,
   json: boolean,
   extra?: Readonly<Record<string, unknown>>,
-): Effect.Effect<void> =>
+): Effect.Effect<CliExit> =>
   Effect.gen(function* reportTrackerFailure() {
     const debug = yield* debugEnabled
-    yield* writeTrackerError(report, json, {
+    return yield* writeTrackerError(report, json, {
       debug,
       cause: report.cause,
       ...(extra === undefined ? {} : { extra }),
@@ -233,7 +229,7 @@ const errorLine = (code: ErrorCode, message: string, hint?: string) =>
   Effect.gen(function* writeErrorLine() {
     const json = yield* JsonOutput
     const report = commandError({ code, message, hint: hint ?? null })
-    yield* reportTrackerError(toTrackerError(report), json)
+    return yield* reportTrackerError(toTrackerError(report), json)
   })
 
 const nextPageHint = (name: string, endCursor: string): string =>
@@ -255,7 +251,7 @@ const validatePageSize = (limit: number) =>
 const reportFailure = (error: unknown) =>
   Effect.gen(function* reportFailureEffect() {
     const json = yield* JsonOutput
-    yield* reportTrackerError(toTrackerError(error), json)
+    return yield* reportTrackerError(toTrackerError(error), json)
   })
 
 export {
@@ -272,6 +268,5 @@ export {
   writeBulkResults,
   writeDryRun,
   writeJson,
-  writeJsonError,
   writeLine,
 }

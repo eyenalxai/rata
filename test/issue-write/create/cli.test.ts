@@ -1,7 +1,7 @@
 import { lastJson, runIssue, runRoot } from "@test/cli-harness"
 import { jsonResponse } from "@test/issue-fixtures"
 import { issueCreated, makeRecorder, teamDetailResponse } from "@test/issue-write/fixtures"
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 
 const handler = () => {
   const recorder = makeRecorder((request) => {
@@ -20,15 +20,11 @@ const handler = () => {
 const create = (args: readonly string[], lines: string[]) =>
   runIssue(handler().handler, ["create", ...args], lines)
 
-afterEach(() => {
-  process.exitCode = 0
-})
-
 describe("issue create", () => {
   test("returns the issue and the write result", async () => {
     const recorder = handler()
     const lines: string[] = []
-    await runIssue(
+    const exit = await runIssue(
       recorder.handler,
       ["create", "--title", "Fix login", "--team", "RAT", "--format", "json"],
       lines,
@@ -54,7 +50,7 @@ describe("issue create", () => {
     expect(
       recorder.requests.filter((request) => request.query.includes("mutation CreateIssue")),
     ).toHaveLength(1)
-    expect(process.exitCode ?? 0).toBe(0)
+    expect(exit.code).toBe(0)
   })
 
   test("a dry run returns the plan and writes nothing", async () => {
@@ -105,13 +101,13 @@ describe("issue create", () => {
 
   test("rejects --json", async () => {
     const lines: string[] = []
-    await runRoot(
+    const exit = await runRoot(
       handler().handler,
       ["issue", "create", "--title", "Fix login", "--team", "RAT", "--json"],
       lines,
     )
 
-    expect(process.exitCode).toBe(2)
+    expect(exit.code).toBe(2)
     expect(lastJson(lines)).toMatchObject({
       error: {
         code: "usage",
@@ -122,13 +118,13 @@ describe("issue create", () => {
 
   test("rejects --fields", async () => {
     const lines: string[] = []
-    await runRoot(
+    const exit = await runRoot(
       handler().handler,
       ["issue", "create", "--title", "Fix login", "--team", "RAT", "--fields", "identifier"],
       lines,
     )
 
-    expect(process.exitCode).toBe(2)
+    expect(exit.code).toBe(2)
     expect(lastJson(lines)).toMatchObject({
       error: {
         code: "usage",

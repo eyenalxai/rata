@@ -3,14 +3,10 @@ import type { GraphQLRequest } from "@test/fake-linear/model"
 import { makeFakeLinear } from "@test/fake-linear"
 import { lastJson, runProject, tracker } from "@test/project/harness"
 import { typed } from "@test/terminal-harness"
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 
 const deleteMutation = (requests: readonly GraphQLRequest[]): GraphQLRequest | undefined =>
   requests.find((request) => request.query.includes("mutation ProjectDelete"))
-
-afterEach(() => {
-  process.exitCode = 0
-})
 
 describe("project delete", () => {
   test("prompts with the project name and deletes on yes", async () => {
@@ -40,8 +36,14 @@ describe("project delete", () => {
   test("fails without a TTY and points at --yes", async () => {
     const fake = makeFakeLinear({ teams: [], labels: [], projects: [tracker] })
     const lines: string[] = []
-    await runProject(fake.handler, ["delete", "Tracker", "--format", "json"], lines, [], false)
-    expect(process.exitCode).toBe(2)
+    const exit = await runProject(
+      fake.handler,
+      ["delete", "Tracker", "--format", "json"],
+      lines,
+      [],
+      false,
+    )
+    expect(exit.code).toBe(2)
     expect(JSON.parse(lines.at(-1) ?? "")).toMatchObject({
       error: { code: "validation", hint: "Pass --yes to skip the prompt." },
     })
@@ -60,11 +62,11 @@ describe("project delete", () => {
   test("points at project list when no project matches", async () => {
     const fake = makeFakeLinear({ teams: [], labels: [] })
     const lines: string[] = []
-    await runProject(fake.handler, ["delete", "Nope", "--yes"], lines)
+    const exit = await runProject(fake.handler, ["delete", "Nope", "--yes"], lines)
     expect(lines).toEqual([
       "error: No project named Nope. Run `rata admin project list` to see the projects.",
     ])
-    expect(process.exitCode).toBe(3)
+    expect(exit.code).toBe(3)
     expect(deleteMutation(fake.requests)).toBeUndefined()
   })
 
@@ -72,11 +74,11 @@ describe("project delete", () => {
     const trashed = { ...tracker, trashed: true }
     const fake = makeFakeLinear({ teams: [], labels: [], projects: [trashed] })
     const lines: string[] = []
-    await runProject(fake.handler, ["delete", "Tracker", "--yes"], lines)
+    const exit = await runProject(fake.handler, ["delete", "Tracker", "--yes"], lines)
     expect(lines).toEqual([
       "error: The project Tracker (project-1) is in the trash. Run `rata admin project restore` to bring it back.",
     ])
-    expect(process.exitCode).toBe(4)
+    expect(exit.code).toBe(4)
     expect(deleteMutation(fake.requests)).toBeUndefined()
   })
 
@@ -84,11 +86,11 @@ describe("project delete", () => {
     const other = { ...tracker, id: "project-2" }
     const fake = makeFakeLinear({ teams: [], labels: [], projects: [tracker, other] })
     const lines: string[] = []
-    await runProject(fake.handler, ["delete", "Tracker", "--yes"], lines)
+    const exit = await runProject(fake.handler, ["delete", "Tracker", "--yes"], lines)
     expect(lines).toEqual([
       "error: More than one live project is named Tracker. Pass the project UUID instead.",
     ])
-    expect(process.exitCode).toBe(2)
+    expect(exit.code).toBe(2)
     expect(deleteMutation(fake.requests)).toBeUndefined()
   })
 })

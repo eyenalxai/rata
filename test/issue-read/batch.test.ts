@@ -1,7 +1,7 @@
 import { lastJson, lastJsonRecord, runIssueMemory } from "@test/cli-harness"
 import { countingGateway } from "@test/fake-linear/gateway/counting"
 import { seed, documentOf } from "@test/issue-read/fixtures"
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { Option, Schema } from "effect"
 
 const ItemsDocument = Schema.Struct({
@@ -10,10 +10,6 @@ const ItemsDocument = Schema.Struct({
 const SelectedDocument = Schema.Struct({
   children: Schema.Array(Schema.String),
   frontier: Schema.Array(Schema.String),
-})
-
-afterEach(() => {
-  process.exitCode = 0
 })
 
 describe("issue <ref>...", () => {
@@ -48,26 +44,30 @@ describe("issue <ref>...", () => {
 
   test("reports a missing ref in a mixed batch as not_found", async () => {
     const lines: string[] = []
-    await runIssueMemory(seed(), ["RAT-1", "RAT-404", "RAT-2", "--format", "json"], lines)
+    const exit = await runIssueMemory(
+      seed(),
+      ["RAT-1", "RAT-404", "RAT-2", "--format", "json"],
+      lines,
+    )
 
     expect(lastJsonRecord(lines)).toMatchObject({ error: { code: "not_found" } })
-    expect(process.exitCode).toBe(3)
+    expect(exit.code).toBe(3)
   })
 
   test("reports a missing ref as not_found", async () => {
     const lines: string[] = []
-    await runIssueMemory(seed(), ["RAT-404", "--format", "json"], lines)
+    const exit = await runIssueMemory(seed(), ["RAT-404", "--format", "json"], lines)
 
     expect(lastJsonRecord(lines)).toMatchObject({ error: { code: "not_found" } })
-    expect(process.exitCode).toBe(3)
+    expect(exit.code).toBe(3)
   })
 
   test("rejects a malformed ref with validation", async () => {
     const lines: string[] = []
-    await runIssueMemory(seed(), ["not a ref", "--format", "json"], lines)
+    const exit = await runIssueMemory(seed(), ["not a ref", "--format", "json"], lines)
 
     expect(lastJsonRecord(lines)).toMatchObject({ error: { code: "validation" } })
-    expect(process.exitCode).toBe(2)
+    expect(exit.code).toBe(2)
   })
 
   test("accepts a linear.app URL ref", async () => {
@@ -106,17 +106,17 @@ describe("issue <ref>...", () => {
 
   test("rejects a full-only path in the working mode", async () => {
     const lines: string[] = []
-    await runIssueMemory(seed(), ["RAT-1", "--select", "relations.blocks"], lines)
+    const exit = await runIssueMemory(seed(), ["RAT-1", "--select", "relations.blocks"], lines)
 
     expect(lastJsonRecord(lines)).toMatchObject({ error: { code: "validation" } })
-    expect(process.exitCode).toBe(2)
+    expect(exit.code).toBe(2)
   })
 
   test("rejects an unknown selected path", async () => {
     const lines: string[] = []
-    await runIssueMemory(seed(), ["RAT-1", "--select", "children.naem"], lines)
+    const exit = await runIssueMemory(seed(), ["RAT-1", "--select", "children.naem"], lines)
 
     expect(lastJsonRecord(lines)).toMatchObject({ error: { code: "validation" } })
-    expect(process.exitCode).toBe(2)
+    expect(exit.code).toBe(2)
   })
 })

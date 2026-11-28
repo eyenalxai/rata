@@ -60,11 +60,16 @@ const program = Effect.gen(function* generateDocs() {
       stale = true
     }
   }
-  if (stale) {
-    yield* Effect.sync(() => {
-      process.exitCode = 1
-    })
-  }
+  return stale
 })
 
-BunRuntime.runMain(program.pipe(Effect.provide(BunServices.layer)))
+BunRuntime.runMain(
+  program.pipe(
+    Effect.tap((stale) =>
+      Effect.sync(() => {
+        process.exitCode = stale ? 1 : 0
+      }),
+    ),
+    Effect.provide(BunServices.layer),
+  ),
+)

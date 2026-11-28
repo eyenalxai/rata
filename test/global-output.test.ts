@@ -3,11 +3,11 @@ import type { Handler } from "@test/fake-linear/model"
 import { cliLayer, lastJson, runRoot } from "@test/cli-harness"
 import { makeFakeLinear } from "@test/fake-linear"
 import { defaultViewer } from "@test/fake-linear/model"
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { Effect } from "effect"
-import { Command } from "effect/cli"
 
 import { teamCommand } from "@/cli/registry"
+import { runCli } from "@/cli/runner"
 
 const team = {
   id: "00000000-0000-0000-0000-000000000001",
@@ -17,20 +17,16 @@ const team = {
 }
 
 const runTeam = (handler: Handler, args: readonly string[], lines: string[]) =>
-  Command.run(teamCommand, { version: "test" }).pipe(
+  runCli("test", teamCommand).pipe(
     Effect.provide(cliLayer(handler, args, lines, [{ key: process.cwd(), team: "RAT" }])),
     Effect.runPromise,
   )
-
-afterEach(() => {
-  process.exitCode = 0
-})
 
 describe("global output flags", () => {
   test("defaults a migrated command to JSON off a terminal", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
-    await Command.run(teamCommand, { version: "test" }).pipe(
+    await runCli("test", teamCommand).pipe(
       Effect.provide(
         cliLayer(fake.handler, ["list"], lines, [{ key: process.cwd(), team: "RAT" }], {
           stdio: { stdoutIsTerminal: Effect.succeed(false) },
@@ -105,9 +101,9 @@ describe("global output flags", () => {
   test("team delete without a TTY exits 2 with a --yes hint", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
-    await runTeam(fake.handler, ["delete", "RAT", "--format", "json"], lines)
+    const exit = await runTeam(fake.handler, ["delete", "RAT", "--format", "json"], lines)
 
-    expect(process.exitCode).toBe(2)
+    expect(exit.code).toBe(2)
     expect(JSON.parse(lines.at(-1) ?? "")).toMatchObject({
       error: { code: "validation", hint: "Pass --yes to skip the prompt." },
     })

@@ -1,5 +1,6 @@
 import { Effect, Result, Schema } from "effect"
 
+import type { CliExit } from "@/cli/spec"
 import type { ErrorCode } from "@/domain/error"
 
 import { JsonOutput, errorLine } from "@/cli/output"
@@ -20,7 +21,6 @@ const shellSafe = /^[A-Za-z0-9_./:@%+=,-]+$/u
 const backslash = String.fromCodePoint(92)
 const escapedBackslash = `${backslash}${backslash}`
 const escapedQuote = `${backslash}"`
-
 const quoteHintValue = (value: string): string =>
   shellSafe.test(value)
     ? value
@@ -294,7 +294,7 @@ const jsonEnabled = (args: readonly string[]): boolean => {
   return false
 }
 
-const reportInvalidForm = (form: InvalidForm, json: boolean): Effect.Effect<void> =>
+const reportInvalidForm = (form: InvalidForm, json: boolean): Effect.Effect<CliExit> =>
   errorLine(form.code, form.message, form.hint).pipe(Effect.provideService(JsonOutput, json))
 
 export { detectInvalidForm, jsonEnabled, reportInvalidForm }

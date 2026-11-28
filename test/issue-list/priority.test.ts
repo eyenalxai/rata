@@ -2,7 +2,7 @@ import type { MemoryIssue, MemorySeed } from "@test/fake-linear/gateway/model"
 
 import { lastJsonRecord, runIssueMemory } from "@test/cli-harness"
 import { defaultViewer } from "@test/fake-linear/model"
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { Option, Schema } from "effect"
 
 import { issueId, labelId, projectId, teamId, userId, workflowStateId } from "@/domain/id"
@@ -74,10 +74,6 @@ const rowsOf = (lines: readonly string[]): readonly { readonly identifier: strin
   )
   return decoded
 }
-
-afterEach(() => {
-  process.exitCode = 0
-})
 
 describe("issue list priority behavior", () => {
   test("filters on no priority without dropping it", async () => {

@@ -2,7 +2,7 @@ import type { MemoryIssue, MemorySeed } from "@test/fake-linear/gateway/model"
 
 import { lastJson, runRootMemory } from "@test/cli-harness"
 import { defaultViewer } from "@test/fake-linear/model"
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { Option, Schema } from "effect"
 
 import { issueId, labelId, projectId, teamId, userId } from "@/domain/id"
@@ -87,10 +87,6 @@ const IssuePageDocument = Schema.Struct({
 
 const pageDocumentOf = (lines: readonly string[]) =>
   Option.getOrThrow(Schema.decodeUnknownOption(IssuePageDocument)(lastJson(lines)))
-
-afterEach(() => {
-  process.exitCode = 0
-})
 
 describe("team list --all", () => {
   test("drains every page and returns synthetic pageInfo", async () => {

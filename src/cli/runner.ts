@@ -1,10 +1,10 @@
-import type { Option } from "effect"
 import type { Command as CliCommand } from "effect/cli"
 
-import { Console, Effect, Option as OptionValue, Stdio } from "effect"
+import { Console, Effect, Option as OptionValue, Ref, Stdio } from "effect"
 import { CliError, Command, Flag, GlobalFlag } from "effect/cli"
 
 import type {
+  CliExit,
   CommandControl,
   CommandOutput,
   CommandSpec,
@@ -14,6 +14,7 @@ import type {
 
 import { dropEmptyLine } from "@/cli/console"
 import { commandError, exitCodeOf, toTrackerError } from "@/cli/error-report"
+import { ExitRef, recordExit, successExit } from "@/cli/exit"
 import { OutputFields } from "@/cli/fields"
 import {
   formatFromArgs,
@@ -22,6 +23,7 @@ import {
   isBareInvocation,
   isIssueReadCommand,
   isIssueWriteCommand,
+  resolveFormat,
 } from "@/cli/format"
 import { setSuppressHelp, withModernOutput, withSelectable } from "@/cli/help"
 import { readBodyInput } from "@/cli/input"
@@ -72,34 +74,13 @@ const cliTrackerError = (error: CliError.CliError) =>
     }),
   )
 
-const reportRunFailure = (error: unknown, format: OutputFormat): Effect.Effect<void> =>
+const reportRunFailure = (error: unknown, format: OutputFormat): Effect.Effect<CliExit> =>
   reportTrackerError(toTrackerError(error), format === "json")
 
-const reportCliError = (error: CliError.CliError, format: OutputFormat): Effect.Effect<void> =>
-  Effect.gen(function* reportCliFailure() {
-    if (error._tag === "ShowHelp" && error.errors.length === 0) {
-      yield* Effect.sync(() => {
-        process.exitCode = 0
-      })
-      return
-    }
-    yield* reportRunFailure(cliTrackerError(error), format)
-  })
-
-const resolveFormat = (
-  requested: Option.Option<OutputFormat>,
-  json: boolean,
-  select: boolean,
-  stdoutIsTerminal: boolean,
-): OutputFormat => {
-  if (OptionValue.isSome(requested)) {
-    return requested.value
-  }
-  if (json || select || !stdoutIsTerminal) {
-    return "json"
-  }
-  return "text"
-}
+const reportCliError = (error: CliError.CliError, format: OutputFormat): Effect.Effect<CliExit> =>
+  exitCodeOfCliError(error) === 0
+    ? Effect.succeed(successExit)
+    : reportRunFailure(cliTrackerError(error), format)
 
 const runSpec = <Name extends string, Config extends CliCommand.Command.Config, R>(
   spec: CommandSpec<Name, Config, R>,
@@ -114,12 +95,12 @@ const runSpec = <Name extends string, Config extends CliCommand.Command.Config, 
     )
     const requestedFormat = yield* Format
     const selectedFields = yield* OutputSelect
-    const format = resolveFormat(
-      requestedFormat,
+    const format = resolveFormat({
+      requested: OptionValue.getOrUndefined(requestedFormat),
       json,
-      OptionValue.isSome(selectedFields),
+      select: OptionValue.isSome(selectedFields),
       stdoutIsTerminal,
-    )
+    })
     return yield* Effect.gen(function* executeSpec() {
       const activeOutput = spec.outputFor?.(input) ?? spec.output
       if (activeOutput === undefined) {
@@ -129,7 +110,7 @@ const runSpec = <Name extends string, Config extends CliCommand.Command.Config, 
             message: "The command has no output spec.",
             hint: null,
           }),
-          format === "json" ? "json" : "text",
+          format,
         )
       }
       const select = yield* resolveSelect(activeOutput, fields, selectedFields, format)
@@ -143,11 +124,11 @@ const runSpec = <Name extends string, Config extends CliCommand.Command.Config, 
         body,
       }
       const output: CommandOutput = yield* spec.run(input, control)
-      const code = yield* renderOutput(output, activeOutput, { format, select })
-      return yield* Effect.sync(() => {
-        process.exitCode = code
-      })
-    }).pipe(Effect.catch((error: TrackerError) => reportRunFailure(error, format)))
+      return yield* renderOutput(output, activeOutput, { format, select })
+    }).pipe(
+      Effect.catch((error: TrackerError) => reportRunFailure(error, format)),
+      Effect.flatMap(recordExit),
+    )
   })
 
 const buildCommand = <Name extends string, Config extends CliCommand.Command.Config, R>(
@@ -214,16 +195,24 @@ const runCli = <Name extends string, Input, ContextInput, E, R>(
     const allowHelp = helpRequested(args) || isBareInvocation(root, args)
     setSuppressHelp(format === "json" && !allowHelp)
     const console = yield* Console.Console
-    return yield* Command.runWith(root, { version, renderErrors: false })(args).pipe(
-      Effect.provideService(Console.Console, dropEmptyLine(console)),
+    const ref = yield* Ref.make<CliExit | null>(null)
+    yield* Command.runWith(root, { version, renderErrors: false })(args).pipe(
       Effect.ensuring(
         Effect.sync(() => {
           setSuppressHelp(false)
         }),
       ),
-      Effect.catchIf(CliError.isCliError, (error) => reportCliError(error, format)),
-      Effect.catch((error) => reportRunFailure(error, format)),
+      Effect.catchIf(CliError.isCliError, (error) =>
+        reportCliError(error, format).pipe(Effect.flatMap(recordExit), Effect.asVoid),
+      ),
+      Effect.catch((error) =>
+        reportRunFailure(error, format).pipe(Effect.flatMap(recordExit), Effect.asVoid),
+      ),
+      Effect.provideService(ExitRef, ref),
+      Effect.provideService(Console.Console, dropEmptyLine(console)),
     )
+    const recorded = yield* Ref.get(ref)
+    return recorded ?? successExit
   })
 
 export {

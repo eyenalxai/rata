@@ -2,7 +2,7 @@ import type { MemorySeed } from "@test/fake-linear/gateway/model"
 
 import { lastJson, runRootMemory } from "@test/cli-harness"
 import { defaultViewer } from "@test/fake-linear/model"
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { Option, Schema } from "effect"
 import path from "node:path"
 
@@ -28,10 +28,6 @@ const runDoctor = (args: readonly string[], files: Map<string, string>, lines: s
     env: { HOME: "/home/test" },
   })
 
-afterEach(() => {
-  process.exitCode = 0
-})
-
 describe("admin doctor", () => {
   test("reports a stale command with its replacement", async () => {
     const lines: string[] = []
@@ -41,7 +37,7 @@ describe("admin doctor", () => {
         withBlock(`${block(commandBlock)}\n\nRun \`rata team list\` to see the teams.`),
       ],
     ])
-    await runDoctor(["--format", "json"], files, lines)
+    const exit = await runDoctor(["--format", "json"], files, lines)
 
     expect(lastJson(lines)).toMatchObject({
       healthy: false,
@@ -49,7 +45,7 @@ describe("admin doctor", () => {
       block: { present: true, fresh: true },
       written: false,
     })
-    expect(process.exitCode).toBe(0)
+    expect(exit.code).toBe(0)
   })
 
   test("names the replacement in the text output", async () => {
@@ -108,10 +104,10 @@ describe("admin doctor", () => {
     const lines: string[] = []
     const content = withBlock(`Run \`rata status\`.\n${trackerMarkers.begin}\nold`)
     const files = new Map([[trackerFile, content]])
-    await runDoctor(["--write", "--format", "json"], files, lines)
+    const exit = await runDoctor(["--write", "--format", "json"], files, lines)
 
     expect(lastJson(lines)).toMatchObject({ error: { code: "validation" } })
     expect(files.get(trackerFile)).toBe(content)
-    expect(process.exitCode).toBe(2)
+    expect(exit.code).toBe(2)
   })
 })

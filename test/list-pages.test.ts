@@ -2,7 +2,7 @@ import type { MemoryIssue, MemorySeed } from "@test/fake-linear/gateway/model"
 
 import { lastJson, runRootMemory } from "@test/cli-harness"
 import { defaultViewer } from "@test/fake-linear/model"
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { Option, Schema } from "effect"
 
 import { issueId, labelId, projectId, teamId, userId } from "@/domain/id"
@@ -74,10 +74,6 @@ const seed = (input: Partial<MemorySeed> = {}): MemorySeed => ({
   projects,
   issues: [issue("RAT-1"), issue("RAT-2")],
   ...input,
-})
-
-afterEach(() => {
-  process.exitCode = 0
 })
 
 describe("team list pages", () => {

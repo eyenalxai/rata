@@ -4,11 +4,11 @@ import { cliLayer, lastJson } from "@test/cli-harness"
 import { inputOf } from "@test/fake-linear/model"
 import { jsonResponse, pageInfo } from "@test/issue-fixtures"
 import { makeRecorder, requestOf, team } from "@test/issue-write/fixtures"
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { Effect } from "effect"
-import { Command } from "effect/cli"
 
 import { labelCommand } from "@/cli/registry"
+import { runCli } from "@/cli/runner"
 
 const runLabel = (
   handler: Handler,
@@ -16,14 +16,10 @@ const runLabel = (
   lines: string[],
   repositories: { key: string; team?: string }[] = [{ key: process.cwd(), team: "RAT" }],
 ) =>
-  Command.run(labelCommand, { version: "test" }).pipe(
+  runCli("test", labelCommand).pipe(
     Effect.provide(cliLayer(handler, args, lines, repositories)),
     Effect.runPromise,
   )
-
-afterEach(() => {
-  process.exitCode = 0
-})
 
 const createHandler = (existing: readonly { id: string; name: string; color: string }[] = []) =>
   makeRecorder((request) => {
@@ -72,13 +68,17 @@ describe("rata admin label create", () => {
   test("fails on a duplicate with the existing casing and the flag hint", async () => {
     const recorder = createHandler([{ id: "label-2", name: "Bug", color: "#EB5757" }])
     const lines: string[] = []
-    await runLabel(recorder.handler, ["create", "--team", "RAT", "--name", "bug"], lines)
+    const exit = await runLabel(
+      recorder.handler,
+      ["create", "--team", "RAT", "--name", "bug"],
+      lines,
+    )
     expect(lines).toContain("error: The label `Bug` already exists.")
     expect(lines).toContain(
       "hint: Labels resolve case-insensitively; use `Bug`, or pass `--if-not-exists`.",
     )
     expect(requestOf(recorder, "mutation CreateLabel")).toBeUndefined()
-    expect(process.exitCode).toBe(4)
+    expect(exit.code).toBe(4)
   })
 
   test("returns the existing label with --if-not-exists", async () => {
@@ -109,19 +109,23 @@ describe("rata admin label create", () => {
   test("rejects an invalid color before any request", async () => {
     const recorder = createHandler()
     const lines: string[] = []
-    await runLabel(recorder.handler, ["create", "--name", "bug", "--color", "red"], lines)
+    const exit = await runLabel(
+      recorder.handler,
+      ["create", "--name", "bug", "--color", "red"],
+      lines,
+    )
     expect(lines).toContain("error: Expected a 6-digit hex color like #EB5757, got red.")
     expect(recorder.requests).toHaveLength(0)
-    expect(process.exitCode).toBe(2)
+    expect(exit.code).toBe(2)
   })
 
   test("fails without a team when the repository has no team", async () => {
     const recorder = createHandler()
     const lines: string[] = []
-    await runLabel(recorder.handler, ["create", "--name", "bug"], lines, [])
+    const exit = await runLabel(recorder.handler, ["create", "--name", "bug"], lines, [])
     expect(lines).toContain("error: No team. Pass --team, or run `rata admin link`.")
     expect(recorder.requests).toHaveLength(0)
-    expect(process.exitCode).toBe(2)
+    expect(exit.code).toBe(2)
   })
 })
 
@@ -190,30 +194,34 @@ describe("rata admin label edit", () => {
     const ref = "11111111-2222-3333-4444-555555555555"
     const recorder = editHandler()
     const lines: string[] = []
-    await runLabel(recorder.handler, ["edit", ref, "--color", "#ffffff", "--team", "NOPE"], lines)
+    const exit = await runLabel(
+      recorder.handler,
+      ["edit", ref, "--color", "#ffffff", "--team", "NOPE"],
+      lines,
+    )
     const output = lines.join("\n")
     expect(output).toContain("No team with key NOPE")
     expect(output).toContain("A team key and an issue identifier prefix can differ after a rename.")
     expect(output).toContain("`rata admin team list`")
     expect(requestOf(recorder, "mutation UpdateLabel")).toBeUndefined()
-    expect(process.exitCode).toBe(3)
+    expect(exit.code).toBe(3)
   })
 
   test("fails when the name does not resolve", async () => {
     const recorder = editHandler()
     const lines: string[] = []
-    await runLabel(recorder.handler, ["edit", "nope", "--color", "#00ff00"], lines)
+    const exit = await runLabel(recorder.handler, ["edit", "nope", "--color", "#00ff00"], lines)
     expect(lines.join("\n")).toContain("No label named nope")
     expect(requestOf(recorder, "mutation UpdateLabel")).toBeUndefined()
-    expect(process.exitCode).toBe(3)
+    expect(exit.code).toBe(3)
   })
 
   test("requires --name or --color", async () => {
     const recorder = editHandler()
     const lines: string[] = []
-    await runLabel(recorder.handler, ["edit", "bug"], lines)
+    const exit = await runLabel(recorder.handler, ["edit", "bug"], lines)
     expect(lines).toContain("error: Pass at least one of --name or --color.")
     expect(recorder.requests).toHaveLength(0)
-    expect(process.exitCode).toBe(2)
+    expect(exit.code).toBe(2)
   })
 })

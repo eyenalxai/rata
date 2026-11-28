@@ -9,7 +9,7 @@ import {
   statusViewer,
   team,
 } from "@test/status/harness"
-import { afterEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { Option, Schema } from "effect"
 
 const unusedHandler: Handler = () => {
@@ -40,10 +40,6 @@ const readStatus = (lines: readonly string[]) => {
   const decoded = Option.getOrThrow(Schema.decodeUnknownOption(Schema.NullOr(CacheDocument))(cache))
   return { cache: decoded, rest }
 }
-
-afterEach(() => {
-  process.exitCode = 0
-})
 
 describe("status", () => {
   test("prefers the environment key over the repository profile", async () => {
@@ -91,14 +87,19 @@ describe("status", () => {
   test("returns a null team detail with --full when no team is linked", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
-    await runStatus(fake.handler, ["--full", "--select", "teamDetail", "--format", "json"], lines, {
-      env: { HOME: "/home/test" },
-      profiles,
-      repositories: [],
-    })
+    const exit = await runStatus(
+      fake.handler,
+      ["--full", "--select", "teamDetail", "--format", "json"],
+      lines,
+      {
+        env: { HOME: "/home/test" },
+        profiles,
+        repositories: [],
+      },
+    )
 
     expect(lastJson(lines)).toEqual({ teamDetail: null })
-    expect(process.exitCode ?? 0).toBe(0)
+    expect(exit.code).toBe(0)
   })
 
   test("uses the repository profile and shows the linked team and project", async () => {
@@ -130,7 +131,7 @@ describe("status", () => {
   test("keeps the context when the stored team key is stale", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
-    await runStatus(fake.handler, ["--format", "json"], lines, {
+    const exit = await runStatus(fake.handler, ["--format", "json"], lines, {
       env: { HOME: "/home/test" },
       profiles,
       repositories: [{ key: process.cwd(), team: "GONE", project: "rata", workspace: "work" }],
@@ -151,7 +152,7 @@ describe("status", () => {
       warning:
         "The stored team key GONE no longer exists. Run `rata admin team list` to see the team keys, then run `rata admin link --team <key>` to repair the link.",
     })
-    expect(process.exitCode).toBe(0)
+    expect(exit.code).toBe(0)
   })
 
   test("prints the stale team warning on standard error only", async () => {
@@ -197,23 +198,23 @@ describe("status", () => {
   test("prints the unlinked team line and exits 0", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
-    await runStatus(fake.handler, [], lines, { profiles })
+    const exit = await runStatus(fake.handler, [], lines, { profiles })
 
     expect(lines[0]).toContain("team:      not linked (run rata admin link)")
     expect(lines[0]).toContain("defaults:  none")
-    expect(process.exitCode).toBe(0)
+    expect(exit.code).toBe(0)
   })
 
   test("fails with an auth error when no key exists", async () => {
     const lines: string[] = []
-    await runStatus(unusedHandler, ["--format", "json"], lines, {
+    const exit = await runStatus(unusedHandler, ["--format", "json"], lines, {
       env: { HOME: "/home/test" },
       profiles: [],
     })
 
     const error = Option.getOrThrow(Schema.decodeUnknownOption(ErrorEnvelope)(lastJson(lines)))
     expect(error.error.code).toBe("auth")
-    expect(process.exitCode).toBe(5)
+    expect(exit.code).toBe(5)
   })
 
   test("selects fields on the whole document", async () => {
@@ -238,7 +239,7 @@ describe("status", () => {
   test("repairs a stale team key and reports the repair", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
-    await runStatus(fake.handler, ["--format", "json"], lines, {
+    const exit = await runStatus(fake.handler, ["--format", "json"], lines, {
       profiles,
       repositories: [
         { key: process.cwd(), team: "OLD", teamId: "00000000-0000-0000-0000-000000000001" },
@@ -249,6 +250,6 @@ describe("status", () => {
       team: { id: "00000000-0000-0000-0000-000000000001", key: "RAT", name: "Rata" },
       warning: "The stored team key OLD is stale. Repaired the link to RAT.",
     })
-    expect(process.exitCode).toBe(0)
+    expect(exit.code).toBe(0)
   })
 })
