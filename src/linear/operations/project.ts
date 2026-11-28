@@ -3,12 +3,48 @@ import { Effect, Schema } from "effect"
 import type { ProjectId } from "@/domain/id"
 import type { LinearClientShape } from "@/linear/client"
 import type { Connection, PageOptions } from "@/linear/connection"
-import type { Project } from "@/linear/decode/project"
 import type { LinearApiError } from "@/linear/errors"
 
 import { pageOrDrain } from "@/linear/connection"
-import { ProjectConnection } from "@/linear/decode/project"
-import { listProjectsQuery, projectByIdQuery } from "@/linear/documents/project"
+import { PageInfo } from "@/linear/decode/page"
+import { Project } from "@/linear/decode/project"
+
+const projectFields = `
+      id
+      name
+      progress
+      status {
+        name
+      }
+      trashed`
+
+const listProjectsQuery = `query Projects($first: Int!, $after: String, $includeArchived: Boolean, $filter: ProjectFilter) {
+  projects(first: $first, after: $after, orderBy: createdAt, includeArchived: $includeArchived, filter: $filter) {
+    nodes {${projectFields}
+    }
+    pageInfo { hasNextPage endCursor }
+  }
+}`
+
+const projectByIdQuery = `query ProjectById($id: ID!, $includeArchived: Boolean) {
+  projects(first: 1, filter: { id: { eq: $id } }, includeArchived: $includeArchived) {
+    nodes {${projectFields}
+    }
+  }
+}`
+
+const ProjectListResponse = Schema.Struct({
+  projects: Schema.Struct({
+    nodes: Schema.Array(Project),
+    pageInfo: PageInfo,
+  }),
+})
+
+const ProjectByIdResponse = Schema.Struct({
+  projects: Schema.Struct({
+    nodes: Schema.Array(Project),
+  }),
+})
 
 type ProjectListOptions = PageOptions & {
   readonly includeArchived?: boolean
@@ -32,7 +68,7 @@ const makeProjectOperations = (execute: LinearClientShape["execute"]): ProjectRe
       execute(
         listProjectsQuery,
         { ...variables, first: options.limit, after },
-        Schema.Struct({ projects: ProjectConnection }),
+        ProjectListResponse,
       ).pipe(Effect.map((data) => data.projects))
     return yield* pageOrDrain(fetchPage, options)
   })
@@ -41,7 +77,7 @@ const makeProjectOperations = (execute: LinearClientShape["execute"]): ProjectRe
     const data = yield* execute(
       projectByIdQuery,
       { id, includeArchived: true },
-      Schema.Struct({ projects: ProjectConnection }),
+      ProjectByIdResponse,
     )
     return data.projects.nodes[0]
   })

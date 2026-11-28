@@ -17,6 +17,15 @@ describe("project delete", () => {
     expect(deleteMutation(fake.requests)?.variables).toEqual({ id: "project-1" })
   })
 
+  test("deletes a project by UUID", async () => {
+    const id = "0f8fad5b-d9cb-469f-a165-70867728950e"
+    const fake = makeFakeLinear({ teams: [], labels: [], projects: [{ ...tracker, id }] })
+    const lines: string[] = []
+    await runProject(fake.handler, ["delete", id], lines, [typed("y")])
+    expect(lines).toEqual([`Deleted Tracker (${id}).`])
+    expect(deleteMutation(fake.requests)?.variables).toEqual({ id })
+  })
+
   test("aborts without a mutation when the answer is not yes", async () => {
     const fake = makeFakeLinear({ teams: [], labels: [], projects: [tracker] })
     const lines: string[] = []

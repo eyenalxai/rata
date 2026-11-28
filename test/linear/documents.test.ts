@@ -11,7 +11,6 @@ import {
   workingSetQuery,
   workingSummaryQuery,
 } from "@/linear/documents/issue"
-import { listProjectsQuery } from "@/linear/documents/project"
 import { teamLabelsQuery, teamStatesQuery } from "@/linear/documents/team"
 
 const summary = {
@@ -67,10 +66,9 @@ describe("Linear documents select the read fields", () => {
     expect(searchQuery).not.toContain("orderBy")
   })
 
-  test("the team and project documents select their detail fields", () => {
+  test("the team documents select their detail fields", () => {
     expect(teamStatesQuery).toContain("position")
     expect(teamLabelsQuery).toContain("team: { null: true }")
-    expect(listProjectsQuery).toContain("trashed")
   })
 })
 
