@@ -1,6 +1,16 @@
 import { Schema, SchemaGetter } from "effect"
 
 import { ProjectId } from "@/domain/id"
+import { PageInfo } from "@/linear/decode/page"
+
+const projectFields = `
+      id
+      name
+      progress
+      status {
+        name
+      }
+      trashed`
 
 const ProjectStatus = Schema.Struct({ name: Schema.String })
 
@@ -20,6 +30,11 @@ const Project = Schema.Struct({
 })
 
 type Project = typeof Project.Type
+
+const ProjectConnection = Schema.Struct({
+  nodes: Schema.Array(Project),
+  pageInfo: PageInfo,
+})
 
 const ProjectCreatePayload = Schema.Struct({
   success: Schema.Boolean,
@@ -45,7 +60,9 @@ type ProjectIdentity = {
 export {
   Project,
   ProjectArchivePayload,
+  ProjectConnection,
   type ProjectCreateOptions,
   ProjectCreatePayload,
+  projectFields,
   type ProjectIdentity,
 }
