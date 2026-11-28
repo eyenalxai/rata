@@ -37,7 +37,8 @@ The setup commands live under `admin`:
 - `rata admin link --team <key>` links the repository and sets the team
   timezone. A stale stored key is repaired on read with a warning; follow the
   repair hint when `status` reports it.
-- `rata admin doctor` checks every `rata` command in the tracker document.
+- `rata admin doctor` checks the known `rata` commands and removed flags in the
+  tracker document.
   `--write` repairs the generated command block.
 - `rata admin api --query "<graphql>"` is the read-only escape hatch. It rejects
   mutations and subscriptions and never prints the key.

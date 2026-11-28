@@ -149,21 +149,14 @@ const createRoot = <const Commands extends readonly CliCommand.Command.Any[]>(co
 
 export {
   adminCommand,
-  apiCommand,
-  authCommand,
   commandGroups,
-  configCommand,
   createRoot,
-  doctorCommand,
   issueCommand,
   labelCommand,
-  linkCommand,
   mapCommand,
   projectCommand,
   statusCommand,
   surface,
   teamCommand,
   triageCommand,
-  unlinkCommand,
-  workspaceCommand,
 }

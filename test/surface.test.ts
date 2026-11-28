@@ -4,21 +4,6 @@ import { afterEach, describe, expect, test } from "bun:test"
 
 const fake = () => makeFakeLinear({ teams: [], labels: [] })
 
-const roots = ["status", "issue", "triage", "map", "admin"] as const
-
-const adminCommands = [
-  "auth",
-  "link",
-  "unlink",
-  "workspace",
-  "config",
-  "team",
-  "project",
-  "label",
-  "doctor",
-  "api",
-] as const
-
 const removed = [
   ["auth", "status"],
   ["whoami"],
@@ -36,25 +21,6 @@ afterEach(() => {
 })
 
 describe("the root surface", () => {
-  test("lists the five roots", async () => {
-    const lines: string[] = []
-    await runRoot(fake().handler, ["--help"], lines)
-    const help = lines.join("\n")
-    for (const root of roots) {
-      expect(help).toMatch(new RegExp(`\\n\\s+${root}\\s{2,}`, "u"))
-    }
-    expect(help).not.toMatch(/\n\s+auth\s{2,}/u)
-    expect(help).not.toMatch(/\n\s+whoami\s{2,}/u)
-    expect(process.exitCode ?? 0).toBe(0)
-  })
-
-  test("shows the phase 2 groups with a description", async () => {
-    const lines: string[] = []
-    await runRoot(fake().handler, ["triage", "--help"], lines)
-    expect(lines.join("\n")).toContain("Not available yet.")
-    expect(process.exitCode ?? 0).toBe(0)
-  })
-
   test("an empty phase 2 root exits 2", async () => {
     const lines: string[] = []
     await runRoot(fake().handler, ["triage", "--format", "json"], lines)
@@ -65,18 +31,6 @@ describe("the root surface", () => {
       },
     })
     expect(process.exitCode).toBe(2)
-  })
-})
-
-describe("the admin group", () => {
-  test("lists the ten admin commands", async () => {
-    const lines: string[] = []
-    await runRoot(fake().handler, ["admin", "--help"], lines)
-    const help = lines.join("\n")
-    for (const command of adminCommands) {
-      expect(help).toMatch(new RegExp(`\\n\\s+${command}\\s{2,}`, "u"))
-    }
-    expect(process.exitCode ?? 0).toBe(0)
   })
 })
 

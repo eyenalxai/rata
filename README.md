@@ -123,8 +123,8 @@ mutations and subscriptions before it sends a request. The JSON output is one
 `{ data }` object with the raw GraphQL response, and the command never prints the
 API key. It uses the same key resolution as every other command.
 
-`admin doctor` reads `docs/agents/issue-tracker.md`, finds every `rata` command
-and compares its path with the command registry. It reports a stale form with its
+`admin doctor` reads `docs/agents/issue-tracker.md`, finds the known `rata` commands
+and compares their paths with the command registry. It reports a stale form with its
 replacement. `--write` rewrites the block between
 `<!-- rata:commands:begin -->` and `<!-- rata:commands:end -->`. It writes only
 that file under the repository.
@@ -322,7 +322,7 @@ stderr.
 `docs` reports the health of `docs/agents/issue-tracker.md` and
 `docs/agents/triage-labels.md`. `exists` says whether the file is present,
 `healthy` is `true`, `false`, or `null` when the file is missing, and `warning`
-names the repair. The tracker check also finds every `rata` command in the
+names the repair. The tracker check also finds the known `rata` commands in the
 document and compares its path with the registry. A stale command, a missing
 generated block or a stale block makes `docs.tracker` unhealthy; `admin doctor`
 names each replacement and `--write` repairs the block. `triage` is the
@@ -1207,7 +1207,7 @@ The lifecycle commands use the same plan/apply engine. The removed write forms (
 - `admin api` runs a read-only GraphQL query. It rejects mutations and
   subscriptions before the request and never prints the API key.
 - `status --full` adds the team timezone, members and priorities.
-- `admin doctor` checks every `rata` command and removed flag in
+- `admin doctor` checks the known `rata` commands and removed flags in
   `docs/agents/issue-tracker.md` against the registry. `--write` repairs the
   generated command block.
 - `skills/rata/reference.md` and the tracker command block are generated from

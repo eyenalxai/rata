@@ -5,17 +5,23 @@ const readFlags = ["--json", "--fields", "--count", "--ids-only", "--include", "
 const hasFlag = (text: string, flag: string): boolean =>
   new RegExp(`(?:^|\\s)${flag}(?=$|[\\s,.;:])`, "u").test(text)
 
-const flagReplacement = (base: string, flag: string): string => {
+const flagReplacement = (base: string, flag: string, tokens: readonly string[]): string => {
   if (flag === "--json") {
     return `${base} --format json`
   }
+  if (flag === "--fields") {
+    return `${base} --select`
+  }
   if (flag === "--include") {
-    return `${base} --relations`
+    return tokens[1] === "list" ? `${base} --relations` : "Use --relations on issue list."
   }
   if (flag === "--children") {
-    return `${base} --full`
+    return tokens.length === 1 ? `${base} --full` : "Read one issue with rata issue <ref> --full."
   }
-  return `${base} --select`
+  if (flag === "--count") {
+    return "Use --format json and jq length."
+  }
+  return "Use --select identifier."
 }
 
 const staleFlags = (text: string, tokens: readonly string[]): StaleCommand | null => {
@@ -50,7 +56,7 @@ const staleFlags = (text: string, tokens: readonly string[]): StaleCommand | nul
   if (flag === undefined) {
     return null
   }
-  return { command: `${base} ${flag}`, replacement: flagReplacement(base, flag) }
+  return { command: `${base} ${flag}`, replacement: flagReplacement(base, flag, tokens) }
 }
 
 export { staleFlags }
