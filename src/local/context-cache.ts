@@ -3,6 +3,7 @@ import { Console, Context, Effect, Layer, Option, Schema } from "effect"
 
 import { Database } from "@/db/database"
 import { contextCache, viewerCache } from "@/db/schema"
+import { isUuid } from "@/domain/id"
 import { TeamDetail } from "@/linear/decode/team"
 import { Viewer } from "@/linear/decode/viewer"
 
@@ -36,8 +37,14 @@ const describeEncodeFailure =
   (cause: unknown): ContextCacheError =>
     new ContextCacheError({ message: `Could not encode the cached ${subject}.`, cause })
 
-const advisoryFailure = (error: ContextCacheError): Effect.Effect<void> =>
+// ADR-0014: the cache is advisory, so a failed write or invalidation only warns.
+const advisoryWriteFailure = (error: ContextCacheError): Effect.Effect<void> =>
   Console.error(`warning: ${error.message} The command continues without the cache.`)
+
+const advisoryInvalidateFailure = (error: ContextCacheError): Effect.Effect<void> =>
+  Console.error(
+    `warning: ${error.message} The cache may still serve the old key until the next successful read or refresh.`,
+  )
 
 const decodeTeam = (detail: string): Option.Option<TeamDetail> =>
   Schema.decodeOption(TeamDetailJson)(detail)
@@ -112,6 +119,9 @@ class ContextCache extends Context.Service<ContextCache, ContextCacheShape>()(
         if (Option.isNone(detail)) {
           return Option.none<CachedTeamDetail>()
         }
+        if (!isUuid(detail.value.id) || detail.value.id !== row.teamId) {
+          return Option.none<CachedTeamDetail>()
+        }
         return Option.some({ detail: detail.value, fetchedAt: row.fetchedAt })
       })
 
@@ -138,7 +148,7 @@ class ContextCache extends Context.Service<ContextCache, ContextCacheShape>()(
             .run()
             .pipe(Effect.mapError(describeQueryFailure("write")))
         },
-        Effect.catchTag("ContextCacheError", advisoryFailure),
+        Effect.catchTag("ContextCacheError", advisoryWriteFailure),
       )
 
       const invalidateTeam = Effect.fn("ContextCache.invalidateTeam")(
@@ -156,7 +166,7 @@ class ContextCache extends Context.Service<ContextCache, ContextCacheShape>()(
             .run()
             .pipe(Effect.mapError(describeQueryFailure("invalidate")))
         },
-        Effect.catchTag("ContextCacheError", advisoryFailure),
+        Effect.catchTag("ContextCacheError", advisoryInvalidateFailure),
       )
 
       const readViewer = Effect.fn("ContextCache.readViewer")(function* readStoredViewer(
@@ -209,7 +219,7 @@ class ContextCache extends Context.Service<ContextCache, ContextCacheShape>()(
             .run()
             .pipe(Effect.mapError(describeQueryFailure("write")))
         },
-        Effect.catchTag("ContextCacheError", advisoryFailure),
+        Effect.catchTag("ContextCacheError", advisoryWriteFailure),
       )
 
       return ContextCache.of({ invalidateTeam, readTeam, readViewer, writeTeam, writeViewer })

@@ -54,7 +54,7 @@ describe("ContextCache advisory writes", () => {
     expect(errors).toEqual([
       "warning: Could not write the context cache. The command continues without the cache.",
       "warning: Could not write the context cache. The command continues without the cache.",
-      "warning: Could not invalidate the context cache. The command continues without the cache.",
+      "warning: Could not invalidate the context cache. The cache may still serve the old key until the next successful read or refresh.",
     ])
   })
 })

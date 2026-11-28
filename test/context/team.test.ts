@@ -282,6 +282,101 @@ describe("ContextResolver resolution", () => {
     expect(result.resolved.team?.detail.key).toBe("RAT")
   })
 
+  test("treats a cached team with a corrupt id as a miss", async () => {
+    const fake = makeFakeLinear(seed)
+    const corruptDetail = Option.getOrThrow(
+      Schema.decodeOption(TeamDetail)({
+        ...detail,
+        id: "corrupt-id",
+      }),
+    )
+    const result = await Effect.gen(function* readCorruptCache() {
+      const context = yield* ContextResolver
+      const repoConfig = yield* RepoConfigService
+      const resolved = yield* context.resolve({})
+      const stored = yield* repoConfig.read(yield* currentDirectory)
+      return { resolved, stored }
+    }).pipe(
+      Effect.provide(
+        apiLayer(fake.handler, {
+          repositories: [{ key: process.cwd(), team: "RAT", teamId: teamUuid }],
+          cache: await warmCache({ detail: corruptDetail }),
+        }),
+      ),
+      Effect.runPromise,
+    )
+
+    expect(fake.requests.length).toBeGreaterThan(0)
+    expect(result.stored).toEqual(Option.some({ team: "RAT", teamId: teamId(teamUuid) }))
+    expect(result.resolved.team?.detail.key).toBe("RAT")
+  })
+
+  test("invalidates the env profile when a workspace is linked", async () => {
+    const fake = makeFakeLinear(seed)
+    const olderDetail = Option.getOrThrow(
+      Schema.decodeOption(TeamDetail)({
+        ...detail,
+        key: "OLD",
+      }),
+    )
+    const fetchedAt = await now()
+    const result = await Effect.gen(function* relinkInWorkspace() {
+      const link = yield* LinkService
+      const context = yield* ContextResolver
+      const repoConfig = yield* RepoConfigService
+      yield* link.link({
+        team: Option.some("RAT"),
+        project: Option.none(),
+        workspace: Option.some("work"),
+        create: false,
+        name: Option.none(),
+        timezone: Option.none(),
+      })
+      const resolved = yield* context.resolve({})
+      const stored = yield* repoConfig.read(yield* currentDirectory)
+      return { resolved, stored }
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          apiLayer(fake.handler, {
+            env: { HOME: "/home/test", LINEAR_API_KEY: "test-key" },
+            profiles: [{ name: "work", apiKey: "work-key", isDefault: true }],
+            repositories: [
+              { key: process.cwd(), team: "OLD", teamId: teamUuid, workspace: "work" },
+            ],
+            cache: {
+              teams: [
+                {
+                  profile: "env",
+                  teamId: teamUuid,
+                  keyHash: hashApiKey("test-key"),
+                  detail: olderDetail,
+                  fetchedAt,
+                },
+                {
+                  profile: "work",
+                  teamId: teamUuid,
+                  keyHash: hashApiKey("work-key"),
+                  detail: olderDetail,
+                  fetchedAt,
+                },
+              ],
+            },
+          }),
+          FileSystem.layerNoop({}),
+          Path.layer,
+        ),
+      ),
+      Effect.provideService(Terminal.Terminal, fakeTerminal([])),
+      Effect.runPromise,
+    )
+
+    expect(result.stored).toEqual(
+      Option.some({ team: "RAT", teamId: teamId(teamUuid), workspace: "work" }),
+    )
+    expect(result.resolved.team?.detail.key).toBe("RAT")
+  })
+
   test("uses the team UUID stored by link", async () => {
     const fake = makeFakeLinear(seed)
     const result = await Effect.gen(function* readWarm() {
