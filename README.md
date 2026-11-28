@@ -263,9 +263,6 @@ branches on the number, not the message.
 | `5`  | Auth: missing or invalid key, or forbidden                                                                 |
 | `6`  | Retryable: rate limit or network                                                                           |
 
-A bulk write exits with the code of its first failed result, or `0` when every
-result succeeds.
-
 The issue reads select dotted paths with `--select` on a JSON read; it implies
 JSON. The admin reads use the same flag:
 

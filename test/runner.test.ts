@@ -254,6 +254,24 @@ describe("the command runner", () => {
     expect(exit.code).toBe(2)
   })
 
+  test("an inline select parse error on a terminal writes one JSON error and no help", async () => {
+    const lines: string[] = []
+    const errors: string[] = []
+    const exit = await run(
+      ["echo", "--name", "Ada", "--select=nope"],
+      lines,
+      {
+        stdoutIsTerminal: true,
+      },
+      errors,
+    )
+
+    expect(lines).toEqual([])
+    expect(errors).toHaveLength(1)
+    expect(lastJson(errors)).toMatchObject({ error: { code: "validation" } })
+    expect(exit.code).toBe(2)
+  })
+
   test("a parse error writes one usage error object and no help", async () => {
     const lines: string[] = []
     const errors: string[] = []

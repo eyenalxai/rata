@@ -1,14 +1,7 @@
 import { Effect, Option, Predicate } from "effect"
 
 import type { FieldPath, FieldShape } from "@/cli/field/shape"
-import type {
-  CliExit,
-  CommandOutput,
-  OutputFormat,
-  OutputSpec,
-  OutputSpecs,
-  RenderedOutput,
-} from "@/cli/spec"
+import type { CliExit, CommandOutput, OutputFormat, OutputSpec, OutputSpecs } from "@/cli/spec"
 
 import { toTrackerError } from "@/cli/error-report"
 import { selectItems, selectObject } from "@/cli/fields"
@@ -29,11 +22,6 @@ const specFor = (spec: OutputSpecs, kind: OutputSpec["kind"]): OutputSpec | unde
   const specs = isSpecList(spec) ? spec : [spec]
   return specs.find((item) => item.kind === kind)
 }
-
-const stdoutOutput = (lines: readonly string[]): RenderedOutput => ({
-  stream: "stdout",
-  lines,
-})
 
 const writeLines = (lines: readonly string[]): Effect.Effect<void> =>
   Effect.forEach(lines, writeLine, { discard: true })
@@ -84,11 +72,11 @@ const renderResource = (
   output: CommandOutput & { readonly kind: "resource" },
   spec: OutputSpec & { readonly kind: "resource" },
   options: RenderOptions,
-): Effect.Effect<RenderedOutput, TrackerError> =>
+): Effect.Effect<void, TrackerError> =>
   Effect.gen(function* renderResourceOutput() {
     if (options.format === "text") {
       yield* writeLines(output.text)
-      return stdoutOutput(output.text)
+      return
     }
     const selected = yield* selectResource(
       output.value,
@@ -96,27 +84,23 @@ const renderResource = (
       options.select,
       spec.select?.at ?? [],
     )
-    const text = yield* jsonText(selected)
-    yield* writeLine(text)
-    return stdoutOutput([text])
+    yield* writeLine(yield* jsonText(selected))
   })
 
 const renderCollection = (
   output: CommandOutput & { readonly kind: "collection" },
   spec: OutputSpec & { readonly kind: "collection" },
   options: RenderOptions,
-): Effect.Effect<RenderedOutput, TrackerError> =>
+): Effect.Effect<void, TrackerError> =>
   Effect.gen(function* renderCollectionOutput() {
     if (options.format === "text") {
       yield* writeLines(output.text)
-      return stdoutOutput(output.text)
+      return
     }
     const items = yield* selectItems(options.select, spec.shape, output.items).pipe(
       Effect.mapError(toTrackerError),
     )
-    const text = yield* jsonText({ [output.key]: items, pageInfo: output.pageInfo })
-    yield* writeLine(text)
-    return stdoutOutput([text])
+    yield* writeLine(yield* jsonText({ [output.key]: items, pageInfo: output.pageInfo }))
   })
 
 const renderOutput = (
@@ -133,8 +117,8 @@ const renderOutput = (
             "The command returned a resource for a different output shape.",
           )
         }
-        const rendered = yield* renderResource(output, spec, options)
-        return { code: output.exitCode ?? 0, output: rendered, error: null }
+        yield* renderResource(output, spec, options)
+        return { code: output.exitCode ?? 0 }
       }
       case "collection": {
         const spec = specFor(outputSpec, "collection")
@@ -143,15 +127,15 @@ const renderOutput = (
             "The command returned a collection for a different output shape.",
           )
         }
-        const rendered = yield* renderCollection(output, spec, options)
-        return { code: output.exitCode ?? 0, output: rendered, error: null }
+        yield* renderCollection(output, spec, options)
+        return { code: output.exitCode ?? 0 }
       }
       case "text": {
         if (specFor(outputSpec, "text") === undefined) {
           return yield* internalError("The command returned text for a different output shape.")
         }
         yield* writeLines(output.lines)
-        return { code: output.exitCode ?? 0, output: stdoutOutput(output.lines), error: null }
+        return { code: output.exitCode ?? 0 }
       }
       default: {
         return yield* internalError("The runner received an output kind it cannot render.")
