@@ -169,6 +169,14 @@ const relationHint = (args: readonly string[], groupIndex: number): string => {
 }
 
 const detectCreateForm = (args: readonly string[], groupIndex: number): InvalidForm | undefined => {
+  const body = readFlagValues(args, groupIndex + 1, "body")
+  if (body.present) {
+    return {
+      code: "usage",
+      message: "The --body flag was removed from issue create.",
+      hint: "Use --body-file - and pipe the body on standard input.",
+    }
+  }
   const blockedBy = readFlagValues(args, groupIndex + 1, "blocked-by")
   if (!blockedBy.present) {
     return undefined

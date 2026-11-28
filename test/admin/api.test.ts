@@ -52,7 +52,7 @@ describe("admin api", () => {
     expect(lastJson(lines)).toMatchObject({
       error: {
         code: "validation",
-        message: "admin api rejects mutation operations.",
+        message: "The admin api command rejects mutation operations.",
       },
     })
     expect(linear.requests).toHaveLength(0)
@@ -71,7 +71,7 @@ describe("admin api", () => {
     expect(lastJson(lines)).toMatchObject({
       error: {
         code: "validation",
-        message: "admin api rejects subscription operations.",
+        message: "The admin api command rejects subscription operations.",
       },
     })
     expect(linear.requests).toHaveLength(0)

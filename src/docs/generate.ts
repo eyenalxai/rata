@@ -1,6 +1,7 @@
 import { BunRuntime, BunServices } from "@effect/platform-bun"
 import { Console, Effect, FileSystem, Stdio } from "effect"
 
+import { surface } from "@/cli/registry"
 import {
   blockContent,
   buildReferenceBlock,
@@ -8,8 +9,7 @@ import {
   referenceMarkers,
   replaceGeneratedBlock,
   trackerMarkers,
-} from "@/cli/docs"
-import { surface } from "@/cli/registry"
+} from "@/docs/blocks"
 
 const program = Effect.gen(function* generateDocs() {
   const fs = yield* FileSystem.FileSystem
@@ -43,6 +43,11 @@ const program = Effect.gen(function* generateDocs() {
         }
       } else {
         const repaired = replaceGeneratedBlock(content, document.block, document.markers)
+        if (repaired.error !== null) {
+          yield* Console.error(`${document.file}: ${repaired.error}`)
+          stale = true
+          continue
+        }
         if (repaired.changed) {
           yield* fs.writeFileString(document.file, repaired.content)
           yield* Console.log(`Wrote ${document.file}.`)

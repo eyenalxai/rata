@@ -1,5 +1,6 @@
 import type { Command as CliCommand } from "effect/cli"
 
+import { Effect } from "effect"
 import { Command } from "effect/cli"
 
 import type { Surface } from "@/cli/surface"
@@ -24,9 +25,11 @@ import { surfaceOf } from "@/cli/surface"
 import { teamCreateSpec, teamDeleteSpec, teamListSpec, teamShowSpec } from "@/cli/team"
 import { unlinkSpec } from "@/cli/unlink"
 import { workspaceListSpec, workspaceUseSpec } from "@/cli/workspace"
+import { TrackerError } from "@/domain/error"
 
 const globalOutputFlags = [Format, OutputSelect] as const
 
+// Status and doctor need the finished tree, which includes the admin group; publish it once after the tree is built.
 const surfaceState: { current: Surface | null } = { current: null }
 
 const surface = (): Surface => {
@@ -93,7 +96,7 @@ const apiCommand = buildCommand(apiSpec).pipe(Command.withGlobalFlags(globalOutp
 
 const adminCommand = buildGroup(
   "admin",
-  "Set up the workspace, the repository link and the API access",
+  "Manage auth, the repository link, teams, projects, labels, the tracker doctor and the read-only API",
   [
     authCommand,
     linkCommand,
@@ -109,11 +112,22 @@ const adminCommand = buildGroup(
 ).pipe(Command.withGlobalFlags(globalOutputFlags))
 
 const phase2Group = (name: string, description: string) =>
-  Command.make(name).pipe(Command.withDescription(description))
+  Command.make(name).pipe(
+    Command.withDescription(description),
+    Command.withHandler(() =>
+      Effect.fail(
+        new TrackerError({
+          code: "usage",
+          message: `The ${name} command is not available yet.`,
+          hint: "The triage and map roots are reserved for phase 2.",
+        }),
+      ),
+    ),
+  )
 
-const triageCommand = phase2Group("triage", "Triage the queue and change roles. Phase 2.")
+const triageCommand = phase2Group("triage", "Triage the queue and change roles. Not available yet.")
 
-const mapCommand = phase2Group("map", "Claim and resolve wayfinding work. Phase 2.")
+const mapCommand = phase2Group("map", "Claim and resolve wayfinding work. Not available yet.")
 
 const commandGroups = [
   statusCommand,

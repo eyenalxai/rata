@@ -25,8 +25,8 @@ tracker document health. Fix a failed first command before you retry.
 | -------- | ------------------------------------------------------------------------------- |
 | `status` | The cached context, the viewer and the document health                          |
 | `issue`  | Read the working set and write issues                                           |
-| `triage` | Phase 2. No work commands yet.                                                  |
-| `map`    | Phase 2. No work commands yet.                                                  |
+| `triage` | Not available yet.                                                              |
+| `map`    | Not available yet.                                                              |
 | `admin`  | Setup: auth, link, unlink, workspace, config, team, project, label, doctor, api |
 
 The setup commands live under `admin`:

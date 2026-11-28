@@ -40,7 +40,25 @@ const docHealthShape = objectField({
   warning: scalarField,
 })
 
-const statusShape = objectField({
+const teamDetailShape = objectField({
+  timezone: scalarField,
+  members: arrayField(
+    objectField({
+      id: scalarField,
+      name: scalarField,
+      displayName: scalarField,
+      email: scalarField,
+    }),
+  ),
+  priorities: arrayField(
+    objectField({
+      priority: scalarField,
+      label: scalarField,
+    }),
+  ),
+})
+
+const statusFields = {
   repository: objectField({
     root: scalarField,
     linked: scalarField,
@@ -76,6 +94,13 @@ const statusShape = objectField({
     triage: docHealthShape,
   }),
   warning: scalarField,
+} as const
+
+const statusShape = objectField(statusFields)
+
+const statusFullShape = objectField({
+  ...statusFields,
+  teamDetail: teamDetailShape,
 })
 
-export { statusShape }
+export { statusFullShape, statusShape }

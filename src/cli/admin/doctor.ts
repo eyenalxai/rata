@@ -3,12 +3,12 @@ import { Flag } from "effect/cli"
 
 import type { Surface } from "@/cli/surface"
 
-import { buildTrackerBlock, replaceGeneratedBlock, trackerMarkers } from "@/cli/docs"
-import { checkTrackerCommands, describeCheck, doctorValue } from "@/cli/docs/check"
 import { arrayField, objectField, scalarField } from "@/cli/field/shape"
 import { defineCommand, resourceOutput } from "@/cli/spec"
 import { currentDirectory } from "@/config/repo"
 import { RepositoryIdentity } from "@/config/repo-identity"
+import { buildTrackerBlock, replaceGeneratedBlock, trackerMarkers } from "@/docs/blocks"
+import { checkTrackerCommands, describeCheck, doctorValue } from "@/docs/check"
 import { TrackerError } from "@/domain/error"
 
 const writeFlag = Flag.Boolean("write").pipe(
@@ -87,6 +87,13 @@ const makeDoctorSpec = (surface: () => Surface) =>
             buildTrackerBlock(surface()),
             trackerMarkers,
           )
+          if (repaired.error !== null) {
+            return yield* new TrackerError({
+              code: "validation",
+              message: `${file}: ${repaired.error}`,
+              hint: "Add both markers or remove the partial pair.",
+            })
+          }
           if (repaired.changed) {
             yield* fs
               .writeFileString(file, repaired.content)

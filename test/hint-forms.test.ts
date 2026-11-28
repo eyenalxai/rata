@@ -56,6 +56,16 @@ describe("the removed write forms teach the apply engine", () => {
     expect(process.exitCode).toBe(2)
   })
 
+  test("issue create --body names --body-file", async () => {
+    const lines: string[] = []
+    await run(["issue", "create", "--title", "Fix login", "--body", "Inline"], lines)
+    expect(lines).toEqual([
+      "error: The --body flag was removed from issue create.",
+      "hint: Use --body-file - and pipe the body on standard input.",
+    ])
+    expect(process.exitCode).toBe(2)
+  })
+
   test("a leading --format keeps the canonical JSON error", async () => {
     const lines: string[] = []
     await run(["--format", "json", "issue", "label", "add", "RAT-1", "bug"], lines)

@@ -57,7 +57,7 @@ const resolveSelect = (
         return yield* new TrackerError({
           code: "validation",
           message: "--select is not supported by this command.",
-          hint: "The command prints a write result. Use JSON and jq.",
+          hint: "This command does not declare a selectable output. Use --format json and jq.",
         })
       }
       return Option.some(yield* parseSelector("--select", select.value, format))
@@ -67,7 +67,7 @@ const resolveSelect = (
         return yield* new TrackerError({
           code: "validation",
           message: "--fields is not supported by this command.",
-          hint: "--fields applies to reads only. Use --json and jq on the write result.",
+          hint: "This command does not declare a selectable output. Use --format json and jq.",
         })
       }
       return Option.some(yield* parseSelector("--fields", fields.value, format))

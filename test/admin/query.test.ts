@@ -39,4 +39,8 @@ describe("admin api operation detection", () => {
   test("allows a variable named mutation", () => {
     expect(findWriteOperation("query ($mutation: String) { viewer { id } }")).toBeNull()
   })
+
+  test("allows a directive argument named mutation", () => {
+    expect(findWriteOperation("query Q @live(mutation: true) { viewer { id } }")).toBeNull()
+  })
 })

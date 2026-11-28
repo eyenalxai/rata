@@ -14,6 +14,13 @@ const queryFlag = Flag.String("query").pipe(
   Flag.optional,
 )
 
+const noQuery = (): TrackerError =>
+  new TrackerError({
+    code: "validation",
+    message: "No GraphQL query.",
+    hint: "Pass --query, or pipe a query on standard input.",
+  })
+
 const apiSpec = defineCommand("api", {
   summary: "Run a read-only GraphQL query against Linear",
   examples: [
@@ -35,27 +42,19 @@ const apiSpec = defineCommand("api", {
         const stdio = yield* Stdio.Stdio
         const interactive = yield* stdio.stdinIsTerminal
         if (interactive) {
-          return yield* new TrackerError({
-            code: "validation",
-            message: "No GraphQL query.",
-            hint: "Pass --query, or pipe a query on standard input.",
-          })
+          return yield* noQuery()
         }
       }
       const query = Option.isSome(input.query) ? input.query.value : yield* readStandardInput()
       if (query.trim().length === 0) {
-        return yield* new TrackerError({
-          code: "validation",
-          message: "No GraphQL query.",
-          hint: "Pass --query, or pipe a query on standard input.",
-        })
+        return yield* noQuery()
       }
       const operation = findWriteOperation(query)
       if (operation !== null) {
         return yield* new TrackerError({
           code: "validation",
-          message: `admin api rejects ${operation} operations.`,
-          hint: "Send a GraphQL query or an anonymous selection set. admin api is read-only.",
+          message: `The admin api command rejects ${operation} operations.`,
+          hint: "Send a read-only query or an anonymous selection set.",
         })
       }
       const gateway = yield* LinearGateway

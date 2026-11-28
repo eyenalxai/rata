@@ -156,21 +156,41 @@ const blockContent = (content: string, markers: BlockMarkers): string | null => 
   return content.slice(begin + markers.begin.length, end).trim()
 }
 
+type BlockReplacement = {
+  readonly content: string
+  readonly changed: boolean
+  readonly error: string | null
+}
+
 const replaceGeneratedBlock = (
   content: string,
   block: string,
   markers: BlockMarkers,
-): { readonly content: string; readonly changed: boolean } => {
+): BlockReplacement => {
   const begin = content.indexOf(markers.begin)
   const end = content.indexOf(markers.end, begin + 1)
+  if (begin !== -1 && end === -1) {
+    return {
+      content,
+      changed: false,
+      error: "The generated block has a begin marker but no end marker.",
+    }
+  }
+  if (begin === -1 && end !== -1) {
+    return {
+      content,
+      changed: false,
+      error: "The generated block has an end marker but no begin marker.",
+    }
+  }
   const body = `${markers.begin}\n${block.trim()}\n${markers.end}`
   if (begin !== -1 && end !== -1) {
     const next = `${content.slice(0, begin)}${body}${content.slice(end + markers.end.length)}`
-    return { content: next, changed: next !== content }
+    return { content: next, changed: next !== content, error: null }
   }
   const separator = content.trimEnd().length === 0 ? "" : "\n\n"
   const next = `${content.trimEnd()}${separator}${body}\n`
-  return { content: next, changed: next !== content }
+  return { content: next, changed: next !== content, error: null }
 }
 
 export {

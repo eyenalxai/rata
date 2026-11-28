@@ -1,6 +1,4 @@
-import type { Option } from "effect"
-
-import { Effect, Stdio, Stream } from "effect"
+import { Effect, Option, Stdio, Stream } from "effect"
 import { Flag } from "effect/cli"
 
 import { resolveBody } from "@/cli/body"
@@ -18,8 +16,8 @@ const ifUnchangedFlag = Flag.String("if-unchanged").pipe(
   Flag.optional,
 )
 
-const readBodyInput = (body: Option.Option<string>, bodyFile: Option.Option<string>) =>
-  resolveBody({ body: "body", file: "body-file" }, body, bodyFile).pipe(
+const readBodyInput = (bodyFile: Option.Option<string>) =>
+  resolveBody({ body: "body", file: "body-file" }, Option.none(), bodyFile).pipe(
     Effect.mapError(toTrackerError),
   )
 

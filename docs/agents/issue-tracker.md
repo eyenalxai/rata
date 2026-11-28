@@ -45,9 +45,9 @@ Generated from the command registry by `bun run docs:generate`. Do not edit this
 | `rata issue apply` | Apply one document to fields, labels, sections, a comment and relations |
 | `rata issue relate` | Add or remove relation edges on an issue |
 | `rata issue comment` | Post one comment on an issue |
-| `rata triage` | Triage the queue and change roles. Phase 2. |
-| `rata map` | Claim and resolve wayfinding work. Phase 2. |
-| `rata admin` | Set up the workspace, the repository link and the API access |
+| `rata triage` | Triage the queue and change roles. Not available yet. |
+| `rata map` | Claim and resolve wayfinding work. Not available yet. |
+| `rata admin` | Manage auth, the repository link, teams, projects, labels, the tracker doctor and the read-only API |
 | `rata admin auth` | Manage Linear authentication |
 | `rata admin auth login` | Store a Linear API key as a workspace profile |
 | `rata admin auth status` | Show the selected profile, viewer and organization |
@@ -100,8 +100,8 @@ tickets are child issues.
 The map is an issue labelled `wayfinder:map`. Its children carry
 `wayfinder:<type>`, where type is `research`, `prototype`, `grilling` or `task`.
 
-- **Map**: `rata issue create --title "<title>" --label wayfinder:map --no-default-labels --assignee none --body-file -`
-- **Child**: `rata issue create --title "<title>" --parent <map-ref> --label wayfinder:<type> --no-default-labels --assignee none --body-file -`
+- **Map**: `printf '%s' '{"defaults":{"labels":[],"assignee":null},"nodes":[{"key":"map","kind":"map","title":"<title>","labels":["wayfinder:map"]}]}' | rata issue publish --file -`
+- **Child**: `printf '%s' '{"defaults":{"labels":[],"assignee":null},"parent":"<map-ref>","nodes":[{"key":"task","kind":"task","title":"<title>","labels":["wayfinder:<type>"]}]}' | rata issue publish --file -`
 - **Wire**: `rata issue relate <child-ref> --blocked-by <blocker-ref>`.
 - **Frontier**: `rata issue <map-ref>` returns `frontier` and `nextChild`. For the whole frontier as rows, use `rata issue list --parent <map-ref> --unblocked --unassigned --relations --sort priority --all`.
 - **Claim**: `rata issue start <ref>`. It claims an unassigned issue, skips your own claim, and exits 4 with the holder when another user holds it. Add `--take` to reassign.

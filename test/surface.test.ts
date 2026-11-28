@@ -1,4 +1,4 @@
-import { runRoot } from "@test/cli-harness"
+import { lastJson, runRoot } from "@test/cli-harness"
 import { makeFakeLinear } from "@test/fake-linear"
 import { afterEach, describe, expect, test } from "bun:test"
 
@@ -51,8 +51,20 @@ describe("the root surface", () => {
   test("shows the phase 2 groups with a description", async () => {
     const lines: string[] = []
     await runRoot(fake().handler, ["triage", "--help"], lines)
-    expect(lines.join("\n")).toContain("Phase 2.")
+    expect(lines.join("\n")).toContain("Not available yet.")
     expect(process.exitCode ?? 0).toBe(0)
+  })
+
+  test("an empty phase 2 root exits 2", async () => {
+    const lines: string[] = []
+    await runRoot(fake().handler, ["triage", "--format", "json"], lines)
+    expect(lastJson(lines)).toMatchObject({
+      error: {
+        code: "usage",
+        message: "The triage command is not available yet.",
+      },
+    })
+    expect(process.exitCode).toBe(2)
   })
 })
 

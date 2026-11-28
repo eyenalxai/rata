@@ -55,33 +55,82 @@ const nextSignificant = (source: string, start: number): string | undefined => {
   return undefined
 }
 
+type ScanState = {
+  depth: number
+  parens: number
+  brackets: number
+}
+
+const skipDelimiter = (char: string | undefined, state: ScanState): boolean => {
+  switch (char) {
+    case "{": {
+      state.depth += 1
+      return true
+    }
+    case "}": {
+      state.depth = Math.max(0, state.depth - 1)
+      return true
+    }
+    case "(": {
+      state.parens += 1
+      return true
+    }
+    case ")": {
+      state.parens = Math.max(0, state.parens - 1)
+      return true
+    }
+    case "[": {
+      state.brackets += 1
+      return true
+    }
+    case "]": {
+      state.brackets = Math.max(0, state.brackets - 1)
+      return true
+    }
+    case undefined: {
+      return false
+    }
+    default: {
+      return false
+    }
+  }
+}
+
+const isNested = (state: ScanState): boolean =>
+  state.depth > 0 || state.parens > 0 || state.brackets > 0
+
+const readWord = (
+  source: string,
+  start: number,
+): { readonly word: string; readonly end: number } => {
+  let index = start
+  while (index < source.length && identifierPart.test(source[index] ?? "")) {
+    index += 1
+  }
+  return { word: source.slice(start, index), end: index }
+}
+
 const findWriteOperation = (query: string): WriteOperation | null => {
   const source = stripStringsAndComments(query)
-  let depth = 0
+  const state: ScanState = { depth: 0, parens: 0, brackets: 0 }
   let expectName = false
   let index = 0
   while (index < source.length) {
     const char = source[index]
-    if (char === "{") {
-      depth += 1
-      expectName = false
+    if (skipDelimiter(char, state)) {
+      if (char === "{") {
+        expectName = false
+      }
       index += 1
       continue
     }
-    if (char === "}") {
-      depth = Math.max(0, depth - 1)
-      index += 1
-      continue
-    }
-    if (depth > 0 || char === undefined || !identifierStart.test(char)) {
+    if (isNested(state) || char === undefined || !identifierStart.test(char)) {
       index += 1
       continue
     }
     const start = index
-    while (index < source.length && identifierPart.test(source[index] ?? "")) {
-      index += 1
-    }
-    const word = source.slice(start, index)
+    const { word, end } = readWord(source, start)
+    index = end
     const previous = start === 0 ? undefined : source[start - 1]
     if (previous === "$" || previous === "@") {
       continue

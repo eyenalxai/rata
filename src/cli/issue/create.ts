@@ -13,7 +13,6 @@ import { issueSummaryShape } from "@/cli/issue/shape"
 import { dryRunFlag } from "@/cli/output"
 import { resolvePriority } from "@/cli/priority"
 import { defineCommand, selectOutput } from "@/cli/spec"
-import { TrackerError } from "@/domain/error"
 import { IssueWriter } from "@/tracker/write"
 
 const optionalText = (name: string, description: string) =>
@@ -21,13 +20,6 @@ const optionalText = (name: string, description: string) =>
 
 const labelFlag = Flag.atLeast(Flag.String("label"), 0).pipe(
   Flag.withDescription("Label name. Repeat for more labels"),
-)
-
-const waitFlag = Flag.Int("wait").pipe(
-  Flag.withDescription(
-    "Seconds to wait for the write to appear on a re-read. Default 5, 0 disables",
-  ),
-  Flag.optional,
 )
 
 const writeActionShape = objectField({
@@ -44,7 +36,6 @@ const createResultShape = objectField({
   dryRun: scalarField,
   snapshot: scalarField,
   actions: arrayField(writeActionShape),
-  visible: scalarField,
 })
 
 const createShape = objectField({
@@ -66,7 +57,6 @@ type CreateResult = {
   readonly dryRun: boolean
   readonly snapshot: null
   readonly actions: readonly CreateAction[]
-  readonly visible: boolean | null
 }
 
 const planAction = (plan: IssueCreatePlan): CreateAction => ({
@@ -96,18 +86,13 @@ const issueAction = (issue: IssueSummary): CreateAction => ({
   },
 })
 
-const resultOf = (
-  actions: readonly CreateAction[],
-  dryRun: boolean,
-  visible: boolean | null,
-): CreateResult => ({
+const resultOf = (actions: readonly CreateAction[], dryRun: boolean): CreateResult => ({
   action: "create",
   status: "updated",
   changed: ["issue"],
   dryRun,
   snapshot: null,
   actions,
-  visible,
 })
 
 const resultLines = (result: CreateResult): readonly string[] => [
@@ -151,30 +136,17 @@ const createSpec = defineCommand("create", {
     bodyFile: bodyFileFlag,
     team: optionalText("team", "Team key or id. Defaults to the team from `rata admin link`"),
     label: labelFlag,
-    noDefaultLabels: Flag.Boolean("no-default-labels").pipe(
-      Flag.withDescription("Ignore the repository default labels"),
-      Flag.withDefault(false),
-    ),
     parent: optionalText("parent", "Parent issue reference"),
     project: optionalText("project", "Project id or name"),
     state: optionalText("state", "Workflow state name"),
     assignee: optionalText("assignee", "Assignee: `me`, a user id, or `none`"),
     priority: optionalText("priority", "Priority: none, urgent, high, medium, low, or 0-4"),
-    wait: waitFlag,
     dryRun: dryRunFlag,
   },
   control: (input) => ({ dryRun: input.dryRun, bodyFile: input.bodyFile }),
   output: selectOutput(createShape),
   run: (input, control) =>
     Effect.gen(function* createIssue() {
-      const waitSeconds = Option.getOrUndefined(input.wait)
-      if (waitSeconds !== undefined && waitSeconds < 0) {
-        return yield* new TrackerError({
-          code: "validation",
-          message: "The --wait flag must be 0 or more.",
-          hint: null,
-        })
-      }
       const team = Option.getOrUndefined(input.team)
       const context = yield* resolveIssueContext({ requireTeam: true, team, viewer: false })
       const writer = yield* IssueWriter
@@ -188,12 +160,11 @@ const createSpec = defineCommand("create", {
         state: Option.getOrUndefined(input.state),
         assignee: Option.getOrUndefined(input.assignee),
         priority: Option.getOrUndefined(yield* resolvePriority(input.priority)),
-        useDefaultLabels: !input.noDefaultLabels,
-        waitSeconds,
+        waitSeconds: 0,
       }
       if (control.dryRun) {
         const plan = yield* writer.planCreate(context, options)
-        const result = resultOf([planAction(plan)], true, null)
+        const result = resultOf([planAction(plan)], true)
         return {
           kind: "resource",
           value: { issue: null, result },
@@ -201,16 +172,11 @@ const createSpec = defineCommand("create", {
         }
       }
       const created: IssueCreateResult = yield* writer.create(context, options)
-      const result = resultOf([issueAction(created.issue)], false, created.visible)
+      const result = resultOf([issueAction(created.issue)], false)
       return {
         kind: "resource",
         value: { issue: created.issue, result },
-        text: [
-          formatSummary(created.issue),
-          "",
-          ...resultLines(result),
-          ...(created.visible === false ? ["visible: false"] : []),
-        ],
+        text: [formatSummary(created.issue), "", ...resultLines(result)],
       }
     }),
 })
