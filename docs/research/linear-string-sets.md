@@ -3,7 +3,7 @@
 Date: 2026-11-28
 Status: answered
 
-Scope: `src/` at `57d3f43`. This audit changes documentation only. The duplicate
+Scope: `src/` at `57d3f43`. This document changes documentation only. The duplicate
 state fix in `5ee94a8` is already merged and is not changed here.
 
 ## Question
@@ -19,10 +19,11 @@ type, and the issue priority value. A fourth closed set, the label scope, is
 derived from `IssueLabel.team`. A fifth, the triage roles, is owned by this
 repository, not by Linear.
 
-The state type, the relation type, and the priority value should fail fast. Each
-one selects a behavior or a fixed output shape. The label scope and the triage
-roles should pass through. The scope is derived and display-only. A Linear label
-is free-form data.
+Fail fast for the state type, the relation type, and the priority value. Each
+one selects a behavior or a fixed output shape, so an unknown value needs a
+decision. Pass through for the label scope and the triage roles. The scope is
+derived from whether the label has a team, and it is display only; a Linear
+label is free-form data.
 
 The current failure is a stop, but not a clear one. A decode mismatch becomes
 `LinearGraphQLError` with the message "Linear returned an unexpected response
@@ -30,8 +31,8 @@ body." Then `TrackerError` maps it to code `internal`, hint `Run with
 RATA_DEBUG=1 for details.`, and exit 1. The message does not name the value.
 
 `duplicate` is the precedent. Before `5ee94a8`, an issue in a duplicate state
-failed every read. The fix added the value. This audit records the cost of the
-next value.
+failed every read. The fix added the value. This document records the cost of
+the next value.
 
 ## Inventory
 
@@ -57,7 +58,8 @@ decision.
 The failure is broad because `IssueState` is part of every issue summary
 (`src/linear/decode/issue.ts:116-131`). A team with the new type cannot be read
 until rata accepts it. A warm `status` read uses the cache and may not show the
-problem until `--refresh` (`src/local/context-cache.ts:107-110`).
+problem until `--refresh` (`src/context/resolve.ts:75`,
+`src/local/context-cache.ts:107-110`).
 
 ### Issue relation type
 
@@ -70,11 +72,12 @@ The default `issue <ref>` read requests `inverseRelations`
 (`src/linear/documents/issue/fields.ts:89-92`); `--summary` does not.
 `issue list --relations` requests both directions. The write plans for `start`,
 `close`, `handoff`, and `apply` read the full working set
-(`src/tracker/apply.ts:38-49`).
+(`src/tracker/apply.ts:38-49`, `src/tracker/workflow/start.ts:10`,
+`src/tracker/workflow/close.ts:12`).
 
-The current decoder stops the read. Keep that. The error should name the type.
+The current decoder fails fast. Keep that. The error should name the type.
 Passing an unknown type through as `related` is the alternative. It keeps reads
-alive, but it can hide a new blocking edge. The audit rejects that trade.
+alive, but it can hide a new blocking edge. I reject that trade.
 
 ### Priority value
 
@@ -111,7 +114,7 @@ This is a repo-doc set, not a Linear set. A new Linear label does not affect it.
 2. `toTrackerError` calls `classifyUnclassified`. A `LinearGraphQLError` that
    does not match the duplicate or not-found text becomes `internal` with the
    hint "Run with RATA_DEBUG=1 for details." (`src/cli/error-report.ts:208-224`).
-   The exit code is 1 (`src/cli/error-report.ts:95-109`).
+   The exit code is 1 (`src/cli/error-report.ts:95-107`).
 3. The parse error is in `cause`. `RATA_DEBUG=1` shows it. The default output
    does not name the state type, relation type, or priority value.
 
@@ -123,13 +126,13 @@ type or label scope.
 
 - The fail-fast message is generic. A follow-up should name the field and the
   value, for example: "Linear added the workflow state type `X`. Update rata."
-  This audit does not change code.
+  This change does not alter code.
 - The relation type decision is the closest call. Passing an unknown type
   through as `related` keeps reads alive. Failing fast names the new value but
-  stops every read of an issue with that edge. The audit chooses fail fast
-  because a wrong frontier is worse than a failed read.
+  stops every read of an issue with that edge. I choose fail fast because a
+  wrong frontier is worse than a failed read.
 - The priority list in team detail accepts any integer. If the owner wants one
-  failure point, validate it against 0 to 4. This audit keeps the current split.
+  failure point, validate it against 0 to 4. I keep the current split.
 - The triage role parser ignores a new canonical row without a warning. If the
   owner wants doc health to catch it, `parseTriageMap` must report unknown
   canonical rows. This is repo-owned, not Linear.
@@ -137,7 +140,7 @@ type or label scope.
 ## References
 
 - `src/domain/workflow-state.ts`, `src/domain/relation.ts`,
-  `src/domain/priority.ts`, `src/domain/label.ts`.
+  `src/domain/priority.ts`.
 - `src/linear/decode/issue.ts`, `src/linear/decode/team.ts`.
 - `src/linear/client.ts`, `src/cli/error-report.ts`.
 - `src/context/docs.ts`, `docs/agents/triage-labels.md`.
