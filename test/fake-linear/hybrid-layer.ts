@@ -62,7 +62,9 @@ const hybridApiLayer = (handler: Handler, seed: MemorySeed, options: ApiLayerOpt
       const key = () =>
         resolvedAuth.require.pipe(
           Effect.map((resolved) => resolved.key),
-          Effect.mapError((error) => new LinearAuthError({ message: error.message, cause: error })),
+          Effect.mapError(
+            (error) => new LinearAuthError({ code: "auth", message: error.message, cause: error }),
+          ),
         )
       return LinearClient.of(makeClient(httpClient, key))
     }),

@@ -24,6 +24,7 @@ import type { IssueRefNotFoundError } from "@/tracker/read/batch"
 import { toSummary } from "@/tracker/model"
 
 class IssueWriteError extends Schema.TaggedError<IssueWriteError>()("IssueWriteError", {
+  code: Schema.tag("internal"),
   message: Schema.String,
 }) {}
 

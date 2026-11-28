@@ -11,6 +11,7 @@ type RepositoryLocation = {
 class RepositoryIdentityError extends Schema.TaggedError<RepositoryIdentityError>()(
   "RepositoryIdentityError",
   {
+    code: Schema.tag("internal"),
     message: Schema.String,
     cause: Schema.optional(Schema.Defect()),
   },

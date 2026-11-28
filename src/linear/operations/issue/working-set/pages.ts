@@ -13,6 +13,7 @@ import { LinearGraphQLError } from "@/linear/errors"
 
 const malformedPayload = (): LinearApiError =>
   new LinearGraphQLError({
+    code: "internal",
     message: "Linear returned an unexpected response body.",
     details: [],
   })

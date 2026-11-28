@@ -1,6 +1,7 @@
 import { Effect, FileSystem, Option, Schema, Stdio, Stream } from "effect"
 
 class BodyInputError extends Schema.TaggedError<BodyInputError>()("BodyInputError", {
+  code: Schema.tag("validation"),
   message: Schema.String,
   cause: Schema.optional(Schema.Defect()),
 }) {}

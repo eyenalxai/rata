@@ -1,7 +1,7 @@
 import { Effect, Option } from "effect"
 import { Argument, Flag } from "effect/cli"
 
-import { classifyWriteError } from "@/cli/error-report"
+import { toTrackerError } from "@/cli/error-report"
 import { resolveIssueContext } from "@/cli/issue/context"
 import { decodeApplyDocument, emptyApplyDocument, requireDedupeKey } from "@/cli/issue/document"
 import { issueWriteShape, postWriteRead, writeOutput } from "@/cli/issue/write-output"
@@ -58,7 +58,7 @@ const applySpec = defineCommand("apply", {
       const ifUnchanged = Option.getOrUndefined(control.ifUnchanged)
       const result = control.dryRun
         ? yield* checkSnapshot(plan, ifUnchanged).pipe(Effect.as(dryRunPlan(plan)))
-        : yield* applyPlan(plan, { classifyError: classifyWriteError, ifUnchanged })
+        : yield* applyPlan(plan, { classifyError: toTrackerError, ifUnchanged })
       const outcome = yield* postWriteRead(input.ref, result)
       return writeOutput(outcome)
     }),

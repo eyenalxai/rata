@@ -8,6 +8,7 @@ import type { LinearApiError } from "@/linear/errors"
 import { Viewer } from "@/linear/decode/viewer"
 import { viewerQuery } from "@/linear/documents/viewer"
 import {
+  graphQLErrorCode,
   isRetryableLinearError,
   LinearAuthError,
   LinearGraphQLError,
@@ -130,6 +131,7 @@ const makeAttempt = (http: HttpClient.HttpClient) =>
         const reason =
           response.status === 403 ? "Linear forbade this request." : "Linear rejected the API key."
         return yield* new LinearAuthError({
+          code: response.status === 403 ? "forbidden" : "auth",
           message: withServerMessages(reason, messages),
           status: response.status,
           ...cause,
@@ -149,6 +151,7 @@ const makeAttempt = (http: HttpClient.HttpClient) =>
         })
       }
       return yield* new LinearGraphQLError({
+        code: graphQLErrorCode(messages),
         message:
           messages.length === 0 ? `Linear returned HTTP ${response.status}.` : messages.join("; "),
         details: [...messages],
@@ -160,6 +163,7 @@ const makeAttempt = (http: HttpClient.HttpClient) =>
       Effect.mapError(
         (cause) =>
           new LinearGraphQLError({
+            code: "internal",
             message: "Linear returned an unexpected response body.",
             details: [],
             cause,
@@ -168,10 +172,15 @@ const makeAttempt = (http: HttpClient.HttpClient) =>
     )
     if (envelope.errors !== undefined && envelope.errors.length > 0) {
       const details = envelope.errors.map((error) => error.message)
-      return yield* new LinearGraphQLError({ message: details.join("; "), details })
+      return yield* new LinearGraphQLError({
+        code: graphQLErrorCode(details),
+        message: details.join("; "),
+        details,
+      })
     }
     if (envelope.data === undefined || envelope.data === null) {
       return yield* new LinearGraphQLError({
+        code: "internal",
         message: "Linear returned no data.",
         details: [],
       })
@@ -180,6 +189,7 @@ const makeAttempt = (http: HttpClient.HttpClient) =>
       Effect.mapError(
         (cause) =>
           new LinearGraphQLError({
+            code: "internal",
             message: "Linear returned an unexpected response body.",
             details: [],
             cause,

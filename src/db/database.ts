@@ -17,6 +17,7 @@ import {
 } from "effect"
 
 class DatabaseError extends Schema.TaggedError<DatabaseError>()("DatabaseError", {
+  code: Schema.tag("internal"),
   message: Schema.String,
   cause: Schema.optional(Schema.Defect()),
 }) {}

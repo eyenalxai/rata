@@ -16,6 +16,7 @@ import { isUuid } from "@/domain/id"
 import { storedPriority } from "@/domain/priority"
 
 class RepoConfigError extends Schema.TaggedError<RepoConfigError>()("RepoConfigError", {
+  code: Schema.tag("internal"),
   message: Schema.String,
   cause: Schema.optional(Schema.Defect()),
 }) {}

@@ -21,9 +21,13 @@ const handleMutation = (graphql: GraphQLRequest, state: FakeState): Response | u
   if (query.includes("mutation TeamCreate")) {
     const input = inputOf(graphql.variables)
     const name = stringField(input, "name")
+    const key = typeof input.key === "string" ? input.key : undefined
+    if (key !== undefined && state.teams.some((team) => team.key === key)) {
+      return jsonResponse({ errors: [{ message: `Duplicate team key: ${key}` }] })
+    }
     const created = {
       id: `00000000-0000-0000-0000-${String(state.teams.length + 1).padStart(12, "0")}`,
-      key: typeof input.key === "string" ? input.key : "AUTO",
+      key: key ?? "AUTO",
       name,
       timezone: typeof input.timezone === "string" ? input.timezone : "America/Los_Angeles",
     }

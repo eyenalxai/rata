@@ -11,11 +11,13 @@ import {
 } from "@/domain/body/section/edit"
 import { availableHeadings, findMatches, parseBody } from "@/domain/body/section/model"
 import { normalizeLineEndings } from "@/domain/body/text"
+import { ErrorCodeSchema } from "@/domain/error"
 
 const sectionBatchReasons = ["missing", "duplicate", "overlap", "empty"] as const
 type SectionBatchReason = (typeof sectionBatchReasons)[number]
 
 class SectionBatchError extends Schema.TaggedError<SectionBatchError>()("SectionBatchError", {
+  code: ErrorCodeSchema,
   reason: Schema.Literals(sectionBatchReasons),
   heading: Schema.String,
   lines: Schema.optional(Schema.Array(Schema.Finite)),
@@ -44,6 +46,12 @@ const batchError = (
           ? `The edit to "${heading}" overlaps another section edit.`
           : "The section heading is empty."
   return new SectionBatchError({
+    code:
+      reason === "missing"
+        ? "not_found"
+        : reason === "duplicate" || reason === "overlap"
+          ? "ambiguous"
+          : "validation",
     reason,
     heading,
     ...(lines === undefined ? {} : { lines }),

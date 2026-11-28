@@ -29,6 +29,7 @@ type LinkTeamDependencies = {
 }
 
 class LinkError extends Schema.TaggedError<LinkError>()("LinkError", {
+  code: Schema.tag("validation"),
   message: Schema.String,
   cause: Schema.optional(Schema.Defect()),
 }) {}

@@ -50,7 +50,9 @@ const gatewayLayer = Layer.effect(
         Effect.map((resolved) => resolved.key),
         Effect.catchTags({
           AuthStoreError: (error) =>
-            Effect.fail(new LinearAuthError({ message: error.message, cause: error })),
+            Effect.fail(
+              new LinearAuthError({ code: "auth", message: error.message, cause: error }),
+            ),
           DatabaseError: (error) =>
             Effect.fail(new LinearInternalError({ message: error.message, cause: error })),
         }),

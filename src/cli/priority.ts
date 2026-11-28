@@ -5,6 +5,7 @@ import type { Priority } from "@/domain/priority"
 import { parsePriority } from "@/domain/priority"
 
 class PriorityInputError extends Schema.TaggedError<PriorityInputError>()("PriorityInputError", {
+  code: Schema.tag("validation"),
   message: Schema.String,
 }) {}
 

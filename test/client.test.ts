@@ -119,9 +119,20 @@ describe("LinearClient", () => {
     )
     expect(error._tag).toBe("LinearAuthError")
     if (error._tag === "LinearAuthError") {
+      expect(error.code).toBe("auth")
       expect(error.message).toContain("bad key")
     }
     expect(calls).toBe(1)
+  })
+
+  test("maps 403 to forbidden", async () => {
+    const error = await runViewerFailure(
+      clientLayer(() => jsonResponse({ errors: [{ message: "Forbidden" }] }, 403)),
+    )
+    expect(error._tag).toBe("LinearAuthError")
+    if (error._tag === "LinearAuthError") {
+      expect(error.code).toBe("forbidden")
+    }
   })
 
   test("keeps the server message from a 4xx body", async () => {
@@ -200,7 +211,25 @@ describe("LinearClient", () => {
     )
     expect(error._tag).toBe("LinearGraphQLError")
     if (error._tag === "LinearGraphQLError") {
+      expect(error.code).toBe("internal")
       expect(error.details).toEqual(["A", "B"])
+    }
+  })
+
+  test("reads conflict and not_found from the GraphQL message", async () => {
+    const duplicate = await runViewerFailure(
+      clientLayer(() => jsonResponse({ errors: [{ message: "Duplicate team key: RAT" }] })),
+    )
+    expect(duplicate._tag).toBe("LinearGraphQLError")
+    if (duplicate._tag === "LinearGraphQLError") {
+      expect(duplicate.code).toBe("conflict")
+    }
+    const missing = await runViewerFailure(
+      clientLayer(() => jsonResponse({ errors: [{ message: "Entity not found: Issue" }] })),
+    )
+    expect(missing._tag).toBe("LinearGraphQLError")
+    if (missing._tag === "LinearGraphQLError") {
+      expect(missing.code).toBe("not_found")
     }
   })
 

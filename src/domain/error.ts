@@ -17,6 +17,13 @@ type ErrorCode = (typeof errorCodes)[number]
 
 const ErrorCodeSchema = Schema.Literals(errorCodes)
 
+const CodedError = Schema.Struct({
+  _tag: Schema.String,
+  code: ErrorCodeSchema,
+  message: Schema.String,
+})
+type CodedError = typeof CodedError.Type
+
 class TrackerError extends Schema.TaggedError<TrackerError>()("TrackerError", {
   code: ErrorCodeSchema,
   message: Schema.String,
@@ -26,4 +33,4 @@ class TrackerError extends Schema.TaggedError<TrackerError>()("TrackerError", {
   cause: Schema.optional(Schema.Defect()),
 }) {}
 
-export { type ErrorCode, ErrorCodeSchema, TrackerError }
+export { CodedError, type ErrorCode, ErrorCodeSchema, TrackerError }

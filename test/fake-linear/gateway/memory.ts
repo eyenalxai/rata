@@ -72,7 +72,7 @@ const projectVisible = (project: MemoryProject, teamId: string | undefined): boo
 
 const unsupported = (
   message = "The in-memory Linear gateway does not execute raw GraphQL documents.",
-): LinearGraphQLError => new LinearGraphQLError({ message, details: [] })
+): LinearGraphQLError => new LinearGraphQLError({ code: "internal", message, details: [] })
 
 const teamDetail = (team: MemoryTeam, labels: readonly MemoryLabel[]): TeamDetail => ({
   id: team.id,
@@ -104,7 +104,7 @@ const runWrite = (write: () => Record<string, unknown>) =>
     catch: (error) =>
       Schema.is(LinearGraphQLError)(error)
         ? error
-        : new LinearGraphQLError({ message: String(error), details: [] }),
+        : new LinearGraphQLError({ code: "internal", message: String(error), details: [] }),
   })
 
 const makeMemoryGateway = (seed: MemorySeed): LinearGatewayShape => {
@@ -119,7 +119,13 @@ const makeMemoryGateway = (seed: MemorySeed): LinearGatewayShape => {
   const requireIssue = (ref: string): Effect.Effect<MemoryIssue, LinearGraphQLError> => {
     const issue = findIssue(ref)
     return issue === undefined
-      ? Effect.fail(new LinearGraphQLError({ message: `No issue matches ${ref}.`, details: [] }))
+      ? Effect.fail(
+          new LinearGraphQLError({
+            code: "not_found",
+            message: `No issue matches ${ref}.`,
+            details: [],
+          }),
+        )
       : Effect.succeed(issue)
   }
 
@@ -136,7 +142,11 @@ const makeMemoryGateway = (seed: MemorySeed): LinearGatewayShape => {
   const issueOrThrow = (ref: string): MemoryIssue => {
     const issue = findIssue(ref)
     if (issue === undefined) {
-      throw new LinearGraphQLError({ message: `No issue matches ${ref}.`, details: [] })
+      throw new LinearGraphQLError({
+        code: "not_found",
+        message: `No issue matches ${ref}.`,
+        details: [],
+      })
     }
     return issue
   }
@@ -181,6 +191,7 @@ const makeMemoryGateway = (seed: MemorySeed): LinearGatewayShape => {
     if (failure !== undefined) {
       return Effect.fail(
         new LinearGraphQLError({
+          code: "internal",
           message: `The in-memory Linear gateway was told to fail ${failure}.`,
           details: [],
         }),
@@ -266,7 +277,13 @@ const makeMemoryGateway = (seed: MemorySeed): LinearGatewayShape => {
   const viewerWithKey = (apiKey: Redacted.Redacted) => {
     const workspace = workspaceFor(apiKey)
     return rejectedKeys.has(Redacted.value(apiKey))
-      ? Effect.fail(new LinearAuthError({ message: "Linear rejected the API key.", status: 401 }))
+      ? Effect.fail(
+          new LinearAuthError({
+            code: "auth",
+            message: "Linear rejected the API key.",
+            status: 401,
+          }),
+        )
       : Effect.succeed(workspace?.viewer ?? seed.viewer)
   }
 
@@ -355,7 +372,11 @@ const makeMemoryGateway = (seed: MemorySeed): LinearGatewayShape => {
         const found = teams.find((candidate) => candidate.id === team.id)
         return found === undefined
           ? Effect.fail(
-              new LinearGraphQLError({ message: `No team with id ${team.id}.`, details: [] }),
+              new LinearGraphQLError({
+                code: "not_found",
+                message: `No team with id ${team.id}.`,
+                details: [],
+              }),
             )
           : Effect.succeed(teamDetail(found, labels))
       },

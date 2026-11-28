@@ -4,6 +4,7 @@ import { Prompt } from "effect/cli"
 import { runPrompt } from "@/config/prompt"
 
 class PromptRequiredError extends Schema.TaggedError<PromptRequiredError>()("PromptRequiredError", {
+  code: Schema.tag("validation"),
   message: Schema.String,
 }) {}
 

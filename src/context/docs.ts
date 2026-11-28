@@ -40,6 +40,7 @@ type TriageDocument = {
 type TrackerCheck = (content: string, file: string) => string | null
 
 class TriageMapError extends Schema.TaggedError<TriageMapError>()("TriageMapError", {
+  code: Schema.tag("validation"),
   file: Schema.String,
   message: Schema.String,
 }) {}

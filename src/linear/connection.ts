@@ -32,6 +32,7 @@ const collectPages = <A>(
     while (pageInfo.hasNextPage) {
       if (pageInfo.endCursor === null) {
         return yield* new LinearGraphQLError({
+          code: "internal",
           message: "Linear returned a page without an end cursor.",
           details: [],
         })
