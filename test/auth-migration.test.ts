@@ -1,3 +1,4 @@
+import { SqliteClient } from "@effect/sql-sqlite-bun"
 import {
   authPath,
   makeAuthHarness,
@@ -6,11 +7,18 @@ import {
   storedProfiles,
 } from "@test/auth-harness"
 import { describe, expect, test } from "bun:test"
+import { makeWithDefaults } from "drizzle-orm/effect-sqlite-bun"
+import { migrate } from "drizzle-orm/effect-sqlite-bun/migrator"
 import { Effect, Option, Redacted } from "effect"
+import { cp, mkdir, mkdtemp, readdir, rm } from "node:fs/promises"
+import { tmpdir } from "node:os"
+import path from "node:path"
 
 import { Auth } from "@/config/auth"
+import { profiles } from "@/db/schema"
 
 const migrationNotice = `Migrated auth profiles from ${authPath}.`
+const defaultProfileMigrations = "2026112812"
 
 describe("Auth legacy migration", () => {
   test("imports a legacy single-key file as the default profile and deletes it", async () => {
@@ -148,5 +156,44 @@ describe("Auth legacy migration", () => {
     )
 
     expect(harness.lines).toEqual([migrationNotice])
+  })
+})
+
+describe("Default profile migration", () => {
+  test("keeps one default when the old database held two", async () => {
+    const folder = path.resolve(import.meta.dir, "../drizzle")
+    const root = await mkdtemp(path.join(tmpdir(), "rata-default-migration-"))
+    try {
+      const oldFolder = path.join(root, "old")
+      await mkdir(oldFolder)
+      const oldMigrations = (await readdir(folder)).filter(
+        (entry) => entry < defaultProfileMigrations,
+      )
+      await Promise.all(
+        oldMigrations.map((entry) =>
+          cp(path.join(folder, entry), path.join(oldFolder, entry), { recursive: true }),
+        ),
+      )
+      const rows = await Effect.gen(function* upgradeDefaults() {
+        const drizzle = yield* makeWithDefaults()
+        yield* migrate(drizzle, { migrationsFolder: oldFolder })
+        yield* drizzle
+          .insert(profiles)
+          .values([
+            { name: "alpha", apiKey: "alpha-key", isDefault: 1 },
+            { name: "work", apiKey: "work-key", isDefault: 1 },
+          ])
+          .run()
+        yield* migrate(drizzle, { migrationsFolder: folder })
+        return yield* drizzle.select().from(profiles).orderBy(profiles.name).all()
+      }).pipe(Effect.provide(SqliteClient.layer({ filename: ":memory:" })), Effect.runPromise)
+
+      expect(rows).toEqual([
+        { name: "alpha", apiKey: "alpha-key", isDefault: 1 },
+        { name: "work", apiKey: "work-key", isDefault: 0 },
+      ])
+    } finally {
+      await rm(root, { recursive: true, force: true })
+    }
   })
 })

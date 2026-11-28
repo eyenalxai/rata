@@ -51,7 +51,7 @@ Generated from the command registry by `bun run docs:generate`. Do not edit this
 | `rata admin auth` | Manage Linear authentication |
 | `rata admin auth login` | Store a Linear API key as a workspace profile |
 | `rata admin auth status` | Show the selected profile, viewer and organization |
-| `rata admin auth logout` | Remove one stored workspace profile |
+| `rata admin auth logout` | Remove a stored workspace profile, or the default profile |
 | `rata admin link` | Bind this repository to a Linear team and set its timezone |
 | `rata admin unlink` | Remove the stored link of this repository |
 | `rata admin workspace` | Manage the stored Linear workspace profiles |

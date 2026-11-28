@@ -1,6 +1,5 @@
 import type { PlatformError } from "effect/PlatformError"
 
-import { eq } from "drizzle-orm"
 import {
   Config,
   Console,
@@ -17,6 +16,7 @@ import {
 
 import { AuthStoreError } from "@/config/auth/error"
 import { makeConfigHome } from "@/config/auth/home"
+import { removeProfile, selectDefaultProfile, storeProfile } from "@/config/auth/profiles"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
 import { Database, DatabaseError } from "@/db/database"
 import { profiles } from "@/db/schema"
@@ -37,6 +37,11 @@ type StoredProfile = {
   readonly isDefault: boolean
 }
 
+type LogoutResult = {
+  readonly removed: Option.Option<string>
+  readonly default: Option.Option<string>
+}
+
 type AuthShape = {
   readonly resolve: Effect.Effect<Option.Option<ResolvedAuth>, AuthStoreError | DatabaseError>
   readonly require: Effect.Effect<ResolvedAuth, AuthStoreError | DatabaseError>
@@ -45,7 +50,9 @@ type AuthShape = {
     apiKey: string,
     workspace: string,
   ) => Effect.Effect<void, AuthStoreError | DatabaseError>
-  readonly logout: (workspace: string) => Effect.Effect<boolean, AuthStoreError | DatabaseError>
+  readonly logout: (
+    workspace: Option.Option<string>,
+  ) => Effect.Effect<LogoutResult, AuthStoreError | DatabaseError>
   readonly use: (workspace: string) => Effect.Effect<void, AuthStoreError | DatabaseError>
   readonly profiles: Effect.Effect<readonly StoredProfile[], AuthStoreError | DatabaseError>
   readonly storePath: Effect.Effect<string, AuthStoreError | DatabaseError>
@@ -217,30 +224,21 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
         apiKey: string,
         workspace: string,
       ) {
-        const stored = yield* loadRows()
-        const hasDefault = stored.some((row) => row.isDefault === 1)
-        const opened = yield* openedDatabase
-        const query = opened.drizzle.insert(profiles).values({
-          name: workspace,
-          apiKey,
-          isDefault: hasDefault ? 0 : 1,
-        })
-        const upsert = hasDefault
-          ? query.onConflictDoUpdate({ target: profiles.name, set: { apiKey } })
-          : query.onConflictDoUpdate({ target: profiles.name, set: { apiKey, isDefault: 1 } })
-        yield* upsert.run().pipe(Effect.mapError(describeQueryFailure("write")))
-      })
-
-      const logout = Effect.fn("Auth.logout")(function* logoutStoredKey(workspace: string) {
         yield* loadRows()
         const opened = yield* openedDatabase
-        const removed = yield* opened.drizzle
-          .delete(profiles)
-          .where(eq(profiles.name, workspace))
-          .returning()
-          .all()
-          .pipe(Effect.mapError(describeQueryFailure("remove")))
-        return removed.length > 0
+        yield* storeProfile(opened, apiKey, workspace).pipe(
+          Effect.mapError(describeQueryFailure("write")),
+        )
+      })
+
+      const logout = Effect.fn("Auth.logout")(function* logoutStoredKey(
+        workspace: Option.Option<string>,
+      ) {
+        yield* loadRows()
+        const opened = yield* openedDatabase
+        return yield* removeProfile(opened, workspace).pipe(
+          Effect.mapError(describeQueryFailure("remove")),
+        )
       })
 
       const use = Effect.fn("Auth.use")(function* useWorkspace(workspace: string) {
@@ -249,22 +247,9 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
           return yield* noWorkspace(workspace)
         }
         const opened = yield* openedDatabase
-        return yield* opened.drizzle
-          .transaction((tx) =>
-            Effect.gen(function* setDefaultProfile() {
-              yield* tx
-                .update(profiles)
-                .set({ isDefault: 0 })
-                .where(eq(profiles.isDefault, 1))
-                .run()
-              yield* tx
-                .update(profiles)
-                .set({ isDefault: 1 })
-                .where(eq(profiles.name, workspace))
-                .run()
-            }),
-          )
-          .pipe(Effect.mapError(describeQueryFailure("write")))
+        return yield* selectDefaultProfile(opened, workspace).pipe(
+          Effect.mapError(describeQueryFailure("write")),
+        )
       })
 
       const profilesList: Effect.Effect<readonly StoredProfile[], AuthStoreError | DatabaseError> =
@@ -291,4 +276,4 @@ class Auth extends Context.Service<Auth, AuthShape>()("rata-cli/config/auth") {
   )
 }
 
-export { Auth, type KeySource, type ResolvedAuth, type StoredProfile }
+export { Auth, type KeySource, type LogoutResult, type ResolvedAuth, type StoredProfile }

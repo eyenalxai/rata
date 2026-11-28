@@ -1,0 +1,267 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "id": "41c54fbd-1693-4d99-861c-9fe54025c6ba",
+  "prevIds": ["d2833840-8c2e-4dda-8ede-8e938b1b40a4"],
+  "ddl": [
+    {
+      "name": "context_cache",
+      "entityType": "tables"
+    },
+    {
+      "name": "profiles",
+      "entityType": "tables"
+    },
+    {
+      "name": "repositories",
+      "entityType": "tables"
+    },
+    {
+      "name": "viewer_cache",
+      "entityType": "tables"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "profile",
+      "entityType": "columns",
+      "table": "context_cache"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "team_id",
+      "entityType": "columns",
+      "table": "context_cache"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "key_hash",
+      "entityType": "columns",
+      "table": "context_cache"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "detail",
+      "entityType": "columns",
+      "table": "context_cache"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "fetched_at",
+      "entityType": "columns",
+      "table": "context_cache"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "name",
+      "entityType": "columns",
+      "table": "profiles"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "api_key",
+      "entityType": "columns",
+      "table": "profiles"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": "0",
+      "generated": null,
+      "name": "is_default",
+      "entityType": "columns",
+      "table": "profiles"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "key",
+      "entityType": "columns",
+      "table": "repositories"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "team",
+      "entityType": "columns",
+      "table": "repositories"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "team_id",
+      "entityType": "columns",
+      "table": "repositories"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "project",
+      "entityType": "columns",
+      "table": "repositories"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "workspace",
+      "entityType": "columns",
+      "table": "repositories"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "default_assignee",
+      "entityType": "columns",
+      "table": "repositories"
+    },
+    {
+      "type": "text",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "default_labels",
+      "entityType": "columns",
+      "table": "repositories"
+    },
+    {
+      "type": "integer",
+      "notNull": false,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "default_priority",
+      "entityType": "columns",
+      "table": "repositories"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "profile",
+      "entityType": "columns",
+      "table": "viewer_cache"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "key_hash",
+      "entityType": "columns",
+      "table": "viewer_cache"
+    },
+    {
+      "type": "text",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "viewer",
+      "entityType": "columns",
+      "table": "viewer_cache"
+    },
+    {
+      "type": "integer",
+      "notNull": true,
+      "autoincrement": false,
+      "default": null,
+      "generated": null,
+      "name": "fetched_at",
+      "entityType": "columns",
+      "table": "viewer_cache"
+    },
+    {
+      "columns": ["profile", "team_id", "key_hash"],
+      "nameExplicit": false,
+      "name": "context_cache_pk",
+      "entityType": "pks",
+      "table": "context_cache"
+    },
+    {
+      "columns": ["profile", "key_hash"],
+      "nameExplicit": false,
+      "name": "viewer_cache_pk",
+      "entityType": "pks",
+      "table": "viewer_cache"
+    },
+    {
+      "columns": ["name"],
+      "nameExplicit": false,
+      "name": "profiles_pk",
+      "table": "profiles",
+      "entityType": "pks"
+    },
+    {
+      "columns": ["key"],
+      "nameExplicit": false,
+      "name": "repositories_pk",
+      "table": "repositories",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        {
+          "value": "is_default",
+          "isExpression": false
+        }
+      ],
+      "isUnique": true,
+      "where": "\"profiles\".\"is_default\" = 1",
+      "origin": "manual",
+      "name": "profiles_one_default",
+      "entityType": "indexes",
+      "table": "profiles"
+    }
+  ],
+  "renames": []
+}
