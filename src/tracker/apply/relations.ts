@@ -10,6 +10,7 @@ import type { PlannedAction, PlanStep } from "@/tracker/plan"
 import type { makeIssueWriteResolvers } from "@/tracker/write/resolvers"
 
 import { TrackerError } from "@/domain/error"
+import { toTrackerError } from "@/domain/error/report"
 import { relationKindInfo } from "@/domain/relation"
 import { CreateRelationResponse, DeleteRelationResponse } from "@/linear/decode/issue"
 import { createRelationMutation, deleteRelationMutation } from "@/tracker/write/documents"
@@ -83,7 +84,7 @@ const relationStep = (
   kind: RelationKind,
   target: string,
   status: "updated" | "skipped",
-  execute: Effect.Effect<void, Error>,
+  execute: Effect.Effect<void, TrackerError>,
 ): PlanStep => ({
   action: "relation-add",
   target: ref,
@@ -165,7 +166,10 @@ const additionSteps = (
               },
               CreateRelationResponse,
             )
-            .pipe(Effect.flatMap((data) => unwrapRelation(data.issueRelationCreate))),
+            .pipe(
+              Effect.flatMap((data) => unwrapRelation(data.issueRelationCreate)),
+              Effect.mapError(toTrackerError),
+            ),
         ),
       )
     }
@@ -225,7 +229,10 @@ const removalSteps = (
           ],
           execute: dependencies.client
             .execute(deleteRelationMutation, { id: relationId }, DeleteRelationResponse)
-            .pipe(Effect.flatMap((data) => unwrapRelation(data.issueRelationDelete))),
+            .pipe(
+              Effect.flatMap((data) => unwrapRelation(data.issueRelationDelete)),
+              Effect.mapError(toTrackerError),
+            ),
         })
       }
     }

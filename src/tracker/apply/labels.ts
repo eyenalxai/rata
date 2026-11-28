@@ -9,6 +9,7 @@ import type { PlannedAction, PlanStep } from "@/tracker/plan"
 import type { makeIssueWriteResolvers } from "@/tracker/write/resolvers"
 
 import { TrackerError } from "@/domain/error"
+import { toTrackerError } from "@/domain/error/report"
 
 type LabelDependencies = {
   readonly resolvers: ReturnType<typeof makeIssueWriteResolvers>
@@ -113,8 +114,12 @@ const planLabelSteps = (
         plan.status === "skipped"
           ? Effect.void
           : plan.action === "add-label"
-            ? dependencies.resolvers.addLabel(snapshot.id, plan.id).pipe(Effect.asVoid)
-            : dependencies.resolvers.removeLabel(snapshot.id, plan.id).pipe(Effect.asVoid),
+            ? dependencies.resolvers
+                .addLabel(snapshot.id, plan.id)
+                .pipe(Effect.asVoid, Effect.mapError(toTrackerError))
+            : dependencies.resolvers
+                .removeLabel(snapshot.id, plan.id)
+                .pipe(Effect.asVoid, Effect.mapError(toTrackerError)),
     }))
   })
 

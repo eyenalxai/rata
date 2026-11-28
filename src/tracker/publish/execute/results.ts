@@ -1,4 +1,6 @@
+import type { TrackerError } from "@/domain/error"
 import type { PlanStatus } from "@/domain/plan"
+import type { LinearApiError } from "@/linear/errors"
 import type {
   FailedPublishAction,
   PublishEdgeResult,
@@ -8,6 +10,7 @@ import type {
   PublishReuseNodePlan,
 } from "@/tracker/publish/model"
 
+import { toTrackerError } from "@/domain/error/report"
 import { edgeStep, nodeStep } from "@/tracker/publish/model"
 
 type NodeResults = ReadonlyMap<string, PublishNodeResult>
@@ -123,7 +126,7 @@ const failureResult = (
   nodes: NodeResults,
   edges: readonly PublishEdgeResult[],
   failed: FailedPublishAction,
-  cause: unknown,
+  cause: LinearApiError | TrackerError,
 ): PublishResult => ({
   action: "publish",
   status: "failed",
@@ -137,7 +140,7 @@ const failureResult = (
   edges,
   warning: changedReuseWarning(plan),
   failed,
-  cause,
+  cause: toTrackerError(cause),
 })
 
 const dryRunPublish = (plan: PublishPlan): PublishResult => ({

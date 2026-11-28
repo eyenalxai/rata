@@ -1,7 +1,7 @@
 import type { CommandOutput } from "@/cli/spec"
 import type { PublishEdgeResult, PublishNodeResult, PublishResult } from "@/tracker/publish/model"
 
-import { toTrackerError, exitCodeOf } from "@/cli/error-report"
+import { exitCodeOf } from "@/cli/error-report"
 import { arrayField, objectField, scalarField } from "@/cli/field/shape"
 import { applyResultShape } from "@/cli/issue/write-output"
 
@@ -43,7 +43,7 @@ type PublicPublishError = {
 }
 
 const publicResult = (result: PublishResult) => {
-  const report = result.cause === undefined ? undefined : toTrackerError(result.cause)
+  const report = result.cause
   const error: PublicPublishError | undefined =
     report === undefined
       ? undefined
@@ -69,7 +69,7 @@ const nodeLine = (node: PublishNodeResult): string =>
 const edgeLine = (edge: PublishEdgeResult): string => `  ${edge.from} -> ${edge.to}  ${edge.action}`
 
 const resultLines = (result: PublishResult): readonly string[] => {
-  const report = result.cause === undefined ? undefined : toTrackerError(result.cause)
+  const report = result.cause
   return [
     `result: ${result.status}${result.dryRun ? " (dry run)" : ""}`,
     `changed: ${result.changed.length === 0 ? "none" : result.changed.join(", ")}`,
@@ -83,7 +83,7 @@ const resultLines = (result: PublishResult): readonly string[] => {
 }
 
 const publishOutput = (result: PublishResult): CommandOutput => {
-  const report = result.cause === undefined ? undefined : toTrackerError(result.cause)
+  const report = result.cause
   return {
     kind: "resource",
     value: {

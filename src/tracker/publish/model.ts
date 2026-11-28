@@ -111,7 +111,7 @@ type PublishResult = {
   readonly edges: readonly PublishEdgeResult[]
   readonly warning: string | null
   readonly failed?: FailedPublishAction | undefined
-  readonly cause?: unknown
+  readonly cause?: TrackerError | undefined
 }
 
 type PublishDependencies = {

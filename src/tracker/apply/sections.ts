@@ -8,6 +8,7 @@ import type { IssueWorkingSetFull } from "@/tracker/model"
 import type { PlannedAction, PlanStep } from "@/tracker/plan"
 
 import { editSections } from "@/domain/body/section/batch"
+import { toTrackerError } from "@/domain/error/report"
 import { UpdateIssueResponse } from "@/linear/decode/issue"
 import { updateIssueMutation } from "@/tracker/write/documents"
 import { unwrapIssue } from "@/tracker/write/model"
@@ -65,7 +66,10 @@ const planSectionStep = (
                 { id: snapshot.id, input: { description: edited.body } },
                 UpdateIssueResponse,
               )
-              .pipe(Effect.flatMap((data) => unwrapIssue(data.issueUpdate))),
+              .pipe(
+                Effect.flatMap((data) => unwrapIssue(data.issueUpdate)),
+                Effect.mapError(toTrackerError),
+              ),
     }
   })
 }

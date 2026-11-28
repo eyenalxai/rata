@@ -9,6 +9,7 @@ import type { makeCommentWrites } from "@/tracker/write/comments"
 
 import { dedupeCommentId } from "@/domain/comment"
 import { TrackerError } from "@/domain/error"
+import { toTrackerError } from "@/domain/error/report"
 
 type CommentDependencies = {
   readonly comments: ReturnType<typeof makeCommentWrites>
@@ -65,7 +66,7 @@ const planCommentStep = (
                 ...(comment.dedupeKey === undefined ? {} : { dedupeKey: comment.dedupeKey }),
                 waitSeconds: 0,
               })
-              .pipe(Effect.asVoid),
+              .pipe(Effect.asVoid, Effect.mapError(toTrackerError)),
     }
   })
 }

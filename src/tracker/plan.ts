@@ -1,5 +1,6 @@
 import { Effect, Result } from "effect"
 
+import type { TrackerError } from "@/domain/error"
 import type { IssueWorkingSetFull } from "@/tracker/model"
 
 import { ConflictError } from "@/domain/conflict"
@@ -56,7 +57,7 @@ type PlanStep = {
   readonly changes: Readonly<Record<string, unknown>>
   readonly changed: readonly string[]
   readonly actions: readonly PlannedAction[]
-  readonly execute: Effect.Effect<void, Error>
+  readonly execute: Effect.Effect<void, TrackerError>
 }
 
 type ApplyPlan = {
@@ -75,7 +76,7 @@ type ApplyResult = {
   readonly snapshot: string
   readonly actions: readonly PlannedAction[]
   readonly failed?: FailedAction | undefined
-  readonly cause?: unknown
+  readonly cause?: TrackerError | undefined
 }
 
 type ApplyOptions = {

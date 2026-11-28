@@ -11,6 +11,7 @@ import type { PlannedAction, PlanStep } from "@/tracker/plan"
 import type { makeIssueWriteResolvers } from "@/tracker/write/resolvers"
 
 import { TrackerError } from "@/domain/error"
+import { toTrackerError } from "@/domain/error/report"
 import { isUuid, userId } from "@/domain/id"
 import { parsePriority, priorityValue } from "@/domain/priority"
 import { UpdateIssueResponse } from "@/linear/decode/issue"
@@ -250,7 +251,10 @@ const planFieldStep = (
                 { id: snapshot.id, input: inputOfPlans(updated) },
                 UpdateIssueResponse,
               )
-              .pipe(Effect.flatMap((data) => unwrapIssue(data.issueUpdate))),
+              .pipe(
+                Effect.flatMap((data) => unwrapIssue(data.issueUpdate)),
+                Effect.mapError(toTrackerError),
+              ),
     }
   })
 

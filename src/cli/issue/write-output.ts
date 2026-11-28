@@ -5,11 +5,12 @@ import type { IssueReadDocument } from "@/tracker/model"
 import type { ApplyResult } from "@/tracker/plan"
 import type { IssueWorkingSetError } from "@/tracker/read"
 
-import { exitCodeOf, toTrackerError } from "@/cli/error-report"
+import { exitCodeOf } from "@/cli/error-report"
 import { arrayField, objectField, scalarField } from "@/cli/field/shape"
 import { formatReadDocument } from "@/cli/issue/format"
 import { issueWorkingSetShape } from "@/cli/issue/shape"
 import { TrackerError } from "@/domain/error"
+import { toTrackerError } from "@/domain/error/report"
 import { IssueReader } from "@/tracker/read"
 
 const writeActionShape = objectField({
@@ -66,7 +67,7 @@ type WriteOutcome = {
 }
 
 const publicResult = (result: ApplyResult): PublicWriteResult => {
-  const report = result.cause === undefined ? undefined : toTrackerError(result.cause)
+  const report = result.cause
   return {
     action: result.action,
     status: result.status,
@@ -82,7 +83,7 @@ const publicResult = (result: ApplyResult): PublicWriteResult => {
 }
 
 const resultLines = (result: ApplyResult): readonly string[] => {
-  const report = result.cause === undefined ? undefined : toTrackerError(result.cause)
+  const report = result.cause
   return [
     `result: ${result.status}${result.dryRun ? " (dry run)" : ""}`,
     `changed: ${result.changed.length === 0 ? "none" : result.changed.join(", ")}`,
@@ -96,7 +97,7 @@ const resultLines = (result: ApplyResult): readonly string[] => {
 
 const writeOutput = (outcome: WriteOutcome): CommandOutput => {
   const { result } = outcome
-  const report = result.cause === undefined ? undefined : toTrackerError(result.cause)
+  const report = result.cause
   const issue = Option.getOrNull(outcome.issue)
   const warning = Option.getOrNull(outcome.warning)
   return {

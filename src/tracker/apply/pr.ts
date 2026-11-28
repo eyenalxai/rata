@@ -6,6 +6,7 @@ import type { IssueWorkingSetFull } from "@/tracker/model"
 import type { PlanStep } from "@/tracker/plan"
 
 import { TrackerError } from "@/domain/error"
+import { toTrackerError } from "@/domain/error/report"
 import { attachGitHubPrMutation } from "@/tracker/write/documents"
 
 const AttachPrResponse = Schema.Struct({
@@ -72,6 +73,7 @@ const planPrStep = (
                       }),
                     ),
               ),
+              Effect.mapError(toTrackerError),
             ),
   })
 }

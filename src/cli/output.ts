@@ -5,8 +5,9 @@ import type { CliExit } from "@/cli/spec"
 import type { ErrorCode } from "@/domain/error"
 import type { PlanAction } from "@/domain/plan"
 
-import { commandError, exitCodeOf, toTrackerError } from "@/cli/error-report"
+import { commandError, exitCodeOf } from "@/cli/error-report"
 import { TrackerError } from "@/domain/error"
+import { toTrackerError } from "@/domain/error/report"
 import { maxPageSize } from "@/linear/connection"
 
 const jsonOutput = Schema.fromJsonString(Schema.Unknown, { space: 2 })
