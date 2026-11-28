@@ -1199,10 +1199,13 @@ A partial failure returns the applied actions and the failed action with its
 error code. `issue publish` supports `--dry-run` but has no `--if-unchanged`; its
 snapshot is the document parent's `updatedAt`, or null.
 
-The result is `{ issue, result }`; `result` carries `action`, `status`,
+The result is `{ issue, result, warning }`; `result` carries `action`, `status`,
 `changed`, `dryRun`, `snapshot`, `actions` and, on failure, `failed` and
-`error`. `issue publish` returns `{ nodes, edges, result }` instead of one
-`issue`.
+`error`. `issue` is the current issue from the post-write read; a dry run makes
+the same read after the plan and writes nothing. When the post-write read fails,
+the write result stays authoritative: `issue` is `null`, `warning` names the
+read error, and the command succeeds. `issue publish` returns
+`{ nodes, edges, result }` instead of one `issue`.
 
 `issue create` returns `{ issue, result }`; its result action is `create`. A
 failed create is a normal error, not a partial result. A dry run returns

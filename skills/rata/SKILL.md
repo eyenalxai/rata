@@ -86,6 +86,8 @@ printf 'Done in PR #12.' | rata issue close <ref> --comment-file -
 the document. `--dry-run` returns the plan and writes nothing.
 `--if-unchanged <snapshot>` exits 4 when the issue changed. A no-op returns
 `skipped`. A partial failure returns the applied actions and the failed action.
+The post-write read returns the current issue. When the post-write read fails,
+`issue` is `null`, `warning` names the read error, and the write still succeeds.
 
 `issue publish` takes one document with `team`, `parent`, `defaults` and `nodes`.
 Each node requires `key`, `kind` and `title`; `body`, `priority`, `labels`,

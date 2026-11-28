@@ -1141,9 +1141,13 @@ every action before it writes. It touches only named fields and objects. A bad
 state, label or heading fails before the first write. A partial failure returns
 the applied actions, `failed` and `error`; the exit code is the failed action's.
 
-`--dry-run` returns the same `{ issue, result }` with `dryRun: true` and writes
-nothing. `--if-unchanged <snapshot>` checks `result.snapshot` once before the
-first mutation; a mismatch exits 4. A no-op returns `status: "skipped"`.
+`--dry-run` returns the same `{ issue, result, warning }` with `dryRun: true`
+and writes nothing. `--if-unchanged <snapshot>` checks `result.snapshot` once
+before the first mutation; a mismatch exits 4. A no-op returns
+`status: "skipped"`. A successful post-write read returns the current issue.
+When the post-write read fails, `issue` is `null`, `warning` names the read
+error, and the write result stays authoritative; the command does not fail. A
+dry run makes the same post-write read after the plan.
 
 Sections: `replace` requires the heading and fails with `not_found` when it is
 missing; `append` adds to an existing section or creates a missing `## heading`

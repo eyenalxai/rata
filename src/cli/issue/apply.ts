@@ -3,12 +3,11 @@ import { Argument, Flag } from "effect/cli"
 
 import { resolveIssueContext } from "@/cli/issue/context"
 import { decodeApplyDocument, emptyApplyDocument, requireDedupeKey } from "@/cli/issue/document"
-import { issueWriteShape, readIssue, writeOutput } from "@/cli/issue/write-output"
+import { issueWriteShape, postWriteRead, writeOutput } from "@/cli/issue/write-output"
 import { dryRunFlag } from "@/cli/output"
 import { defineCommand, selectOutput } from "@/cli/spec"
 import { IssueApply } from "@/tracker/apply"
 import { applyPlan, checkSnapshot, dryRunPlan } from "@/tracker/plan"
-import { IssueReader } from "@/tracker/read"
 
 const applySpec = defineCommand("apply", {
   summary: "Apply one document to fields, labels, sections, a comment and relations",
@@ -59,9 +58,8 @@ const applySpec = defineCommand("apply", {
       const result = control.dryRun
         ? yield* checkSnapshot(plan, ifUnchanged).pipe(Effect.as(dryRunPlan(plan)))
         : yield* applyPlan(plan, { ifUnchanged })
-      const reader = yield* IssueReader
-      const issue = yield* readIssue(reader, input.ref).pipe(Effect.orElseSucceed(() => plan.issue))
-      return writeOutput(issue, result)
+      const outcome = yield* postWriteRead(input.ref, result)
+      return writeOutput(outcome)
     }),
 })
 

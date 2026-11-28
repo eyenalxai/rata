@@ -1,15 +1,16 @@
-import { Effect } from "effect"
+import { Effect, Option } from "effect"
 
 import type { CommandOutput } from "@/cli/spec"
 import type { IssueReadDocument } from "@/tracker/model"
 import type { ApplyResult } from "@/tracker/plan"
-import type { IssueReader, IssueWorkingSetError } from "@/tracker/read"
+import type { IssueWorkingSetError } from "@/tracker/read"
 
 import { exitCodeOf, toTrackerError } from "@/cli/error-report"
 import { arrayField, objectField, scalarField } from "@/cli/field/shape"
 import { formatReadDocument } from "@/cli/issue/format"
 import { issueWorkingSetShape } from "@/cli/issue/shape"
 import { TrackerError } from "@/domain/error"
+import { IssueReader } from "@/tracker/read"
 
 const writeActionShape = objectField({
   action: scalarField,
@@ -45,6 +46,7 @@ const applyResultShape = objectField({
 const issueWriteShape = objectField({
   issue: issueWorkingSetShape,
   result: applyResultShape,
+  warning: scalarField,
 })
 
 type PublicWriteError = {
@@ -55,6 +57,12 @@ type PublicWriteError = {
 
 type PublicWriteResult = Omit<ApplyResult, "cause"> & {
   readonly error?: PublicWriteError | undefined
+}
+
+type WriteOutcome = {
+  readonly result: ApplyResult
+  readonly issue: Option.Option<IssueReadDocument>
+  readonly warning: Option.Option<string>
 }
 
 const publicResult = (result: ApplyResult): PublicWriteResult => {
@@ -86,12 +94,19 @@ const resultLines = (result: ApplyResult): readonly string[] => {
   ]
 }
 
-const writeOutput = (issue: IssueReadDocument, result: ApplyResult): CommandOutput => {
+const writeOutput = (outcome: WriteOutcome): CommandOutput => {
+  const { result } = outcome
   const report = result.cause === undefined ? undefined : toTrackerError(result.cause)
+  const issue = Option.getOrNull(outcome.issue)
+  const warning = Option.getOrNull(outcome.warning)
   return {
     kind: "resource",
-    value: { issue, result: publicResult(result) },
-    text: [formatReadDocument(issue), "", ...resultLines(result)],
+    value: { issue, result: publicResult(result), warning },
+    text: [
+      ...(issue === null ? [] : [formatReadDocument(issue), ""]),
+      ...resultLines(result),
+      ...(warning === null ? [] : [`warning: ${warning}`]),
+    ],
     ...(report === undefined ? {} : { exitCode: exitCodeOf(report.code) }),
   }
 }
@@ -115,4 +130,30 @@ const readIssue = (
     }),
   )
 
-export { applyResultShape, issueWriteShape, readIssue, writeOutput }
+const postWriteRead = Effect.fn("IssueWrite.postWriteRead")(function* postWriteRead(
+  ref: string,
+  result: ApplyResult,
+) {
+  const reader = yield* IssueReader
+  return yield* readIssue(reader, ref).pipe(
+    Effect.match({
+      onFailure: (error) => {
+        const report = toTrackerError(error)
+        return {
+          result,
+          issue: Option.none<IssueReadDocument>(),
+          warning: Option.some(
+            `The post-write read failed (${report.code}): ${report.message} The result stays authoritative; the issue is null.`,
+          ),
+        }
+      },
+      onSuccess: (document) => ({
+        result,
+        issue: Option.some(document),
+        warning: Option.none<string>(),
+      }),
+    }),
+  )
+})
+
+export { applyResultShape, issueWriteShape, postWriteRead, writeOutput }
