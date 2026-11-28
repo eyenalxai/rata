@@ -1,7 +1,7 @@
 import { Effect, Option } from "effect"
 import { Argument, Flag } from "effect/cli"
 
-import { classifyWriteError } from "@/cli/error-report"
+import { toTrackerError } from "@/cli/error-report"
 import { resolveIssueContext } from "@/cli/issue/context"
 import { decodeHandoffDocument, emptyHandoffDocument, requireDedupeKey } from "@/cli/issue/document"
 import { issueWriteShape, postWriteRead, writeOutput } from "@/cli/issue/write-output"
@@ -46,7 +46,7 @@ const handoffSpec = defineCommand("handoff", {
       const plan = yield* workflow.handoff(context, input.ref, document, pr)
       const result = control.dryRun
         ? dryRunPlan(plan)
-        : yield* applyPlan(plan, { classifyError: classifyWriteError })
+        : yield* applyPlan(plan, { classifyError: toTrackerError })
       const outcome = yield* postWriteRead(input.ref, result)
       return writeOutput(outcome)
     }),

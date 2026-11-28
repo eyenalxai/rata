@@ -71,7 +71,8 @@ type MemoryWriteState = {
   readonly projects: readonly MemoryProject[]
 }
 
-const unsupported = (message: string) => new LinearGraphQLError({ message, details: [] })
+const unsupported = (message: string) =>
+  new LinearGraphQLError({ code: "internal", message, details: [] })
 
 const decodeInput = <S extends Schema.ConstraintDecoder<unknown>>(
   schema: S,

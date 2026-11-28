@@ -8,6 +8,7 @@ import { isSectionLevel } from "@/domain/section"
 class SectionNotFoundError extends Schema.TaggedError<SectionNotFoundError>()(
   "SectionNotFoundError",
   {
+    code: Schema.tag("not_found"),
     heading: Schema.String,
     available: Schema.Array(Schema.String),
     message: Schema.String,
@@ -17,6 +18,7 @@ class SectionNotFoundError extends Schema.TaggedError<SectionNotFoundError>()(
 class SectionAmbiguousError extends Schema.TaggedError<SectionAmbiguousError>()(
   "SectionAmbiguousError",
   {
+    code: Schema.tag("ambiguous"),
     heading: Schema.String,
     lines: Schema.Array(Schema.Finite),
     message: Schema.String,

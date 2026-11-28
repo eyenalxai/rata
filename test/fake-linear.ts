@@ -231,7 +231,9 @@ const apiLayer = (handler: Handler, options: ApiLayerOptions = {}) => {
       const key = () =>
         resolvedAuth.require.pipe(
           Effect.map((resolved) => resolved.key),
-          Effect.mapError((error) => new LinearAuthError({ message: error.message, cause: error })),
+          Effect.mapError(
+            (error) => new LinearAuthError({ code: "auth", message: error.message, cause: error }),
+          ),
         )
       return LinearGateway.of(makeLinearGateway(makeClient(http, key)))
     }),

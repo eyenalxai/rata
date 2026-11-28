@@ -71,7 +71,7 @@ const makeDoctorSpec = (surface: () => Surface) =>
         const directory = yield* currentDirectory
         const location = yield* identity.locate(directory)
         const file = path.join(location.root, "docs", "agents", "issue-tracker.md")
-        const exists = yield* fs.exists(file)
+        const exists = yield* fs.exists(file).pipe(Effect.mapError(readError(file)))
         if (!exists) {
           return yield* new TrackerError({
             code: "not_found",

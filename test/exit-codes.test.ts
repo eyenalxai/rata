@@ -1,26 +1,27 @@
 import type { Handler } from "@test/fake-linear/model"
 
 import { runIssue, runRoot } from "@test/cli-harness"
+import { makeFakeLinear } from "@test/fake-linear"
 import { jsonResponse } from "@test/issue-fixtures"
+import { rat } from "@test/link-harness"
+import { recordingConsole } from "@test/recording-console"
 import { describe, expect, test } from "bun:test"
+import { ConfigProvider, Console, Effect } from "effect"
 import { CliError } from "effect/cli"
 
-import type { ErrorCode } from "@/domain/error"
+import type { CodedError, ErrorCode } from "@/domain/error"
 
-import { ProjectNameAmbiguousError } from "@/api/project/errors"
+import { ProjectNameAmbiguousError, ProjectNotFoundError } from "@/api/project/errors"
 import { TeamResolutionError } from "@/api/team"
 import { exitCodeOf, toTrackerError } from "@/cli/error-report"
+import { FieldSelectionError } from "@/cli/field/error"
+import { JsonOutput, reportFailure } from "@/cli/output"
 import { exitCodeOfCliError } from "@/cli/runner"
 import { DatabaseError } from "@/db/database"
 import { ConflictError } from "@/domain/conflict"
 import { TrackerError } from "@/domain/error"
 import { InvalidIssueRef } from "@/domain/issue-ref"
-import {
-  LinearAuthError,
-  LinearGraphQLError,
-  LinearNetworkError,
-  LinearRateLimitError,
-} from "@/linear/errors"
+import { LinearAuthError, LinearNetworkError, LinearRateLimitError } from "@/linear/errors"
 
 const expectedExitCodes: Record<ErrorCode, number> = {
   usage: 2,
@@ -50,6 +51,20 @@ const errorCodes: readonly ErrorCode[] = [
   "internal",
 ]
 
+const samples: Record<ErrorCode, CodedError> = {
+  usage: new TrackerError({ code: "usage", message: "bad flag", hint: null }),
+  validation: new InvalidIssueRef({ input: "x", message: "bad ref" }),
+  not_linked: new TeamResolutionError({ message: "no team" }),
+  ambiguous: new ProjectNameAmbiguousError({ name: "Tracker", message: "two projects" }),
+  not_found: new ProjectNotFoundError({ ref: "Tracker", message: "no project" }),
+  conflict: new ConflictError({ expected: "a", current: "b", message: "The issue changed." }),
+  auth: new LinearAuthError({ code: "auth", message: "rejected", status: 401 }),
+  forbidden: new LinearAuthError({ code: "forbidden", message: "denied", status: 403 }),
+  rate_limited: new LinearRateLimitError({ message: "slow down" }),
+  network: new LinearNetworkError({ message: "offline" }),
+  internal: new DatabaseError({ message: "Could not open the database." }),
+}
+
 const graphqlErrors =
   (message: string): Handler =>
   () =>
@@ -67,7 +82,16 @@ const unusedHandler: Handler = () => {
   throw new Error("the command must fail before the first request")
 }
 
-const classify = (error: unknown): ErrorCode => toTrackerError(error).code
+const report = (error: unknown) =>
+  Effect.gen(function* runReport() {
+    const lines: string[] = []
+    const exit = yield* reportFailure(error).pipe(
+      Effect.provideService(Console.Console, recordingConsole(lines)),
+      Effect.provideService(ConfigProvider.ConfigProvider, ConfigProvider.fromEnvRecord({})),
+      Effect.provideService(JsonOutput, true),
+    )
+    return { exit, lines }
+  }).pipe(Effect.runPromise)
 
 describe("the exit code map", () => {
   test("maps every error code to its stable exit code", () => {
@@ -76,45 +100,43 @@ describe("the exit code map", () => {
     }
   })
 
-  test("maps every public error to one TrackerError", () => {
-    const samples: readonly unknown[] = [
-      new InvalidIssueRef({ input: "x", message: "bad ref" }),
-      new TeamResolutionError({ message: "no team" }),
-      new ProjectNameAmbiguousError({ name: "Tracker", message: "two projects" }),
-      new LinearAuthError({ message: "rejected", status: 401 }),
-      new LinearRateLimitError({ message: "slow down" }),
-      new LinearNetworkError({ message: "offline" }),
-      new LinearGraphQLError({ message: "Entity not found: Issue", details: [] }),
-      new ConflictError({ expected: "a", current: "b", message: "The issue changed." }),
-      new Error("boom"),
-    ]
-    for (const sample of samples) {
-      expect(toTrackerError(sample)).toBeInstanceOf(TrackerError)
+  test("turns a representative error of every code into that code", () => {
+    for (const code of errorCodes) {
+      expect(toTrackerError(samples[code]).code).toBe(code)
     }
+  })
+
+  test("writes the exit code of every code", async () => {
+    const results = await Promise.all(errorCodes.map((code) => report(samples[code])))
+    for (const [index, code] of errorCodes.entries()) {
+      const result = results[index]
+      expect(result?.exit.code).toBe(expectedExitCodes[code])
+      expect(JSON.parse(result?.lines.at(-1) ?? "")).toMatchObject({ error: { code } })
+    }
+  })
+
+  test("keeps a TrackerError unchanged", () => {
     const passthrough = new TrackerError({ code: "internal", message: "kept", hint: null })
     expect(toTrackerError(passthrough)).toBe(passthrough)
   })
 
-  test("classifies a representative error of each class", () => {
-    expect(classify(new InvalidIssueRef({ input: "x", message: "bad ref" }))).toBe("validation")
-    expect(classify(new TeamResolutionError({ message: "no team" }))).toBe("not_linked")
-    expect(
-      classify(new ProjectNameAmbiguousError({ name: "Tracker", message: "two projects" })),
-    ).toBe("ambiguous")
-    expect(classify(new LinearAuthError({ message: "rejected", status: 401 }))).toBe("auth")
-    expect(classify(new LinearAuthError({ message: "denied", status: 403 }))).toBe("forbidden")
-    expect(classify(new LinearRateLimitError({ message: "slow down" }))).toBe("rate_limited")
-    expect(classify(new LinearNetworkError({ message: "offline" }))).toBe("network")
-    expect(
-      classify(new LinearGraphQLError({ message: "Entity not found: Issue", details: [] })),
-    ).toBe("not_found")
-    expect(
-      classify(new ConflictError({ expected: "a", current: "b", message: "The issue changed." })),
-    ).toBe("conflict")
-    expect(classify(new DatabaseError({ message: "Could not open the database." }))).toBe(
-      "internal",
+  test("keeps the hint and the details of a coded error", () => {
+    const classified = toTrackerError(
+      new FieldSelectionError({
+        message: "Unknown field.",
+        hint: "Pick a valid path.",
+        path: "title",
+        validPaths: ["id", "title"],
+      }),
     )
-    expect(classify(new Error("boom"))).toBe("internal")
+    expect(classified.hint).toBe("Pick a valid path.")
+    expect(classified.details).toEqual({ path: "title", validPaths: ["id", "title"] })
+  })
+
+  test("falls back to internal for an untrusted error", () => {
+    const classified = toTrackerError(new Error("boom"))
+    expect(classified.code).toBe("internal")
+    expect(classified.hint).toBe("Run with RATA_DEBUG=1 for details.")
   })
 })
 
@@ -161,9 +183,11 @@ describe("the process exit code", () => {
   })
 
   test("a bad limit exits 2", async () => {
-    const exit = await runIssue(unusedHandler, ["list", "--limit", "0", "--format", "json"], [])
+    const lines: string[] = []
+    const exit = await runIssue(unusedHandler, ["list", "--limit", "0", "--format", "json"], lines)
 
     expect(exit.code).toBe(2)
+    expect(JSON.parse(lines.at(-1) ?? "")).toMatchObject({ error: { code: "validation" } })
   })
 
   test("a missing issue exits 3 and writes one error object", async () => {
@@ -179,6 +203,20 @@ describe("the process exit code", () => {
     expect(exit.code).toBe(3)
     expect(errors).toHaveLength(1)
     expect(JSON.parse(errors[0] ?? "")).toMatchObject({ error: { code: "not_found" } })
+  })
+
+  test("a duplicate team key exits 4 with conflict", async () => {
+    const lines: string[] = []
+    const exit = await runRoot(
+      makeFakeLinear({ teams: [rat], labels: [] }).handler,
+      ["admin", "team", "create", "--name", "Rata", "--key", "RAT", "--format", "json"],
+      lines,
+    )
+
+    expect(exit.code).toBe(4)
+    expect(JSON.parse(lines.at(-1) ?? "")).toMatchObject({
+      error: { code: "conflict", message: "Duplicate team key: RAT" },
+    })
   })
 
   test("a missing key exits 5", async () => {

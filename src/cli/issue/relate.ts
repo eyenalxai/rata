@@ -3,7 +3,7 @@ import { Argument, Flag } from "effect/cli"
 
 import type { ApplyDocument, ApplyRelations } from "@/domain/apply"
 
-import { classifyWriteError } from "@/cli/error-report"
+import { toTrackerError } from "@/cli/error-report"
 import { resolveIssueContext } from "@/cli/issue/context"
 import { issueWriteShape, postWriteRead, writeOutput } from "@/cli/issue/write-output"
 import { dryRunFlag } from "@/cli/output"
@@ -99,7 +99,7 @@ const relateSpec = defineCommand("relate", {
       })
       const result = control.dryRun
         ? dryRunPlan(plan)
-        : yield* applyPlan(plan, { classifyError: classifyWriteError })
+        : yield* applyPlan(plan, { classifyError: toTrackerError })
       const outcome = yield* postWriteRead(input.ref, result)
       return writeOutput(outcome)
     }),

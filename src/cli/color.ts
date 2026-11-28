@@ -3,6 +3,7 @@ import { Effect, Option, Result, Schema } from "effect"
 import { parseLabelColor } from "@/domain/label"
 
 class ColorInputError extends Schema.TaggedError<ColorInputError>()("ColorInputError", {
+  code: Schema.tag("validation"),
   message: Schema.String,
 }) {}
 

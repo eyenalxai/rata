@@ -23,6 +23,7 @@ type CachedViewer = {
 }
 
 class ContextCacheError extends Schema.TaggedError<ContextCacheError>()("ContextCacheError", {
+  code: Schema.tag("internal"),
   message: Schema.String,
   cause: Schema.optional(Schema.Defect()),
 }) {}

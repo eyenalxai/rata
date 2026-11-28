@@ -4,7 +4,7 @@ import type { Command as CliCommand } from "effect/cli"
 import { Effect } from "effect"
 
 import type { FieldPath, FieldShape } from "@/cli/field/shape"
-import type { TrackerError } from "@/domain/error"
+import type { CodedError, TrackerError } from "@/domain/error"
 import type { PageInfo } from "@/linear/decode/page"
 
 import { toTrackerError } from "@/cli/error-report"
@@ -60,7 +60,12 @@ type RunnerControlInput = {
   readonly ifUnchanged?: Option.Option<string> | undefined
 }
 
-type CommandSpec<Name extends string, Config extends CliCommand.Command.Config, R> = {
+type CommandSpec<
+  Name extends string,
+  Config extends CliCommand.Command.Config,
+  R,
+  E extends CodedError = TrackerError,
+> = {
   readonly name: Name
   readonly summary: string
   readonly examples?: readonly CliCommand.Command.Example[] | undefined
@@ -74,7 +79,7 @@ type CommandSpec<Name extends string, Config extends CliCommand.Command.Config, 
   readonly run: (
     input: CliCommand.Command.Config.Infer<Config>,
     control: CommandControl,
-  ) => Effect.Effect<CommandOutput, TrackerError, R>
+  ) => Effect.Effect<CommandOutput, E, R>
 }
 
 const selectOutput = (shape: FieldShape, at: readonly string[] = []): OutputSpec => ({
@@ -97,6 +102,7 @@ const defineCommand = <
   const Name extends string,
   const Config extends CliCommand.Command.Config,
   R,
+  E extends CodedError,
 >(
   name: Name,
   spec: {
@@ -114,7 +120,7 @@ const defineCommand = <
     readonly run: (
       input: CliCommand.Command.Config.Infer<Config>,
       control: CommandControl,
-    ) => Effect.Effect<CommandOutput, Error, R>
+    ) => Effect.Effect<CommandOutput, E, R>
   },
 ): CommandSpec<Name, Config, R> => {
   if ((spec.selectable === true) !== (spec.outputFor !== undefined)) {

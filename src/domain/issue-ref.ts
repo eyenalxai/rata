@@ -26,6 +26,7 @@ const IssueRef = Schema.Union([IssueIdentifier, IssueUuid]).pipe(Schema.brand("I
 type IssueRef = typeof IssueRef.Type
 
 class InvalidIssueRef extends Schema.TaggedError<InvalidIssueRef>()("InvalidIssueRef", {
+  code: Schema.tag("validation"),
   input: Schema.String,
   message: Schema.String,
 }) {}

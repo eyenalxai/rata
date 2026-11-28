@@ -10,6 +10,7 @@ import { TeamId as TeamIdSchema } from "@/domain/id"
 class ContextStateNotFoundError extends Schema.TaggedError<ContextStateNotFoundError>()(
   "ContextStateNotFoundError",
   {
+    code: Schema.tag("not_found"),
     value: Schema.String,
     teamId: TeamIdSchema,
     valid: Schema.Array(Schema.String),
@@ -20,6 +21,7 @@ class ContextStateNotFoundError extends Schema.TaggedError<ContextStateNotFoundE
 class ContextLabelNotFoundError extends Schema.TaggedError<ContextLabelNotFoundError>()(
   "ContextLabelNotFoundError",
   {
+    code: Schema.tag("not_found"),
     value: Schema.String,
     teamId: TeamIdSchema,
     valid: Schema.Array(Schema.String),

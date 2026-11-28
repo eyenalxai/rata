@@ -15,25 +15,30 @@ import { DeletePayload, TeamWritePayload } from "@/linear/decode/team"
 import { LinearGateway } from "@/linear/gateway"
 
 class TeamNotFoundError extends Schema.TaggedError<TeamNotFoundError>()("TeamNotFoundError", {
+  code: Schema.tag("not_found"),
   key: Schema.String,
   message: Schema.String,
 }) {}
 
 class TeamResolutionError extends Schema.TaggedError<TeamResolutionError>()("TeamResolutionError", {
+  code: Schema.tag("not_linked"),
   message: Schema.String,
 }) {}
 
 class TeamCreateError extends Schema.TaggedError<TeamCreateError>()("TeamCreateError", {
+  code: Schema.tag("internal"),
   name: Schema.String,
   message: Schema.String,
 }) {}
 
 class TeamDeleteError extends Schema.TaggedError<TeamDeleteError>()("TeamDeleteError", {
+  code: Schema.tag("internal"),
   key: Schema.String,
   message: Schema.String,
 }) {}
 
 class TeamUpdateError extends Schema.TaggedError<TeamUpdateError>()("TeamUpdateError", {
+  code: Schema.tag("internal"),
   key: Schema.String,
   message: Schema.String,
 }) {}

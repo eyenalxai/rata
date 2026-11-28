@@ -20,23 +20,27 @@ import { LabelPayload } from "@/linear/decode/label"
 import { LinearGateway } from "@/linear/gateway"
 
 class LabelNotFoundError extends Schema.TaggedError<LabelNotFoundError>()("LabelNotFoundError", {
+  code: Schema.tag("not_found"),
   name: Schema.String,
   teamId: TeamId,
   message: Schema.String,
 }) {}
 
 class LabelCreateError extends Schema.TaggedError<LabelCreateError>()("LabelCreateError", {
+  code: Schema.tag("conflict"),
   name: Schema.String,
   message: Schema.String,
 }) {}
 
 class LabelExistsError extends Schema.TaggedError<LabelExistsError>()("LabelExistsError", {
+  code: Schema.tag("conflict"),
   name: Schema.String,
   existingName: Schema.String,
   message: Schema.String,
 }) {}
 
 class LabelUpdateError extends Schema.TaggedError<LabelUpdateError>()("LabelUpdateError", {
+  code: Schema.tag("conflict"),
   ref: Schema.String,
   message: Schema.String,
 }) {}

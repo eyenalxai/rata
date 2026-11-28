@@ -7,6 +7,7 @@ import { parseRefOrFail } from "@/domain/issue-ref"
 class IssueRefNotFoundError extends Schema.TaggedError<IssueRefNotFoundError>()(
   "IssueRefNotFoundError",
   {
+    code: Schema.tag("not_found"),
     refs: Schema.Array(Schema.String),
     message: Schema.String,
   },
