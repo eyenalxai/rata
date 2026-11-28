@@ -10,9 +10,9 @@ machine-readable form, issue references accept identifiers, UUIDs and URLs, and
 the output is deterministic.
 
 The project is in early development. This repository is the first user: its own
-work is tracked in Linear and driven with `rata`. The 0.11.0 release gives the
-CLI five roots: `status`, `issue`, `triage`, `map` and `admin`. `admin` holds the
-setup commands and a read-only GraphQL escape hatch. The command registry
+work is tracked in Linear and driven with `rata`. In 0.11.0 the CLI has five
+roots: `status`, `issue`, `triage`, `map` and `admin`. `admin` holds the setup
+commands and a read-only GraphQL escape hatch. The command registry
 generates the reference and the tracker command block; run `bun run
 docs:generate` after a command change. See **Changes in 0.11.0** for the five-root
 surface and the removed commands.
