@@ -120,7 +120,11 @@ describe("create drains", () => {
     const statePages = recorder.requests.filter((request) =>
       request.query.includes("query TeamStates"),
     )
-    expect(statePages[1]?.variables).toEqual({ teamId: "00000000-0000-0000-0000-000000000001", first: 50, after: "s-backlog" })
+    expect(statePages[1]?.variables).toEqual({
+      teamId: "00000000-0000-0000-0000-000000000001",
+      first: 50,
+      after: "s-backlog",
+    })
     const projectPages = recorder.requests.filter((request) =>
       request.query.includes("query Projects"),
     )
