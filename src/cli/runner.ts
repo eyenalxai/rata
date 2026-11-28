@@ -78,7 +78,7 @@ const reportRunFailure = (error: unknown, format: OutputFormat): Effect.Effect<C
   reportTrackerError(toTrackerError(error), format === "json")
 
 const reportCliError = (error: CliError.CliError, format: OutputFormat): Effect.Effect<CliExit> =>
-  exitCodeOfCliError(error) === 0
+  error._tag === "ShowHelp" && error.errors.length === 0
     ? Effect.succeed(successExit)
     : reportRunFailure(cliTrackerError(error), format)
 
@@ -195,7 +195,7 @@ const runCli = <Name extends string, Input, ContextInput, E, R>(
     const allowHelp = helpRequested(args) || isBareInvocation(root, args)
     setSuppressHelp(format === "json" && !allowHelp)
     const console = yield* Console.Console
-    const ref = yield* Ref.make<CliExit | null>(null)
+    const ref = yield* Ref.make<CliExit>(successExit)
     yield* Command.runWith(root, { version, renderErrors: false })(args).pipe(
       Effect.ensuring(
         Effect.sync(() => {
@@ -212,7 +212,7 @@ const runCli = <Name extends string, Input, ContextInput, E, R>(
       Effect.provideService(Console.Console, dropEmptyLine(console)),
     )
     const recorded = yield* Ref.get(ref)
-    return recorded ?? successExit
+    return recorded
   })
 
 export {

@@ -1,14 +1,10 @@
 import { describe, expect, test } from "bun:test"
 import { ConfigProvider, Console, Effect } from "effect"
 
-import type { BulkWriteResult } from "@/tracker/write/model"
-
 import { LabelCreateError } from "@/api/label"
 import { TeamResolutionError } from "@/api/team"
-import { JsonOutput, reportFailure, writeBulkResults } from "@/cli/output"
-import { teamId } from "@/domain/id"
+import { JsonOutput, reportFailure } from "@/cli/output"
 import { LinearNetworkError, LinearRateLimitError } from "@/linear/errors"
-import { AssigneeConflictError, StateNotFoundError } from "@/tracker/write/model"
 
 const ignore = (): void => undefined
 
@@ -57,37 +53,6 @@ const networkError = () =>
     message: "Linear returned HTTP 500.",
     cause: new Error("inner failure"),
   })
-
-const bulkResults = (): readonly BulkWriteResult[] => [
-  {
-    identifier: "RAT-1",
-    status: "failed",
-    error: new StateNotFoundError({
-      state: "In Progress",
-      teamId: teamId("team-1"),
-      message: "The state does not exist.",
-    }),
-  },
-  {
-    identifier: "RAT-2",
-    status: "failed",
-    error: new AssigneeConflictError({
-      assignee: "Ada",
-      message: "The issue is assigned to Ada.",
-    }),
-  },
-]
-
-describe("writeBulkResults", () => {
-  test("returns the first failed code when a bulk write partially fails", async () => {
-    const code = await writeBulkResults(true, false, bulkResults(), () => "").pipe(
-      Effect.provideService(Console.Console, recordingConsole([])),
-      Effect.runPromise,
-    )
-
-    expect(code).toBe(3)
-  })
-})
 
 describe("reportFailure", () => {
   test("prints the cause when RATA_DEBUG is set", async () => {

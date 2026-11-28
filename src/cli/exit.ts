@@ -2,19 +2,14 @@ import { Context, Effect, Ref } from "effect"
 
 import type { CliExit } from "@/cli/spec"
 
-const ExitRef = Context.Reference<Ref.Ref<CliExit | null> | null>("rata-cli/cli/exit/ExitRef", {
-  defaultValue: () => null,
+class ExitRef extends Context.Service<ExitRef, Ref.Ref<CliExit>>()("rata-cli/cli/exit/ExitRef") {}
+
+const successExit: CliExit = { code: 0 }
+
+const recordExit = Effect.fn("Cli.recordExit")(function* recordCliExit(exit: CliExit) {
+  const ref = yield* ExitRef
+  yield* Ref.set(ref, exit)
+  return exit
 })
-
-const successExit: CliExit = { code: 0, output: null, error: null }
-
-const recordExit = (exit: CliExit): Effect.Effect<CliExit> =>
-  Effect.gen(function* recordCliExit() {
-    const ref = yield* ExitRef
-    if (ref !== null) {
-      yield* Ref.set(ref, exit)
-    }
-    return exit
-  })
 
 export { ExitRef, recordExit, successExit }

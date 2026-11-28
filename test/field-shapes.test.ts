@@ -4,11 +4,11 @@ import { cliLayer, lastJson } from "@test/cli-harness"
 import { makeFakeLinear } from "@test/fake-linear"
 import { describe, expect, test } from "bun:test"
 import { Effect, Result } from "effect"
-import { Command } from "effect/cli"
 
 import { selectFields } from "@/cli/field/select"
 import { arrayField, objectField, scalarField } from "@/cli/field/shape"
 import { teamCommand } from "@/cli/registry"
+import { runCli } from "@/cli/runner"
 
 const team = {
   id: "00000000-0000-0000-0000-000000000001",
@@ -24,7 +24,7 @@ const team = {
 const repositories = [{ key: process.cwd(), team: "RAT" }]
 
 const runTeam = (handler: Handler, args: readonly string[], lines: string[]) =>
-  Command.run(teamCommand, { version: "test" }).pipe(
+  runCli("test", teamCommand).pipe(
     Effect.provide(cliLayer(handler, args, lines, repositories)),
     Effect.runPromise,
   )
