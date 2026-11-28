@@ -39,4 +39,19 @@ describe("stale command detection", () => {
       },
     ])
   })
+
+  test("keeps the fields value in the select replacement", () => {
+    expect(staleCommands("Run `rata issue list --fields id,title`.", surface())).toEqual([
+      {
+        command: "rata issue list --fields",
+        replacement: "rata issue list --select id,title",
+      },
+    ])
+  })
+
+  test("finds a removed create body flag", () => {
+    expect(staleCommands("Run `rata issue create --body Inline`.", surface())).toEqual([
+      { command: "rata issue create --body", replacement: "Use --body-file -." },
+    ])
+  })
 })

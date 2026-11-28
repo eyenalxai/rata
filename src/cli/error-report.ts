@@ -13,6 +13,7 @@ class CommandError extends Schema.TaggedError<CommandError>()("CommandError", {
   code: ErrorCodeSchema,
   message: Schema.String,
   hint: Schema.NullOr(Schema.String),
+  retryAfterSeconds: Schema.optional(Schema.Finite),
   details: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
   cause: Schema.optional(Schema.Defect()),
 }) {}
@@ -21,6 +22,7 @@ type CommandErrorInput = {
   readonly code: ErrorCode
   readonly message: string
   readonly hint: string | null
+  readonly retryAfterSeconds?: number | undefined
   readonly details?: Readonly<Record<string, unknown>> | undefined
   readonly cause?: unknown
 }
@@ -153,10 +155,12 @@ const report = (
   hint: string | null,
   details?: Readonly<Record<string, unknown>>,
 ): TrackerError => {
+  const retryAfter = fieldOf(error, "retryAfterSeconds")
   const base = {
     code,
     message: messageOf(error),
     hint,
+    ...(typeof retryAfter === "number" ? { retryAfterSeconds: retryAfter } : {}),
     ...(details === undefined ? {} : { details }),
   }
   return error === undefined ? new TrackerError(base) : new TrackerError({ ...base, cause: error })
@@ -232,6 +236,9 @@ const toTrackerError = (error: unknown): TrackerError => {
       code: error.code,
       message: error.message,
       hint: error.hint,
+      ...(error.retryAfterSeconds === undefined
+        ? {}
+        : { retryAfterSeconds: error.retryAfterSeconds }),
       ...(error.details === undefined ? {} : { details: error.details }),
       ...(error.cause === undefined ? {} : { cause: error.cause }),
     })

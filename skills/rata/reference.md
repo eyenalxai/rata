@@ -1195,9 +1195,10 @@ duplicate name with `conflict` unless `--if-not-exists` returns it with
 
 ## Executable hints
 
-A known wrong form fails with `validation` before any request, keeps the JSON
-error shape, and prints one hint that names the command to run. A supplied body,
-label or relation value stays in the hint, shell-quoted when needed.
+A known wrong form fails before any request, keeps the JSON error shape, and
+prints one hint that names the command to run. Old command forms return `usage`;
+a removed flag can return `validation`. A supplied body, label or relation value
+stays in the hint, shell-quoted when needed.
 
 | Wrong form                                 | Hint                                                                         |
 | ------------------------------------------ | ---------------------------------------------------------------------------- |

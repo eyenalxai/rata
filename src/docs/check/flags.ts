@@ -5,12 +5,22 @@ const readFlags = ["--json", "--fields", "--count", "--ids-only", "--include", "
 const hasFlag = (text: string, flag: string): boolean =>
   new RegExp(`(?:^|\\s)${flag}(?=$|[\\s,.;:])`, "u").test(text)
 
+const flagValue = (text: string, flag: string): string | null => {
+  const match = new RegExp(`(?:^|\\s)${flag}(?:\\s+|=)(\\S+)`, "u").exec(text)
+  return match?.[1] ?? null
+}
+
+const fieldsReplacement = (base: string, text: string): string => {
+  const value = flagValue(text, "--fields")
+  return value === null ? `${base} --select <fields>` : `${base} --select ${value}`
+}
+
 const flagReplacement = (base: string, flag: string, tokens: readonly string[]): string => {
   if (flag === "--json") {
     return `${base} --format json`
   }
   if (flag === "--fields") {
-    return `${base} --select`
+    return `${base} --select <fields>`
   }
   if (flag === "--include") {
     return tokens[1] === "list" ? `${base} --relations` : "Use --relations on issue list."
@@ -36,7 +46,10 @@ const staleFlags = (text: string, tokens: readonly string[]): StaleCommand | nul
       return { command: `${base} --json`, replacement: `${base} --format json` }
     }
     if (hasFlag(text, "--fields")) {
-      return { command: `${base} --fields`, replacement: `${base} --select` }
+      return { command: `${base} --fields`, replacement: fieldsReplacement(base, text) }
+    }
+    if (hasFlag(text, "--body")) {
+      return { command: `${base} --body`, replacement: "Use --body-file -." }
     }
     if (hasFlag(text, "--wait")) {
       return { command: `${base} --wait`, replacement: "Remove --wait." }
@@ -56,7 +69,11 @@ const staleFlags = (text: string, tokens: readonly string[]): StaleCommand | nul
   if (flag === undefined) {
     return null
   }
-  return { command: `${base} ${flag}`, replacement: flagReplacement(base, flag, tokens) }
+  return {
+    command: `${base} ${flag}`,
+    replacement:
+      flag === "--fields" ? fieldsReplacement(base, text) : flagReplacement(base, flag, tokens),
+  }
 }
 
 export { staleFlags }
