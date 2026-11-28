@@ -1,7 +1,7 @@
 /* oxlint-disable unicorn/no-await-expression-member, max-lines -- behaviour tests read many fields from one result; grouping them by command keeps the file reviewable. */
 import type { MemorySeed } from "@test/fake-linear/gateway/model"
 
-import { issueWithDuplicateHeading, seed } from "@test/apply/fixtures"
+import { issueWithDuplicateHeading, issueWithNestedSections, seed } from "@test/apply/fixtures"
 import { lastJson, runIssueMemory, runRootMemory } from "@test/cli-harness"
 import { makeMemoryGateway } from "@test/fake-linear/gateway/memory"
 import { afterEach, describe, expect, test } from "bun:test"
@@ -271,6 +271,50 @@ describe("issue apply sections", () => {
     )
   })
 
+  test("two non-overlapping section edits both apply", async () => {
+    const seedValue = seed()
+    const gateway = makeMemoryGateway(seedValue)
+    const lines = await runApply(seedValue, gateway, {
+      sections: [
+        { heading: "Notes", mode: "replace", content: "Replaced." },
+        { heading: "Handoff log", mode: "append", content: "Started." },
+      ],
+    })
+
+    const result = resultOf(lines)
+    expect(result).toMatchObject({ status: "updated" })
+    expect(result.changed).toEqual(["section:Notes", "section:Handoff log"])
+    expect(result.actions).toEqual([
+      expect.objectContaining({ action: "section-replace", status: "updated" }),
+      expect.objectContaining({ action: "section-append", status: "updated" }),
+    ])
+    expect((await readIssue(seedValue, gateway)).description).toBe(
+      "# Destination\nShip the write.\n\n## Notes\n\nReplaced.\n\n## Handoff log\n\nStarted.",
+    )
+  })
+
+  test("a nested child replace and its parent replace fail as ambiguous", async () => {
+    const seedValue = seed({ issues: [issueWithNestedSections] })
+    const gateway = makeMemoryGateway(seedValue)
+    const lines = await runApply(
+      seedValue,
+      gateway,
+      {
+        sections: [
+          { heading: "Child", mode: "replace", content: "New child." },
+          { heading: "Parent", mode: "replace", content: "New parent." },
+        ],
+      },
+      "RAT-21",
+    )
+
+    expect(process.exitCode).toBe(2)
+    expect(lastJson(lines)).toMatchObject({ error: { code: "ambiguous" } })
+    expect((await readIssue(seedValue, gateway, "RAT-21")).description).toBe(
+      issueWithNestedSections.description,
+    )
+  })
+
   test("a replace of a missing heading fails before the first write", async () => {
     const seedValue = seed()
     const gateway = makeMemoryGateway(seedValue)
@@ -283,7 +327,7 @@ describe("issue apply sections", () => {
     expect((await readIssue(seedValue, gateway)).title).toBe("The map")
   })
 
-  test("a duplicate heading is a conflict", async () => {
+  test("a duplicate heading is ambiguous", async () => {
     const seedValue = seed({ issues: [issueWithDuplicateHeading] })
     const gateway = makeMemoryGateway(seedValue)
     const lines = await runApply(
@@ -293,8 +337,11 @@ describe("issue apply sections", () => {
       "RAT-20",
     )
 
-    expect(process.exitCode).toBe(4)
-    expect(lastJson(lines)).toMatchObject({ error: { code: "conflict" } })
+    expect(process.exitCode).toBe(2)
+    expect(lastJson(lines)).toMatchObject({ error: { code: "ambiguous" } })
+    expect((await readIssue(seedValue, gateway, "RAT-20")).description).toBe(
+      issueWithDuplicateHeading.description,
+    )
   })
 })
 

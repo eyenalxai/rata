@@ -174,8 +174,18 @@ const classifyTagged = (error: unknown): TrackerError | undefined => {
   if (tag === "SectionBatchError") {
     const reason = fieldOf(error, "reason")
     const code =
-      reason === "missing" ? "not_found" : reason === "duplicate" ? "ambiguous" : "validation"
-    return report(error, code, availableHeadingsHint(error))
+      reason === "missing"
+        ? "not_found"
+        : reason === "duplicate" || reason === "overlap"
+          ? "ambiguous"
+          : "validation"
+    const hint =
+      reason === "duplicate"
+        ? "Use one edit for each heading and a heading that appears once."
+        : reason === "overlap"
+          ? "Edit only one of the overlapping sections."
+          : availableHeadingsHint(error)
+    return report(error, code, hint)
   }
   if (tag === "FieldSelectionError") {
     const path = stringField(error, "path")

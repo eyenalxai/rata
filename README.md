@@ -1157,7 +1157,9 @@ The apply document has optional `title`, `state`, `assignee`, `priority`,
 `relations` (`blocks`, `blockedBy`, `related`, `duplicate`). Omit a field to
 leave it alone. `assignee`, `project` and `parent` accept `null` to clear them.
 Sections take `mode: "replace"` or `"append"`; replace needs the heading, and
-append creates a missing heading at the end. A duplicate heading is a conflict.
+append creates a missing heading at the end. A duplicate heading is `ambiguous`.
+An edit to a parent section and an edit to its nested child in one document are
+also `ambiguous`, and nothing is written.
 A comment in `issue apply` needs a `dedupeKey`; a retry returns `skipped`.
 The handoff document is an apply document plus `pr`, the pull request URL. It
 attaches the PR, applies the fields and sections, posts one deduped comment, and

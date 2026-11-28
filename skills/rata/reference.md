@@ -1137,7 +1137,9 @@ first mutation; a mismatch exits 4. A no-op returns `status: "skipped"`.
 
 Sections: `replace` requires the heading and fails with `not_found` when it is
 missing; `append` adds to an existing section or creates a missing `## heading`
-at the end. A heading that appears more than once is a `conflict`.
+at the end. A heading that appears more than once is `ambiguous`. An edit to a
+parent section and an edit to its nested child in one document are also
+`ambiguous`, and nothing is written.
 
 Comment: `issue apply` requires `comment.dedupeKey`. The key is scoped to the
 issue; a retry returns `skipped`. `issue comment <ref> --body-file -` posts one
