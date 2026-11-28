@@ -19,11 +19,10 @@ const endpoint = "https://api.linear.app/graphql"
 
 const GraphQLErrorPayload = Schema.Struct({ message: Schema.String })
 
-const responseEnvelope = <S extends Schema.Constraint>(data: S) =>
-  Schema.Struct({
-    errors: Schema.optional(Schema.Array(GraphQLErrorPayload)),
-    data: Schema.optional(Schema.NullOr(data)),
-  })
+const responseEnvelope = Schema.Struct({
+  errors: Schema.optional(Schema.Array(GraphQLErrorPayload)),
+  data: Schema.optional(Schema.Unknown),
+})
 
 type ClientSchema = Schema.Constraint & { readonly DecodingServices: never }
 
@@ -72,118 +71,92 @@ const parseRetryAfter = (
   return Number.isFinite(seconds) ? seconds : undefined
 }
 
-type ErrorBody = {
-  readonly body: string | undefined
-  readonly messages: readonly string[]
+type ErrorBodyRead =
+  | { readonly _tag: "Body"; readonly text: string; readonly messages: readonly string[] }
+  | { readonly _tag: "ReadFailure"; readonly cause: unknown }
+
+const readErrorBody = Effect.fnUntraced(function* readErrorBody(
+  response: HttpClientResponse.HttpClientResponse,
+): Effect.fn.Return<ErrorBodyRead> {
+  return yield* response.text.pipe(
+    Effect.match({
+      onFailure: (cause): ErrorBodyRead => ({ _tag: "ReadFailure", cause }),
+      onSuccess: (raw): ErrorBodyRead => {
+        const text = raw.trim()
+        if (text === "") {
+          return { _tag: "Body", text, messages: [] }
+        }
+        const envelope = Schema.decodeOption(Schema.fromJsonString(responseEnvelope))(text)
+        return {
+          _tag: "Body",
+          text,
+          messages: Option.match(envelope, {
+            onNone: () => [],
+            onSome: (decoded) => decoded.errors?.map((error) => error.message) ?? [],
+          }),
+        }
+      },
+    }),
+  )
+})
+
+const errorBodyCause = (body: ErrorBodyRead): { readonly cause?: unknown } => {
+  if (body._tag === "ReadFailure") {
+    return { cause: body.cause }
+  }
+  return body.text === "" ? {} : { cause: body.text }
 }
 
-const readErrorBody = Effect.fnUntraced(function* readLinearErrorBody(
-  response: HttpClientResponse.HttpClientResponse,
-): Effect.fn.Return<ErrorBody> {
-  const raw = yield* response.text.pipe(Effect.orElseSucceed(() => ""))
-  const body = raw.trim()
-  if (body === "") {
-    return { body: undefined, messages: [] }
-  }
-  const envelope = Schema.decodeOption(Schema.fromJsonString(responseEnvelope(Schema.Unknown)))(
-    body,
-  )
-  return {
-    body,
-    messages: Option.match(envelope, {
-      onNone: () => [],
-      onSome: (decoded) => decoded.errors?.map((error) => error.message) ?? [],
-    }),
-  }
-})
+const errorBodyMessages = (body: ErrorBodyRead): readonly string[] =>
+  body._tag === "Body" ? body.messages : []
 
 const withServerMessages = (fallback: string, messages: readonly string[]): string =>
   messages.length === 0 ? fallback : `${fallback} ${messages.join("; ")}`
 
-const makeSend = (http: HttpClient.HttpClient) =>
-  Effect.fn("LinearClient.send")(function* sendRequest(
+const makeAttempt = (http: HttpClient.HttpClient) =>
+  Effect.fn("LinearClient.attempt")(function* attemptRequest<S extends ClientSchema>(
     request: HttpClientRequest.HttpClientRequest,
-  ) {
-    const timeout = yield* requestTimeout
-    const response = yield* http.execute(request).pipe(
-      Effect.mapError((cause) => new LinearNetworkError({ message: cause.message, cause })),
-      Effect.timeoutOrElse({
-        duration: timeout,
-        orElse: () =>
-          Effect.fail(
-            new LinearNetworkError({
-              message: `Linear did not respond within ${Duration.format(timeout)}.`,
-            }),
-          ),
-      }),
-    )
+    data: S,
+  ): Effect.fn.Return<S["Type"], LinearApiError> {
+    const response = yield* http
+      .execute(request)
+      .pipe(Effect.mapError((cause) => new LinearNetworkError({ message: cause.message, cause })))
 
-    if (response.status === 401 || response.status === 403) {
-      const { body, messages } = yield* readErrorBody(response)
-      const reason =
-        response.status === 403 ? "Linear forbade this request." : "Linear rejected the API key."
-      return yield* new LinearAuthError({
-        message: withServerMessages(reason, messages),
-        status: response.status,
-        ...(body === undefined ? {} : { cause: body }),
-      })
-    }
-    if (response.status === 429) {
-      const { body, messages } = yield* readErrorBody(response)
-      return yield* new LinearRateLimitError({
-        message: withServerMessages("Linear rate limit reached.", messages),
-        retryAfterSeconds: parseRetryAfter(response.headers),
-        ...(body === undefined ? {} : { cause: body }),
-      })
-    }
-    if (response.status >= 500) {
-      const { body } = yield* readErrorBody(response)
-      return yield* new LinearNetworkError({
-        message: `Linear returned HTTP ${response.status}.`,
-        ...(body === undefined ? {} : { cause: body }),
-      })
-    }
     if (response.status >= 400) {
-      const { body, messages } = yield* readErrorBody(response)
+      const body = yield* readErrorBody(response)
+      const messages = errorBodyMessages(body)
+      const cause = errorBodyCause(body)
+      if (response.status === 401 || response.status === 403) {
+        const reason =
+          response.status === 403 ? "Linear forbade this request." : "Linear rejected the API key."
+        return yield* new LinearAuthError({
+          message: withServerMessages(reason, messages),
+          status: response.status,
+          ...cause,
+        })
+      }
+      if (response.status === 429) {
+        return yield* new LinearRateLimitError({
+          message: withServerMessages("Linear rate limit reached.", messages),
+          retryAfterSeconds: parseRetryAfter(response.headers),
+          ...cause,
+        })
+      }
+      if (response.status >= 500) {
+        return yield* new LinearNetworkError({
+          message: `Linear returned HTTP ${response.status}.`,
+          ...cause,
+        })
+      }
       return yield* new LinearGraphQLError({
         message:
           messages.length === 0 ? `Linear returned HTTP ${response.status}.` : messages.join("; "),
         details: [...messages],
-        ...(body === undefined ? {} : { cause: body }),
+        ...cause,
       })
     }
-    return response
-  })
 
-const makeClient = (
-  http: HttpClient.HttpClient,
-  key: () => Effect.Effect<Redacted.Redacted, LinearApiError>,
-): LinearClientShape => {
-  const send = makeSend(http)
-
-  const executeWithKey = Effect.fn("LinearClient.executeWithKey")(function* executeQueryWithKey<
-    S extends ClientSchema,
-  >(
-    apiKey: Redacted.Redacted,
-    query: string,
-    variables: Record<string, unknown>,
-    data: S,
-  ): Effect.fn.Return<S["Type"], LinearApiError> {
-    const request = HttpClientRequest.post(endpoint).pipe(
-      HttpClientRequest.setHeaders({
-        authorization: Redacted.value(apiKey),
-        "content-type": "application/json",
-      }),
-      HttpClientRequest.bodyJsonUnsafe({ query, variables }),
-    )
-
-    const response = yield* send(request).pipe(
-      Effect.retry({ while: isRetryableLinearError, times: maxRetries, schedule: retryPolicy }),
-    )
-
-    const envelope = yield* HttpClientResponse.schemaBodyJson(responseEnvelope(data))(
-      response,
-    ).pipe(
+    const envelope = yield* HttpClientResponse.schemaBodyJson(responseEnvelope)(response).pipe(
       Effect.mapError(
         (cause) =>
           new LinearGraphQLError({
@@ -203,7 +176,53 @@ const makeClient = (
         details: [],
       })
     }
-    return envelope.data
+    return yield* Schema.decodeEffect(data)(envelope.data).pipe(
+      Effect.mapError(
+        (cause) =>
+          new LinearGraphQLError({
+            message: "Linear returned an unexpected response body.",
+            details: [],
+            cause,
+          }),
+      ),
+    )
+  })
+
+const makeClient = (
+  http: HttpClient.HttpClient,
+  key: () => Effect.Effect<Redacted.Redacted, LinearApiError>,
+): LinearClientShape => {
+  const attempt = makeAttempt(http)
+
+  const executeWithKey = Effect.fn("LinearClient.executeWithKey")(function* executeQueryWithKey<
+    S extends ClientSchema,
+  >(
+    apiKey: Redacted.Redacted,
+    query: string,
+    variables: Record<string, unknown>,
+    data: S,
+  ): Effect.fn.Return<S["Type"], LinearApiError> {
+    const request = HttpClientRequest.post(endpoint).pipe(
+      HttpClientRequest.setHeaders({
+        authorization: Redacted.value(apiKey),
+        "content-type": "application/json",
+      }),
+      HttpClientRequest.bodyJsonUnsafe({ query, variables }),
+    )
+
+    const timeout = yield* requestTimeout
+    return yield* attempt(request, data).pipe(
+      Effect.timeoutOrElse({
+        duration: timeout,
+        orElse: () =>
+          Effect.fail(
+            new LinearNetworkError({
+              message: `Linear did not respond within ${Duration.format(timeout)}.`,
+            }),
+          ),
+      }),
+      Effect.retry({ while: isRetryableLinearError, times: maxRetries, schedule: retryPolicy }),
+    )
   })
 
   const execute = Effect.fn("LinearClient.execute")(function* executeQuery<S extends ClientSchema>(

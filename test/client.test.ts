@@ -48,6 +48,28 @@ const transportFailureLayer = () =>
     ),
   )
 
+const stalledBodyLayer = (status: number) =>
+  clientLayer(
+    () =>
+      new Response(new ReadableStream<Uint8Array>(), {
+        status,
+        headers: { "content-type": "application/json" },
+      }),
+  )
+
+const failedBodyLayer = () =>
+  clientLayer(
+    () =>
+      new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            controller.error(new Error("body failed"))
+          },
+        }),
+        { status: 400 },
+      ),
+  )
+
 const clockedClientLayer = (
   handler: (request: HttpClientRequest.HttpClientRequest) => Response,
   times: number[],
@@ -69,8 +91,25 @@ const readViewer = Effect.gen(function* readViewer() {
 const runViewerFailure = (layer: Layer.Layer<LinearClient | LinearGateway>) =>
   readViewer.pipe(Effect.provide(layer), Effect.flip, Effect.runPromise)
 
+const runStalledViewer = (layer: Layer.Layer<LinearClient | LinearGateway>) =>
+  Effect.gen(function* stallRequest() {
+    const client = yield* LinearClient
+    const fiber = yield* client.viewer.pipe(Effect.flip, Effect.forkChild)
+    yield* TestClock.adjust("30 seconds")
+    return yield* Fiber.join(fiber)
+  }).pipe(
+    Effect.provide(
+      Layer.mergeAll(
+        layer,
+        TestClock.layer(),
+        ConfigProvider.layer(ConfigProvider.fromEnvRecord({ RATA_LINEAR_TIMEOUT: "5 seconds" })),
+      ),
+    ),
+    Effect.runPromise,
+  )
+
 describe("LinearClient", () => {
-  test("maps 401 to LinearAuthError without a retry", async () => {
+  test("maps 401 to LinearAuthError without a retry and keeps the server message", async () => {
     let calls = 0
     const error = await runViewerFailure(
       clientLayer(() => {
@@ -79,17 +118,10 @@ describe("LinearClient", () => {
       }),
     )
     expect(error._tag).toBe("LinearAuthError")
-    expect(calls).toBe(1)
-  })
-
-  test("keeps the server message on a 401", async () => {
-    const error = await runViewerFailure(
-      clientLayer(() => jsonResponse({ errors: [{ message: "bad key" }] }, 401)),
-    )
-    expect(error._tag).toBe("LinearAuthError")
     if (error._tag === "LinearAuthError") {
       expect(error.message).toContain("bad key")
     }
+    expect(calls).toBe(1)
   })
 
   test("keeps the server message from a 4xx body", async () => {
@@ -111,6 +143,15 @@ describe("LinearClient", () => {
     if (error._tag === "LinearGraphQLError") {
       expect(error.message).toBe("Linear returned HTTP 400.")
       expect(error.cause).toBe("Bad request: no query")
+    }
+  })
+
+  test("keeps a body read failure in the cause", async () => {
+    const error = await runViewerFailure(failedBodyLayer())
+    expect(error._tag).toBe("LinearGraphQLError")
+    if (error._tag === "LinearGraphQLError") {
+      expect(error.message).toBe("Linear returned HTTP 400.")
+      expect(error.cause).toMatchObject({ _tag: "HttpClientError" })
     }
   })
 
@@ -174,6 +215,22 @@ describe("LinearClient", () => {
     }
   })
 
+  test("reads errors before decoding data", async () => {
+    const error = await runViewerFailure(
+      clientLayer(() =>
+        jsonResponse({
+          data: { viewer: { id: 42 } },
+          errors: [{ message: "A" }, { message: "B" }],
+        }),
+      ),
+    )
+    expect(error._tag).toBe("LinearGraphQLError")
+    if (error._tag === "LinearGraphQLError") {
+      expect(error.message).toBe("A; B")
+      expect(error.details).toEqual(["A", "B"])
+    }
+  })
+
   test("decodes a successful response", async () => {
     const viewer = await readViewer.pipe(
       Effect.provide(
@@ -219,21 +276,23 @@ describe("LinearClient", () => {
   })
 
   test("fails with LinearNetworkError when the request stalls", async () => {
-    const error = await Effect.gen(function* stallRequest() {
-      const client = yield* LinearClient
-      const fiber = yield* client.viewer.pipe(Effect.flip, Effect.forkChild)
-      yield* TestClock.adjust("30 seconds")
-      return yield* Fiber.join(fiber)
-    }).pipe(
-      Effect.provide(
-        Layer.mergeAll(
-          httpClientLayer(HttpClient.make(() => Effect.never)),
-          TestClock.layer(),
-          ConfigProvider.layer(ConfigProvider.fromEnvRecord({ RATA_LINEAR_TIMEOUT: "5 seconds" })),
-        ),
-      ),
-      Effect.runPromise,
-    )
+    const error = await runStalledViewer(httpClientLayer(HttpClient.make(() => Effect.never)))
+    expect(error._tag).toBe("LinearNetworkError")
+    if (error._tag === "LinearNetworkError") {
+      expect(error.message).toContain("did not respond")
+    }
+  })
+
+  test("fails with LinearNetworkError when an error body stalls", async () => {
+    const error = await runStalledViewer(stalledBodyLayer(400))
+    expect(error._tag).toBe("LinearNetworkError")
+    if (error._tag === "LinearNetworkError") {
+      expect(error.message).toContain("did not respond")
+    }
+  })
+
+  test("fails with LinearNetworkError when a success body stalls", async () => {
+    const error = await runStalledViewer(stalledBodyLayer(200))
     expect(error._tag).toBe("LinearNetworkError")
     if (error._tag === "LinearNetworkError") {
       expect(error.message).toContain("did not respond")

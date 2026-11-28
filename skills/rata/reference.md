@@ -966,6 +966,10 @@ object with code `usage`; help prints only for `--help`. A partial apply writes
 one resource document with `result.status: "failed"`, the applied actions, the
 failed action and `result.error`, and exits with the failed action's code.
 
+Linear requests time out after 30 seconds. Set `RATA_LINEAR_TIMEOUT` to an
+Effect duration string such as `10 seconds` or `500 millis`. A timeout surfaces
+as the retryable `network` error.
+
 ## Setup
 
 `admin auth login --with-token [--workspace <name>]` saves a key from stdin;
