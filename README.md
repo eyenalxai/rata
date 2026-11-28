@@ -308,7 +308,8 @@ changed. `status --refresh` reads Linear and replaces the cache. A team stored b
 an old key only resolves by key, then by name, and `status` repairs the link to
 the team UUID. A link invalidates the cached detail of the linked team, so the
 next read fetches the current key. A warm repair writes only the team UUID and
-never writes a cached key over the linked key.
+never writes a cached key over the linked key. A cache write or invalidation
+failure warns and does not fail the command.
 
 A read resolves the stored team by UUID, then by key, then by name. A stale team
 UUID or key that resolves is repaired in place, and the command prints a warning

@@ -12,6 +12,7 @@ import { DefaultLabelsJson, decodeStoredRepository } from "@/config/repo/decode"
 import { fromLegacyConfig, RepoConfigJson } from "@/config/repo/legacy"
 import { Database } from "@/db/database"
 import { repositories } from "@/db/schema"
+import { isUuid } from "@/domain/id"
 import { storedPriority } from "@/domain/priority"
 
 class RepoConfigError extends Schema.TaggedError<RepoConfigError>()("RepoConfigError", {
@@ -255,6 +256,11 @@ class RepoConfigService extends Context.Service<RepoConfigService, RepoConfigSha
         directory: string,
         value: TeamId,
       ) {
+        if (!isUuid(value)) {
+          return yield* new RepoConfigError({
+            message: `The stored team id ${value} is not a UUID.`,
+          })
+        }
         const location = yield* locate(directory)
         const row = yield* findRow(location)
         if (Option.isNone(row) || row.value.teamId === value) {

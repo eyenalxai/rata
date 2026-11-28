@@ -11,6 +11,7 @@ import { Effect, Option } from "effect"
 import { RepoConfigService } from "@/config/repo"
 import { Database } from "@/db/database"
 import { repositories } from "@/db/schema"
+import { teamId } from "@/domain/id"
 
 describe("RepoConfigService.write", () => {
   test("writes one row for the Git common directory from a subdirectory", async () => {
@@ -68,6 +69,46 @@ describe("RepoConfigService.write", () => {
 
     expect(result.fromMain).toEqual(Option.some({ team: "RAT", workspace: "work" }))
     expect(result.fromWorktree).toEqual(Option.some({ team: "RAT", workspace: "work" }))
+  })
+})
+
+describe("RepoConfigService.repairTeamId", () => {
+  test("repairs only the stored team id", async () => {
+    const oldId = "11111111-1111-1111-1111-111111111111"
+    const newId = "22222222-2222-2222-2222-222222222222"
+    const result = await withRepoConfig(
+      repoTree,
+      [],
+      Effect.gen(function* repairId() {
+        const service = yield* RepoConfigService
+        const repaired = yield* service.repairTeamId("/repo", teamId(newId))
+        const stored = yield* service.read("/repo")
+        return { repaired, stored }
+      }),
+      undefined,
+      [{ key: "/repo/.git", team: "RAT", teamId: oldId }],
+    )
+
+    expect(result.repaired).toBe(true)
+    expect(result.stored).toEqual(Option.some({ team: "RAT", teamId: teamId(newId) }))
+  })
+
+  test("rejects a team id that is not a UUID", async () => {
+    const result = await withRepoConfig(
+      repoTree,
+      [],
+      Effect.gen(function* rejectId() {
+        const service = yield* RepoConfigService
+        return yield* Effect.flip(service.repairTeamId("/repo", teamId("corrupt-id")))
+      }),
+      undefined,
+      [{ key: "/repo/.git", team: "RAT" }],
+    )
+
+    expect(result._tag).toBe("RepoConfigError")
+    if (result._tag === "RepoConfigError") {
+      expect(result.message).toContain("UUID")
+    }
   })
 })
 

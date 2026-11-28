@@ -54,7 +54,7 @@ class RepoTeam extends Context.Service<RepoTeam, RepoTeamShape>()(
             message: `No team with ${resolved.isId ? "id" : "key"} ${resolved.stored}.`,
           })
         }
-        const warning = yield* repairStoredLink(repoConfig, config, resolved.linked.team)
+        const warning = yield* repairStoredLink(repoConfig, config, resolved.linked.team, true)
         return Option.some({ team: resolved.linked.team, warning })
       }).pipe(Effect.withSpan("RepoTeam.linkedTeam"))
 

@@ -12,12 +12,7 @@ import type { TeamId } from "@/domain/id"
 import type { Team } from "@/linear/decode/team"
 
 import { TeamService } from "@/api/team"
-import {
-  missingWarning,
-  repairStoredLink,
-  repairStoredTeamId,
-  resolveLinkedTeam,
-} from "@/api/team/link"
+import { missingWarning, repairStoredLink, resolveLinkedTeam } from "@/api/team/link"
 import { Auth } from "@/config/auth"
 import { RepoConfigService } from "@/config/repo"
 import { RepositoryIdentity } from "@/config/repo-identity"
@@ -133,11 +128,13 @@ class ContextResolver extends Context.Service<ContextResolver, ContextResolverSh
           if (!refresh && storedId !== undefined) {
             const cached = yield* cache.readTeam(profile, storedId, keyHash, now)
             if (Option.isSome(cached)) {
-              const warning = yield* repairStoredTeamId(repoConfig, config, cached.value.detail)
+              const { id, key, name, timezone } = cached.value.detail
+              const cachedIdentity = { id, key, name, timezone }
+              const warning = yield* repairStoredLink(repoConfig, config, cachedIdentity, false)
               return {
                 missing: false,
                 team: {
-                  identity: cached.value.detail,
+                  identity: cachedIdentity,
                   detail: cached.value.detail,
                   ageSeconds: teamAge(cached.value.fetchedAt, now),
                   fetchedAt: cached.value.fetchedAt,
@@ -172,7 +169,7 @@ class ContextResolver extends Context.Service<ContextResolver, ContextResolverSh
               warning: missingWarning(linked.linked.team.key),
             }
           }
-          const warning = yield* repairStoredLink(repoConfig, config, loaded.detail)
+          const warning = yield* repairStoredLink(repoConfig, config, loaded.detail, true)
           return { missing: false, team: loaded, warning }
         },
       )

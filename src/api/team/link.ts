@@ -96,18 +96,6 @@ const resolveLinkedTeam = (
     return { kind: "missing", stored, isId } as const
   })
 
-const repairStoredLink = Effect.fn("LinkedTeam.repair")(function* repairTeamLink(
-  repoConfig: RepoConfigService["Service"],
-  config: RepoConfig,
-  team: Team,
-) {
-  const repaired = repairedLink(config, team)
-  if (repaired.config !== config) {
-    yield* repoConfig.write(yield* currentDirectory, repaired.config)
-  }
-  return repaired.warning
-})
-
 const repairStoredTeamId = Effect.fn("LinkedTeam.repairTeamId")(function* repairTeamIdLink(
   repoConfig: RepoConfigService["Service"],
   config: RepoConfig,
@@ -125,12 +113,27 @@ const repairStoredTeamId = Effect.fn("LinkedTeam.repairTeamId")(function* repair
   return storedId === undefined || storedId === team.id ? null : staleIdWarning(storedId, team.key)
 })
 
+const repairStoredLink = Effect.fn("LinkedTeam.repair")(function* repairTeamLink(
+  repoConfig: RepoConfigService["Service"],
+  config: RepoConfig,
+  team: Team,
+  fresh: boolean,
+) {
+  if (!fresh) {
+    return yield* repairStoredTeamId(repoConfig, config, team)
+  }
+  const repaired = repairedLink(config, team)
+  if (repaired.config !== config) {
+    yield* repoConfig.write(yield* currentDirectory, repaired.config)
+  }
+  return repaired.warning
+})
+
 export {
   type LinkedTeam,
   type LinkedTeamResult,
   missingWarning,
   repairedLink,
   repairStoredLink,
-  repairStoredTeamId,
   resolveLinkedTeam,
 }

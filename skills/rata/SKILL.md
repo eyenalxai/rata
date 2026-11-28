@@ -35,8 +35,9 @@ The setup commands live under `admin`:
   key. The key resolves as `LINEAR_API_KEY`, the repository workspace, then
   `default`; `rata admin workspace use <name>` selects a profile.
 - `rata admin link --team <key>` links the repository and sets the team
-  timezone. A stale stored key is repaired on read with a warning; follow the
-  repair hint when `status` reports it.
+  timezone. A warm read keeps the linked key and repairs only a stale team UUID;
+  use `--refresh` to fetch a renamed key. Follow the repair hint when `status`
+  reports a missing team.
 - `rata admin doctor` checks the known `rata` commands and removed flags in the
   tracker document.
   `--write` repairs the generated command block.

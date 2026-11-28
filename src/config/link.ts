@@ -126,6 +126,29 @@ class LinkService extends Context.Service<LinkService, LinkServiceShape>()(
         },
       )
 
+      const invalidateTeamCache = Effect.fn("LinkService.invalidateTeamCache")(
+        function* invalidateLinkedTeamCache(
+          teamId: string,
+          workspace: Option.Option<string>,
+          apiKey: Redacted.Redacted,
+        ) {
+          const targets = new Map<string, string>()
+          const add = (name: Option.Option<string>, key: Redacted.Redacted) => {
+            targets.set(profileKey(Option.getOrNull(name)), hashApiKey(Redacted.value(key)))
+          }
+          add(workspace, apiKey)
+          const resolved = Option.getOrUndefined(yield* auth.resolve)
+          if (resolved !== undefined) {
+            add(resolved.profile, resolved.key)
+          }
+          yield* Effect.forEach(
+            targets,
+            ([profile, keyHash]) => cache.invalidateTeam(profile, teamId, keyHash),
+            { discard: true },
+          )
+        },
+      )
+
       const link = Effect.fn("LinkService.link")(function* linkRepository(options: LinkOptions) {
         const invalid = invalidLinkOptions(options)
         if (Option.isSome(invalid)) {
@@ -149,11 +172,7 @@ class LinkService extends Context.Service<LinkService, LinkServiceShape>()(
           teams.withKey(target.apiKey),
         )
         const setup = yield* writeConfig(updated.team, options.project, target.workspace)
-        yield* cache.invalidateTeam(
-          profileKey(Option.getOrNull(target.workspace)),
-          updated.team.id,
-          hashApiKey(Redacted.value(target.apiKey)),
-        )
+        yield* invalidateTeamCache(updated.team.id, target.workspace, target.apiKey)
         return {
           team: updated.team,
           project: setup.project,

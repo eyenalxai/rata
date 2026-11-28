@@ -13,6 +13,10 @@ type UserId = typeof UserId.Type
 const TeamId = Schema.String.pipe(Schema.brand("TeamId"))
 type TeamId = typeof TeamId.Type
 
+const UuidTeamId = Schema.String.check(
+  Schema.isPattern(uuidPattern, { message: "The team id must be a UUID." }),
+).pipe(Schema.brand("TeamId"))
+
 const ProjectId = Schema.String.pipe(Schema.brand("ProjectId"))
 type ProjectId = typeof ProjectId.Type
 
@@ -60,6 +64,7 @@ export {
   RelationId,
   teamId,
   TeamId,
+  UuidTeamId,
   userId,
   UserId,
   uuidPattern,
