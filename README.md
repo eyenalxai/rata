@@ -472,10 +472,11 @@ One Linear API key belongs to one Linear workspace. `rata` stores named
 workspace profiles, and each repository selects one:
 
 ```bash
-pbpaste | rata admin auth login --with-token                  # store the default profile
+pbpaste | rata admin auth login --with-token                  # store a profile; the first profile becomes the default
 pbpaste | rata admin auth login --with-token --workspace work # store the work profile
 rata admin auth status                                        # show the selected profile, viewer and organization
 rata admin auth status --workspace work                       # show one profile
+rata admin auth logout                                        # remove the default profile and select the next profile
 rata admin auth logout --workspace work                       # remove one profile
 rata admin workspace list                                     # list the profiles with their viewer and organization
 rata admin workspace use work                                 # set the default profile
@@ -541,11 +542,14 @@ repository at one key.
 ```
 
 `rata admin auth status --workspace <name>` reads that profile directly; it does not
-consult `LINEAR_API_KEY` or the repository config. `rata admin auth logout` without
-`--workspace` removes the `default` profile. When the removed profile was the
-default and other profiles remain, no profile is the default. Later commands
-fail with ``No default workspace. Run `rata admin workspace use <name>`.`` Run
-`rata admin workspace use <name>` to select one.
+consult `LINEAR_API_KEY` or the repository config. At most one profile is the
+default, and the database rejects a second default profile.
+
+`rata admin auth logout` without `--workspace` removes the default profile.
+Rata then makes the next profile by name the default, so the next command
+selects a key. When no profile remains, commands that need a key fail with
+``Not authenticated. Run `rata admin auth login --with-token`, or set LINEAR_API_KEY.``
+Run `rata admin workspace use <name>` to select a different profile.
 
 ## Teams
 

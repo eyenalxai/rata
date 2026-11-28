@@ -1,10 +1,19 @@
-import { integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core"
+import { sql } from "drizzle-orm"
+import { integer, primaryKey, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core"
 
-const profiles = sqliteTable("profiles", {
-  name: text("name").primaryKey(),
-  apiKey: text("api_key").notNull(),
-  isDefault: integer("is_default").notNull().default(0),
-})
+const profiles = sqliteTable(
+  "profiles",
+  {
+    name: text("name").primaryKey(),
+    apiKey: text("api_key").notNull(),
+    isDefault: integer("is_default").notNull().default(0),
+  },
+  (table) => [
+    uniqueIndex("profiles_one_default")
+      .on(table.isDefault)
+      .where(sql`${table.isDefault} = 1`),
+  ],
+)
 
 const repositories = sqliteTable("repositories", {
   key: text("key").primaryKey(),

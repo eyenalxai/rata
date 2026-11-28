@@ -18,7 +18,7 @@ const loginSpec = defineCommand("login", {
   examples: [
     {
       command: "pbpaste | rata admin auth login --with-token",
-      description: "Store the API key from the clipboard as the default profile",
+      description: "Store the API key from the clipboard; the first profile becomes the default",
     },
     {
       command: "pbpaste | rata admin auth login --with-token --workspace work",
@@ -156,27 +156,46 @@ const statusSpec = defineCommand("status", {
 })
 
 const logoutSpec = defineCommand("logout", {
-  summary: "Remove one stored workspace profile",
+  summary: "Remove a stored workspace profile, or the default profile",
+  examples: [
+    {
+      command: "rata admin auth logout",
+      description: "Remove the default profile and select the next profile by name",
+    },
+    {
+      command: "rata admin auth logout --workspace work",
+      description: "Remove the work profile",
+    },
+  ],
   input: { workspace: workspaceFlag },
   output: resourceOutput(
     objectField({
       removed: scalarField,
-      workspace: scalarField,
+      default: scalarField,
     }),
   ),
   run: (input) =>
     Effect.gen(function* logout() {
       const auth = yield* Auth
-      const workspace = Option.getOrElse(input.workspace, () => "default")
-      const removed = yield* auth.logout(workspace)
+      const outcome = yield* auth.logout(input.workspace)
+      const removed = Option.getOrNull(outcome.removed)
+      const next = Option.getOrNull(outcome.default)
+      const requested = Option.getOrNull(input.workspace)
+      const text =
+        removed === null
+          ? [
+              requested === null
+                ? "No default workspace to remove."
+                : `No stored workspace named "${requested}".`,
+            ]
+          : [
+              `Removed the workspace "${removed}".`,
+              next === null ? "No stored workspace remains." : `Default workspace: ${next}.`,
+            ]
       return {
         kind: "resource",
-        value: { removed, workspace },
-        text: [
-          removed
-            ? `Removed the workspace "${workspace}".`
-            : `No stored workspace named "${workspace}".`,
-        ],
+        value: { removed, default: next },
+        text,
       }
     }),
 })

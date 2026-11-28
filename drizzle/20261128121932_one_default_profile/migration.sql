@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `profiles_one_default` ON `profiles` (`is_default`) WHERE "profiles"."is_default" = 1;

@@ -52,7 +52,7 @@ Generated from the command registry by `bun run docs:generate`. Do not edit this
 | `rata admin auth` | Manage Linear authentication |
 | `rata admin auth login` | Store a Linear API key as a workspace profile |
 | `rata admin auth status` | Show the selected profile, viewer and organization |
-| `rata admin auth logout` | Remove one stored workspace profile |
+| `rata admin auth logout` | Remove a stored workspace profile, or the default profile |
 | `rata admin link` | Bind this repository to a Linear team and set its timezone |
 | `rata admin unlink` | Remove the stored link of this repository |
 | `rata admin workspace` | Manage the stored Linear workspace profiles |
@@ -473,7 +473,7 @@ rata admin auth login [flags]
 
 **Examples**
 
-- `pbpaste | rata admin auth login --with-token`: Store the API key from the clipboard as the default profile
+- `pbpaste | rata admin auth login --with-token`: Store the API key from the clipboard; the first profile becomes the default
 - `pbpaste | rata admin auth login --with-token --workspace work`: Store the API key as the work profile
 
 ##### `rata admin auth status`
@@ -492,7 +492,7 @@ rata admin auth status [flags]
 
 ##### `rata admin auth logout`
 
-Remove one stored workspace profile
+Remove a stored workspace profile, or the default profile
 
 ```text
 rata admin auth logout [flags]
@@ -503,6 +503,11 @@ rata admin auth logout [flags]
 | Name | Type | Required | Description |
 | --- | --- | --- | --- |
 | `--workspace <string>` | `string` | no | Workspace profile name |
+
+**Examples**
+
+- `rata admin auth logout`: Remove the default profile and select the next profile by name
+- `rata admin auth logout --workspace work`: Remove the work profile
 
 #### `rata admin link`
 
