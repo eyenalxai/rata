@@ -2,9 +2,9 @@ import { Context, Effect, Layer } from "effect"
 
 import type { ResolvedContext } from "@/context/model"
 import type { ApplyDocument } from "@/domain/apply"
-import type { ApplyDependencies, ApplyPlanError, ApplyPlanOptions } from "@/tracker/apply/model"
+import type { ApplyDependencies, ApplyPlanOptions } from "@/tracker/apply/model"
 import type { IssueReadDocument, IssueWorkingSetFull } from "@/tracker/model"
-import type { ApplyCommand, ApplyPlan } from "@/tracker/plan"
+import type { ApplyCommand, ApplyPlan, ApplyPlanError } from "@/tracker/plan"
 
 import { ContextResolver } from "@/context/resolve"
 import { TrackerError } from "@/domain/error"

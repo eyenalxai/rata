@@ -27,7 +27,7 @@ class IssuePublish extends Context.Service<IssuePublish, IssuePublishShape>()(
       return IssuePublish.of({
         plan: (context, document) => makePublishPlan(dependencies, context, document),
         dryRun: dryRunPublish,
-        execute: (plan) => executePublish(client, plan),
+        execute: (plan, classifyError) => executePublish(client, plan, classifyError),
       })
     }),
   )

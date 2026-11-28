@@ -2,8 +2,7 @@ import { Effect } from "effect"
 
 import type { ResolvedContext } from "@/context/model"
 import type { ApplyDocument } from "@/domain/apply"
-import type { ApplyPlanError } from "@/tracker/apply/model"
-import type { ApplyPlan } from "@/tracker/plan"
+import type { ApplyPlan, ApplyPlanError } from "@/tracker/plan"
 import type { WorkflowDependencies } from "@/tracker/workflow/model"
 
 import { TrackerError } from "@/domain/error"

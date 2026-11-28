@@ -1,33 +1,14 @@
 import { Predicate, Schema } from "effect"
 
 import type { ErrorCode } from "@/domain/error"
+import type { ApplyErrorClassifier, ApplyPlanError } from "@/tracker/plan"
 
-import { ErrorCodeSchema, TrackerError } from "@/domain/error"
+import { TrackerError } from "@/domain/error"
 
 type ErrorRule = {
   readonly code: ErrorCode
   readonly hint: string | null
 }
-
-class CommandError extends Schema.TaggedError<CommandError>()("CommandError", {
-  code: ErrorCodeSchema,
-  message: Schema.String,
-  hint: Schema.NullOr(Schema.String),
-  retryAfterSeconds: Schema.optional(Schema.Finite),
-  details: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
-  cause: Schema.optional(Schema.Defect()),
-}) {}
-
-type CommandErrorInput = {
-  readonly code: ErrorCode
-  readonly message: string
-  readonly hint: string | null
-  readonly retryAfterSeconds?: number | undefined
-  readonly details?: Readonly<Record<string, unknown>> | undefined
-  readonly cause?: unknown
-}
-
-const commandError = (input: CommandErrorInput): CommandError => new CommandError(input)
 
 const fieldOf = (error: unknown, key: string): unknown =>
   Predicate.isObject(error) ? Reflect.get(error, key) : undefined
@@ -42,14 +23,16 @@ const messageOf = (error: unknown): string => {
   return Predicate.isString(message) ? message : "Unexpected error."
 }
 
-const errorRules: Record<string, ErrorRule> = {
+const errorRules = {
   LinearAuthError: { code: "auth", hint: "Run `rata admin auth login --with-token`." },
   LinearNetworkError: { code: "network", hint: "Check the connection and retry." },
+  LinearRateLimitError: { code: "rate_limited", hint: "Retry later." },
   TeamResolutionError: { code: "not_linked", hint: null },
   TeamNotFoundError: {
     code: "not_found",
     hint: "A team key and an issue identifier prefix can differ after a rename. Run `rata admin team list` to see the team keys, then run `rata admin link --team <key>` to repair the link.",
   },
+  ContextCacheError: { code: "internal", hint: "Run with RATA_DEBUG=1 for details." },
   ContextLabelNotFoundError: { code: "not_found", hint: null },
   LabelNotFoundError: { code: "not_found", hint: null },
   LabelCreateError: {
@@ -62,7 +45,9 @@ const errorRules: Record<string, ErrorRule> = {
   },
   ProjectNotFoundError: { code: "not_found", hint: null },
   ProjectNameAmbiguousError: { code: "ambiguous", hint: null },
+  RepoConfigError: { code: "internal", hint: "Run with RATA_DEBUG=1 for details." },
   IssueRefNotFoundError: { code: "not_found", hint: "Check the reference and retry." },
+  IssueWriteError: { code: "internal", hint: "Run with RATA_DEBUG=1 for details." },
   AssigneeInputError: {
     code: "validation",
     hint: "Use `me` or a user UUID. Run `rata admin team show --format json` to see the members.",
@@ -89,7 +74,10 @@ const errorRules: Record<string, ErrorRule> = {
   DatabaseError: { code: "internal", hint: "Run with RATA_DEBUG=1 for details." },
   LinearInternalError: { code: "internal", hint: "Run with RATA_DEBUG=1 for details." },
   PromptRequiredError: { code: "validation", hint: "Pass --yes to skip the prompt." },
-}
+} as const satisfies Record<string, ErrorRule>
+
+const isErrorRuleKey = (tag: string): tag is keyof typeof errorRules =>
+  Object.hasOwn(errorRules, tag)
 
 const exitCodes: Record<ErrorCode, number> = {
   usage: 2,
@@ -168,6 +156,40 @@ const report = (
   return error === undefined ? new TrackerError(base) : new TrackerError({ ...base, cause: error })
 }
 
+const rule =
+  (key: keyof typeof errorRules): ApplyErrorClassifier =>
+  (error) =>
+    report(error, errorRules[key].code, errorRules[key].hint)
+
+const conflictHint = (error: unknown): string | null => {
+  const current = stringField(error, "current")
+  return current === null
+    ? null
+    : `The current updatedAt is ${current}. Re-read the issue and retry.`
+}
+
+const conflictReport = (error: unknown): TrackerError =>
+  report(error, "conflict", conflictHint(error))
+
+const sectionNotFoundReport = (error: unknown): TrackerError =>
+  report(error, "not_found", availableHeadingsHint(error))
+
+const linearAuthError = (error: unknown): TrackerError =>
+  fieldOf(error, "status") === 403
+    ? report(error, "forbidden", "Ask a workspace admin for access.")
+    : report(error, errorRules.LinearAuthError.code, errorRules.LinearAuthError.hint)
+
+const linearGraphQLError = (error: unknown): TrackerError => {
+  const text = messageOf(error).toLowerCase()
+  if (text.includes("duplicate") || text.includes("already exists")) {
+    return report(error, "conflict", "Use the existing object, or pass `--if-not-exists`.")
+  }
+  if (text.includes("not found")) {
+    return report(error, "not_found", "Check the reference and retry.")
+  }
+  return report(error, "internal", "Run with RATA_DEBUG=1 for details.")
+}
+
 const sectionBatchReport = (error: unknown): TrackerError => {
   const reason = fieldOf(error, "reason")
   const code =
@@ -187,7 +209,7 @@ const sectionBatchReport = (error: unknown): TrackerError => {
 const classifyTagged = (error: unknown): TrackerError | undefined => {
   const tag = tagOf(error)
   if (tag === "SectionNotFoundError") {
-    return report(error, "not_found", availableHeadingsHint(error))
+    return sectionNotFoundReport(error)
   }
   if (tag === "SectionBatchError") {
     return sectionBatchReport(error)
@@ -199,12 +221,7 @@ const classifyTagged = (error: unknown): TrackerError | undefined => {
     return report(error, "validation", stringField(error, "hint"), details)
   }
   if (tag === "ConflictError") {
-    const current = stringField(error, "current")
-    return report(
-      error,
-      "conflict",
-      current === null ? null : `The current updatedAt is ${current}. Re-read the issue and retry.`,
-    )
+    return conflictReport(error)
   }
   if (tag === "FilterNameNotFoundError") {
     return report(error, "not_found", filterNameHint(error))
@@ -217,46 +234,21 @@ const classifyTagged = (error: unknown): TrackerError | undefined => {
       `Labels resolve case-insensitively; use \`${existing}\`, or pass \`--if-not-exists\`.`,
     )
   }
-  if (tag === "LinearAuthError" && fieldOf(error, "status") === 403) {
-    return report(error, "forbidden", "Ask a workspace admin for access.")
+  if (tag === "LinearAuthError") {
+    return linearAuthError(error)
   }
-  const rule = tag === undefined ? undefined : errorRules[tag]
-  return rule === undefined ? undefined : report(error, rule.code, rule.hint)
+  const errorRule = tag !== undefined && isErrorRuleKey(tag) ? errorRules[tag] : undefined
+  return errorRule === undefined ? undefined : report(error, errorRule.code, errorRule.hint)
 }
 
-const classifyUnclassified = (error: unknown): TrackerError => {
-  const tag = tagOf(error)
-  const message = messageOf(error)
-  if (tag === "LinearRateLimitError") {
-    return report(error, "rate_limited", "Retry later.")
-  }
-  if (tag === "LinearGraphQLError") {
-    const text = message.toLowerCase()
-    if (text.includes("duplicate") || text.includes("already exists")) {
-      return report(error, "conflict", "Use the existing object, or pass `--if-not-exists`.")
-    }
-    if (text.includes("not found")) {
-      return report(error, "not_found", "Check the reference and retry.")
-    }
-  }
-  return report(error, "internal", "Run with RATA_DEBUG=1 for details.")
-}
+const classifyUnclassified = (error: unknown): TrackerError =>
+  tagOf(error) === "LinearGraphQLError"
+    ? linearGraphQLError(error)
+    : report(error, "internal", "Run with RATA_DEBUG=1 for details.")
 
 const toTrackerError = (error: unknown): TrackerError => {
   if (Schema.is(TrackerError)(error)) {
     return error
-  }
-  if (Schema.is(CommandError)(error)) {
-    return new TrackerError({
-      code: error.code,
-      message: error.message,
-      hint: error.hint,
-      ...(error.retryAfterSeconds === undefined
-        ? {}
-        : { retryAfterSeconds: error.retryAfterSeconds }),
-      ...(error.details === undefined ? {} : { details: error.details }),
-      ...(error.cause === undefined ? {} : { cause: error.cause }),
-    })
   }
   const tagged = classifyTagged(error)
   if (tagged !== undefined) {
@@ -265,4 +257,39 @@ const toTrackerError = (error: unknown): TrackerError => {
   return classifyUnclassified(error)
 }
 
-export { commandError, exitCodeOf, toTrackerError }
+type WriteErrorTag = Exclude<ApplyPlanError["_tag"], "TrackerError">
+
+const writeErrorClassifiers = {
+  AssigneeInputError: rule("AssigneeInputError"),
+  AuthStoreError: rule("AuthStoreError"),
+  ConflictError: conflictReport,
+  ContextCacheError: rule("ContextCacheError"),
+  ContextLabelNotFoundError: rule("ContextLabelNotFoundError"),
+  ContextStateNotFoundError: rule("ContextStateNotFoundError"),
+  DatabaseError: rule("DatabaseError"),
+  InvalidIssueRef: rule("InvalidIssueRef"),
+  IssueRefNotFoundError: rule("IssueRefNotFoundError"),
+  IssueWriteError: rule("IssueWriteError"),
+  LabelNotFoundError: rule("LabelNotFoundError"),
+  LinearAuthError: linearAuthError,
+  LinearGraphQLError: linearGraphQLError,
+  LinearInternalError: rule("LinearInternalError"),
+  LinearNetworkError: rule("LinearNetworkError"),
+  LinearRateLimitError: rule("LinearRateLimitError"),
+  ProjectNotFoundError: rule("ProjectNotFoundError"),
+  RepoConfigError: rule("RepoConfigError"),
+  SectionAmbiguousError: rule("SectionAmbiguousError"),
+  SectionBatchError: sectionBatchReport,
+  SectionNotFoundError: sectionNotFoundReport,
+  TeamNotFoundError: rule("TeamNotFoundError"),
+  TeamResolutionError: rule("TeamResolutionError"),
+} satisfies Record<WriteErrorTag, ApplyErrorClassifier>
+
+const classifyWriteError = (error: ApplyPlanError): TrackerError => {
+  if (error._tag === "TrackerError") {
+    return error
+  }
+  return writeErrorClassifiers[error._tag](error)
+}
+
+export { classifyWriteError, exitCodeOf, toTrackerError }

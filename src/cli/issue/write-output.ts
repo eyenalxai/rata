@@ -66,7 +66,7 @@ type WriteOutcome = {
 }
 
 const publicResult = (result: ApplyResult): PublicWriteResult => {
-  const report = result.cause === undefined ? undefined : toTrackerError(result.cause)
+  const report = result.cause
   return {
     action: result.action,
     status: result.status,
@@ -82,7 +82,7 @@ const publicResult = (result: ApplyResult): PublicWriteResult => {
 }
 
 const resultLines = (result: ApplyResult): readonly string[] => {
-  const report = result.cause === undefined ? undefined : toTrackerError(result.cause)
+  const report = result.cause
   return [
     `result: ${result.status}${result.dryRun ? " (dry run)" : ""}`,
     `changed: ${result.changed.length === 0 ? "none" : result.changed.join(", ")}`,
@@ -96,7 +96,7 @@ const resultLines = (result: ApplyResult): readonly string[] => {
 
 const writeOutput = (outcome: WriteOutcome): CommandOutput => {
   const { result } = outcome
-  const report = result.cause === undefined ? undefined : toTrackerError(result.cause)
+  const report = result.cause
   const issue = Option.getOrNull(outcome.issue)
   const warning = Option.getOrNull(outcome.warning)
   return {

@@ -13,7 +13,7 @@ import type {
 } from "@/cli/spec"
 
 import { dropEmptyLine } from "@/cli/console"
-import { commandError, exitCodeOf, toTrackerError } from "@/cli/error-report"
+import { exitCodeOf, toTrackerError } from "@/cli/error-report"
 import { ExitRef, recordExit, successExit } from "@/cli/exit"
 import { OutputFields } from "@/cli/fields"
 import {
@@ -66,13 +66,11 @@ const hintOf = (error: CliError.CliError): string => {
 }
 
 const cliTrackerError = (error: CliError.CliError) =>
-  toTrackerError(
-    commandError({
-      code: "usage",
-      message: messageOf(error),
-      hint: hintOf(error),
-    }),
-  )
+  new TrackerError({
+    code: "usage",
+    message: messageOf(error),
+    hint: hintOf(error),
+  })
 
 const reportRunFailure = (error: unknown, format: OutputFormat): Effect.Effect<CliExit> =>
   reportTrackerError(toTrackerError(error), format === "json")

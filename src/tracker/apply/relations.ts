@@ -4,9 +4,9 @@ import type { ApplyDocument, ApplyRelations } from "@/domain/apply"
 import type { IssueId } from "@/domain/id"
 import type { RelationKind } from "@/domain/relation"
 import type { LinearClientShape } from "@/linear/client"
-import type { ApplyPlanError, ApplyPlanOptions } from "@/tracker/apply/model"
+import type { ApplyPlanOptions } from "@/tracker/apply/model"
 import type { IssueWorkingSetFull } from "@/tracker/model"
-import type { PlannedAction, PlanStep } from "@/tracker/plan"
+import type { ApplyPlanError, PlannedAction, PlanStep } from "@/tracker/plan"
 import type { makeIssueWriteResolvers } from "@/tracker/write/resolvers"
 
 import { TrackerError } from "@/domain/error"
@@ -83,7 +83,7 @@ const relationStep = (
   kind: RelationKind,
   target: string,
   status: "updated" | "skipped",
-  execute: Effect.Effect<void, Error>,
+  execute: Effect.Effect<void, ApplyPlanError>,
 ): PlanStep => ({
   action: "relation-add",
   target: ref,

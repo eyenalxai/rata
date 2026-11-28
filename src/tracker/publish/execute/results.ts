@@ -2,8 +2,10 @@ import type { PlanStatus } from "@/domain/plan"
 import type {
   FailedPublishAction,
   PublishEdgeResult,
+  PublishErrorClassifier,
   PublishNodeResult,
   PublishPlan,
+  PublishPlanError,
   PublishResult,
   PublishReuseNodePlan,
 } from "@/tracker/publish/model"
@@ -123,7 +125,8 @@ const failureResult = (
   nodes: NodeResults,
   edges: readonly PublishEdgeResult[],
   failed: FailedPublishAction,
-  cause: unknown,
+  cause: PublishPlanError,
+  classifyError: PublishErrorClassifier,
 ): PublishResult => ({
   action: "publish",
   status: "failed",
@@ -137,7 +140,7 @@ const failureResult = (
   edges,
   warning: changedReuseWarning(plan),
   failed,
-  cause,
+  cause: classifyError(cause),
 })
 
 const dryRunPublish = (plan: PublishPlan): PublishResult => ({

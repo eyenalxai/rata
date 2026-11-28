@@ -2,9 +2,8 @@ import { Effect, Option } from "effect"
 
 import type { ApplyDocument } from "@/domain/apply"
 import type { CommentId } from "@/domain/id"
-import type { ApplyPlanError } from "@/tracker/apply/model"
 import type { IssueWorkingSetFull } from "@/tracker/model"
-import type { PlannedAction, PlanStep } from "@/tracker/plan"
+import type { ApplyPlanError, PlannedAction, PlanStep } from "@/tracker/plan"
 import type { makeCommentWrites } from "@/tracker/write/comments"
 
 import { dedupeCommentId } from "@/domain/comment"

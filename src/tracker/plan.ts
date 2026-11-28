@@ -1,6 +1,9 @@
 import { Effect, Result } from "effect"
 
+import type { TrackerError } from "@/domain/error"
+import type { AssigneeInputError } from "@/tracker/error"
 import type { IssueWorkingSetFull } from "@/tracker/model"
+import type { IssueWriteApiError } from "@/tracker/write/model"
 
 import { ConflictError } from "@/domain/conflict"
 
@@ -35,6 +38,10 @@ type PlannedActionName = (typeof plannedActionNames)[number]
 type PlannedStatus = "updated" | "skipped"
 type ApplyStatus = PlannedStatus | "failed"
 
+type ApplyPlanError = AssigneeInputError | IssueWriteApiError | TrackerError
+
+type ApplyErrorClassifier = (error: ApplyPlanError) => TrackerError
+
 type PlannedAction = {
   readonly action: PlannedActionName
   readonly target: string
@@ -56,7 +63,7 @@ type PlanStep = {
   readonly changes: Readonly<Record<string, unknown>>
   readonly changed: readonly string[]
   readonly actions: readonly PlannedAction[]
-  readonly execute: Effect.Effect<void, Error>
+  readonly execute: Effect.Effect<void, ApplyPlanError>
 }
 
 type ApplyPlan = {
@@ -75,10 +82,11 @@ type ApplyResult = {
   readonly snapshot: string
   readonly actions: readonly PlannedAction[]
   readonly failed?: FailedAction | undefined
-  readonly cause?: unknown
+  readonly cause?: TrackerError | undefined
 }
 
 type ApplyOptions = {
+  readonly classifyError: ApplyErrorClassifier
   readonly ifUnchanged?: string | undefined
 }
 
@@ -118,7 +126,7 @@ const dryRunPlan = (plan: ApplyPlan): ApplyResult => ({
 
 const applyPlan = (
   plan: ApplyPlan,
-  options: ApplyOptions = {},
+  options: ApplyOptions,
 ): Effect.Effect<ApplyResult, ConflictError> =>
   Effect.gen(function* applyIssuePlan() {
     yield* checkSnapshot(plan, options.ifUnchanged)
@@ -144,7 +152,7 @@ const applyPlan = (
             status: "failed",
             changes: step.changes,
           },
-          cause: outcome.failure,
+          cause: options.classifyError(outcome.failure),
         }
       }
       actions.push(...step.actions)
@@ -163,9 +171,11 @@ const applyPlan = (
 export {
   type ApplyCommand,
   applyCommands,
+  type ApplyErrorClassifier,
   type ApplyOptions,
   applyPlan,
   type ApplyPlan,
+  type ApplyPlanError,
   type ApplyResult,
   type ApplyStatus,
   type ApplyStepName,
