@@ -8,6 +8,7 @@ import { closeSpec } from "@/cli/issue/close"
 import { commentSpec } from "@/cli/issue/comment"
 import { handoffSpec } from "@/cli/issue/handoff"
 import { listSpec } from "@/cli/issue/list"
+import { publishSpec } from "@/cli/issue/publish"
 import { readSpec } from "@/cli/issue/read"
 import { relateSpec } from "@/cli/issue/relate"
 import { searchSpec } from "@/cli/issue/search"
@@ -21,6 +22,7 @@ const issueCommand = buildCommand(readSpec).pipe(
     buildCommand(listSpec),
     buildCommand(searchSpec),
     createCommand,
+    buildCommand(publishSpec),
     buildCommand(startSpec),
     buildCommand(handoffSpec),
     buildCommand(closeSpec),

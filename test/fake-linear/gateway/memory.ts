@@ -22,6 +22,7 @@ import {
   attachPullRequest,
   changeLabel,
   createComment,
+  createIssues,
   createRelation,
   deleteRelation,
   updateIssue,
@@ -226,6 +227,9 @@ const makeMemoryGateway = (seed: MemorySeed): LinearGatewayShape => {
     }
     if (query.includes("query IssueBody")) {
       return runWrite(() => queryIssueBody(variables))
+    }
+    if (query.includes("mutation IssueBatchCreate")) {
+      return runWrite(() => createIssues(writeState, variables))
     }
     if (query.includes("mutation UpdateIssue")) {
       return runWrite(() => updateIssue(writeState, variables))

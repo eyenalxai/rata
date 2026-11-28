@@ -9,10 +9,16 @@ import type {
 import { Option, Schema } from "effect"
 
 import type { RelationType } from "@/domain/relation"
-import type { IssueAttachment, IssueChild, IssueComment, IssueUser } from "@/linear/decode/issue"
+import type {
+  IssueAttachment,
+  IssueChild,
+  IssueComment,
+  IssueSummaryNode,
+  IssueUser,
+} from "@/linear/decode/issue"
 import type { Viewer } from "@/linear/decode/viewer"
 
-import { attachmentId, commentId, userId } from "@/domain/id"
+import { attachmentId, commentId, issueId, userId } from "@/domain/id"
 import { isPriorityValue, priorityFromValue } from "@/domain/priority"
 import { LinearGraphQLError } from "@/linear/errors"
 
@@ -40,6 +46,22 @@ const CommentInput = Schema.Struct({
   id: Schema.optional(Schema.String),
 })
 type CommentInput = typeof CommentInput.Type
+
+const CreateIssueInput = Schema.Struct({
+  id: Schema.optional(Schema.String),
+  teamId: Schema.String,
+  title: Schema.optional(Schema.String),
+  description: Schema.optional(Schema.NullOr(Schema.String)),
+  parentId: Schema.optional(Schema.NullOr(Schema.String)),
+  labelIds: Schema.optional(Schema.Array(Schema.String)),
+  stateId: Schema.optional(Schema.NullOr(Schema.String)),
+  assigneeId: Schema.optional(Schema.NullOr(Schema.String)),
+  priority: Schema.optional(Schema.Finite),
+})
+type CreateIssueInput = typeof CreateIssueInput.Type
+
+const BatchCreateInput = Schema.Struct({ issues: Schema.Array(CreateIssueInput) })
+type BatchCreateInput = typeof BatchCreateInput.Type
 
 type MemoryWriteState = {
   readonly viewer: Viewer
@@ -170,6 +192,162 @@ const updateIssue = (state: MemoryWriteState, variables: Record<string, unknown>
   }
   replaceIssue(state, updated)
   return { issueUpdate: { success: true, issue: updated.summary } }
+}
+
+const nextIdentifier = (team: MemoryTeam, issues: readonly MemoryIssue[]): string => {
+  const prefix = `${team.key}-`
+  const numbers = issues
+    .map((issue) => issue.summary.identifier)
+    .filter((identifier) => identifier.startsWith(prefix))
+    .map((identifier) => Number(identifier.slice(prefix.length)))
+    .filter((value) => Number.isFinite(value))
+  const next = numbers.length === 0 ? 1 : Math.max(...numbers) + 1
+  return `${prefix}${next}`
+}
+
+const findWorkingIssue = (issues: readonly MemoryIssue[], ref: string): MemoryIssue | undefined =>
+  issues.find((issue) => String(issue.summary.id) === ref || issue.summary.identifier === ref)
+
+const resolveCreateState = (team: MemoryTeam, stateId: string | null | undefined) => {
+  const explicit =
+    stateId === undefined || stateId === null
+      ? undefined
+      : (team.states ?? []).find((candidate) => candidate.id === stateId)
+  if (stateId !== undefined && stateId !== null && explicit === undefined) {
+    throw unsupported(`No workflow state matches ${stateId}.`)
+  }
+  const resolved =
+    explicit ??
+    [...(team.states ?? [])].toSorted((left, right) => left.position - right.position)[0]
+  if (resolved === undefined) {
+    throw unsupported(`Team ${team.key} has no workflow states.`)
+  }
+  return resolved
+}
+
+const resolveCreateLabels = (
+  state: MemoryWriteState,
+  team: MemoryTeam,
+  labelIds: readonly string[] | undefined,
+) =>
+  (labelIds ?? []).map((labelId) => {
+    const memoryLabel = state.labels.find((candidate) => candidate.id === labelId)
+    const teamLabel = team.labels?.find((candidate) => candidate.id === labelId)
+    const label = memoryLabel ?? teamLabel
+    if (label === undefined) {
+      throw unsupported(`No label matches ${labelId}.`)
+    }
+    return { id: label.id, name: label.name }
+  })
+
+const createSummary = (
+  state: MemoryWriteState,
+  team: MemoryTeam,
+  item: CreateIssueInput,
+  working: readonly MemoryIssue[],
+): { readonly issue: MemoryIssue; readonly parentId: string | null } => {
+  const identifier = nextIdentifier(team, working)
+  const id = issueId(item.id ?? `issue-${identifier}`)
+  if (working.some((issue) => String(issue.summary.id) === String(id))) {
+    throw unsupported(`The issue id ${String(id)} already exists.`)
+  }
+  const resolvedState = resolveCreateState(team, item.stateId)
+  const labels = resolveCreateLabels(state, team, item.labelIds)
+  const parent =
+    item.parentId === undefined || item.parentId === null
+      ? undefined
+      : findWorkingIssue(working, item.parentId)
+  if (item.parentId !== undefined && item.parentId !== null && parent === undefined) {
+    throw unsupported(`No issue matches ${item.parentId}.`)
+  }
+  const priority =
+    item.priority !== undefined && isPriorityValue(item.priority)
+      ? priorityFromValue(item.priority)
+      : "none"
+  const summary: IssueSummaryNode = {
+    id,
+    identifier,
+    title: item.title ?? "Untitled",
+    url: `https://linear.app/acme/issue/${identifier}/title`,
+    state: { name: resolvedState.name, type: resolvedState.type },
+    priority,
+    createdAt: "2026-01-08T00:00:00.000Z",
+    updatedAt: "2026-01-08T00:00:00.000Z",
+    assignee:
+      item.assigneeId === undefined || item.assigneeId === null
+        ? null
+        : userOf(state, item.assigneeId),
+    project: null,
+    parent:
+      parent === undefined
+        ? null
+        : {
+            id: parent.summary.id,
+            identifier: parent.summary.identifier,
+            title: parent.summary.title,
+          },
+    labels: { nodes: labels },
+  }
+  return {
+    issue: {
+      summary,
+      description: item.description ?? null,
+      team: { id: team.id, key: team.key, name: team.name },
+    },
+    parentId: item.parentId ?? null,
+  }
+}
+
+const commitCreated = (
+  state: MemoryWriteState,
+  created: readonly { readonly issue: MemoryIssue; readonly parentId: string | null }[],
+): void => {
+  for (const item of created) {
+    state.issues.push(item.issue)
+  }
+  for (const item of created) {
+    if (item.parentId === null) {
+      continue
+    }
+    const parent = findWorkingIssue(state.issues, item.parentId)
+    if (parent === undefined) {
+      continue
+    }
+    replaceIssue(state, {
+      ...parent,
+      children: [
+        ...(parent.children ?? []),
+        {
+          id: item.issue.summary.id,
+          identifier: item.issue.summary.identifier,
+          title: item.issue.summary.title,
+          state: item.issue.summary.state,
+        },
+      ],
+    })
+  }
+}
+
+const createIssues = (state: MemoryWriteState, variables: Record<string, unknown>) => {
+  const input = decodeInput(BatchCreateInput, variables.input)
+  if (input === undefined) {
+    throw unsupported("The batch create input is not valid.")
+  }
+  const working = [...state.issues]
+  const created: { readonly issue: MemoryIssue; readonly parentId: string | null }[] = []
+  for (const item of input.issues) {
+    const team = state.teams.find((candidate) => candidate.id === item.teamId)
+    if (team === undefined) {
+      throw unsupported(`No team matches ${item.teamId}.`)
+    }
+    const result = createSummary(state, team, item, working)
+    working.push(result.issue)
+    created.push(result)
+  }
+  commitCreated(state, created)
+  return {
+    issueBatchCreate: { success: true, issues: created.map((item) => item.issue.summary) },
+  }
 }
 
 const labelOf = (state: MemoryWriteState, issue: MemoryIssue, id: string) => {
@@ -373,6 +551,7 @@ export {
   attachPullRequest,
   changeLabel,
   createComment,
+  createIssues,
   createRelation,
   deleteRelation,
   type MemoryWriteState,

@@ -181,6 +181,14 @@ const CommentMutationPayload = Schema.Struct({
 
 const CreateIssueResponse = Schema.Struct({ issueCreate: IssueMutationPayload })
 
+const IssueBatchPayload = Schema.Struct({
+  success: Schema.Boolean,
+  issues: Schema.Array(IssueSummaryNode),
+})
+type IssueBatchPayload = typeof IssueBatchPayload.Type
+
+const IssueBatchCreateResponse = Schema.Struct({ issueBatchCreate: IssueBatchPayload })
+
 const UpdateIssueResponse = Schema.Struct({ issueUpdate: IssueMutationPayload })
 
 const AddLabelResponse = Schema.Struct({ issueAddLabel: IssueMutationPayload })
@@ -212,6 +220,8 @@ export {
   DeleteRelationResponse,
   IssueAttachmentConnection,
   type IssueAttachment,
+  IssueBatchCreateResponse,
+  type IssueBatchPayload,
   type IssueChild,
   type IssueComment,
   IssueCommentConnection,
