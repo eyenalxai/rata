@@ -166,12 +166,17 @@ const logoutSpec = defineCommand("logout", {
       command: "rata admin auth logout --workspace work",
       description: "Remove the work profile",
     },
+    {
+      command: "rata admin auth logout --format json",
+      description: "Report removed, defaultProfile and remaining as JSON",
+    },
   ],
   input: { workspace: workspaceFlag },
   output: resourceOutput(
     objectField({
       removed: scalarField,
-      default: scalarField,
+      defaultProfile: scalarField,
+      remaining: scalarField,
     }),
   ),
   run: (input) =>
@@ -179,7 +184,7 @@ const logoutSpec = defineCommand("logout", {
       const auth = yield* Auth
       const outcome = yield* auth.logout(input.workspace)
       const removed = Option.getOrNull(outcome.removed)
-      const next = Option.getOrNull(outcome.default)
+      const next = Option.getOrNull(outcome.defaultProfile)
       const requested = Option.getOrNull(input.workspace)
       const text =
         removed === null
@@ -190,11 +195,15 @@ const logoutSpec = defineCommand("logout", {
             ]
           : [
               `Removed the workspace "${removed}".`,
-              next === null ? "No stored workspace remains." : `Default workspace: ${next}.`,
+              outcome.remaining === 0
+                ? "No stored workspace remains."
+                : next === null
+                  ? "No default workspace. Run `rata admin workspace use <name>`."
+                  : `Default workspace: ${next}.`,
             ]
       return {
         kind: "resource",
-        value: { removed, default: next },
+        value: { removed, defaultProfile: next, remaining: outcome.remaining },
         text,
       }
     }),

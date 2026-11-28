@@ -5,8 +5,18 @@ import type { OpenDatabase } from "@/db/database"
 
 import { profiles } from "@/db/schema"
 
-const storeProfile = (opened: OpenDatabase, apiKey: string, workspace: string) =>
-  opened.drizzle.transaction((tx) =>
+type LogoutResult = {
+  readonly removed: Option.Option<string>
+  readonly defaultProfile: Option.Option<string>
+  readonly remaining: number
+}
+
+const storeProfile = Effect.fn("Auth.storeProfile")(function* storeProfileRows(
+  opened: OpenDatabase,
+  apiKey: string,
+  workspace: string,
+) {
+  yield* opened.drizzle.transaction((tx) =>
     Effect.gen(function* storeProfileRow() {
       const defaults = yield* tx
         .select({ name: profiles.name })
@@ -28,19 +38,25 @@ const storeProfile = (opened: OpenDatabase, apiKey: string, workspace: string) =
       yield* upsert.run()
     }),
   )
+})
 
-const removeProfile = (opened: OpenDatabase, workspace: Option.Option<string>) =>
-  opened.drizzle.transaction((tx) =>
+const removeProfile = Effect.fn("Auth.removeProfile")(function* removeProfileRows(
+  opened: OpenDatabase,
+  workspace: Option.Option<string>,
+) {
+  return yield* opened.drizzle.transaction((tx) =>
     Effect.gen(function* removeProfileRow() {
       const stored = yield* tx.select().from(profiles).orderBy(profiles.name).all()
       const target = Option.isSome(workspace)
         ? stored.find((row) => row.name === workspace.value)
         : stored.find((row) => row.isDefault === 1)
       if (target === undefined) {
-        return {
+        const unchanged: LogoutResult = {
           removed: Option.none<string>(),
-          default: Option.fromUndefinedOr(stored.find((row) => row.isDefault === 1)?.name),
+          defaultProfile: Option.fromUndefinedOr(stored.find((row) => row.isDefault === 1)?.name),
+          remaining: stored.length,
         }
+        return unchanged
       }
       yield* tx.delete(profiles).where(eq(profiles.name, target.name)).run()
       const remaining = stored.filter((row) => row.name !== target.name)
@@ -53,19 +69,34 @@ const removeProfile = (opened: OpenDatabase, workspace: Option.Option<string>) =
           .where(eq(profiles.name, promoted.name))
           .run()
       }
-      return {
+      const removed: LogoutResult = {
         removed: Option.some(target.name),
-        default: Option.fromUndefinedOr(promoted?.name),
+        defaultProfile: Option.fromUndefinedOr(promoted?.name),
+        remaining: remaining.length,
       }
+      return removed
     }),
   )
+})
 
-const selectDefaultProfile = (opened: OpenDatabase, workspace: string) =>
-  opened.drizzle.transaction((tx) =>
-    Effect.gen(function* selectDefaultProfileRow() {
-      yield* tx.update(profiles).set({ isDefault: 0 }).where(eq(profiles.isDefault, 1)).run()
-      yield* tx.update(profiles).set({ isDefault: 1 }).where(eq(profiles.name, workspace)).run()
-    }),
-  )
+const selectDefaultProfile = Effect.fn("Auth.selectDefaultProfile")(
+  function* selectDefaultProfileRows(opened: OpenDatabase, workspace: string) {
+    return yield* opened.drizzle.transaction((tx) =>
+      Effect.gen(function* selectDefaultProfileRow() {
+        const target = yield* tx
+          .select({ name: profiles.name })
+          .from(profiles)
+          .where(eq(profiles.name, workspace))
+          .all()
+        if (target.length === 0) {
+          return false
+        }
+        yield* tx.update(profiles).set({ isDefault: 0 }).where(eq(profiles.isDefault, 1)).run()
+        yield* tx.update(profiles).set({ isDefault: 1 }).where(eq(profiles.name, workspace)).run()
+        return true
+      }),
+    )
+  },
+)
 
-export { removeProfile, selectDefaultProfile, storeProfile }
+export { type LogoutResult, removeProfile, selectDefaultProfile, storeProfile }

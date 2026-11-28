@@ -245,7 +245,8 @@ describe("Auth.logout", () => {
     )
 
     expect(result.outcome.removed).toEqual(Option.some("work"))
-    expect(result.outcome.default).toEqual(Option.some("default"))
+    expect(result.outcome.defaultProfile).toEqual(Option.some("default"))
+    expect(result.outcome.remaining).toBe(1)
     expect(result.rows).toEqual([{ name: "default", apiKey: "default-key", isDefault: 1 }])
   })
 
@@ -267,7 +268,8 @@ describe("Auth.logout", () => {
     )
 
     expect(result.outcome.removed).toEqual(Option.some("default"))
-    expect(result.outcome.default).toEqual(Option.some("alpha"))
+    expect(result.outcome.defaultProfile).toEqual(Option.some("alpha"))
+    expect(result.outcome.remaining).toBe(1)
     expect(result.rows).toEqual([{ name: "alpha", apiKey: "alpha-key", isDefault: 1 }])
     expect(result.resolved.profile).toEqual(Option.some("alpha"))
     expect(Redacted.value(result.resolved.key)).toBe("alpha-key")
@@ -285,7 +287,8 @@ describe("Auth.logout", () => {
     )
 
     expect(Option.isNone(result.outcome.removed)).toBe(true)
-    expect(result.outcome.default).toEqual(Option.some("default"))
+    expect(result.outcome.defaultProfile).toEqual(Option.some("default"))
+    expect(result.outcome.remaining).toBe(2)
     expect(result.rows).toHaveLength(2)
   })
 
@@ -308,7 +311,8 @@ describe("Auth.logout", () => {
     )
 
     expect(result.outcome.removed).toEqual(Option.some("default"))
-    expect(result.outcome.default).toEqual(Option.some("alpha"))
+    expect(result.outcome.defaultProfile).toEqual(Option.some("alpha"))
+    expect(result.outcome.remaining).toBe(2)
     expect(result.rows).toEqual([
       { name: "alpha", apiKey: "alpha-key", isDefault: 1 },
       { name: "work", apiKey: "work-key", isDefault: 0 },
@@ -330,7 +334,8 @@ describe("Auth.logout", () => {
     )
 
     expect(result.outcome.removed).toEqual(Option.some("default"))
-    expect(Option.isNone(result.outcome.default)).toBe(true)
+    expect(Option.isNone(result.outcome.defaultProfile)).toBe(true)
+    expect(result.outcome.remaining).toBe(0)
     expect(result.rows).toEqual([])
     expect(Option.isNone(result.resolved)).toBe(true)
   })

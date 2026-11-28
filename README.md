@@ -551,6 +551,10 @@ selects a key. When no profile remains, commands that need a key fail with
 ``Not authenticated. Run `rata admin auth login --with-token`, or set LINEAR_API_KEY.``
 Run `rata admin workspace use <name>` to select a different profile.
 
+`rata admin auth logout --format json` reports `removed` (the profile name or
+`null`), `defaultProfile` (the promoted profile or `null`) and `remaining` (the
+stored profile count).
+
 ## Teams
 
 `rata admin team list` prints the teams in the workspace: key, name, id. It returns

@@ -17,10 +17,11 @@ they point at. `auth logout` with no flag removes a profile literally named
 
 `rata auth login` prompts for the API key in a terminal, masked, verifies it
 with the viewer query, and stores it as a workspace profile named after the
-workspace url key. The profile becomes the default. `--with-token` remains the
+workspace url key. A login becomes the default when no default exists, and a
+later login preserves the current default. `--with-token` remains the
 non-interactive path and `LINEAR_API_KEY` the environment path. Login cannot
 choose a name; a later login replaces the key silently. `auth logout` with no
-flag removes the default profile.
+flag removes the default profile and promotes the next profile by name.
 
 Rejected alternatives: prompting for the profile name (an extra step, and names
 drift from the workspaces they point at) and naming profiles from the

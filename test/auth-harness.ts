@@ -1,5 +1,6 @@
 import type { ProfileSeed, RepositorySeed } from "@test/database-harness"
 import type { MemoryTree } from "@test/memory-file-system"
+import type { FileSystem } from "effect"
 
 import { databaseLayer } from "@test/database-harness"
 import { memoryFileSystem } from "@test/memory-file-system"
@@ -42,6 +43,17 @@ const makeAuthHarness = (overrides: Partial<AuthHarness> = {}): AuthHarness => (
   ...overrides,
 })
 
+const authLayerFor = (
+  database: Layer.Layer<Database>,
+  platform: Layer.Layer<FileSystem.FileSystem | Path.Path>,
+): Layer.Layer<Auth> => {
+  const identity = RepositoryIdentity.layer.pipe(Layer.provide(platform))
+  const repoConfig = RepoConfigService.layer.pipe(
+    Layer.provide(Layer.mergeAll(platform, database, identity)),
+  )
+  return Auth.layer.pipe(Layer.provide(Layer.mergeAll(repoConfig, platform, database)))
+}
+
 const runWithAuth = <A, E>(
   harness: AuthHarness,
   use: Effect.Effect<A, E, Auth | Database>,
@@ -49,11 +61,7 @@ const runWithAuth = <A, E>(
   const tree: MemoryTree = { directories: [], files: harness.files }
   const platform = Layer.mergeAll(memoryFileSystem(tree), Path.layer)
   const database = databaseLayer(harness.repositories, harness.profiles)
-  const identity = RepositoryIdentity.layer.pipe(Layer.provide(platform))
-  const repoConfig = RepoConfigService.layer.pipe(
-    Layer.provide(Layer.mergeAll(platform, database, identity)),
-  )
-  const auth = Auth.layer.pipe(Layer.provide(Layer.mergeAll(repoConfig, platform, database)))
+  const auth = authLayerFor(database, platform)
   return use.pipe(
     Effect.provide(
       Layer.mergeAll(
@@ -92,6 +100,7 @@ const storedProfiles = Effect.gen(function* readStoredProfiles() {
 })
 
 export {
+  authLayerFor,
   authPath,
   makeAuthHarness,
   profileFile,

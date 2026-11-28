@@ -34,8 +34,8 @@ The setup commands live under `admin`:
 - `printf '%s' "$LINEAR_API_KEY" | rata admin auth login --with-token` stores a
   key. The key resolves as `LINEAR_API_KEY`, the repository workspace, then the
   default profile; `rata admin workspace use <name>` selects a profile.
-  `rata admin auth logout` removes the default profile and selects the next
-  profile by name.
+  `rata admin auth logout` removes the default profile, promotes the next
+  profile by name and reports it as `defaultProfile`.
 - `rata admin link --team <key>` links the repository and sets the team
   timezone. A warm read keeps the linked key and repairs only a stale team UUID;
   use `--refresh` to fetch a renamed key. Follow the repair hint when `status`
