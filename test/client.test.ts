@@ -1,11 +1,12 @@
 import type { HttpClientRequest } from "effect/http"
 
 import { describe, expect, test } from "bun:test"
-import { Clock, Effect, Fiber, Layer, Redacted } from "effect"
+import { Clock, ConfigProvider, Effect, Fiber, Layer, Redacted } from "effect"
 import { HttpClient, HttpClientError, HttpClientResponse } from "effect/http"
 import { TestClock } from "effect/testing"
 
 import { LinearClient } from "@/api/client"
+import { userId } from "@/domain/id"
 import { LinearGateway } from "@/linear/gateway"
 
 const jsonResponse = (
@@ -81,6 +82,38 @@ describe("LinearClient", () => {
     expect(calls).toBe(1)
   })
 
+  test("keeps the server message on a 401", async () => {
+    const error = await runViewerFailure(
+      clientLayer(() => jsonResponse({ errors: [{ message: "bad key" }] }, 401)),
+    )
+    expect(error._tag).toBe("LinearAuthError")
+    if (error._tag === "LinearAuthError") {
+      expect(error.message).toContain("bad key")
+    }
+  })
+
+  test("keeps the server message from a 4xx body", async () => {
+    const error = await runViewerFailure(
+      clientLayer(() => jsonResponse({ errors: [{ message: "Field 'x' is undefined" }] }, 400)),
+    )
+    expect(error._tag).toBe("LinearGraphQLError")
+    if (error._tag === "LinearGraphQLError") {
+      expect(error.message).toBe("Field 'x' is undefined")
+      expect(error.details).toEqual(["Field 'x' is undefined"])
+    }
+  })
+
+  test("keeps an undecodable 4xx body in the cause", async () => {
+    const error = await runViewerFailure(
+      clientLayer(() => new Response("Bad request: no query", { status: 400 })),
+    )
+    expect(error._tag).toBe("LinearGraphQLError")
+    if (error._tag === "LinearGraphQLError") {
+      expect(error.message).toBe("Linear returned HTTP 400.")
+      expect(error.cause).toBe("Bad request: no query")
+    }
+  })
+
   test("maps 429 to LinearRateLimitError with Retry-After", async () => {
     let calls = 0
     const error = await runViewerFailure(
@@ -92,6 +125,7 @@ describe("LinearClient", () => {
     expect(error._tag).toBe("LinearRateLimitError")
     if (error._tag === "LinearRateLimitError") {
       expect(error.retryAfterSeconds).toBe(0)
+      expect(error.message).toContain("slow down")
     }
     expect(calls).toBe(4)
   })
@@ -129,6 +163,42 @@ describe("LinearClient", () => {
     }
   })
 
+  test("keeps the messages from an errors-only response", async () => {
+    const error = await runViewerFailure(
+      clientLayer(() => jsonResponse({ errors: [{ message: "A" }, { message: "B" }] })),
+    )
+    expect(error._tag).toBe("LinearGraphQLError")
+    if (error._tag === "LinearGraphQLError") {
+      expect(error.message).toBe("A; B")
+      expect(error.details).toEqual(["A", "B"])
+    }
+  })
+
+  test("decodes a successful response", async () => {
+    const viewer = await readViewer.pipe(
+      Effect.provide(
+        clientLayer(() =>
+          jsonResponse({
+            data: {
+              viewer: {
+                id: "u1",
+                name: "Ada",
+                displayName: "ada",
+                email: "ada@example.com",
+                active: true,
+                admin: false,
+                organization: { id: "o1", name: "Org", urlKey: "org" },
+              },
+            },
+          }),
+        ),
+      ),
+      Effect.runPromise,
+    )
+    expect(viewer.id).toBe(userId("u1"))
+    expect(viewer.displayName).toBe("ada")
+  })
+
   test("maps a decode failure to LinearGraphQLError with its cause", async () => {
     const error = await runViewerFailure(
       clientLayer(() => jsonResponse({ data: { viewer: { id: "u1" } } })),
@@ -145,6 +215,28 @@ describe("LinearClient", () => {
     if (error._tag === "LinearNetworkError") {
       expect(error.cause).toBeDefined()
       expect(error.message).toContain("Transport")
+    }
+  })
+
+  test("fails with LinearNetworkError when the request stalls", async () => {
+    const error = await Effect.gen(function* stallRequest() {
+      const client = yield* LinearClient
+      const fiber = yield* client.viewer.pipe(Effect.flip, Effect.forkChild)
+      yield* TestClock.adjust("30 seconds")
+      return yield* Fiber.join(fiber)
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          httpClientLayer(HttpClient.make(() => Effect.never)),
+          TestClock.layer(),
+          ConfigProvider.layer(ConfigProvider.fromEnvRecord({ RATA_LINEAR_TIMEOUT: "5 seconds" })),
+        ),
+      ),
+      Effect.runPromise,
+    )
+    expect(error._tag).toBe("LinearNetworkError")
+    if (error._tag === "LinearNetworkError") {
+      expect(error.message).toContain("did not respond")
     }
   })
 

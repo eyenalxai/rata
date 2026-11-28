@@ -17,6 +17,7 @@ class LinearRateLimitError extends Schema.TaggedError<LinearRateLimitError>()(
   {
     message: Schema.String,
     retryAfterSeconds: Schema.optional(Schema.Finite),
+    cause: Schema.optional(Schema.Defect()),
   },
 ) {}
 

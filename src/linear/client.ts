@@ -1,6 +1,6 @@
 import type { HttpClient } from "effect/http"
 
-import { Duration, Effect, Redacted, Schedule, Schema } from "effect"
+import { Config, Duration, Effect, Option, Redacted, Schedule, Schema } from "effect"
 import { HttpClientRequest, HttpClientResponse } from "effect/http"
 
 import type { LinearApiError } from "@/linear/errors"
@@ -21,8 +21,8 @@ const GraphQLErrorPayload = Schema.Struct({ message: Schema.String })
 
 const responseEnvelope = <S extends Schema.Constraint>(data: S) =>
   Schema.Struct({
-    data: Schema.NullOr(data),
     errors: Schema.optional(Schema.Array(GraphQLErrorPayload)),
+    data: Schema.optional(Schema.NullOr(data)),
   })
 
 type ClientSchema = Schema.Constraint & { readonly DecodingServices: never }
@@ -46,6 +46,10 @@ type LinearClientShape = {
 
 const maxRetries = 3
 
+const requestTimeout: Effect.Effect<Duration.Duration> = Config.Duration(
+  "RATA_LINEAR_TIMEOUT",
+).pipe(Config.withDefault(Duration.seconds(30)), Effect.orDie)
+
 const retryPolicy: Schedule.Schedule<Duration.Duration, LinearApiError> = Schedule.exponential(
   "200 millis",
 ).pipe(
@@ -68,38 +72,84 @@ const parseRetryAfter = (
   return Number.isFinite(seconds) ? seconds : undefined
 }
 
+type ErrorBody = {
+  readonly body: string | undefined
+  readonly messages: readonly string[]
+}
+
+const readErrorBody = Effect.fnUntraced(function* readLinearErrorBody(
+  response: HttpClientResponse.HttpClientResponse,
+): Effect.fn.Return<ErrorBody> {
+  const raw = yield* response.text.pipe(Effect.orElseSucceed(() => ""))
+  const body = raw.trim()
+  if (body === "") {
+    return { body: undefined, messages: [] }
+  }
+  const envelope = Schema.decodeOption(Schema.fromJsonString(responseEnvelope(Schema.Unknown)))(
+    body,
+  )
+  return {
+    body,
+    messages: Option.match(envelope, {
+      onNone: () => [],
+      onSome: (decoded) => decoded.errors?.map((error) => error.message) ?? [],
+    }),
+  }
+})
+
+const withServerMessages = (fallback: string, messages: readonly string[]): string =>
+  messages.length === 0 ? fallback : `${fallback} ${messages.join("; ")}`
+
 const makeSend = (http: HttpClient.HttpClient) =>
   Effect.fn("LinearClient.send")(function* sendRequest(
     request: HttpClientRequest.HttpClientRequest,
   ) {
-    const response = yield* http
-      .execute(request)
-      .pipe(Effect.mapError((cause) => new LinearNetworkError({ message: cause.message, cause })))
+    const timeout = yield* requestTimeout
+    const response = yield* http.execute(request).pipe(
+      Effect.mapError((cause) => new LinearNetworkError({ message: cause.message, cause })),
+      Effect.timeoutOrElse({
+        duration: timeout,
+        orElse: () =>
+          Effect.fail(
+            new LinearNetworkError({
+              message: `Linear did not respond within ${Duration.format(timeout)}.`,
+            }),
+          ),
+      }),
+    )
 
     if (response.status === 401 || response.status === 403) {
+      const { body, messages } = yield* readErrorBody(response)
+      const reason =
+        response.status === 403 ? "Linear forbade this request." : "Linear rejected the API key."
       return yield* new LinearAuthError({
-        message:
-          response.status === 403 ? "Linear forbade this request." : "Linear rejected the API key.",
+        message: withServerMessages(reason, messages),
         status: response.status,
+        ...(body === undefined ? {} : { cause: body }),
       })
     }
     if (response.status === 429) {
+      const { body, messages } = yield* readErrorBody(response)
       return yield* new LinearRateLimitError({
-        message: "Linear rate limit reached.",
+        message: withServerMessages("Linear rate limit reached.", messages),
         retryAfterSeconds: parseRetryAfter(response.headers),
+        ...(body === undefined ? {} : { cause: body }),
       })
     }
     if (response.status >= 500) {
-      const body = yield* response.text.pipe(Effect.orElseSucceed(() => ""))
+      const { body } = yield* readErrorBody(response)
       return yield* new LinearNetworkError({
         message: `Linear returned HTTP ${response.status}.`,
-        ...(body.trim() === "" ? {} : { cause: body }),
+        ...(body === undefined ? {} : { cause: body }),
       })
     }
     if (response.status >= 400) {
+      const { body, messages } = yield* readErrorBody(response)
       return yield* new LinearGraphQLError({
-        message: `Linear returned HTTP ${response.status}.`,
-        details: [],
+        message:
+          messages.length === 0 ? `Linear returned HTTP ${response.status}.` : messages.join("; "),
+        details: [...messages],
+        ...(body === undefined ? {} : { cause: body }),
       })
     }
     return response
@@ -147,7 +197,7 @@ const makeClient = (
       const details = envelope.errors.map((error) => error.message)
       return yield* new LinearGraphQLError({ message: details.join("; "), details })
     }
-    if (envelope.data === null) {
+    if (envelope.data === undefined || envelope.data === null) {
       return yield* new LinearGraphQLError({
         message: "Linear returned no data.",
         details: [],
