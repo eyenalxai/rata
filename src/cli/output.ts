@@ -118,6 +118,9 @@ const publicError = (report: TrackerError): Record<string, unknown> => ({
   code: report.code,
   message: report.message,
   hint: report.hint,
+  ...(report.retryAfterSeconds === undefined
+    ? {}
+    : { retryAfterSeconds: report.retryAfterSeconds }),
   ...(report.details === undefined ? {} : { details: report.details }),
 })
 
@@ -192,6 +195,9 @@ const writeTrackerError = (
           code: report.code,
           message: report.message,
           hint: report.hint,
+          ...(report.retryAfterSeconds === undefined
+            ? {}
+            : { retryAfterSeconds: report.retryAfterSeconds }),
           ...(Object.keys(details).length === 0 ? {} : { details }),
         },
       })

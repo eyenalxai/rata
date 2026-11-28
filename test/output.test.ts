@@ -96,7 +96,7 @@ describe("reportFailure", () => {
       true,
     )
     expect(JSON.parse(lines[0] ?? "")).toMatchObject({
-      error: { code: "rate_limited", hint: "Retry later." },
+      error: { code: "rate_limited", hint: "Retry later.", retryAfterSeconds: 3 },
     })
   })
 

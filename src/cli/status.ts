@@ -70,7 +70,7 @@ type StatusDocument = {
   readonly cache: StatusCache | null
   readonly docs: ContextDocs["docs"]
   readonly warning: string | null
-  readonly teamDetail?: StatusTeamDetail | undefined
+  readonly teamDetail?: StatusTeamDetail | null
 }
 
 type StatusInput = {
@@ -165,7 +165,7 @@ const statusDocument = (input: StatusInput): StatusDocument => {
     cache: statusCache(team),
     docs: docs.docs,
     warning: statusWarning(context.warning, docs.docs),
-    ...(teamDetail === undefined ? {} : { teamDetail }),
+    ...(input.full ? { teamDetail: teamDetail ?? null } : {}),
   }
 }
 
@@ -203,7 +203,7 @@ const statusText = (document: StatusDocument, storedTeam: string | undefined): s
     row("docs:", docsLine(document.docs)),
     row("viewer:", `${document.viewer.name} <${document.viewer.email}>`),
     row("org:", `${document.viewer.organization.name} (${document.viewer.organization.urlKey})`),
-    ...(document.teamDetail === undefined
+    ...(document.teamDetail === undefined || document.teamDetail === null
       ? []
       : [
           row("timezone:", document.teamDetail.timezone),

@@ -21,6 +21,7 @@ class TrackerError extends Schema.TaggedError<TrackerError>()("TrackerError", {
   code: ErrorCodeSchema,
   message: Schema.String,
   hint: Schema.NullOr(Schema.String),
+  retryAfterSeconds: Schema.optional(Schema.Finite),
   details: Schema.optional(Schema.Record(Schema.String, Schema.Unknown)),
   cause: Schema.optional(Schema.Defect()),
 }) {}

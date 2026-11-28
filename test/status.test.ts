@@ -88,6 +88,19 @@ describe("status", () => {
     })
   })
 
+  test("returns a null team detail with --full when no team is linked", async () => {
+    const fake = makeFakeLinear({ teams: [team], labels: [] })
+    const lines: string[] = []
+    await runStatus(fake.handler, ["--full", "--select", "teamDetail", "--format", "json"], lines, {
+      env: { HOME: "/home/test" },
+      profiles,
+      repositories: [],
+    })
+
+    expect(lastJson(lines)).toEqual({ teamDetail: null })
+    expect(process.exitCode ?? 0).toBe(0)
+  })
+
   test("uses the repository profile and shows the linked team and project", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
