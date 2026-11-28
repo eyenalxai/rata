@@ -248,6 +248,10 @@ the error prints `error: <message>` and, when present, `hint: <hint>` on stderr.
 A parse error writes the normal error object with code `usage`; help prints only
 for `--help`.
 
+Linear requests time out after 30 seconds. Set `RATA_LINEAR_TIMEOUT` to an
+Effect duration string such as `10 seconds` or `500 millis` to change the limit.
+A timeout surfaces as the retryable `network` error.
+
 ### Exit codes
 
 Every failure exits with the code of its class. The code is stable, so a script
