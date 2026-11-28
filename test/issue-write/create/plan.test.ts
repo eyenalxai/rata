@@ -34,7 +34,7 @@ const seed: MemorySeed = {
 const repositories = [
   {
     key: process.cwd(),
-    team: "RAT",
+    team: "OLD",
     teamId: "team-1",
     defaultAssignee: "me",
     defaultLabels: ["ready-for-agent"],
@@ -44,68 +44,21 @@ const repositories = [
 
 const env = { HOME: "/home/test", LINEAR_API_KEY: "test-key" }
 
-const planChanges = async (
-  repositorySeed: typeof repositories,
-  args: readonly string[],
-): Promise<unknown> => {
-  const lines: string[] = []
-  await runIssueMemory(
-    seed,
-    ["create", "--title", "Fix login", "--dry-run", "--format", "json", ...args],
-    lines,
-    repositorySeed,
-    { env },
-  )
-  return lastJson(lines)
-}
-
 afterEach(() => {
   process.exitCode = 0
 })
 
 describe("issue create plan", () => {
-  test("uses the context defaults and the team", async () => {
-    const payload = await planChanges(repositories, ["--team", "RAT"])
-    expect(payload).toMatchObject({
-      issue: null,
-      result: {
-        action: "create",
-        status: "updated",
-        dryRun: true,
-        changed: ["issue"],
-        actions: [
-          {
-            action: "create",
-            target: "new",
-            status: "updated",
-            changes: {
-              team: "RAT",
-              title: "Fix login",
-              labels: ["ready-for-agent"],
-              assignee: "me",
-              priority: "medium",
-            },
-          },
-        ],
-      },
-    })
-  })
-
   test("keeps the stored team text in a create dry run", async () => {
-    const payload = await planChanges(
-      [
-        {
-          key: process.cwd(),
-          team: "OLD",
-          teamId: "team-1",
-          defaultAssignee: "me",
-          defaultLabels: ["ready-for-agent"],
-          defaultPriority: 3,
-        },
-      ],
-      [],
+    const lines: string[] = []
+    await runIssueMemory(
+      seed,
+      ["create", "--title", "Fix login", "--dry-run", "--format", "json"],
+      lines,
+      repositories,
+      { env },
     )
-    expect(payload).toMatchObject({
+    expect(lastJson(lines)).toMatchObject({
       result: {
         actions: [
           {

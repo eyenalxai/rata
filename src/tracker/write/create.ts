@@ -23,7 +23,7 @@ type CreateDependencies = {
 }
 
 const labelsFor = (options: IssueCreateOptions, defaults: IssueDefaults): readonly string[] => [
-  ...(options.useDefaultLabels === false ? [] : defaults.labels),
+  ...defaults.labels,
   ...(options.labels ?? []),
 ]
 

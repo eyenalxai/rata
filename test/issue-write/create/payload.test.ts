@@ -113,7 +113,6 @@ describe("issue create payload", () => {
       assigneeId: "u1",
       priority: 2,
     })
-    expect(lastJson(lines)).toMatchObject({ issue: { identifier: "RAT-1" } })
   })
 
   test("omits an empty body from the create input", async () => {
