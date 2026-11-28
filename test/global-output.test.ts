@@ -9,7 +9,12 @@ import { Command } from "effect/cli"
 
 import { teamCommand } from "@/cli/registry"
 
-const team = { id: "00000000-0000-0000-0000-000000000001", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
+const team = {
+  id: "00000000-0000-0000-0000-000000000001",
+  key: "RAT",
+  name: "Rata",
+  timezone: "America/Los_Angeles",
+}
 
 const runTeam = (handler: Handler, args: readonly string[], lines: string[]) =>
   Command.run(teamCommand, { version: "test" }).pipe(

@@ -13,7 +13,12 @@ import { TeamService } from "@/api/team"
 import { PromptRequiredError, confirm } from "@/cli/confirm"
 import { teamId } from "@/domain/id"
 
-const team = { id: teamId("00000000-0000-0000-0000-000000000001"), key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
+const team = {
+  id: teamId("00000000-0000-0000-0000-000000000001"),
+  key: "RAT",
+  name: "Rata",
+  timezone: "America/Los_Angeles",
+}
 
 const run = <A, E>(handler: Handler, effect: Effect.Effect<A, E, TeamService>) =>
   effect.pipe(Effect.provide(apiLayer(handler)), Effect.runPromise)

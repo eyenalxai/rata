@@ -16,8 +16,18 @@ const handler = () =>
   makeRecorder((request) => {
     const detail = teamDetailResponse(request, {
       labels: [
-        { id: "l-enh", name: "enhancement", color: "#111111", teamId: "00000000-0000-0000-0000-000000000001" },
-        { id: "l-bug", name: "bug", color: "#EB5757", teamId: "00000000-0000-0000-0000-000000000001" },
+        {
+          id: "l-enh",
+          name: "enhancement",
+          color: "#111111",
+          teamId: "00000000-0000-0000-0000-000000000001",
+        },
+        {
+          id: "l-bug",
+          name: "bug",
+          color: "#EB5757",
+          teamId: "00000000-0000-0000-0000-000000000001",
+        },
       ],
     })
     if (detail !== undefined) {

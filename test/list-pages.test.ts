@@ -10,7 +10,12 @@ import { Viewer } from "@/linear/decode/viewer"
 
 const viewer = Option.getOrThrow(Schema.decodeUnknownOption(Viewer)(defaultViewer))
 
-const team = { id: teamId("00000000-0000-0000-0000-000000000001"), key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
+const team = {
+  id: teamId("00000000-0000-0000-0000-000000000001"),
+  key: "RAT",
+  name: "Rata",
+  timezone: "America/Los_Angeles",
+}
 const otherTeam = {
   id: teamId("team-2"),
   key: "OPS",
@@ -91,7 +96,17 @@ describe("team list pages", () => {
     const second: string[] = []
     await runRootMemory(
       seed(),
-      ["admin", "team", "list", "--limit", "1", "--after", "00000000-0000-0000-0000-000000000001", "--format", "json"],
+      [
+        "admin",
+        "team",
+        "list",
+        "--limit",
+        "1",
+        "--after",
+        "00000000-0000-0000-0000-000000000001",
+        "--format",
+        "json",
+      ],
       second,
     )
     expect(lastJson(second)).toEqual({
@@ -104,8 +119,8 @@ describe("team list pages", () => {
     const lines: string[] = []
     await runRootMemory(seed(), ["admin", "team", "list", "--limit", "1"], lines)
     expect(lines.flatMap((line) => line.split("\n"))).toEqual([
-      "RAT\tRata\tteam-1",
-      "More teams available. Continue with --after team-1",
+      "RAT\tRata\t00000000-0000-0000-0000-000000000001",
+      "More teams available. Continue with --after 00000000-0000-0000-0000-000000000001",
     ])
   })
 

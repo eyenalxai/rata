@@ -11,7 +11,12 @@ import { Command } from "effect/cli"
 import { issueCommand } from "@/cli/issue"
 import { labelCommand, projectCommand } from "@/cli/registry"
 
-const team = { id: "00000000-0000-0000-0000-000000000001", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
+const team = {
+  id: "00000000-0000-0000-0000-000000000001",
+  key: "RAT",
+  name: "Rata",
+  timezone: "America/Los_Angeles",
+}
 const otherTeam = { id: "team-2", key: "OPS", name: "Operations", timezone: "America/New_York" }
 const seed = [{ key: process.cwd(), team: "RAT" }]
 
@@ -112,7 +117,14 @@ describe("project list team default", () => {
 
 describe("label list team default", () => {
   test("lists the linked team's labels without --team", async () => {
-    const labels = [{ id: "label-1", name: "ready-for-agent", color: "#111111", teamId: "00000000-0000-0000-0000-000000000001" }]
+    const labels = [
+      {
+        id: "label-1",
+        name: "ready-for-agent",
+        color: "#111111",
+        teamId: "00000000-0000-0000-0000-000000000001",
+      },
+    ]
     const fake = makeFakeLinear({ teams: [team], labels })
     const lines: string[] = []
     await runLabel(fake.handler, ["list", "--format", "json"], lines)
@@ -122,12 +134,21 @@ describe("label list team default", () => {
       pageInfo: { hasNextPage: false, endCursor: "label-1" },
     })
     const request = fake.requests.find((entry) => entry.query.includes("query Labels"))
-    expect(request?.variables).toEqual({ teamId: "00000000-0000-0000-0000-000000000001", first: 50, after: null })
+    expect(request?.variables).toEqual({
+      teamId: "00000000-0000-0000-0000-000000000001",
+      first: 50,
+      after: null,
+    })
   })
 
   test("lets --team override the linked team", async () => {
     const labels = [
-      { id: "label-1", name: "ready-for-agent", color: "#111111", teamId: "00000000-0000-0000-0000-000000000001" },
+      {
+        id: "label-1",
+        name: "ready-for-agent",
+        color: "#111111",
+        teamId: "00000000-0000-0000-0000-000000000001",
+      },
       { id: "label-2", name: "bug", color: "#EB5757", teamId: "team-2" },
     ]
     const fake = makeFakeLinear({ teams: [team, otherTeam], labels })
