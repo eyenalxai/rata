@@ -13,7 +13,7 @@ import type {
 } from "@/cli/spec"
 
 import { dropEmptyLine } from "@/cli/console"
-import { commandError, exitCodeOf } from "@/cli/error-report"
+import { exitCodeOf, toTrackerError } from "@/cli/error-report"
 import { ExitRef, recordExit, successExit } from "@/cli/exit"
 import { OutputFields } from "@/cli/fields"
 import {
@@ -34,7 +34,6 @@ import { resolveSelect, supportsSelect } from "@/cli/runner/select"
 import { outputFormats } from "@/cli/spec"
 import { CommandMetadata } from "@/cli/surface"
 import { TrackerError } from "@/domain/error"
-import { toTrackerError } from "@/domain/error/report"
 
 // Canonical-form detection lives in pre-parse.ts because it needs raw flag values for the replacement hint; format.ts only classifies the command and output flags.
 
@@ -67,13 +66,11 @@ const hintOf = (error: CliError.CliError): string => {
 }
 
 const cliTrackerError = (error: CliError.CliError) =>
-  toTrackerError(
-    commandError({
-      code: "usage",
-      message: messageOf(error),
-      hint: hintOf(error),
-    }),
-  )
+  new TrackerError({
+    code: "usage",
+    message: messageOf(error),
+    hint: hintOf(error),
+  })
 
 const reportRunFailure = (error: unknown, format: OutputFormat): Effect.Effect<CliExit> =>
   reportTrackerError(toTrackerError(error), format === "json")

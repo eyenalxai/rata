@@ -123,13 +123,18 @@ type PublishDependencies = {
 
 type PublishPlanError = IssueWriteApiError | TrackerError
 
+type PublishErrorClassifier = (error: PublishPlanError) => TrackerError
+
 type IssuePublishShape = {
   readonly plan: (
     context: ResolvedContext,
     document: PublishDocument,
   ) => Effect.Effect<PublishPlan, PublishPlanError>
   readonly dryRun: (plan: PublishPlan) => PublishResult
-  readonly execute: (plan: PublishPlan) => Effect.Effect<PublishResult>
+  readonly execute: (
+    plan: PublishPlan,
+    classifyError: PublishErrorClassifier,
+  ) => Effect.Effect<PublishResult>
 }
 
 const nodeStep = (node: PublishNodePlan, status: PlanStatus): PlanStep => ({
@@ -169,6 +174,7 @@ export {
   type PublishEdgePlan,
   type PublishEdgeResult,
   type PublishEdgeResultAction,
+  type PublishErrorClassifier,
   type PublishNodePlan,
   type PublishNodePlanBase,
   type PublishNodeResult,

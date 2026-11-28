@@ -2,8 +2,8 @@ import { Effect, Option, Stdio, Stream } from "effect"
 import { Flag } from "effect/cli"
 
 import { resolveBody } from "@/cli/body"
+import { toTrackerError } from "@/cli/error-report"
 import { TrackerError } from "@/domain/error"
-import { toTrackerError } from "@/domain/error/report"
 import { maxPageSize } from "@/linear/connection"
 
 const bodyFileFlag = Flag.String("body-file").pipe(

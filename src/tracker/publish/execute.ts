@@ -2,7 +2,7 @@ import { Effect, Result } from "effect"
 
 import type { LinearClientShape } from "@/linear/client"
 import type { MutableNodeResults } from "@/tracker/publish/execute/results"
-import type { PublishPlan, PublishResult } from "@/tracker/publish/model"
+import type { PublishErrorClassifier, PublishPlan, PublishResult } from "@/tracker/publish/model"
 
 import { TrackerError } from "@/domain/error"
 import { CreateRelationResponse, IssueBatchCreateResponse } from "@/linear/decode/issue"
@@ -27,6 +27,7 @@ const batchTarget = (batch: PublishPlan["batches"][number]): string =>
 const executePublish = Effect.fn("IssuePublish.execute")(function* runPublish(
   client: LinearClientShape,
   plan: PublishPlan,
+  classifyError: PublishErrorClassifier,
 ): Effect.fn.Return<PublishResult> {
   let nodes: MutableNodeResults = initialNodeResults(plan)
   const edges = initialEdgeResults(plan)
@@ -51,6 +52,7 @@ const executePublish = Effect.fn("IssuePublish.execute")(function* runPublish(
           changes: { keys: batch.map((node) => node.key) },
         },
         outcome.failure,
+        classifyError,
       )
     }
     const payload = outcome.success.issueBatchCreate
@@ -71,6 +73,7 @@ const executePublish = Effect.fn("IssuePublish.execute")(function* runPublish(
           message: "Linear did not create the issue batch.",
           hint: null,
         }),
+        classifyError,
       )
     }
     const byId = new Map(payload.issues.map((issue) => [String(issue.id), issue] as const))
@@ -93,6 +96,7 @@ const executePublish = Effect.fn("IssuePublish.execute")(function* runPublish(
             message: `The Linear batch response is missing the issue ${node.id}.`,
             hint: null,
           }),
+          classifyError,
         )
       }
       nodes.set(node.key, {
@@ -143,6 +147,7 @@ const executePublish = Effect.fn("IssuePublish.execute")(function* runPublish(
               message: "Linear did not create the blocking edge.",
               hint: null,
             }),
+        classifyError,
       )
     }
     edges[index] = { ...current, action: "created" }

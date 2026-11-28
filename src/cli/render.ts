@@ -3,10 +3,10 @@ import { Effect, Option, Predicate } from "effect"
 import type { FieldPath, FieldShape } from "@/cli/field/shape"
 import type { CliExit, CommandOutput, OutputFormat, OutputSpec, OutputSpecs } from "@/cli/spec"
 
+import { toTrackerError } from "@/cli/error-report"
 import { selectItems, selectObject } from "@/cli/fields"
 import { jsonText, writeLine } from "@/cli/output"
 import { TrackerError } from "@/domain/error"
-import { toTrackerError } from "@/domain/error/report"
 
 type RenderOptions = {
   readonly format: OutputFormat

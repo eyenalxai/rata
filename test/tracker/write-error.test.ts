@@ -6,6 +6,7 @@ import { defaultEnv } from "@test/fake-linear/model"
 import { describe, expect, test } from "bun:test"
 import { Effect } from "effect"
 
+import { writeTrackerError } from "@/cli/error-report"
 import { ContextResolver } from "@/context/resolve"
 import { TrackerError } from "@/domain/error"
 import { IssueApply } from "@/tracker/apply"
@@ -37,7 +38,7 @@ describe("the write plan error channel", () => {
           title: "Changed title",
           comment: { body: "Cannot post.", dedupeKey: "fail-1" },
         })
-        return yield* applyPlan(plan)
+        return yield* applyPlan(plan, { classifyError: writeTrackerError })
       }),
     )
 
@@ -62,7 +63,7 @@ describe("the write plan error channel", () => {
             { key: "client", kind: "ticket", title: "The client", blockedBy: ["spec"] },
           ],
         })
-        return yield* publish.execute(plan)
+        return yield* publish.execute(plan, writeTrackerError)
       }),
     )
 

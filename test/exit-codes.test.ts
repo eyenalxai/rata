@@ -9,12 +9,11 @@ import type { ErrorCode } from "@/domain/error"
 
 import { ProjectNameAmbiguousError } from "@/api/project/errors"
 import { TeamResolutionError } from "@/api/team"
-import { exitCodeOf } from "@/cli/error-report"
+import { exitCodeOf, toTrackerError } from "@/cli/error-report"
 import { exitCodeOfCliError } from "@/cli/runner"
 import { DatabaseError } from "@/db/database"
 import { ConflictError } from "@/domain/conflict"
 import { TrackerError } from "@/domain/error"
-import { toTrackerError } from "@/domain/error/report"
 import { InvalidIssueRef } from "@/domain/issue-ref"
 import {
   LinearAuthError,

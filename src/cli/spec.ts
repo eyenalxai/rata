@@ -7,7 +7,7 @@ import type { FieldPath, FieldShape } from "@/cli/field/shape"
 import type { TrackerError } from "@/domain/error"
 import type { PageInfo } from "@/linear/decode/page"
 
-import { toTrackerError } from "@/domain/error/report"
+import { toTrackerError } from "@/cli/error-report"
 
 const outputFormats = ["json", "text"] as const
 type OutputFormat = (typeof outputFormats)[number]

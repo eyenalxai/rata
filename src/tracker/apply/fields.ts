@@ -5,13 +5,11 @@ import type { ResolvedContext } from "@/context/model"
 import type { ContextResolver } from "@/context/resolve"
 import type { ApplyDocument } from "@/domain/apply"
 import type { LinearClientShape } from "@/linear/client"
-import type { ApplyPlanError } from "@/tracker/apply/model"
 import type { IssueWorkingSetFull } from "@/tracker/model"
-import type { PlannedAction, PlanStep } from "@/tracker/plan"
+import type { ApplyPlanError, PlannedAction, PlanStep } from "@/tracker/plan"
 import type { makeIssueWriteResolvers } from "@/tracker/write/resolvers"
 
 import { TrackerError } from "@/domain/error"
-import { toTrackerError } from "@/domain/error/report"
 import { isUuid, userId } from "@/domain/id"
 import { parsePriority, priorityValue } from "@/domain/priority"
 import { UpdateIssueResponse } from "@/linear/decode/issue"
@@ -251,10 +249,7 @@ const planFieldStep = (
                 { id: snapshot.id, input: inputOfPlans(updated) },
                 UpdateIssueResponse,
               )
-              .pipe(
-                Effect.flatMap((data) => unwrapIssue(data.issueUpdate)),
-                Effect.mapError(toTrackerError),
-              ),
+              .pipe(Effect.flatMap((data) => unwrapIssue(data.issueUpdate))),
     }
   })
 

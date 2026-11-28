@@ -5,12 +5,11 @@ import type { IssueReadDocument } from "@/tracker/model"
 import type { ApplyResult } from "@/tracker/plan"
 import type { IssueWorkingSetError } from "@/tracker/read"
 
-import { exitCodeOf } from "@/cli/error-report"
+import { exitCodeOf, toTrackerError } from "@/cli/error-report"
 import { arrayField, objectField, scalarField } from "@/cli/field/shape"
 import { formatReadDocument } from "@/cli/issue/format"
 import { issueWorkingSetShape } from "@/cli/issue/shape"
 import { TrackerError } from "@/domain/error"
-import { toTrackerError } from "@/domain/error/report"
 import { IssueReader } from "@/tracker/read"
 
 const writeActionShape = objectField({

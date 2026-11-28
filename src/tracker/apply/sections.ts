@@ -3,12 +3,10 @@ import { Effect } from "effect"
 import type { ApplyDocument } from "@/domain/apply"
 import type { SectionEditAction } from "@/domain/section"
 import type { LinearClientShape } from "@/linear/client"
-import type { ApplyPlanError } from "@/tracker/apply/model"
 import type { IssueWorkingSetFull } from "@/tracker/model"
-import type { PlannedAction, PlanStep } from "@/tracker/plan"
+import type { ApplyPlanError, PlannedAction, PlanStep } from "@/tracker/plan"
 
 import { editSections } from "@/domain/body/section/batch"
-import { toTrackerError } from "@/domain/error/report"
 import { UpdateIssueResponse } from "@/linear/decode/issue"
 import { updateIssueMutation } from "@/tracker/write/documents"
 import { unwrapIssue } from "@/tracker/write/model"
@@ -66,10 +64,7 @@ const planSectionStep = (
                 { id: snapshot.id, input: { description: edited.body } },
                 UpdateIssueResponse,
               )
-              .pipe(
-                Effect.flatMap((data) => unwrapIssue(data.issueUpdate)),
-                Effect.mapError(toTrackerError),
-              ),
+              .pipe(Effect.flatMap((data) => unwrapIssue(data.issueUpdate))),
     }
   })
 }

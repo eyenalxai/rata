@@ -1,6 +1,7 @@
 import { Effect, Option } from "effect"
 import { Argument, Flag } from "effect/cli"
 
+import { writeTrackerError } from "@/cli/error-report"
 import { resolveIssueContext } from "@/cli/issue/context"
 import { issueWriteShape, postWriteRead, writeOutput } from "@/cli/issue/write-output"
 import { dryRunFlag } from "@/cli/output"
@@ -48,7 +49,9 @@ const startSpec = defineCommand("start", {
         state: Option.getOrUndefined(input.state),
         take: input.take,
       })
-      const result = control.dryRun ? dryRunPlan(plan) : yield* applyPlan(plan)
+      const result = control.dryRun
+        ? dryRunPlan(plan)
+        : yield* applyPlan(plan, { classifyError: writeTrackerError })
       const outcome = yield* postWriteRead(input.ref, result)
       return writeOutput(outcome)
     }),

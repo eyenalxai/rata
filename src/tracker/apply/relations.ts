@@ -4,13 +4,12 @@ import type { ApplyDocument, ApplyRelations } from "@/domain/apply"
 import type { IssueId } from "@/domain/id"
 import type { RelationKind } from "@/domain/relation"
 import type { LinearClientShape } from "@/linear/client"
-import type { ApplyPlanError, ApplyPlanOptions } from "@/tracker/apply/model"
+import type { ApplyPlanOptions } from "@/tracker/apply/model"
 import type { IssueWorkingSetFull } from "@/tracker/model"
-import type { PlannedAction, PlanStep } from "@/tracker/plan"
+import type { ApplyPlanError, PlannedAction, PlanStep } from "@/tracker/plan"
 import type { makeIssueWriteResolvers } from "@/tracker/write/resolvers"
 
 import { TrackerError } from "@/domain/error"
-import { toTrackerError } from "@/domain/error/report"
 import { relationKindInfo } from "@/domain/relation"
 import { CreateRelationResponse, DeleteRelationResponse } from "@/linear/decode/issue"
 import { createRelationMutation, deleteRelationMutation } from "@/tracker/write/documents"
@@ -84,7 +83,7 @@ const relationStep = (
   kind: RelationKind,
   target: string,
   status: "updated" | "skipped",
-  execute: Effect.Effect<void, TrackerError>,
+  execute: Effect.Effect<void, ApplyPlanError>,
 ): PlanStep => ({
   action: "relation-add",
   target: ref,
@@ -166,10 +165,7 @@ const additionSteps = (
               },
               CreateRelationResponse,
             )
-            .pipe(
-              Effect.flatMap((data) => unwrapRelation(data.issueRelationCreate)),
-              Effect.mapError(toTrackerError),
-            ),
+            .pipe(Effect.flatMap((data) => unwrapRelation(data.issueRelationCreate))),
         ),
       )
     }
@@ -229,10 +225,7 @@ const removalSteps = (
           ],
           execute: dependencies.client
             .execute(deleteRelationMutation, { id: relationId }, DeleteRelationResponse)
-            .pipe(
-              Effect.flatMap((data) => unwrapRelation(data.issueRelationDelete)),
-              Effect.mapError(toTrackerError),
-            ),
+            .pipe(Effect.flatMap((data) => unwrapRelation(data.issueRelationDelete))),
         })
       }
     }

@@ -5,9 +5,8 @@ import type { CliExit } from "@/cli/spec"
 import type { ErrorCode } from "@/domain/error"
 import type { PlanAction } from "@/domain/plan"
 
-import { commandError, exitCodeOf } from "@/cli/error-report"
+import { exitCodeOf, toTrackerError } from "@/cli/error-report"
 import { TrackerError } from "@/domain/error"
-import { toTrackerError } from "@/domain/error/report"
 import { maxPageSize } from "@/linear/connection"
 
 const jsonOutput = Schema.fromJsonString(Schema.Unknown, { space: 2 })
@@ -169,8 +168,8 @@ const reportTrackerError = (
 const errorLine = (code: ErrorCode, message: string, hint?: string) =>
   Effect.gen(function* writeErrorLine() {
     const json = yield* JsonOutput
-    const report = commandError({ code, message, hint: hint ?? null })
-    return yield* reportTrackerError(toTrackerError(report), json)
+    const report = new TrackerError({ code, message, hint: hint ?? null })
+    return yield* reportTrackerError(report, json)
   })
 
 const nextPageHint = (name: string, endCursor: string): string =>
