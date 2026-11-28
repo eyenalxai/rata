@@ -65,7 +65,7 @@ describe("priority", () => {
 
 describe("branded ids", () => {
   test("a team id cannot stand in for a project id", () => {
-    const team = teamId("team-1")
+    const team = teamId("00000000-0000-0000-0000-000000000001")
     // @ts-expect-error a TeamId is not a ProjectId
     const project: ProjectId = team
     void project

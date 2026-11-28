@@ -14,7 +14,7 @@ import { Stream } from "effect"
 const handler = () =>
   makeRecorder((request) => {
     const detail = teamDetailResponse(request, {
-      labels: [{ id: "l1", name: "ready-for-agent", color: "#111111", teamId: "team-1" }],
+      labels: [{ id: "l1", name: "ready-for-agent", color: "#111111", teamId: "00000000-0000-0000-0000-000000000001" }],
     })
     if (detail !== undefined) {
       return detail
@@ -103,7 +103,7 @@ describe("issue create payload", () => {
     const create = requestOf(recorder, "mutation CreateIssue")
     expect(lastJson(lines)).toMatchObject({ issue: { identifier: "RAT-1" } })
     expect(inputOf(create?.variables ?? {})).toEqual({
-      teamId: "team-1",
+      teamId: "00000000-0000-0000-0000-000000000001",
       title: "Fix login",
       description: "The body.",
       labelIds: ["l1"],
@@ -127,6 +127,6 @@ describe("issue create payload", () => {
     )
 
     const create = requestOf(recorder, "mutation CreateIssue")
-    expect(inputOf(create?.variables ?? {})).toEqual({ teamId: "team-1", title: "No body" })
+    expect(inputOf(create?.variables ?? {})).toEqual({ teamId: "00000000-0000-0000-0000-000000000001", title: "No body" })
   })
 })

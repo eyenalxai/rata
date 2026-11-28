@@ -12,7 +12,7 @@ import { Viewer } from "@/linear/decode/viewer"
 
 const cachedDetail: TeamDetail = Option.getOrThrow(
   Schema.decodeOption(TeamDetail)({
-    id: "team-1",
+    id: "00000000-0000-0000-0000-000000000001",
     key: "RAT",
     name: "Rata",
     timezone: "America/Los_Angeles",
@@ -42,7 +42,7 @@ describe("status context", () => {
       Effect.provide(
         statusLayer(fake.handler, ["--format", "json"], lines, {
           profiles,
-          repositories: [{ key: process.cwd(), teamId: "team-1" }],
+          repositories: [{ key: process.cwd(), teamId: "00000000-0000-0000-0000-000000000001" }],
         }),
       ),
       Effect.runPromise,
@@ -51,7 +51,7 @@ describe("status context", () => {
     expect(requests.afterFirst).toBeGreaterThan(0)
     expect(requests.afterSecond).toBe(requests.afterFirst)
     expect(lastJson(lines)).toMatchObject({
-      team: { id: "team-1", key: "RAT", name: "Rata" },
+      team: { id: "00000000-0000-0000-0000-000000000001", key: "RAT", name: "Rata" },
       cache: { ageSeconds: 0 },
       states: [],
       labels: [],
@@ -61,15 +61,16 @@ describe("status context", () => {
   test("reports the repaired team when the stored UUID is stale", async () => {
     const fake = makeFakeLinear({ teams: [team], labels: [] })
     const lines: string[] = []
+    const staleUuid = "11111111-1111-1111-1111-111111111111"
     await runStatus(fake.handler, ["--format", "json"], lines, {
       profiles,
-      repositories: [{ key: process.cwd(), team: "RAT", teamId: "gone-id", project: "rata" }],
+      repositories: [{ key: process.cwd(), team: "RAT", teamId: staleUuid, project: "rata" }],
     })
 
     expect(lastJson(lines)).toMatchObject({
-      team: { id: "team-1", key: "RAT", name: "Rata" },
+      team: { id: "00000000-0000-0000-0000-000000000001", key: "RAT", name: "Rata" },
       project: "rata",
-      warning: "The stored team id gone-id is stale. Repaired the link to RAT.",
+      warning: `The stored team id ${staleUuid} is stale. Repaired the link to RAT.`,
     })
   })
 
@@ -81,12 +82,19 @@ describe("status context", () => {
           states: [{ id: "state-todo", name: "Todo", type: "unstarted", position: 1 }],
         },
       ],
-      labels: [{ id: "label-bug", name: "bug", color: "#EB5757", teamId: "team-1" }],
+      labels: [
+        {
+          id: "label-bug",
+          name: "bug",
+          color: "#EB5757",
+          teamId: "00000000-0000-0000-0000-000000000001",
+        },
+      ],
     })
     const lines: string[] = []
     await runStatus(fake.handler, ["--format", "json"], lines, {
       profiles,
-      repositories: [{ key: process.cwd(), teamId: "team-1" }],
+      repositories: [{ key: process.cwd(), teamId: "00000000-0000-0000-0000-000000000001" }],
     })
 
     expect(lastJson(lines)).toMatchObject({
@@ -101,12 +109,12 @@ describe("status context", () => {
     const keyHash = hashApiKey("test-key")
     const fetchedAt = await now()
     await runStatus(fake.handler, ["--format", "json", "--refresh"], lines, {
-      repositories: [{ key: process.cwd(), teamId: "team-1" }],
+      repositories: [{ key: process.cwd(), teamId: "00000000-0000-0000-0000-000000000001" }],
       cache: {
         teams: [
           {
             profile: "env",
-            teamId: "team-1",
+            teamId: "00000000-0000-0000-0000-000000000001",
             keyHash,
             detail: cachedDetail,
             fetchedAt,
@@ -118,7 +126,7 @@ describe("status context", () => {
 
     expect(fake.requests.length).toBeGreaterThan(0)
     expect(lastJson(lines)).toMatchObject({
-      team: { id: "team-1", key: "RAT", name: "Rata" },
+      team: { id: "00000000-0000-0000-0000-000000000001", key: "RAT", name: "Rata" },
       cache: { ageSeconds: 0 },
     })
   })

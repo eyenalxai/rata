@@ -15,17 +15,17 @@ const node = (key: string, extra: Partial<PublishNode> = {}): PublishNode => ({
 
 describe("publish UUIDs", () => {
   test("derives a stable UUID v4 from the parent and key", () => {
-    const uuid = publishUuid({ parentId: "issue-RAT-1", teamId: "team-1", key: "spec" })
+    const uuid = publishUuid({ parentId: "issue-RAT-1", teamId: "00000000-0000-0000-0000-000000000001", key: "spec" })
 
     expect(uuid).toBe("0d5b279e-f726-4470-a828-c8cdd4528abc")
-    expect(publishUuid({ parentId: "issue-RAT-1", teamId: "team-1", key: "spec" })).toBe(uuid)
-    expect(publishUuid({ parentId: "issue-RAT-1", teamId: "team-1", key: "client" })).not.toBe(uuid)
-    expect(publishUuid({ parentId: "issue-RAT-2", teamId: "team-1", key: "spec" })).not.toBe(uuid)
+    expect(publishUuid({ parentId: "issue-RAT-1", teamId: "00000000-0000-0000-0000-000000000001", key: "spec" })).toBe(uuid)
+    expect(publishUuid({ parentId: "issue-RAT-1", teamId: "00000000-0000-0000-0000-000000000001", key: "client" })).not.toBe(uuid)
+    expect(publishUuid({ parentId: "issue-RAT-2", teamId: "00000000-0000-0000-0000-000000000001", key: "spec" })).not.toBe(uuid)
     expect(uuid).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u)
   })
 
   test("scopes a top-level node to its team", () => {
-    const first = publishUuid({ parentId: null, teamId: "team-1", key: "spec" })
+    const first = publishUuid({ parentId: null, teamId: "00000000-0000-0000-0000-000000000001", key: "spec" })
     const second = publishUuid({ parentId: null, teamId: "team-2", key: "spec" })
 
     expect(first).toBe("95fad5ea-3b07-44a8-8076-7a375cc62a1f")

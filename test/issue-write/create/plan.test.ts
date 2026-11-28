@@ -11,7 +11,7 @@ import { Viewer } from "@/linear/decode/viewer"
 const viewer = Option.getOrThrow(Schema.decodeOption(Viewer)(defaultViewer))
 
 const team: MemoryTeam = {
-  id: teamId("team-1"),
+  id: teamId("00000000-0000-0000-0000-000000000001"),
   key: "RAT",
   name: "Rata",
   timezone: "America/Los_Angeles",
@@ -35,7 +35,7 @@ const repositories = [
   {
     key: process.cwd(),
     team: "OLD",
-    teamId: "team-1",
+    teamId: "00000000-0000-0000-0000-000000000001",
     defaultAssignee: "me",
     defaultLabels: ["ready-for-agent"],
     defaultPriority: 3,

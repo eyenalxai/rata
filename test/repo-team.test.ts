@@ -9,7 +9,12 @@ import { RepoTeam } from "@/api/repo-team"
 import { RepoConfigService } from "@/config/repo"
 import { teamId } from "@/domain/id"
 
-const team = { id: teamId("team-1"), key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
+const team = {
+  id: teamId("00000000-0000-0000-0000-000000000001"),
+  key: "RAT",
+  name: "Rata",
+  timezone: "America/Los_Angeles",
+}
 
 const resolveWith = async (repositories: readonly RepositorySeed[]) => {
   const stderr: string[] = []
@@ -32,12 +37,21 @@ const resolveWith = async (repositories: readonly RepositorySeed[]) => {
 describe("RepoTeam stale links", () => {
   test("repairs a stale key by team id and warns", async () => {
     const result = await resolveWith([
-      { key: process.cwd(), team: "OLD", teamId: teamId("team-1"), project: "rata" },
+      {
+        key: process.cwd(),
+        team: "OLD",
+        teamId: teamId("00000000-0000-0000-0000-000000000001"),
+        project: "rata",
+      },
     ])
 
-    expect(String(result.teamId)).toBe("team-1")
+    expect(String(result.teamId)).toBe("00000000-0000-0000-0000-000000000001")
     expect(result.stored).toEqual(
-      Option.some({ team: "RAT", teamId: teamId("team-1"), project: "rata" }),
+      Option.some({
+        team: "RAT",
+        teamId: teamId("00000000-0000-0000-0000-000000000001"),
+        project: "rata",
+      }),
     )
     expect(result.stderr).toEqual([
       "warning: The stored team key OLD is stale. Repaired the link to RAT.",
@@ -47,32 +61,41 @@ describe("RepoTeam stale links", () => {
   test("repairs a stale key by team name and warns", async () => {
     const result = await resolveWith([{ key: process.cwd(), team: "Rata" }])
 
-    expect(String(result.teamId)).toBe("team-1")
-    expect(result.stored).toEqual(Option.some({ team: "RAT", teamId: teamId("team-1") }))
+    expect(String(result.teamId)).toBe("00000000-0000-0000-0000-000000000001")
+    expect(result.stored).toEqual(
+      Option.some({ team: "RAT", teamId: teamId("00000000-0000-0000-0000-000000000001") }),
+    )
     expect(result.stderr).toEqual([
       "warning: The stored team key Rata is stale. Repaired the link to RAT.",
     ])
   })
 
   test("falls back to the key when the stored id is stale and warns", async () => {
+    const staleUuid = "11111111-1111-1111-1111-111111111111"
     const result = await resolveWith([
-      { key: process.cwd(), team: "RAT", teamId: "gone-id", project: "rata" },
+      { key: process.cwd(), team: "RAT", teamId: staleUuid, project: "rata" },
     ])
 
-    expect(result.teamId).toBe(teamId("team-1"))
+    expect(result.teamId).toBe(teamId("00000000-0000-0000-0000-000000000001"))
     expect(result.stored).toEqual(
-      Option.some({ team: "RAT", teamId: teamId("team-1"), project: "rata" }),
+      Option.some({
+        team: "RAT",
+        teamId: teamId("00000000-0000-0000-0000-000000000001"),
+        project: "rata",
+      }),
     )
     expect(result.stderr).toEqual([
-      "warning: The stored team id gone-id is stale. Repaired the link to RAT.",
+      `warning: The stored team id ${staleUuid} is stale. Repaired the link to RAT.`,
     ])
   })
 
   test("stores the team id on a legacy key link without a warning", async () => {
     const result = await resolveWith([{ key: process.cwd(), team: "RAT" }])
 
-    expect(String(result.teamId)).toBe("team-1")
-    expect(result.stored).toEqual(Option.some({ team: "RAT", teamId: teamId("team-1") }))
+    expect(String(result.teamId)).toBe("00000000-0000-0000-0000-000000000001")
+    expect(result.stored).toEqual(
+      Option.some({ team: "RAT", teamId: teamId("00000000-0000-0000-0000-000000000001") }),
+    )
     expect(result.stderr).toEqual([])
   })
 

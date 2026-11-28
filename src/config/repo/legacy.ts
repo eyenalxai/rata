@@ -2,8 +2,12 @@ import { Result, Schema } from "effect"
 
 import type { RepoConfig } from "@/config/repo/model"
 
-import { teamId } from "@/domain/id"
+import { teamId, uuidPattern } from "@/domain/id"
 import { priorityFromStored } from "@/domain/priority"
+
+const LegacyTeamId = Schema.String.check(
+  Schema.isPattern(uuidPattern, { message: "The team id must be a UUID." }),
+)
 
 const LegacyRepoConfig = Schema.Struct({
   team: Schema.optional(Schema.String),
@@ -23,7 +27,13 @@ const fromLegacyConfig = (config: LegacyRepoConfig): Result.Result<RepoConfig, s
   const { defaultPriority, teamId: storedTeamId, ...rest } = config
   const priority = priorityFromStored(defaultPriority)
   if (Result.isFailure(priority)) {
-    return Result.fail(priority.failure)
+    return Result.fail("an invalid default priority.")
+  }
+  if (
+    storedTeamId !== undefined &&
+    Result.isFailure(Schema.decodeResult(LegacyTeamId)(storedTeamId))
+  ) {
+    return Result.fail("an invalid team id. The team id must be a UUID.")
   }
   return Result.succeed({
     ...rest,

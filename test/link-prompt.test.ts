@@ -26,21 +26,23 @@ describe("LinkService.link prompt", () => {
     )
 
     expect(result.team).toEqual(scratch)
-    expect(stored).toEqual(Option.some({ team: "SCR", teamId: teamId("team-2") }))
+    expect(stored).toEqual(
+      Option.some({ team: "SCR", teamId: teamId("00000000-0000-0000-0000-000000000002") }),
+    )
     expect(harness.output.some((frame) => frame.includes("RAT  Rata"))).toBe(true)
     expect(harness.output.some((frame) => frame.includes("SCR  Scratch"))).toBe(true)
   })
 
   test("lists a team from the next page", async () => {
     const last = {
-      id: teamId("team-51"),
+      id: teamId("00000000-0000-0000-0000-000000000051"),
       key: "T51",
       name: "Team 51",
       timezone: "America/Los_Angeles",
     }
     const teams = [
       ...Array.from({ length: 50 }, (_, index) => ({
-        id: teamId(`team-${index + 1}`),
+        id: teamId(`00000000-0000-0000-0000-${String(index + 1).padStart(12, "0")}`),
         key: `T${index + 1}`,
         name: `Team ${index + 1}`,
         timezone: "America/Los_Angeles",
@@ -60,7 +62,9 @@ describe("LinkService.link prompt", () => {
     )
 
     expect(result.team).toEqual(last)
-    expect(stored).toEqual(Option.some({ team: "T51", teamId: teamId("team-51") }))
+    expect(stored).toEqual(
+      Option.some({ team: "T51", teamId: teamId("00000000-0000-0000-0000-000000000051") }),
+    )
     expect(harness.output.some((frame) => frame.includes("T51  Team 51"))).toBe(true)
   })
 

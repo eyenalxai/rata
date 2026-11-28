@@ -89,7 +89,9 @@ const hybridApiLayer = (handler: Handler, seed: MemorySeed, options: ApiLayerOpt
     Layer.provide(Layer.mergeAll(labels, repoConfig, repoTeam)),
   )
   const link = LinkService.layer.pipe(
-    Layer.provide(Layer.mergeAll(teams, labels, repoConfig, platform, auth, gateway)),
+    Layer.provide(
+      Layer.mergeAll(teams, labels, repoConfig, platform, auth, gateway, contextCacheLayer),
+    ),
   )
   return Layer.mergeAll(
     configLayer(options.env ?? defaultEnv),

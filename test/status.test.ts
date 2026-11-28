@@ -59,7 +59,7 @@ describe("status", () => {
       repository: { root: process.cwd(), linked: true },
       workspace: { name: null, keySource: "env" },
       viewer: statusViewer,
-      team: { id: "team-1", key: "RAT", name: "Rata" },
+      team: { id: "00000000-0000-0000-0000-000000000001", key: "RAT", name: "Rata" },
       project: null,
       defaults: { assignee: null, labels: [], priority: null },
       states: [],
@@ -115,7 +115,7 @@ describe("status", () => {
       repository: { root: process.cwd(), linked: true },
       workspace: { name: "work", keySource: "repo" },
       viewer: statusViewer,
-      team: { id: "team-1", key: "RAT", name: "Rata" },
+      team: { id: "00000000-0000-0000-0000-000000000001", key: "RAT", name: "Rata" },
       project: "rata",
       defaults: { assignee: null, labels: [], priority: null },
       states: [],
@@ -240,11 +240,13 @@ describe("status", () => {
     const lines: string[] = []
     await runStatus(fake.handler, ["--format", "json"], lines, {
       profiles,
-      repositories: [{ key: process.cwd(), team: "OLD", teamId: "team-1" }],
+      repositories: [
+        { key: process.cwd(), team: "OLD", teamId: "00000000-0000-0000-0000-000000000001" },
+      ],
     })
 
     expect(lastJson(lines)).toMatchObject({
-      team: { id: "team-1", key: "RAT", name: "Rata" },
+      team: { id: "00000000-0000-0000-0000-000000000001", key: "RAT", name: "Rata" },
       warning: "The stored team key OLD is stale. Repaired the link to RAT.",
     })
     expect(process.exitCode).toBe(0)

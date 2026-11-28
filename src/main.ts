@@ -106,6 +106,7 @@ const linkLayer = LinkService.layer.pipe(
   Layer.provide(platformLayer),
   Layer.provide(authLayer),
   Layer.provide(gatewayLayer),
+  Layer.provide(contextCacheLayer),
 )
 const workLayer = Layer.mergeAll(
   authLayer,

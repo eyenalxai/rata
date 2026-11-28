@@ -39,8 +39,18 @@ const project = { id: projectId("p1"), name: "Tracker" }
 const parent = { id: issueId("i0"), identifier: "RAT-0", title: "Map" }
 
 const teams = [
-  { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" },
-  { id: "team-2", key: "OPS", name: "Operations", timezone: "America/New_York" },
+  {
+    id: "00000000-0000-0000-0000-000000000001",
+    key: "RAT",
+    name: "Rata",
+    timezone: "America/Los_Angeles",
+  },
+  {
+    id: "00000000-0000-0000-0000-000000000002",
+    key: "OPS",
+    name: "Operations",
+    timezone: "America/New_York",
+  },
 ]
 
 const summaryNode = (identifier: string) => ({
@@ -97,7 +107,7 @@ const configLayer = () =>
   )
 
 const repositorySeed: readonly RepositorySeed[] = [
-  { key: process.cwd(), team: "RAT", teamId: "team-1" },
+  { key: process.cwd(), team: "RAT", teamId: "00000000-0000-0000-0000-000000000001" },
 ]
 
 const withTeamLookup =

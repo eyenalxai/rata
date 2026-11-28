@@ -58,7 +58,12 @@ const lastJson = (lines: readonly string[]): unknown => JSON.parse(lines.at(-1) 
 
 const now = (): Promise<number> => Effect.runPromise(Clock.currentTimeMillis)
 
-const team = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
+const team = {
+  id: "00000000-0000-0000-0000-000000000001",
+  key: "RAT",
+  name: "Rata",
+  timezone: "America/Los_Angeles",
+}
 
 const statusViewer = {
   id: defaultViewer.id,

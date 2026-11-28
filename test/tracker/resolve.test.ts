@@ -26,7 +26,7 @@ import {
 const viewer = Option.getOrThrow(Schema.decodeOption(Viewer)(defaultViewer))
 
 const team: MemoryTeam = {
-  id: teamId("team-1"),
+  id: teamId("00000000-0000-0000-0000-000000000001"),
   key: "RAT",
   name: "Rata",
   timezone: "America/Los_Angeles",
@@ -50,7 +50,7 @@ const team: MemoryTeam = {
 }
 
 const otherTeam: MemoryTeam = {
-  id: teamId("team-2"),
+  id: teamId("00000000-0000-0000-0000-000000000002"),
   key: "OPS",
   name: "Operations",
   timezone: "America/New_York",
@@ -75,7 +75,9 @@ const seed: MemorySeed = {
   ],
 }
 
-const repositories = [{ key: process.cwd(), team: "RAT", teamId: "team-1" }]
+const repositories = [
+  { key: process.cwd(), team: "RAT", teamId: "00000000-0000-0000-0000-000000000001" },
+]
 const env = { HOME: "/home/test", LINEAR_API_KEY: "test-key" }
 
 const withLayer = <A, E>(
@@ -120,7 +122,7 @@ describe("tracker ref resolution", () => {
       }),
     )
 
-    expect(result).toBe(teamId("team-1"))
+    expect(result).toBe(teamId("00000000-0000-0000-0000-000000000001"))
     expect(counting.counts.byId()).toBe(1)
     expect(counting.counts.byKey()).toBe(0)
   })
@@ -209,7 +211,7 @@ describe("tracker ref resolution", () => {
       teams: [
         {
           profile: "env",
-          teamId: "team-1",
+          teamId: "00000000-0000-0000-0000-000000000001",
           keyHash,
           fetchedAt,
           detail: Option.getOrThrow(

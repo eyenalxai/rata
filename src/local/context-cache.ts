@@ -1,5 +1,5 @@
 import { and, eq, gte } from "drizzle-orm"
-import { Context, Effect, Layer, Option, Schema } from "effect"
+import { Console, Context, Effect, Layer, Option, Schema } from "effect"
 
 import { Database } from "@/db/database"
 import { contextCache, viewerCache } from "@/db/schema"
@@ -36,6 +36,9 @@ const describeEncodeFailure =
   (cause: unknown): ContextCacheError =>
     new ContextCacheError({ message: `Could not encode the cached ${subject}.`, cause })
 
+const advisoryFailure = (error: ContextCacheError): Effect.Effect<void> =>
+  Console.error(`warning: ${error.message} The command continues without the cache.`)
+
 const decodeTeam = (detail: string): Option.Option<TeamDetail> =>
   Schema.decodeOption(TeamDetailJson)(detail)
 
@@ -55,7 +58,8 @@ type ContextCacheShape = {
     keyHash: string,
     detail: TeamDetail,
     fetchedAt: number,
-  ) => Effect.Effect<void, ContextCacheError>
+  ) => Effect.Effect<void>
+  readonly invalidateTeam: (profile: string, teamId: string, keyHash: string) => Effect.Effect<void>
   readonly readViewer: (
     profile: string,
     keyHash: string,
@@ -66,7 +70,7 @@ type ContextCacheShape = {
     keyHash: string,
     viewer: Viewer,
     fetchedAt: number,
-  ) => Effect.Effect<void, ContextCacheError>
+  ) => Effect.Effect<void>
 }
 
 class ContextCache extends Context.Service<ContextCache, ContextCacheShape>()(
@@ -111,28 +115,49 @@ class ContextCache extends Context.Service<ContextCache, ContextCacheShape>()(
         return Option.some({ detail: detail.value, fetchedAt: row.fetchedAt })
       })
 
-      const writeTeam = Effect.fn("ContextCache.writeTeam")(function* writeStoredTeam(
-        profile: string,
-        teamId: string,
-        keyHash: string,
-        detail: TeamDetail,
-        fetchedAt: number,
-      ) {
-        const encoded = yield* Schema.encodeEffect(TeamDetailJson)(detail).pipe(
-          Effect.mapError(describeEncodeFailure("team")),
-        )
-        const columns = { keyHash, detail: encoded, fetchedAt }
-        const opened = yield* openedDatabase
-        yield* opened.drizzle
-          .insert(contextCache)
-          .values({ profile, teamId, ...columns })
-          .onConflictDoUpdate({
-            target: [contextCache.profile, contextCache.teamId, contextCache.keyHash],
-            set: columns,
-          })
-          .run()
-          .pipe(Effect.mapError(describeQueryFailure("write")))
-      })
+      const writeTeam = Effect.fn("ContextCache.writeTeam")(
+        function* writeStoredTeam(
+          profile: string,
+          teamId: string,
+          keyHash: string,
+          detail: TeamDetail,
+          fetchedAt: number,
+        ) {
+          const encoded = yield* Schema.encodeEffect(TeamDetailJson)(detail).pipe(
+            Effect.mapError(describeEncodeFailure("team")),
+          )
+          const columns = { keyHash, detail: encoded, fetchedAt }
+          const opened = yield* openedDatabase
+          yield* opened.drizzle
+            .insert(contextCache)
+            .values({ profile, teamId, ...columns })
+            .onConflictDoUpdate({
+              target: [contextCache.profile, contextCache.teamId, contextCache.keyHash],
+              set: columns,
+            })
+            .run()
+            .pipe(Effect.mapError(describeQueryFailure("write")))
+        },
+        Effect.catchTag("ContextCacheError", advisoryFailure),
+      )
+
+      const invalidateTeam = Effect.fn("ContextCache.invalidateTeam")(
+        function* invalidateStoredTeam(profile: string, teamId: string, keyHash: string) {
+          const opened = yield* openedDatabase
+          yield* opened.drizzle
+            .delete(contextCache)
+            .where(
+              and(
+                eq(contextCache.profile, profile),
+                eq(contextCache.teamId, teamId),
+                eq(contextCache.keyHash, keyHash),
+              ),
+            )
+            .run()
+            .pipe(Effect.mapError(describeQueryFailure("invalidate")))
+        },
+        Effect.catchTag("ContextCacheError", advisoryFailure),
+      )
 
       const readViewer = Effect.fn("ContextCache.readViewer")(function* readStoredViewer(
         profile: string,
@@ -163,28 +188,31 @@ class ContextCache extends Context.Service<ContextCache, ContextCacheShape>()(
         return Option.some({ viewer: viewer.value, fetchedAt: row.fetchedAt })
       })
 
-      const writeViewer = Effect.fn("ContextCache.writeViewer")(function* writeStoredViewer(
-        profile: string,
-        keyHash: string,
-        viewer: Viewer,
-        fetchedAt: number,
-      ) {
-        const encoded = yield* Schema.encodeEffect(ViewerJson)(viewer).pipe(
-          Effect.mapError(describeEncodeFailure("viewer")),
-        )
-        const opened = yield* openedDatabase
-        yield* opened.drizzle
-          .insert(viewerCache)
-          .values({ profile, keyHash, viewer: encoded, fetchedAt })
-          .onConflictDoUpdate({
-            target: [viewerCache.profile, viewerCache.keyHash],
-            set: { viewer: encoded, fetchedAt },
-          })
-          .run()
-          .pipe(Effect.mapError(describeQueryFailure("write")))
-      })
+      const writeViewer = Effect.fn("ContextCache.writeViewer")(
+        function* writeStoredViewer(
+          profile: string,
+          keyHash: string,
+          viewer: Viewer,
+          fetchedAt: number,
+        ) {
+          const encoded = yield* Schema.encodeEffect(ViewerJson)(viewer).pipe(
+            Effect.mapError(describeEncodeFailure("viewer")),
+          )
+          const opened = yield* openedDatabase
+          yield* opened.drizzle
+            .insert(viewerCache)
+            .values({ profile, keyHash, viewer: encoded, fetchedAt })
+            .onConflictDoUpdate({
+              target: [viewerCache.profile, viewerCache.keyHash],
+              set: { viewer: encoded, fetchedAt },
+            })
+            .run()
+            .pipe(Effect.mapError(describeQueryFailure("write")))
+        },
+        Effect.catchTag("ContextCacheError", advisoryFailure),
+      )
 
-      return ContextCache.of({ readTeam, readViewer, writeTeam, writeViewer })
+      return ContextCache.of({ invalidateTeam, readTeam, readViewer, writeTeam, writeViewer })
     }),
   )
 }

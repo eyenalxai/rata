@@ -96,7 +96,7 @@ describe("Linear decoders", () => {
   test("decodes a team detail with its label scope and state position", () => {
     const detail = Option.getOrThrow(
       Schema.decodeUnknownOption(TeamDetail)({
-        id: teamId("team-1"),
+        id: teamId("00000000-0000-0000-0000-000000000001"),
         key: "RAT",
         name: "Rata",
         timezone: "UTC",

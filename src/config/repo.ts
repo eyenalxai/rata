@@ -5,15 +5,14 @@ import { Console, Context, Effect, FileSystem, Layer, Option, Path, Result, Sche
 
 import type { RepositoryLocation } from "@/config/repo-identity"
 import type { RepoConfig } from "@/config/repo/model"
+import type { TeamId } from "@/domain/id"
 
 import { firstStoredKey, RepositoryIdentity } from "@/config/repo-identity"
+import { DefaultLabelsJson, decodeStoredRepository } from "@/config/repo/decode"
 import { fromLegacyConfig, RepoConfigJson } from "@/config/repo/legacy"
 import { Database } from "@/db/database"
 import { repositories } from "@/db/schema"
-import { teamId } from "@/domain/id"
-import { priorityFromStored, storedPriority } from "@/domain/priority"
-
-const DefaultLabelsJson = Schema.fromJsonString(Schema.Array(Schema.String))
+import { storedPriority } from "@/domain/priority"
 
 class RepoConfigError extends Schema.TaggedError<RepoConfigError>()("RepoConfigError", {
   message: Schema.String,
@@ -31,57 +30,16 @@ const describeQueryFailure =
   (cause: unknown): RepoConfigError =>
     new RepoConfigError({ message: `Could not ${action} the repository config.`, cause })
 
-type StoredRepository = typeof repositories.$inferSelect
-
-const storedLabels = (
-  value: string | null,
-): Result.Result<Option.Option<readonly string[]>, RepoConfigError> => {
-  if (value === null || value.trim().length === 0) {
-    return Result.succeed(Option.none())
-  }
-  const decoded = Schema.decodeResult(DefaultLabelsJson)(value)
-  if (Result.isFailure(decoded)) {
-    return Result.fail(
-      new RepoConfigError({
-        message: "The stored default labels of the repository config are not valid JSON.",
-        cause: decoded.failure,
-      }),
-    )
-  }
-  return Result.succeed(decoded.success.length === 0 ? Option.none() : Option.some(decoded.success))
-}
-
-const toConfig = (row: StoredRepository): Result.Result<RepoConfig, RepoConfigError> => {
-  const labels = storedLabels(row.defaultLabels)
-  if (Result.isFailure(labels)) {
-    return Result.fail(labels.failure)
-  }
-  const priority = priorityFromStored(row.defaultPriority)
-  if (Result.isFailure(priority)) {
-    return Result.fail(
-      new RepoConfigError({
-        message: "The stored default priority of the repository config is not valid.",
-        cause: priority.failure,
-      }),
-    )
-  }
-  return Result.succeed({
-    ...(row.team === null ? {} : { team: row.team }),
-    ...(row.teamId === null ? {} : { teamId: teamId(row.teamId) }),
-    ...(row.project === null ? {} : { project: row.project }),
-    ...(row.workspace === null ? {} : { workspace: row.workspace }),
-    ...(row.defaultAssignee === null ? {} : { defaultAssignee: row.defaultAssignee }),
-    ...(Option.isNone(labels.success) ? {} : { defaultLabels: labels.success.value }),
-    ...(priority.success === null ? {} : { defaultPriority: priority.success }),
-  })
-}
-
 const currentDirectory: Effect.Effect<string> = Effect.sync(() => process.cwd())
 
 type RepoConfigShape = {
   readonly read: (directory: string) => Effect.Effect<Option.Option<RepoConfig>, RepoConfigError>
   readonly write: (directory: string, config: RepoConfig) => Effect.Effect<void, RepoConfigError>
   readonly remove: (directory: string) => Effect.Effect<boolean, RepoConfigError>
+  readonly repairTeamId: (
+    directory: string,
+    teamId: TeamId,
+  ) => Effect.Effect<boolean, RepoConfigError>
 }
 
 class RepoConfigService extends Context.Service<RepoConfigService, RepoConfigShape>()(
@@ -241,8 +199,7 @@ class RepoConfigService extends Context.Service<RepoConfigService, RepoConfigSha
         const imported = fromLegacyConfig(decoded.success)
         if (Result.isFailure(imported)) {
           return yield* new RepoConfigError({
-            message: `The repository config at ${file} has an invalid default priority.`,
-            cause: imported.failure,
+            message: `The repository config at ${file} has ${imported.failure}`,
           })
         }
         yield* upsert(key, imported.success)
@@ -255,9 +212,12 @@ class RepoConfigService extends Context.Service<RepoConfigService, RepoConfigSha
         const location = yield* locate(directory)
         const row = yield* findRow(location)
         if (Option.isSome(row)) {
-          const config = toConfig(row.value)
+          const config = decodeStoredRepository(row.value)
           if (Result.isFailure(config)) {
-            return yield* config.failure
+            return yield* new RepoConfigError({
+              message: config.failure.message,
+              cause: config.failure.cause,
+            })
           }
           return Option.some(config.success)
         }
@@ -291,7 +251,26 @@ class RepoConfigService extends Context.Service<RepoConfigService, RepoConfigSha
         return true
       })
 
-      return RepoConfigService.of({ read, remove, write })
+      const repairTeamId = Effect.fn("RepoConfig.repairTeamId")(function* repairStoredTeamId(
+        directory: string,
+        value: TeamId,
+      ) {
+        const location = yield* locate(directory)
+        const row = yield* findRow(location)
+        if (Option.isNone(row) || row.value.teamId === value) {
+          return false
+        }
+        const opened = yield* openedDatabase
+        yield* opened.drizzle
+          .update(repositories)
+          .set({ teamId: value })
+          .where(eq(repositories.key, row.value.key))
+          .run()
+          .pipe(Effect.mapError(describeQueryFailure("repair")))
+        return true
+      })
+
+      return RepoConfigService.of({ read, remove, repairTeamId, write })
     }),
   )
 }

@@ -11,7 +11,7 @@ import type { ProjectCreateOptions } from "@/linear/decode/project"
 import { ProjectService } from "@/api/project"
 import { projectId } from "@/domain/id"
 
-const team = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
+const team = { id: "00000000-0000-0000-0000-000000000001", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
 const otherTeam = { id: "team-2", key: "OPS", name: "Operations", timezone: "America/Los_Angeles" }
 
 const run = <A, E>(
@@ -97,7 +97,7 @@ describe("ProjectService.create", () => {
     expect(inputOf(create?.variables ?? {})).toEqual({
       name: "Spec: login",
       description: "The login spec.",
-      teamIds: ["team-1"],
+      teamIds: ["00000000-0000-0000-0000-000000000001"],
     })
   })
 

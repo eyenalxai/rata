@@ -28,18 +28,18 @@ const readyLabel: MemoryLabel = {
   id: labelId("l-ready"),
   name: "ready-for-agent",
   color: "#111111",
-  teamId: teamId("team-1"),
+  teamId: teamId("00000000-0000-0000-0000-000000000001"),
 }
 
 const bugLabel: MemoryLabel = {
   id: labelId("l-bug"),
   name: "bug",
   color: "#EB5757",
-  teamId: teamId("team-1"),
+  teamId: teamId("00000000-0000-0000-0000-000000000001"),
 }
 
 const team: MemoryTeam = {
-  id: teamId("team-1"),
+  id: teamId("00000000-0000-0000-0000-000000000001"),
   key: "RAT",
   name: "Rata",
   timezone: "America/Los_Angeles",

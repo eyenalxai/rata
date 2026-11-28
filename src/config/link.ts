@@ -1,6 +1,6 @@
 import type { FileSystem, Path, Terminal } from "effect"
 
-import { Context, Effect, Layer, Option, Stdio } from "effect"
+import { Context, Effect, Layer, Option, Redacted, Stdio } from "effect"
 
 import type { LabelOperations } from "@/api/label"
 import type { TeamCreateError, TeamNotFoundError, TeamUpdateError } from "@/api/team"
@@ -18,9 +18,12 @@ import { Auth } from "@/config/auth"
 import { invalidLinkOptions, LinkError, updateTeamTimezone } from "@/config/link/team"
 import { resolveLinkTarget } from "@/config/link/workspace"
 import { currentDirectory, RepoConfigService } from "@/config/repo"
+import { hashApiKey } from "@/context/key-hash"
+import { profileKey } from "@/context/memo-key"
 import { findLabelByName } from "@/domain/label"
 import { collectConnection, pageSize } from "@/linear/connection"
 import { LinearGateway } from "@/linear/gateway"
+import { ContextCache } from "@/local/context-cache"
 
 type LinkOptions = LinkTargetOptions & {
   readonly project: Option.Option<string>
@@ -65,6 +68,7 @@ class LinkService extends Context.Service<LinkService, LinkServiceShape>()(
       const auth = yield* Auth
       const gateway = yield* LinearGateway
       const stdio = yield* Stdio.Stdio
+      const cache = yield* ContextCache
 
       const writeConfig = Effect.fn("LinkService.writeConfig")(function* writeConfig(
         team: Team,
@@ -145,6 +149,11 @@ class LinkService extends Context.Service<LinkService, LinkServiceShape>()(
           teams.withKey(target.apiKey),
         )
         const setup = yield* writeConfig(updated.team, options.project, target.workspace)
+        yield* cache.invalidateTeam(
+          profileKey(Option.getOrNull(target.workspace)),
+          updated.team.id,
+          hashApiKey(Redacted.value(target.apiKey)),
+        )
         return {
           team: updated.team,
           project: setup.project,

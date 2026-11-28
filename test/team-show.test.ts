@@ -41,7 +41,7 @@ const labels = [
     id: labelId(`label-${index}`),
     name: `Label ${index}`,
     color: "#5E6AD2",
-    teamId: teamId("team-1"),
+    teamId: teamId("00000000-0000-0000-0000-000000000001"),
   })),
   {
     id: labelId("label-workspace"),
@@ -52,7 +52,7 @@ const labels = [
 ]
 
 const team: MemoryTeam = {
-  id: teamId("team-1"),
+  id: teamId("00000000-0000-0000-0000-000000000001"),
   key: "RAT",
   name: "Rata",
   timezone: "America/Los_Angeles",

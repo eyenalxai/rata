@@ -20,7 +20,9 @@ describe("LinkService.link", () => {
     const harness = makeHarness()
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
     const { stored } = await linkTeam(fake.handler, harness, options({}))
-    expect(stored).toEqual(Option.some({ team: "RAT", teamId: teamId("team-1") }))
+    expect(stored).toEqual(
+      Option.some({ team: "RAT", teamId: teamId("00000000-0000-0000-0000-000000000001") }),
+    )
   })
 
   test("resolves a team given by id and stores the key", async () => {
@@ -91,7 +93,10 @@ describe("LinkService.link", () => {
       Option.some({ previous: "America/Los_Angeles", current: "Europe/Amsterdam" }),
     )
     const update = fake.requests.find((request) => request.query.includes("mutation TeamUpdate"))
-    expect(update?.variables).toEqual({ id: "team-1", input: { timezone: "Europe/Amsterdam" } })
+    expect(update?.variables).toEqual({
+      id: "00000000-0000-0000-0000-000000000001",
+      input: { timezone: "Europe/Amsterdam" },
+    })
   })
 
   test("does not update the team timezone when it matches", async () => {
@@ -143,7 +148,13 @@ describe("LinkService.link", () => {
       harness,
       options({ project: Option.some("rata") }),
     )
-    expect(stored).toEqual(Option.some({ team: "RAT", teamId: teamId("team-1"), project: "rata" }))
+    expect(stored).toEqual(
+      Option.some({
+        team: "RAT",
+        teamId: teamId("00000000-0000-0000-0000-000000000001"),
+        project: "rata",
+      }),
+    )
     expect(result.project).toEqual(Option.some("rata"))
   })
 
@@ -152,7 +163,13 @@ describe("LinkService.link", () => {
     const fake = makeFakeLinear({ teams: [rat], labels: [] })
     const { result, stored } = await linkTeam(fake.handler, harness, options({}))
     expect(result.project).toEqual(Option.some("rata"))
-    expect(stored).toEqual(Option.some({ team: "RAT", teamId: teamId("team-1"), project: "rata" }))
+    expect(stored).toEqual(
+      Option.some({
+        team: "RAT",
+        teamId: teamId("00000000-0000-0000-0000-000000000001"),
+        project: "rata",
+      }),
+    )
   })
 
   test("keeps the workspace of an existing config when --workspace is absent", async () => {
@@ -161,7 +178,11 @@ describe("LinkService.link", () => {
     const { result, stored } = await linkTeam(fake.handler, harness, options({}))
     expect(result.workspace).toEqual(Option.some("work"))
     expect(stored).toEqual(
-      Option.some({ team: "RAT", teamId: teamId("team-1"), workspace: "work" }),
+      Option.some({
+        team: "RAT",
+        teamId: teamId("00000000-0000-0000-0000-000000000001"),
+        workspace: "work",
+      }),
     )
   })
 
@@ -174,7 +195,13 @@ describe("LinkService.link", () => {
       options({ project: Option.some("rata") }),
     )
     expect(result.project).toEqual(Option.some("rata"))
-    expect(stored).toEqual(Option.some({ team: "RAT", teamId: teamId("team-1"), project: "rata" }))
+    expect(stored).toEqual(
+      Option.some({
+        team: "RAT",
+        teamId: teamId("00000000-0000-0000-0000-000000000001"),
+        project: "rata",
+      }),
+    )
   })
 })
 
@@ -183,7 +210,7 @@ describe("LinkService default labels", () => {
     id: labelId("l-enh"),
     name: "enhancement",
     color: "#111111",
-    teamId: teamId("team-1"),
+    teamId: teamId("00000000-0000-0000-0000-000000000001"),
   }
 
   test("keeps the defaults when the new team has the labels", async () => {
@@ -195,7 +222,11 @@ describe("LinkService default labels", () => {
     const { result, stored } = await linkTeam(fake.handler, harness, options({}))
     expect(result.team.key).toBe("RAT")
     expect(stored).toEqual(
-      Option.some({ team: "RAT", teamId: teamId("team-1"), defaultLabels: ["enhancement"] }),
+      Option.some({
+        team: "RAT",
+        teamId: teamId("00000000-0000-0000-0000-000000000001"),
+        defaultLabels: ["enhancement"],
+      }),
     )
   })
 
@@ -219,7 +250,11 @@ describe("LinkService default labels", () => {
     const { result, stored } = await linkTeam(fake.handler, harness, options({}))
     expect(result.team.key).toBe("RAT")
     expect(stored).toEqual(
-      Option.some({ team: "RAT", teamId: teamId("team-1"), defaultLabels: ["missing"] }),
+      Option.some({
+        team: "RAT",
+        teamId: teamId("00000000-0000-0000-0000-000000000001"),
+        defaultLabels: ["missing"],
+      }),
     )
   })
 
@@ -232,7 +267,7 @@ describe("LinkService default labels", () => {
     expect(stored).toEqual(
       Option.some({
         team: "RAT",
-        teamId: teamId("team-1"),
+        teamId: teamId("00000000-0000-0000-0000-000000000001"),
         defaultAssignee: "me",
         defaultPriority: "medium",
       }),
@@ -247,9 +282,14 @@ describe("LinkService default labels", () => {
         workspaces: {
           "personal-key": { teams: [rat], labels: [enhancement] },
           "work-key": {
-            teams: [{ ...rat, id: teamId("team-2") }],
+            teams: [{ ...rat, id: teamId("00000000-0000-0000-0000-000000000002") }],
             labels: [
-              { ...enhancement, id: labelId("l-bug"), name: "bug", teamId: teamId("team-2") },
+              {
+                ...enhancement,
+                id: labelId("l-bug"),
+                name: "bug",
+                teamId: teamId("00000000-0000-0000-0000-000000000002"),
+              },
             ],
           },
         },
@@ -268,8 +308,15 @@ describe("LinkService default labels", () => {
         "personal-key": { viewer: defaultViewer, teams: [rat], labels: [enhancement] },
         "work-key": {
           viewer: defaultViewer,
-          teams: [{ ...rat, id: "team-2" }],
-          labels: [{ ...enhancement, id: "l-bug", name: "bug", teamId: "team-2" }],
+          teams: [{ ...rat, id: "00000000-0000-0000-0000-000000000002" }],
+          labels: [
+            {
+              ...enhancement,
+              id: "l-bug",
+              name: "bug",
+              teamId: "00000000-0000-0000-0000-000000000002",
+            },
+          ],
         },
       },
     })

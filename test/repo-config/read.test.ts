@@ -1,7 +1,7 @@
 import type { MemoryTree } from "@test/memory-file-system"
 
 import { recordingConsoleWithErrors } from "@test/recording-console"
-import { emptyDefaults, nonGitTree, withRepoConfig } from "@test/repo-config/harness"
+import { emptyDefaults, nonGitTree, repoTree, withRepoConfig } from "@test/repo-config/harness"
 import { describe, expect, test } from "bun:test"
 import { Effect, Option } from "effect"
 
@@ -23,6 +23,24 @@ describe("RepoConfigService.read", () => {
 
     expect(result).toEqual(Option.none())
     expect(lines).toEqual([])
+  })
+
+  test("rejects a stored team id that is not a UUID", async () => {
+    const result = await withRepoConfig(
+      repoTree,
+      [],
+      Effect.gen(function* readInvalidTeamId() {
+        const service = yield* RepoConfigService
+        return yield* Effect.flip(service.read("/repo"))
+      }),
+      undefined,
+      [{ key: "/repo/.git", team: "RAT", teamId: "not-a-uuid" }],
+    )
+
+    expect(result._tag).toBe("RepoConfigError")
+    if (result._tag === "RepoConfigError") {
+      expect(result.message).toContain("UUID")
+    }
   })
 
   test("finds the row of a stored ancestor outside Git", async () => {

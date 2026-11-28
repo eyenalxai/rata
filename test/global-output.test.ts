@@ -9,7 +9,7 @@ import { Command } from "effect/cli"
 
 import { teamCommand } from "@/cli/registry"
 
-const team = { id: "team-1", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
+const team = { id: "00000000-0000-0000-0000-000000000001", key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
 
 const runTeam = (handler: Handler, args: readonly string[], lines: string[]) =>
   Command.run(teamCommand, { version: "test" }).pipe(
@@ -36,7 +36,7 @@ describe("global output flags", () => {
 
     expect(lastJson(lines)).toEqual({
       teams: [team],
-      pageInfo: { hasNextPage: false, endCursor: "team-1" },
+      pageInfo: { hasNextPage: false, endCursor: "00000000-0000-0000-0000-000000000001" },
     })
   })
 
@@ -62,7 +62,7 @@ describe("global output flags", () => {
     await runTeam(fake.handler, ["--format", "json", "list"], lines)
     expect(lastJson(lines)).toEqual({
       teams: [team],
-      pageInfo: { hasNextPage: false, endCursor: "team-1" },
+      pageInfo: { hasNextPage: false, endCursor: "00000000-0000-0000-0000-000000000001" },
     })
   })
 
@@ -72,7 +72,7 @@ describe("global output flags", () => {
     await runTeam(fake.handler, ["list", "--format", "json"], lines)
     expect(lastJson(lines)).toEqual({
       teams: [team],
-      pageInfo: { hasNextPage: false, endCursor: "team-1" },
+      pageInfo: { hasNextPage: false, endCursor: "00000000-0000-0000-0000-000000000001" },
     })
   })
 
@@ -82,7 +82,7 @@ describe("global output flags", () => {
     await runTeam(fake.handler, ["list", "--format", "json", "--select", "key,name"], lines)
     expect(lastJson(lines)).toEqual({
       teams: [{ key: "RAT", name: "Rata" }],
-      pageInfo: { hasNextPage: false, endCursor: "team-1" },
+      pageInfo: { hasNextPage: false, endCursor: "00000000-0000-0000-0000-000000000001" },
     })
   })
 

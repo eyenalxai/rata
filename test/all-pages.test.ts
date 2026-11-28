@@ -10,7 +10,7 @@ import { Viewer } from "@/linear/decode/viewer"
 
 const viewer = Option.getOrThrow(Schema.decodeUnknownOption(Viewer)(defaultViewer))
 
-const team = { id: teamId("team-1"), key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
+const team = { id: teamId("00000000-0000-0000-0000-000000000001"), key: "RAT", name: "Rata", timezone: "America/Los_Angeles" }
 const otherTeam = {
   id: teamId("team-2"),
   key: "OPS",
@@ -116,7 +116,7 @@ describe("team list --all", () => {
     const lines: string[] = []
     await runRootMemory(
       seed([]),
-      ["admin", "team", "list", "--all", "--after", "team-1", "--limit", "1", "--format", "json"],
+      ["admin", "team", "list", "--all", "--after", "00000000-0000-0000-0000-000000000001", "--limit", "1", "--format", "json"],
       lines,
     )
 
