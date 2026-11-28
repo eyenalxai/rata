@@ -62,10 +62,8 @@ type PublicWriteResult = Omit<ApplyResult, "cause"> & {
 type WriteOutcome = {
   readonly result: ApplyResult
   readonly issue: Option.Option<IssueReadDocument>
+  readonly warning: Option.Option<string>
 }
-
-const postReadWarning =
-  "The follow-up read failed. The result is authoritative. The issue is omitted."
 
 const publicResult = (result: ApplyResult): PublicWriteResult => {
   const report = result.cause === undefined ? undefined : toTrackerError(result.cause)
@@ -100,7 +98,7 @@ const writeOutput = (outcome: WriteOutcome): CommandOutput => {
   const { result } = outcome
   const report = result.cause === undefined ? undefined : toTrackerError(result.cause)
   const issue = Option.getOrNull(outcome.issue)
-  const warning = issue === null ? postReadWarning : null
+  const warning = Option.getOrNull(outcome.warning)
   return {
     kind: "resource",
     value: { issue, result: publicResult(result), warning },
@@ -132,18 +130,30 @@ const readIssue = (
     }),
   )
 
-const finishWrite = Effect.fn("IssueWrite.finishWrite")(function* finishWrite(
+const postWriteRead = Effect.fn("IssueWrite.postWriteRead")(function* postWriteRead(
   ref: string,
   result: ApplyResult,
 ) {
   const reader = yield* IssueReader
-  const issue = yield* readIssue(reader, ref).pipe(
+  return yield* readIssue(reader, ref).pipe(
     Effect.match({
-      onFailure: () => Option.none<IssueReadDocument>(),
-      onSuccess: (document) => Option.some(document),
+      onFailure: (error) => {
+        const report = toTrackerError(error)
+        return {
+          result,
+          issue: Option.none<IssueReadDocument>(),
+          warning: Option.some(
+            `The post-write read failed (${report.code}): ${report.message} The result stays authoritative; the issue is null.`,
+          ),
+        }
+      },
+      onSuccess: (document) => ({
+        result,
+        issue: Option.some(document),
+        warning: Option.none<string>(),
+      }),
     }),
   )
-  return { result, issue }
 })
 
-export { applyResultShape, finishWrite, issueWriteShape, writeOutput }
+export { applyResultShape, issueWriteShape, postWriteRead, writeOutput }

@@ -84,6 +84,9 @@ they explore the codebase. Use these terms; do not drift to synonyms.
 - **Apply result**: the `result` object of a write: `action`, `status`,
   `changed`, `dryRun`, `snapshot`, `actions` and, on failure, `failed` and
   `error`. `status` is `updated`, `skipped` or `failed`.
+- **Post-write read**: the read a write command runs after a mutation, or after
+  a dry-run plan, to print the current issue. A failed read returns `issue: null`
+  and a warning; the result stays authoritative.
 - **Publish node**: one node of an `issue publish` document. It has a `key`, a
   `kind`, a title and optional fields.
 - **Publish node identity** (short: **node identity**): the stable UUID of a

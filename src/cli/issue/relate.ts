@@ -4,7 +4,7 @@ import { Argument, Flag } from "effect/cli"
 import type { ApplyDocument, ApplyRelations } from "@/domain/apply"
 
 import { resolveIssueContext } from "@/cli/issue/context"
-import { finishWrite, issueWriteShape, writeOutput } from "@/cli/issue/write-output"
+import { issueWriteShape, postWriteRead, writeOutput } from "@/cli/issue/write-output"
 import { dryRunFlag } from "@/cli/output"
 import { defineCommand, selectOutput } from "@/cli/spec"
 import { TrackerError } from "@/domain/error"
@@ -97,7 +97,7 @@ const relateSpec = defineCommand("relate", {
         removeRelations: input.remove,
       })
       const result = control.dryRun ? dryRunPlan(plan) : yield* applyPlan(plan)
-      const outcome = yield* finishWrite(input.ref, result)
+      const outcome = yield* postWriteRead(input.ref, result)
       return writeOutput(outcome)
     }),
 })

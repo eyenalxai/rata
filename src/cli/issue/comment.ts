@@ -4,7 +4,7 @@ import { Argument, Flag } from "effect/cli"
 import type { ApplyDocument } from "@/domain/apply"
 
 import { resolveIssueContext } from "@/cli/issue/context"
-import { finishWrite, issueWriteShape, writeOutput } from "@/cli/issue/write-output"
+import { issueWriteShape, postWriteRead, writeOutput } from "@/cli/issue/write-output"
 import { dryRunFlag } from "@/cli/output"
 import { defineCommand, selectOutput } from "@/cli/spec"
 import { TrackerError } from "@/domain/error"
@@ -68,7 +68,7 @@ const commentSpec = defineCommand("comment", {
       const engine = yield* IssueApply
       const plan = yield* engine.plan(context, input.ref, document, { command: "comment" })
       const result = control.dryRun ? dryRunPlan(plan) : yield* applyPlan(plan)
-      const outcome = yield* finishWrite(input.ref, result)
+      const outcome = yield* postWriteRead(input.ref, result)
       return writeOutput(outcome)
     }),
 })

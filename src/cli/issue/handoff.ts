@@ -3,7 +3,7 @@ import { Argument, Flag } from "effect/cli"
 
 import { resolveIssueContext } from "@/cli/issue/context"
 import { decodeHandoffDocument, emptyHandoffDocument, requireDedupeKey } from "@/cli/issue/document"
-import { finishWrite, issueWriteShape, writeOutput } from "@/cli/issue/write-output"
+import { issueWriteShape, postWriteRead, writeOutput } from "@/cli/issue/write-output"
 import { dryRunFlag } from "@/cli/output"
 import { defineCommand, selectOutput } from "@/cli/spec"
 import { applyPlan, dryRunPlan } from "@/tracker/plan"
@@ -44,7 +44,7 @@ const handoffSpec = defineCommand("handoff", {
       const workflow = yield* IssueWorkflow
       const plan = yield* workflow.handoff(context, input.ref, document, pr)
       const result = control.dryRun ? dryRunPlan(plan) : yield* applyPlan(plan)
-      const outcome = yield* finishWrite(input.ref, result)
+      const outcome = yield* postWriteRead(input.ref, result)
       return writeOutput(outcome)
     }),
 })
