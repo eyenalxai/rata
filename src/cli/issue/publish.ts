@@ -17,11 +17,11 @@ const publishSpec = defineCommand("publish", {
     },
     {
       command: "rata issue publish --file - --dry-run < graph.json",
-      description: "Print the resolved order, parents and edge plan without writing",
+      description: "Print the node and edge plan without writing",
     },
     {
       command: "rata issue publish --file graph.json --dry-run",
-      description: "Check a retry before it creates or links anything",
+      description: "Show what a retry would reuse, create or link",
     },
   ],
   input: {

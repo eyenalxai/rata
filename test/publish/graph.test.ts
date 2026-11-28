@@ -3,6 +3,7 @@ import { Result } from "effect"
 
 import type { PublishNode } from "@/domain/publish"
 
+import { TrackerError } from "@/domain/error"
 import { publishOrder, publishUuid } from "@/domain/publish"
 
 const node = (key: string, extra: Partial<PublishNode> = {}): PublishNode => ({
@@ -54,7 +55,11 @@ describe("publish order", () => {
 
     expect(Result.isFailure(ordered)).toBe(true)
     if (Result.isFailure(ordered)) {
-      expect(ordered.failure).toEqual({ _tag: "duplicate-key", key: "same" })
+      expect(ordered.failure).toBeInstanceOf(TrackerError)
+      expect(ordered.failure).toMatchObject({
+        code: "validation",
+        message: "The publish document has two nodes with the key same.",
+      })
     }
   })
 
@@ -63,11 +68,10 @@ describe("publish order", () => {
 
     expect(Result.isFailure(ordered)).toBe(true)
     if (Result.isFailure(ordered)) {
-      expect(ordered.failure).toEqual({
-        _tag: "missing-key",
-        key: "missing",
-        node: "child",
-        field: "parent",
+      expect(ordered.failure).toMatchObject({
+        code: "validation",
+        message:
+          "The parent of node child names missing, which is not a node key or an issue reference.",
       })
     }
   })
@@ -77,11 +81,10 @@ describe("publish order", () => {
 
     expect(Result.isFailure(ordered)).toBe(true)
     if (Result.isFailure(ordered)) {
-      expect(ordered.failure).toEqual({
-        _tag: "missing-key",
-        key: "missing",
-        node: "child",
-        field: "blockedBy",
+      expect(ordered.failure).toMatchObject({
+        code: "validation",
+        message:
+          "The blockedBy of node child names missing, which is not a node key or an issue reference.",
       })
     }
   })
@@ -91,7 +94,10 @@ describe("publish order", () => {
 
     expect(Result.isFailure(ordered)).toBe(true)
     if (Result.isFailure(ordered)) {
-      expect(ordered.failure).toEqual({ _tag: "cycle", keys: ["a", "b"] })
+      expect(ordered.failure).toMatchObject({
+        code: "validation",
+        message: "The publish graph has a cycle: a, b.",
+      })
     }
   })
 
@@ -100,7 +106,10 @@ describe("publish order", () => {
 
     expect(Result.isFailure(ordered)).toBe(true)
     if (Result.isFailure(ordered)) {
-      expect(ordered.failure).toEqual({ _tag: "cycle", keys: ["a", "b"] })
+      expect(ordered.failure).toMatchObject({
+        code: "validation",
+        message: "The publish graph has a cycle: a, b.",
+      })
     }
   })
 
@@ -109,11 +118,22 @@ describe("publish order", () => {
 
     expect(Result.isFailure(ordered)).toBe(true)
     if (Result.isFailure(ordered)) {
-      expect(ordered.failure).toEqual({ _tag: "cycle", keys: ["a", "b"] })
+      expect(ordered.failure).toMatchObject({
+        code: "validation",
+        message: "The publish graph has a cycle: a, b.",
+      })
     }
   })
 
   test("rejects an empty document", () => {
-    expect(publishOrder([])).toEqual(Result.fail({ _tag: "empty" }))
+    const ordered = publishOrder([])
+
+    expect(Result.isFailure(ordered)).toBe(true)
+    if (Result.isFailure(ordered)) {
+      expect(ordered.failure).toMatchObject({
+        code: "validation",
+        message: "The publish document has no nodes.",
+      })
+    }
   })
 })

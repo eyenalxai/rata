@@ -13,26 +13,27 @@ type ParentSummary = {
   readonly updatedAt: string
 }
 
-const resolveTeam = (
+const resolveTeam = Effect.fn("IssuePublish.resolveTeam")(function* resolvePublishTeam(
   dependencies: PublishDependencies,
   context: ResolvedContext,
   team: string | undefined,
-): Effect.Effect<ResolvedContext, PublishPlanError> =>
-  team === undefined
-    ? Effect.succeed(context)
-    : dependencies.contexts.resolve({ team, viewer: true, requireTeam: true })
+): Effect.fn.Return<ResolvedContext, PublishPlanError> {
+  return team === undefined
+    ? context
+    : yield* dependencies.contexts.resolve({ team, viewer: true, requireTeam: true })
+})
 
-const readDocumentParent = (
+const readDocumentParent = Effect.fn("IssuePublish.readDocumentParent")(function* readParent(
   dependencies: PublishDependencies,
   parent: string | undefined,
-): Effect.Effect<ParentSummary | null, PublishPlanError> =>
-  parent === undefined
-    ? Effect.succeed(null)
-    : Effect.gen(function* readParent() {
-        const ref = yield* parseRefOrFail(parent)
-        const summary = yield* dependencies.gateway.issue.summary(ref)
-        return { id: summary.id, updatedAt: summary.updatedAt }
-      })
+): Effect.fn.Return<ParentSummary | null, PublishPlanError> {
+  if (parent === undefined) {
+    return null
+  }
+  const ref = yield* parseRefOrFail(parent)
+  const summary = yield* dependencies.gateway.issue.summary(ref)
+  return { id: summary.id, updatedAt: summary.updatedAt }
+})
 
 const resolveLabelMap = (
   dependencies: PublishDependencies,

@@ -79,7 +79,7 @@ rata issue list --after <cursor>         # read the next page of a list
 rata issue list --all                    # drain every page of a list
 rata issue search "rate limit"           # ten summary rows by default
 rata issue create --title "Fix login" --team RAT --assignee me  # create an issue
-rata issue publish --file graph.json      # create a graph of issues and blocking edges
+rata issue publish --file graph.json     # create a graph of issues and blocking edges
 rata issue start RAT-42                   # claim an unassigned issue and start it
 rata issue apply RAT-42 --file -          # fields, labels, sections, comment and relations
 rata issue apply RAT-42 --file - --dry-run  # print the plan, write nothing
@@ -1061,10 +1061,11 @@ template language.
 
 ### Writing issues
 
-Every write plans first. `issue apply` takes the general document; `issue publish`
-creates a graph; `issue start`, `issue handoff` and `issue close` are the
-lifecycle forms. The publish command is its own planner because a graph has no
-single issue snapshot.
+Every write uses the same plan and result contract. `issue apply` takes the
+general document; `issue publish` creates a graph; `issue start`, `issue handoff`
+and `issue close` are the lifecycle forms. `issue publish` has a separate planner
+because a graph has no single issue snapshot, but it returns the same result
+fields.
 
 ```bash
 # one document for fields, labels, sections, a comment and relations
@@ -1100,20 +1101,23 @@ a retry is skipped. `issue close` refuses open children unless `--force`, moves
 to the first completed state, and skips a closed issue; a new close comment posts
 once, and the same comment is skipped.
 
-The publish document has `team`, `parent`, `defaults` and `nodes`. Each node has
-`key`, `kind`, `title`, `body`, optional `priority`, `labels`, `assignee`,
-`state`, `parent` and `blockedBy`. A parent or a blocker may name a node key or
-an existing issue reference. The engine orders the nodes, derives a stable
-client UUID from the parent and key, reads those UUIDs before it creates, and
-creates up to fifty nodes per `issueBatchCreate`. It then adds only the blocking
-edges that are missing. A cycle or an unknown key fails before the first write.
-A retry reuses the created nodes and skips the edges that already exist.
+The publish document has `team`, `parent`, `defaults` and `nodes`. Each node
+requires `key`, `kind` and `title`; `body`, `priority`, `labels`, `assignee`,
+`state`, `parent` and `blockedBy` are optional. A parent or a blocker may name a
+node key or an existing issue reference. The engine orders the nodes, derives a
+stable client UUID from the parent and key (the team scopes a top-level node),
+reads the existing ids before it creates, and creates up to fifty nodes per
+`issueBatchCreate`. It then adds only the blocking edges that are missing. A
+cycle or an unknown key fails before the first write. A retry reuses the created
+nodes and skips the edges that already exist. `kind` is recorded on the node and
+in the result; in this slice it does not set labels or assignees.
 
-The engine plans every action first, then applies it. `--dry-run` returns the
+`issue apply` plans every action first, then applies it. `--dry-run` returns the
 plan and writes nothing. `--if-unchanged` compares the snapshot once before the
 first mutation and exits 4 on a mismatch. A no-op returns `status: "skipped"`.
 A partial failure returns the applied actions and the failed action with its
-error code.
+error code. `issue publish` supports `--dry-run` but has no `--if-unchanged`; its
+snapshot is the document parent's `updatedAt`, or null.
 
 The result is `{ issue, result }`; `result` carries `action`, `status`,
 `changed`, `dryRun`, `snapshot`, `actions` and, on failure, `failed` and

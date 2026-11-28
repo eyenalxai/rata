@@ -2,7 +2,7 @@ import { Effect, Result } from "effect"
 
 import type { IssueId, TeamId } from "@/domain/id"
 import type { IssueRef } from "@/domain/issue-ref"
-import type { PublishGraphError, PublishNode } from "@/domain/publish"
+import type { PublishNode } from "@/domain/publish"
 import type { PublishDependencies, PublishPlanError } from "@/tracker/publish/model"
 
 import { TrackerError } from "@/domain/error"
@@ -14,46 +14,6 @@ type DraftNode = {
   readonly id: string
   readonly parent: string | null
   readonly parentId: string | null
-}
-
-const graphError = (error: PublishGraphError): TrackerError => {
-  switch (error._tag) {
-    case "empty": {
-      return new TrackerError({
-        code: "validation",
-        message: "The publish document has no nodes.",
-        hint: "Add at least one node.",
-      })
-    }
-    case "duplicate-key": {
-      return new TrackerError({
-        code: "validation",
-        message: `The publish document has two nodes with the key ${error.key}.`,
-        hint: "Use one key per node.",
-      })
-    }
-    case "missing-key": {
-      return new TrackerError({
-        code: "validation",
-        message: `The ${error.field} of node ${error.node} names ${error.key}, which is not a node key or an issue reference.`,
-        hint: "Use a key from this document, or an issue reference like RAT-42.",
-      })
-    }
-    case "cycle": {
-      return new TrackerError({
-        code: "validation",
-        message: `The publish graph has a cycle: ${error.keys.join(", ")}.`,
-        hint: "Remove one parent or blockedBy edge between the nodes.",
-      })
-    }
-    default: {
-      return new TrackerError({
-        code: "internal",
-        message: "The publish graph error is unknown.",
-        hint: null,
-      })
-    }
-  }
 }
 
 const toIssueRef = (value: string): IssueRef => {
@@ -103,75 +63,75 @@ const externalTokens = (
   return uniqueValues(tokens)
 }
 
-const resolveReferences = (
+const resolveReferences = Effect.fn("IssuePublish.resolveReferences")(function* resolveReferences(
   dependencies: PublishDependencies,
   tokens: readonly string[],
-): Effect.Effect<ReadonlyMap<string, IssueId>, PublishPlanError> =>
-  Effect.forEach(tokens, (token) =>
+): Effect.fn.Return<ReadonlyMap<string, IssueId>, PublishPlanError> {
+  const entries = yield* Effect.forEach(tokens, (token) =>
     dependencies.resolvers.resolveIssueId(token).pipe(Effect.map((id) => [token, id] as const)),
-  ).pipe(Effect.map((entries) => new Map(entries)))
+  )
+  return new Map(entries)
+})
 
-const draftNodes = (
+const draftNodes = Effect.fn("IssuePublish.draftNodes")(function* draftPublishNodes(
   nodes: readonly PublishNode[],
   order: readonly string[],
   keys: ReadonlySet<string>,
   references: ReadonlyMap<string, IssueId>,
   documentParent: string | undefined,
   teamId: TeamId,
-): Effect.Effect<readonly DraftNode[], PublishPlanError> =>
-  Effect.gen(function* draftPublishNodes() {
-    const byKey = new Map(nodes.map((node) => [node.key, node]))
-    const drafts = new Map<string, DraftNode>()
-    for (const key of order) {
-      const node = byKey.get(key)
-      if (node === undefined) {
-        return yield* new TrackerError({
-          code: "internal",
-          message: `The publish order names the unknown node ${key}.`,
-          hint: null,
-        })
-      }
-      const parent = node.parent ?? documentParent ?? null
-      let parentId: string | null = null
-      if (parent !== null) {
-        if (keys.has(parent)) {
-          const resolved = drafts.get(parent)
-          if (resolved === undefined) {
-            return yield* new TrackerError({
-              code: "internal",
-              message: `The parent ${parent} is missing from the publish plan.`,
-              hint: null,
-            })
-          }
-          parentId = resolved.id
-        } else {
-          const resolved = references.get(parent)
-          if (resolved === undefined) {
-            return yield* new TrackerError({
-              code: "internal",
-              message: `The parent ${parent} has no resolved issue id.`,
-              hint: null,
-            })
-          }
-          parentId = resolved
-        }
-      }
-      drafts.set(key, {
-        node,
-        id: publishUuid({ parentId, teamId, key }),
-        parent,
-        parentId,
+): Effect.fn.Return<readonly DraftNode[], PublishPlanError> {
+  const byKey = new Map(nodes.map((node) => [node.key, node]))
+  const drafts = new Map<string, DraftNode>()
+  for (const key of order) {
+    const node = byKey.get(key)
+    if (node === undefined) {
+      return yield* new TrackerError({
+        code: "internal",
+        message: `The publish order names the unknown node ${key}.`,
+        hint: null,
       })
     }
-    return [...drafts.values()]
-  })
+    const parent = node.parent ?? documentParent ?? null
+    let parentId: string | null = null
+    if (parent !== null) {
+      if (keys.has(parent)) {
+        const resolved = drafts.get(parent)
+        if (resolved === undefined) {
+          return yield* new TrackerError({
+            code: "internal",
+            message: `The parent ${parent} is missing from the publish plan.`,
+            hint: null,
+          })
+        }
+        parentId = resolved.id
+      } else {
+        const resolved = references.get(parent)
+        if (resolved === undefined) {
+          return yield* new TrackerError({
+            code: "internal",
+            message: `The parent ${parent} has no resolved issue id.`,
+            hint: null,
+          })
+        }
+        parentId = resolved
+      }
+    }
+    drafts.set(key, {
+      node,
+      id: publishUuid({ parentId, teamId, key }),
+      parent,
+      parentId,
+    })
+  }
+  return [...drafts.values()]
+})
 
 export {
   chunk,
   type DraftNode,
   draftNodes,
   externalTokens,
-  graphError,
   resolveReferences,
   toIssueRef,
   uniqueNames,

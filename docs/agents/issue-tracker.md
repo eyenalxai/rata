@@ -30,9 +30,10 @@ errors. This file covers this repository's facts.
 A spec is an issue. Do not prefix its title and do not wrap it in a project. Its
 tickets are child issues.
 
-- **Publish the spec**: `rata issue create --title "<title>" --label ready-for-agent --priority medium --assignee me --body-file -`
-- **Publish a ticket**: `rata issue create --title "<title>" --parent <spec-ref> --label ready-for-agent --priority medium --assignee me --body-file -`
-- **Wire blocking**: `rata issue relate <ticket-ref> --blocked-by <blocker-ref>`.
+- **Publish a spec graph**: `rata issue publish --file -` with one document for the spec, its tickets and their blocking edges.
+- **Publish a single issue**: `rata issue create --title "<title>" --label ready-for-agent --priority medium --assignee me --body-file -` when the issue is not part of a graph.
+- **Publish a ticket under a spec**: `rata issue create --title "<title>" --parent <spec-ref> --label ready-for-agent --priority medium --assignee me --body-file -`.
+- **Wire blocking for a single issue**: `rata issue relate <ticket-ref> --blocked-by <blocker-ref>`.
 - **Read a ticket**: `rata issue <ticket-ref>`. The read carries the description, sections, blockers, pull requests, children, frontier and next child in one call.
 - **Start a ticket**: `rata issue start <ticket-ref>`. It claims an unassigned issue and moves it to the first started state. Add `--take` only when another user holds it.
 - **Read a known set**: `rata issue <ref> <ref> ...`.

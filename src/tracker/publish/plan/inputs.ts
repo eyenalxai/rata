@@ -131,7 +131,7 @@ const makeEdges = (
         throw new Error(`The blocker ${blocker} was not resolved before the publish plan.`)
       }
       const id = `${draft.id}\0${fromId}`
-      if (seen.has(id) || fromId === draft.id) {
+      if (seen.has(id)) {
         continue
       }
       seen.add(id)
