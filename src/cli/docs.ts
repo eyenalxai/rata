@@ -26,7 +26,8 @@ const flagSynopsis = (param: SurfaceParam): string => {
   if (param.type === "boolean") {
     return name
   }
-  return `${name} <${param.type}>`
+  const metavar = param.choices.length === 0 ? param.type : param.choices.join("|")
+  return `${name} <${metavar}>`
 }
 
 const argumentSynopsis = (param: SurfaceParam): string => {
@@ -50,11 +51,14 @@ const usageOf = (node: SurfaceNode): string => {
   return parts.join(" ")
 }
 
-const paramTable = (params: readonly SurfaceParam[]): readonly string[] => {
+const paramTable = (
+  params: readonly SurfaceParam[],
+  headingOverride?: string,
+): readonly string[] => {
   if (params.length === 0) {
     return []
   }
-  const heading = params[0]?.kind === "argument" ? "Arguments" : "Flags"
+  const heading = headingOverride ?? (params[0]?.kind === "argument" ? "Arguments" : "Flags")
   const lines = [
     `**${heading}**`,
     "",
@@ -67,9 +71,13 @@ const paramTable = (params: readonly SurfaceParam[]): readonly string[] => {
         ? `\`<${param.name}>\``
         : `\`${param.aliases.length === 0 ? flagSynopsis(param) : `${flagSynopsis(param)}, ${param.aliases.map((alias) => `-${alias}`).join(", ")}`}\``
     const description = (param.description ?? "").replaceAll("|", String.raw`\|`)
-    lines.push(
-      `| ${name} | \`${param.type}\` | ${param.required ? "yes" : "no"} | ${description} |`,
-    )
+    const type =
+      param.choices.length === 0
+        ? param.type
+        : param.type === "choice"
+          ? `choice (${param.choices.join("|")})`
+          : param.choices.join("|")
+    lines.push(`| ${name} | \`${type}\` | ${param.required ? "yes" : "no"} | ${description} |`)
   }
   return lines
 }
@@ -122,6 +130,8 @@ const buildReferenceBlock = (surface: Surface): string =>
     "## Command index",
     "",
     ...commandIndex(surface),
+    "",
+    ...paramTable(surface.globalParams, "Global flags"),
     "",
     "## Commands",
     "",

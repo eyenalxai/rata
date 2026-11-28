@@ -8,10 +8,10 @@ and the loops. `docs/agents/issue-tracker.md` covers the repository rules.
 `rata <command> [subcommand] [flags] [arguments]`
 
 - `<ref>` is an issue identifier (`ABC-42`), a UUID, or a `linear.app` URL.
-- The issue reads, the migrated writes (`issue start`, `handoff`, `close`,
-  `apply`, `relate`, `publish`, `comment`) and the admin commands accept
-  `--format json|text` and `--select <paths>`. JSON is the default when stdout
-  is not a terminal. `issue create` still accepts `--json` until its slice.
+- The issue reads and every issue write, including `issue create`, accept
+  `--format json|text` and `--select <paths>`. The admin commands accept
+  `--format json|text`; the admin reads that declare a shape also accept
+  `--select`. JSON is the default when stdout is not a terminal.
 - The old read forms (`issue show`, `issue view`, `issue status`, `next`, `why`)
   and the old read flags (`--json`, `--fields`, `--count`, `--ids-only`,
   `--include`) exit 2 with a `usage` error.
@@ -78,6 +78,13 @@ Generated from the command registry by `bun run docs:generate`. Do not edit this
 | `rata admin doctor` | Check the tracker document and repair its generated command block |
 | `rata admin api` | Run a read-only GraphQL query against Linear |
 
+**Global flags**
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `--format <json|text>` | `json|text` | no | Output format. JSON is the default when stdout is not a terminal |
+| `--select <string>` | `string` | no | Comma-separated field paths for JSON output |
+
 ## Commands
 
 ### `rata status`
@@ -143,7 +150,7 @@ rata issue list [flags]
 | --- | --- | --- | --- |
 | `--team <string>` | `string` | no | Filter by team key or id. Defaults to the team from `rata admin link` |
 | `--state <string>` | `string` | no | Filter by workflow state name |
-| `--state-type <choice>` | `choice` | no | Filter by workflow state type |
+| `--state-type <triage|backlog|unstarted|started|completed|canceled|duplicate>` | `choice (triage|backlog|unstarted|started|completed|canceled|duplicate)` | no | Filter by workflow state type |
 | `--priority <string>` | `string` | no | Priority: none, urgent, high, medium, low, or 0-4 |
 | `--label <string>` | `string` | no | Filter by label name |
 | `--assignee <string>` | `string` | no | Filter by assignee: `me` or a user id |
@@ -153,7 +160,7 @@ rata issue list [flags]
 | `--unblocked` | `boolean` | no | Keep only open issues with no open blocker |
 | `--unassigned` | `boolean` | no | Keep only issues with no assignee |
 | `--relations` | `boolean` | no | Add the six relation groups to each row |
-| `--sort <choice>` | `choice` | no | Sort order: `priority` orders urgent first and none last; ties go to the oldest |
+| `--sort <priority>` | `choice (priority)` | no | Sort order: `priority` orders urgent first and none last; ties go to the oldest |
 | `--limit <integer>` | `integer` | no | Page size, at most 250 |
 | `--after <string>` | `string` | no | Continue after this cursor |
 | `--all` | `boolean` | no | Drain every page; --limit stays the page size |
@@ -197,14 +204,31 @@ rata issue search [flags] <text>
 Create an issue
 
 ```text
-rata issue create
+rata issue create [flags]
 ```
 
+**Flags**
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| `--title <string>` | `string` | yes | Issue title |
+| `--body-file <string>` | `string` | no | Read the body from a file. Use - for standard input |
+| `--team <string>` | `string` | no | Team key or id. Defaults to the team from `rata admin link` |
+| `--label <string>` | `string` | no | Label name. Repeat for more labels |
+| `--no-default-labels` | `boolean` | no | Ignore the repository default labels |
+| `--parent <string>` | `string` | no | Parent issue reference |
+| `--project <string>` | `string` | no | Project id or name |
+| `--state <string>` | `string` | no | Workflow state name |
+| `--assignee <string>` | `string` | no | Assignee: `me`, a user id, or `none` |
+| `--priority <string>` | `string` | no | Priority: none, urgent, high, medium, low, or 0-4 |
+| `--wait <integer>` | `integer` | no | Seconds to wait for the write to appear on a re-read. Default 5, 0 disables |
+| `--dry-run` | `boolean` | no | Resolve the targets and print the actions without writing |
 
 **Examples**
 
 - `rata issue create --title "Fix login" --team RAT --label ready-for-agent`: Create an issue with a label
 - `echo "The body" | rata issue create --title "Fix login" --team RAT --body-file -`: Read the body from standard input
+- `rata issue create --title "Fix login" --team RAT --dry-run`: Print the plan and write nothing
 
 #### `rata issue publish`
 
@@ -355,10 +379,10 @@ rata issue relate [flags] <ref>
 
 | Name | Type | Required | Description |
 | --- | --- | --- | --- |
-| `--blocks <string>` | `string` | yes | Issue that waits for this one. Repeat for more |
-| `--blocked-by <string>` | `string` | yes | Issue that this one waits for. Repeat for more |
-| `--related <string>` | `string` | yes | Related issue. Repeat for more |
-| `--duplicate <string>` | `string` | yes | Issue that this one duplicates. Repeat for more |
+| `--blocks <string>` | `string` | no | Issue that waits for this one. Repeat for more |
+| `--blocked-by <string>` | `string` | no | Issue that this one waits for. Repeat for more |
+| `--related <string>` | `string` | no | Related issue. Repeat for more |
+| `--duplicate <string>` | `string` | no | Issue that this one duplicates. Repeat for more |
 | `--remove` | `boolean` | no | Remove the named relation edges instead of adding them |
 | `--dry-run` | `boolean` | no | Resolve the targets and print the actions without writing |
 
@@ -751,7 +775,7 @@ rata admin project create [flags]
 | Name | Type | Required | Description |
 | --- | --- | --- | --- |
 | `--name <string>` | `string` | yes | Project name |
-| `--team <string>` | `string` | yes | Team key or id. Repeat for more teams. Defaults to the team from `rata admin link` |
+| `--team <string>` | `string` | no | Team key or id. Repeat for more teams. Defaults to the team from `rata admin link` |
 | `--description <string>` | `string` | no | Project description |
 
 **Examples**
@@ -1162,8 +1186,9 @@ and `issue comment create/update/delete`) exit 2 with a `usage` error.
 `issue create --parent` checks that the new object appears on a bounded
 re-read. The default is 5 seconds; `--wait <seconds>` changes it and `--wait 0`
 disables it. A timeout still exits 0: the mutation payload is the source of
-truth. JSON adds `visible`: `false` on timeout and `null` when disabled. The
-apply comment does not wait; its mutation payload is the source of truth.
+truth. The create result carries `visible`: `false` on timeout and `null` when
+disabled. The apply comment does not wait; its mutation payload is the source of
+truth.
 
 ## Idempotency
 

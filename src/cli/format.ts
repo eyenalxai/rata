@@ -21,13 +21,22 @@ const booleanGlobalFlags = new Set([
   "--no-json",
 ])
 const falseLiterals = new Set(["false", "no", "off", "0", "n"])
-const legacyIssueGroups = new Set(["create", "close"])
+
+const issueWriteGroups = new Set([
+  "create",
+  "publish",
+  "start",
+  "handoff",
+  "close",
+  "apply",
+  "relate",
+  "comment",
+])
 
 type ScannedArgs = {
   tokens: string[]
   validFlags: boolean
   format: OutputFormat | undefined
-  hasNewOutputFlag: boolean
   hasOldOutputFlag: boolean
 }
 
@@ -39,7 +48,6 @@ const scanFlag = (args: readonly string[], index: number, state: ScannedArgs): n
     return index + 1
   }
   if (name === "--format") {
-    state.hasNewOutputFlag = true
     const value = inline ?? args[index + 1]
     if (value === "json" || value === "text") {
       state.format = value
@@ -47,7 +55,6 @@ const scanFlag = (args: readonly string[], index: number, state: ScannedArgs): n
     return inline === undefined ? index + 2 : index + 1
   }
   if (name === "--select") {
-    state.hasNewOutputFlag = true
     return inline === undefined ? index + 2 : index + 1
   }
   if (name === "--json" || name === "--no-json" || name === "--fields") {
@@ -74,7 +81,6 @@ const scanArgs = (args: readonly string[]): ScannedArgs => {
     tokens: [],
     validFlags: true,
     format: undefined,
-    hasNewOutputFlag: false,
     hasOldOutputFlag: false,
   }
   let index = 0
@@ -93,28 +99,23 @@ const scanArgs = (args: readonly string[]): ScannedArgs => {
   return state
 }
 
-const isLegacyScanned = (scanned: ScannedArgs): boolean => {
-  if (scanned.tokens[0] !== "issue") {
-    return false
-  }
-  const group = scanned.tokens[1]
-  return group !== undefined && legacyIssueGroups.has(group)
-}
+const isIssueWriteGroup = (group: string | undefined): boolean =>
+  group !== undefined && issueWriteGroups.has(group)
 
-const isLegacyIssueCommand = (args: readonly string[]): boolean => isLegacyScanned(scanArgs(args))
+const isIssueWriteCommand = (args: readonly string[]): boolean => {
+  const scanned = scanArgs(args)
+  return scanned.tokens[0] === "issue" && isIssueWriteGroup(scanned.tokens[1])
+}
 
 const isIssueReadCommand = (args: readonly string[]): boolean => {
   const scanned = scanArgs(args)
-  return scanned.tokens[0] === "issue" && !isLegacyScanned(scanned)
+  return scanned.tokens[0] === "issue" && !isIssueWriteGroup(scanned.tokens[1])
 }
 
 const formatFromArgs = (args: readonly string[], stdoutIsTerminal: boolean): OutputFormat => {
   const scanned = scanArgs(args)
   if (scanned.format !== undefined) {
     return scanned.format
-  }
-  if (isLegacyIssueCommand(args)) {
-    return jsonEnabled(args) ? "json" : "text"
   }
   if (jsonEnabled(args) || !stdoutIsTerminal) {
     return "json"
@@ -124,8 +125,6 @@ const formatFromArgs = (args: readonly string[], stdoutIsTerminal: boolean): Out
 
 const helpRequested = (args: readonly string[]): boolean =>
   args.includes("--help") || args.includes("-h")
-
-const hasNewOutputFlag = (args: readonly string[]): boolean => scanArgs(args).hasNewOutputFlag
 
 const hasOldOutputFlag = (args: readonly string[]): boolean => scanArgs(args).hasOldOutputFlag
 
@@ -149,10 +148,9 @@ const isBareInvocation = (root: CliCommand.Command.Any, args: readonly string[])
 
 export {
   formatFromArgs,
-  hasNewOutputFlag,
   hasOldOutputFlag,
   helpRequested,
   isBareInvocation,
   isIssueReadCommand,
-  isLegacyIssueCommand,
+  isIssueWriteCommand,
 }

@@ -123,7 +123,7 @@ const commandGroups = [
   adminCommand,
 ] as const
 
-surfaceState.current = surfaceOf(commandGroups)
+surfaceState.current = surfaceOf(commandGroups, [Format.flag, OutputSelect.flag])
 
 const createRoot = <const Commands extends readonly CliCommand.Command.Any[]>(commands: Commands) =>
   Command.make("rata").pipe(
